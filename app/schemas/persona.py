@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class PersonaGenerateRequest(BaseModel):

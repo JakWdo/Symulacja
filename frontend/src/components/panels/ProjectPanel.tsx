@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { Plus, FolderOpen, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/Button'; // Import Button
 import type { Project } from '@/types';
 
@@ -18,9 +18,11 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
     mutationFn: projectsApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setName('');
+      setDescription('');
       onClose(); // Zamknij formularz po sukcesie
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       alert(`Error creating project: ${error.message}`);
     },
   });
@@ -33,13 +35,13 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
     }
     // Domyślna demografia - możesz to rozbudować
     const defaultDemographics = {
-        age: { "18-24": 0.2, "25-34": 0.3, "35-55": 0.5 },
-        gender: { "male": 0.5, "female": 0.5 },
+      age: { '18-24': 0.2, '25-34': 0.3, '35-55': 0.5 },
+      gender: { male: 0.5, female: 0.5 },
     };
 
     createProjectMutation.mutate({
-      name,
-      description,
+      name: name.trim(),
+      description: description.trim() || null,
       target_demographics: defaultDemographics,
       target_sample_size: 100,
     });
@@ -68,7 +70,12 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" size="sm" isLoading={createProjectMutation.isPending}>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            isLoading={createProjectMutation.isPending}
+          >
             Create
           </Button>
         </div>
@@ -79,21 +86,37 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
 
 
 export function ProjectPanel() {
-  const { activePanel, setActivePanel, setSelectedProject } = useAppStore();
+  const { activePanel, setActivePanel, selectedProject, setSelectedProject, setProjects } =
+    useAppStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const { data: projects, isLoading } = useQuery({
+  const { data: projects = [], isLoading, isError, error } = useQuery<Project[]>({
     queryKey: ['projects'],
-    queryFn: async () => {
-      const response = await projectsApi.getAll();
-      return response.data;
-    },
+    queryFn: projectsApi.getAll,
   });
+
+  useEffect(() => {
+    setProjects(projects);
+  }, [projects, setProjects]);
+
+  useEffect(() => {
+    if (selectedProject && !projects.find((project) => project.id === selectedProject.id)) {
+      setSelectedProject(null);
+    }
+  }, [projects, selectedProject, setSelectedProject]);
 
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
     setActivePanel(null);
   };
+
+  const sortedProjects = useMemo(
+    () =>
+      [...projects].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    [projects],
+  );
 
   return (
     <FloatingPanel
@@ -106,13 +129,14 @@ export function ProjectPanel() {
       <div className="p-4 space-y-4">
         {/* Create Button */}
         {!showCreateForm && (
-            <button
+          <Button
             onClick={() => setShowCreateForm(true)}
-            className="w-full floating-button flex items-center justify-center gap-2 py-3"
-            >
+            variant="secondary"
+            className="w-full flex items-center justify-center gap-2"
+          >
             <Plus className="w-5 h-5" />
             <span>Create New Project</span>
-            </button>
+          </Button>
         )}
 
         {/* Projects List */}
@@ -120,18 +144,29 @@ export function ProjectPanel() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
           </div>
+        ) : isError ? (
+          <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-600">
+            {error instanceof Error ? error.message : 'Unable to load projects.'}
+          </div>
         ) : (
           <div className="space-y-3">
-            {projects?.map((project) => (
-              <div
-                key={project.id}
-                onClick={() => handleProjectSelect(project)}
-                className="node-card cursor-pointer group"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-primary-50 text-primary-600">
-                    <FolderOpen className="w-5 h-5" />
-                  </div>
+            {sortedProjects.map((project) => {
+              const isSelected = selectedProject?.id === project.id;
+              return (
+                <div
+                  key={project.id}
+                  onClick={() => handleProjectSelect(project)}
+                className={cn(
+                  'node-card cursor-pointer group transition-colors border-2',
+                  isSelected
+                    ? 'border-primary-200 shadow-lg bg-white'
+                    : 'border-transparent hover:border-primary-100',
+                )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary-50 text-primary-600">
+                      <FolderOpen className="w-5 h-5" />
+                    </div>
 
                   <div className="flex-1 min-w-0">
                     <h4 className="font-semibold text-slate-900 group-hover:text-primary-600 transition-colors">
@@ -165,7 +200,8 @@ export function ProjectPanel() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

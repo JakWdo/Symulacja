@@ -3,6 +3,8 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 from uuid import UUID
 
+from pydantic import BaseModel, Field
+
 
 class ProjectCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)

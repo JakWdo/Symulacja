@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { KnowledgeGraph3D } from '@/components/graph/KnowledgeGraph3D';
 import { FloatingControls } from '@/components/layout/FloatingControls';
 import { ProjectPanel } from '@/components/panels/ProjectPanel';
@@ -10,16 +9,7 @@ import { StatsOverlay } from '@/components/layout/StatsOverlay';
 import { useAppStore } from '@/store/appStore';
 import { useGraphData } from '@/hooks/useGraphData';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
-
-function AppContent() {
+export default function App() {
   const { selectedProject, personas, graphData, setGraphData } = useAppStore();
 
   // Generate graph data from personas
@@ -83,13 +73,5 @@ function AppContent() {
         </div>
       )}
     </div>
-  );
-}
-
-export default function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AppContent />
-    </QueryClientProvider>
   );
 }

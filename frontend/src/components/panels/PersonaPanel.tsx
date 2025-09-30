@@ -1,9 +1,10 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { personasApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { User, Brain, Heart, Zap, Target } from 'lucide-react';
-import { getPersonalityColor, truncateText } from '@/lib/utils';
+import { cn, getPersonalityColor, truncateText } from '@/lib/utils';
 import type { Persona } from '@/types';
 
 function PersonalityBar({ label, value, icon: Icon }: { label: string; value: number; icon: any }) {
@@ -31,13 +32,18 @@ function PersonalityBar({ label, value, icon: Icon }: { label: string; value: nu
   );
 }
 
-function PersonaCard({ persona }: { persona: Persona }) {
+function PersonaCard({ persona, isSelected }: { persona: Persona; isSelected: boolean }) {
   const { setSelectedPersona } = useAppStore();
 
   return (
     <div
       onClick={() => setSelectedPersona(persona)}
-      className="node-card cursor-pointer group"
+      className={cn(
+        'node-card cursor-pointer group border-2 transition-colors',
+        isSelected
+          ? 'border-primary-200 shadow-lg bg-white'
+          : 'border-transparent hover:border-primary-100',
+      )}
     >
       <div className="flex items-start gap-3">
         <div className="p-3 rounded-xl bg-gradient-to-br from-primary-50 to-accent-50 text-primary-600">
@@ -126,8 +132,8 @@ function PersonaCard({ persona }: { persona: Persona }) {
           {persona.background_story && (
             <div className="mt-3 pt-3 border-t border-slate-100">
               <div className="text-xs text-slate-500 mb-1">Background:</div>
-              <p className="text-xs text-slate-600 line-clamp-2">
-                {persona.background_story}
+              <p className="text-xs text-slate-600">
+                {truncateText(persona.background_story, 160)}
               </p>
             </div>
           )}
@@ -138,22 +144,26 @@ function PersonaCard({ persona }: { persona: Persona }) {
 }
 
 export function PersonaPanel() {
-  const { activePanel, setActivePanel, selectedProject, setPersonas } = useAppStore();
+  const { activePanel, setActivePanel, selectedProject, selectedPersona, setPersonas } =
+    useAppStore();
 
   const { data: personas, isLoading } = useQuery({
     queryKey: ['personas', selectedProject?.id],
     queryFn: async () => {
       if (!selectedProject) return [];
-      const response = await personasApi.getByProject(selectedProject.id);
-      return response.data;
+      return personasApi.getByProject(selectedProject.id);
     },
     enabled: !!selectedProject,
   });
 
   // Update store when data changes
-  if (personas) {
-    setPersonas(personas);
-  }
+  useEffect(() => {
+    if (personas) {
+      setPersonas(personas);
+    } else if (!selectedProject) {
+      setPersonas([]);
+    }
+  }, [personas, selectedProject, setPersonas]);
 
   return (
     <FloatingPanel
@@ -176,7 +186,11 @@ export function PersonaPanel() {
         ) : personas && personas.length > 0 ? (
           <div className="space-y-3">
             {personas.map((persona) => (
-              <PersonaCard key={persona.id} persona={persona} />
+              <PersonaCard
+                key={persona.id}
+                persona={persona}
+                isSelected={selectedPersona?.id === persona.id}
+              />
             ))}
           </div>
         ) : (

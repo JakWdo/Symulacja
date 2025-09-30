@@ -1,24 +1,25 @@
-from pydantic_settings import BaseSettings
 from typing import Optional
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings with environment variable support"""
 
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "postgresql+asyncpg://market_research:password@localhost:5432/market_research_db"
     POSTGRES_USER: str = "market_research"
-    POSTGRES_PASSWORD: str
+    POSTGRES_PASSWORD: str = "password"
     POSTGRES_DB: str = "market_research_db"
 
     # Redis
-    REDIS_URL: str
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     # Neo4j
-    NEO4J_URI: str
+    NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
-    NEO4J_PASSWORD: str
+    NEO4J_PASSWORD: str = "password"
 
     # LLM APIs
     OPENAI_API_KEY: Optional[str] = None
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: Optional[str] = None
 
     # Application
-    SECRET_KEY: str
+    SECRET_KEY: str = "change-me"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
@@ -43,8 +44,8 @@ class Settings(BaseSettings):
     STATISTICAL_SIGNIFICANCE_THRESHOLD: float = 0.05
 
     # Celery
-    CELERY_BROKER_URL: str
-    CELERY_RESULT_BACKEND: str
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
 
     # Environment
     ENVIRONMENT: str = "development"

@@ -1,6 +1,6 @@
-import { useRef, useEffect, useMemo, useCallback } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Text } from '@react-three/drei';
+import { OrbitControls, Text, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { useAppStore } from '@/store/appStore';
 import type { GraphNode, GraphLink } from '@/types';
@@ -113,27 +113,22 @@ function LinkLine({ link, nodes }: LinkLineProps) {
 
   if (!sourceNode || !targetNode) return null;
 
-  const points = useMemo(() => {
-    return [
-      new THREE.Vector3(sourceNode.x!, sourceNode.y!, sourceNode.z!),
-      new THREE.Vector3(targetNode.x!, targetNode.y!, targetNode.z!),
-    ];
-  }, [sourceNode, targetNode]);
-
-  const lineGeometry = useMemo(() => {
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    return geometry;
-  }, [points]);
+  const points = useMemo<[number, number, number][]>(
+    () => [
+      [sourceNode.x!, sourceNode.y!, sourceNode.z!],
+      [targetNode.x!, targetNode.y!, targetNode.z!],
+    ],
+    [sourceNode, targetNode],
+  );
 
   return (
-    <line geometry={lineGeometry}>
-      <lineBasicMaterial
-        color="#cbd5e1"
-        opacity={0.3}
-        transparent
-        linewidth={1}
-      />
-    </line>
+    <Line
+      points={points}
+      color="#cbd5e1"
+      transparent
+      opacity={0.3}
+      lineWidth={1}
+    />
   );
 }
 

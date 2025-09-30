@@ -57,6 +57,7 @@ export interface FocusGroup {
   consistency_errors_count: number | null;
   consistency_error_rate: number | null;
   polarization_score: number | null;
+  polarization_clusters?: Record<string, unknown> | null;
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
@@ -93,6 +94,22 @@ export interface ClusterDetail {
   persona_ids: string[];
   representative_response: string;
   avg_sentiment: number;
+}
+
+export interface FocusGroupResponses {
+  focus_group_id: string;
+  total_responses: number;
+  responses_by_question: Record<
+    string,
+    Array<{
+      persona_id: string;
+      response: string;
+      response_time_ms: number | null;
+      consistency_score: number | null;
+      contradicts_events: unknown;
+      created_at: string;
+    }>
+  >;
 }
 
 // Graph Types
