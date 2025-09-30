@@ -22,10 +22,10 @@ const positionClasses = {
 };
 
 const sizeClasses = {
-  sm: 'w-80 max-h-96',
-  md: 'w-96 max-h-[32rem]',
-  lg: 'w-[32rem] max-h-[40rem]',
-  xl: 'w-[48rem] max-h-[48rem]',
+  sm: 'w-80 h-96',
+  md: 'w-96 h-[32rem]',
+  lg: 'w-[32rem] h-[40rem]',
+  xl: 'w-[48rem] h-[48rem]',
 };
 
 export function FloatingPanel({
@@ -46,7 +46,7 @@ export function FloatingPanel({
           exit={{ opacity: 0, scale: 0.9, y: position === 'bottom' ? 20 : -20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className={cn(
-            'fixed z-50 floating-panel',
+            'fixed z-50 floating-panel flex flex-col',
             positionClasses[position],
             sizeClasses[size],
             className
@@ -65,7 +65,7 @@ export function FloatingPanel({
           </div>
 
           {/* Content */}
-          <div className="overflow-y-auto max-h-[calc(100%-4rem)]">
+          <div className="flex-1 overflow-y-auto" style={{ maxHeight: 'calc(100% - 4rem)' }}>
             {children}
           </div>
         </motion.div>
