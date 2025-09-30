@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { focusGroupsApi } from '@/lib/api';
@@ -375,6 +375,7 @@ export function FocusGroupPanel() {
     selectedProject,
     selectedFocusGroup,
     personas,
+    setFocusGroups,
   } = useAppStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -392,6 +393,38 @@ export function FocusGroupPanel() {
   });
 
   const hasEnoughPersonas = (personas?.length ?? 0) >= 2;
+
+  const lastSyncedProjectId = useRef<string | null>(null);
+  const lastSerializedFocusGroups = useRef<string | null>(null);
+
+  useEffect(() => {
+    const storeFocusGroups = useAppStore.getState().focusGroups;
+
+    if (!selectedProject) {
+      if (storeFocusGroups.length > 0) {
+        setFocusGroups([]);
+      }
+      lastSyncedProjectId.current = null;
+      lastSerializedFocusGroups.current = null;
+      return;
+    }
+
+    if (selectedProject.id !== lastSyncedProjectId.current) {
+      lastSyncedProjectId.current = selectedProject.id;
+      lastSerializedFocusGroups.current = null;
+
+      if (storeFocusGroups.length > 0) {
+        setFocusGroups([]);
+      }
+    }
+
+    const serialized = JSON.stringify(focusGroups);
+
+    if (serialized !== lastSerializedFocusGroups.current) {
+      setFocusGroups(focusGroups);
+      lastSerializedFocusGroups.current = serialized;
+    }
+  }, [focusGroups, selectedProject, setFocusGroups]);
 
   return (
     <FloatingPanel

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import asyncio
 from typing import List
 from uuid import UUID
 
-from app.db import get_db
+from app.db import AsyncSessionLocal, get_db
 from app.models import FocusGroup, Project
 from app.schemas.focus_group import (
     FocusGroupCreate,
@@ -70,7 +71,7 @@ async def run_focus_group(
         raise HTTPException(status_code=400, detail="Focus group is already running")
 
     # Schedule background task
-    background_tasks.add_task(_run_focus_group_task, db, focus_group_id)
+    background_tasks.add_task(_schedule_focus_group_run, focus_group_id)
 
     return {
         "message": "Focus group execution started",
@@ -78,10 +79,16 @@ async def run_focus_group(
     }
 
 
-async def _run_focus_group_task(db: AsyncSession, focus_group_id: UUID):
+def _schedule_focus_group_run(focus_group_id: UUID):
+    """Helper to schedule focus group execution on the running event loop."""
+    asyncio.create_task(_run_focus_group_task(focus_group_id))
+
+
+async def _run_focus_group_task(focus_group_id: UUID):
     """Background task to run focus group"""
-    service = FocusGroupService()
-    await service.run_focus_group(db, str(focus_group_id))
+    async with AsyncSessionLocal() as db:
+        service = FocusGroupService()
+        await service.run_focus_group(db, str(focus_group_id))
 
 
 @router.get("/focus-groups/{focus_group_id}", response_model=FocusGroupResultResponse)
