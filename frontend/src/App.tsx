@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { KnowledgeGraph3D } from '@/components/graph/KnowledgeGraph3D';
 import { FloatingControls } from '@/components/layout/FloatingControls';
@@ -11,7 +12,12 @@ import { useGraphData } from '@/hooks/useGraphData';
 import { personasApi } from '@/lib/api';
 
 export default function App() {
-  const { selectedProject } = useAppStore();
+  const {
+    selectedProject,
+    setPersonas,
+    setGraphData,
+    setSelectedPersona,
+  } = useAppStore();
 
   // Fetch personas for selected project
   const { data: personas = [] } = useQuery({
@@ -25,6 +31,21 @@ export default function App() {
 
   // Generate graph data from personas
   const graphData = useGraphData(personas);
+
+  // Sync fetched personas with the global store
+  useEffect(() => {
+    if (selectedProject) {
+      setPersonas(personas);
+    } else {
+      setPersonas([]);
+      setSelectedPersona(null);
+    }
+  }, [personas, selectedProject, setPersonas, setSelectedPersona]);
+
+  // Keep graph data in the store for components that read it from there
+  useEffect(() => {
+    setGraphData(graphData);
+  }, [graphData, setGraphData]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
