@@ -1,386 +1,337 @@
-# Market Research SaaS Platform
+# Market Research SaaS - Behavioral Analytics Platform
 
-AI-powered market research platform using for generating statistically representative synthetic personas, focus groups, and polarization analysis.
+AI-powered market research platform for generating synthetic personas with behavioral analytics and 3D visualization.
 
----
-
-## 🚀 Quick Start (Full Stack - 1 Command)
+## 🚀 Quick Start (Docker - Recommended)
 
 ### Prerequisites
-- **Docker Desktop** (install from https://www.docker.com/products/docker-desktop/)
-- **Google AI API key** (free tier available)
+- Docker and Docker Compose
+- Google API Key (for Gemini 2.5)
 
-### Installation & Launch
+### Setup & Run
 
+1. **Clone and configure**:
 ```bash
-# 1. Get Google AI API key
-# Visit: https://ai.google.dev/gemini-api/docs/api-key
-
-# 2. Setup environment
+git clone <repository-url>
+cd market-research-saas
 cp .env.example .env
-# Edit .env and add: GOOGLE_API_KEY=your_key_here
-
-# 3. Start full application (backend + frontend + databases)
-./start.sh
 ```
 
-**That's it!** The application will be available at:
-- **🌐 Frontend UI**: http://localhost:5173
-- **🔧 Backend API**: http://localhost:8000
-- **📚 API Docs**: http://localhost:8000/docs
-
-### Stop Application
-
+2. **Add your Google API Key** to `.env`:
 ```bash
-docker compose down
+GOOGLE_API_KEY=your_gemini_api_key_here
+```
+Get your key at: https://ai.google.dev/gemini-api/docs/api-key
+
+3. **Start all services**:
+```bash
+docker compose up -d
 ```
 
----
+4. **Access the application**:
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Neo4j Browser**: http://localhost:7474 (user: neo4j, password: dev_password_change_in_prod)
 
-## 🛠️ Development Setup (Without Docker)
-
-If you want to run locally without Docker:
+### Verify Services
 
 ```bash
-# 1-2. Same as above (API key + .env)
+docker compose ps
+```
 
-# 3. Start databases in Docker
-docker compose up -d postgres redis neo4j
+All containers should show "healthy" or "Up" status.
 
-# 4. Install Python dependencies
+## 📖 Usage
+
+### 1. Create a Project
+- Open the frontend at http://localhost:5173
+- Click "Projects" in the left sidebar
+- Click "Create New Project"
+- Enter project details with target demographics
+
+### 2. Generate Personas
+```bash
+curl -X POST http://localhost:8000/api/v1/projects/{project_id}/personas/generate \
+  -H "Content-Type: application/json" \
+  -d '{"num_personas": 10, "adversarial_mode": false}'
+```
+
+Or use the API documentation at http://localhost:8000/docs
+
+### 3. View Results
+- Personas appear in the "Personas" panel
+- 3D graph visualization shows relationships
+- Click personas to see detailed profiles
+
+## 🛠️ Development Setup (Local)
+
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL 15+
+- Redis 7+
+- Neo4j 5.15+
+
+### Backend Setup
+
+1. **Install dependencies**:
+```bash
 python3 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+```
 
-# 5. Initialize database
+2. **Start databases** (Docker):
+```bash
+docker compose up -d postgres redis neo4j
+```
+
+3. **Initialize database**:
+```bash
 python scripts/init_db.py
+```
 
-# 6. Start backend (separate terminal)
+4. **Run backend**:
+```bash
 uvicorn app.main:app --reload
+```
 
-# 7. Start frontend (separate terminal)
+Backend available at: http://localhost:8000
+
+### Frontend Setup
+
+1. **Install dependencies**:
+```bash
 cd frontend
 npm install
-echo "VITE_API_BASE_URL=http://localhost:8000" > .env
+```
+
+2. **Run development server**:
+```bash
 npm run dev
 ```
 
-**Backend**: http://localhost:8000/docs
-**Frontend**: http://localhost:5173
+Frontend available at: http://localhost:5173
 
----
-
-## 📋 Features
-
-### Core Capabilities
-- **Persona Generation**: Statistically validated synthetic personas (Big Five + Hofstede dimensions)
-- **Event Sourcing**: Temporal memory with vector embeddings for consistency
-- **Focus Groups**: Concurrent simulation with 100+ personas (<30s execution)
-- **Polarization Detection**: K-means clustering for opinion analysis
-- **Adversarial Mode**: Campaign stress testing with extreme personas
+## 🏗️ Architecture
 
 ### Technology Stack
-- **Backend**: FastAPI (async) + LangChain
-- **LLM**: Google Gemini 2.0 Flash / Gemini 1.5 Pro (primary)
-- **Embeddings**: Google Generative AI Embeddings
-- **Databases**: PostgreSQL + pgvector, Redis, Neo4j
-- **ML**: scikit-learn for clustering and statistics
+- **Backend**: FastAPI, SQLAlchemy 2.0 (async), LangChain
+- **Frontend**: React 18, TypeScript, Vite, TanStack Query, Zustand
+- **LLM**: Google Gemini 2.5 (via LangChain)
+- **Databases**:
+  - PostgreSQL + pgvector (relational + embeddings)
+  - Redis (caching, Celery)
+  - Neo4j (graph relationships)
 
----
+### Key Features
 
-## 🔑 API Keys Setup
+#### 🧠 AI-Powered Persona Generation
+- **LangChain Integration**: All LLM calls through LangChain abstractions
+- **Psychological Modeling**: Big Five traits + Hofstede cultural dimensions
+- **Statistical Validation**: Chi-square tests for demographic accuracy
+- **Default Distributions**: Auto-fills missing demographics
 
-### Google AI (Gemini) - Required
+#### 📊 Behavioral Analytics
+- **Event Sourcing**: Immutable event log for persona interactions
+- **Vector Embeddings**: Google Generative AI Embeddings (models/embedding-001)
+- **Temporal Decay**: 30-day half-life for relevance weighting
+- **Consistency Checking**: LLM validates against historical events
 
-1. Visit: https://ai.google.dev/gemini-api/docs/api-key
-2. Click "Get API Key"
-3. Copy key (starts with `AIza...`)
-4. Add to `.env`: `GOOGLE_API_KEY=your_key_here`
+#### 🎨 3D Visualization
+- **React Three Fiber**: WebGL-powered 3D graph
+- **Force-Directed Layout**: d3-force physics simulation
+- **Performance Optimized**: React.memo, memoization, link limiting (100 max)
 
-**Free tier**: 15 requests/minute (gemini-2.0-flash-exp)
-
-### OpenAI / Anthropic - Optional
-
-Set in `.env`:
-```bash
-OPENAI_API_KEY=sk-...        # Optional
-ANTHROPIC_API_KEY=sk-ant-... # Optional
-```
-
----
-
-## 🎯 Available Models
-
-Configure in `.env`:
-
-```bash
-# Gemini 2.0 Flash (default - fast + free)
-DEFAULT_LLM_PROVIDER=google
-DEFAULT_MODEL=gemini-2.0-flash-exp
-
-# Gemini 1.5 Pro (more powerful)
-DEFAULT_MODEL=gemini-1.5-pro
-
-# OpenAI GPT-4
-DEFAULT_LLM_PROVIDER=openai
-DEFAULT_MODEL=gpt-4-turbo-preview
-
-# Anthropic Claude
-DEFAULT_LLM_PROVIDER=anthropic
-DEFAULT_MODEL=claude-3-5-sonnet-20241022
-```
-
----
-
-## 📊 Usage Examples
-
-### 1. Create Project
-
-```bash
-curl -X POST http://localhost:8000/api/v1/projects \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Product Launch Research",
-    "description": "Testing new product concept",
-    "target_audience": "Tech-savvy millennials"
-  }'
-```
-
-### 2. Generate Personas
-
-```python
-import requests
-
-response = requests.post(
-    "http://localhost:8000/api/v1/projects/{project_id}/personas/generate",
-    json={
-        "count": 10,
-        "distribution": {
-            "age_groups": {"18-24": 0.3, "25-34": 0.4, "35-44": 0.3},
-            "genders": {"male": 0.5, "female": 0.5},
-            "education_levels": {"bachelors": 0.6, "masters": 0.4},
-            "income_brackets": {"50k-100k": 0.7, "100k+": 0.3},
-            "locations": {"urban": 0.8, "suburban": 0.2}
-        }
-    }
-)
-personas = response.json()
-```
-
-### 3. Run Focus Group
-
-```python
-response = requests.post(
-    "http://localhost:8000/api/v1/focus-groups",
-    json={
-        "project_id": project_id,
-        "persona_ids": [p["id"] for p in personas],
-        "questions": [
-            "What's your first impression of this product?",
-            "Would you buy it? Why or why not?",
-            "What price seems fair?"
-        ]
-    }
-)
-```
-
----
-
-## 🏗️ Project Structure
+## 📁 Project Structure
 
 ```
 market-research-saas/
-├── app/
-│   ├── services/
-│   │   ├── persona_generator_langchain.py    # LangChain + Gemini
-│   │   ├── memory_service_langchain.py       # Event sourcing
-│   │   ├── focus_group_service_langchain.py  # Focus groups
-│   │   ├── polarization_service.py           # Clustering
-│   │   └── adversarial_service.py            # Adversarial mode
-│   ├── api/                 # REST endpoints
-│   ├── models/              # Database models
-│   ├── core/config.py       # Configuration
-│   └── main.py              # FastAPI app
-├── frontend/                # React + TypeScript UI
-├── tests/                   # Test suite
-├── .env                     # Your API keys (create this!)
-├── .env.example            # Template
-├── requirements.txt        # Python dependencies
-├── docker-compose.yml      # Services
-├── README.md               # This file
-└── INSTRUKCJA_PL.md       # Polish instructions
+├── app/                          # Backend FastAPI application
+│   ├── api/                      # API endpoints
+│   │   ├── projects.py           # Project CRUD
+│   │   ├── personas.py           # Persona generation
+│   │   ├── focus_groups.py       # Focus group simulation
+│   │   └── analysis.py           # Polarization analysis
+│   ├── services/                 # Business logic
+│   │   ├── persona_generator_langchain.py  # LangChain persona generator
+│   │   ├── memory_service_langchain.py     # Event sourcing + embeddings
+│   │   └── focus_group_service_langchain.py
+│   ├── models/                   # SQLAlchemy models
+│   └── core/                     # Configuration, database
+├── frontend/                     # React frontend
+│   ├── src/
+│   │   ├── components/           # React components
+│   │   │   ├── graph/            # 3D graph visualization
+│   │   │   ├── panels/           # UI panels (Projects, Personas, etc.)
+│   │   │   └── ui/               # Reusable UI components
+│   │   ├── lib/                  # API client, utilities
+│   │   ├── hooks/                # Custom React hooks
+│   │   └── store/                # Zustand state management
+│   └── vite.config.ts            # Vite configuration
+├── tests/                        # Backend tests
+├── scripts/                      # Utility scripts
+│   └── init_db.py                # Database initialization
+├── docker-compose.yml            # Multi-service Docker setup
+├── Dockerfile                    # Backend container
+└── .env                          # Environment configuration
 ```
 
----
+## ⚙️ Configuration
+
+### Required Environment Variables
+
+```bash
+# LLM Configuration
+GOOGLE_API_KEY=your_key_here              # Required for Gemini
+DEFAULT_MODEL=gemini-2.5-flash            # MUST be 2.5, not 2.0
+TEMPERATURE=0.7
+MAX_TOKENS=8000
+
+# Security
+SECRET_KEY=<generate_with_openssl_rand_hex_32>
+
+# Databases (Docker)
+DATABASE_URL=postgresql+asyncpg://market_research:dev_password_change_in_prod@postgres:5432/market_research_db
+REDIS_URL=redis://redis:6379/0
+NEO4J_URI=bolt://neo4j:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=dev_password_change_in_prod
+
+# Databases (Local)
+DATABASE_URL=postgresql+asyncpg://market_research:dev_password_change_in_prod@localhost:5433/market_research_db
+REDIS_URL=redis://localhost:6379/0
+NEO4J_URI=bolt://localhost:7687
+```
 
 ## 🧪 Testing
 
-### Run Tests
+### Run All Tests
 ```bash
 pytest tests/ -v
+```
+
+### Run Specific Test
+```bash
+pytest tests/test_persona_generator.py -v
+```
+
+### With Coverage
+```bash
 pytest --cov=app --cov-report=html
 ```
 
-### Test API
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# API docs
-open http://localhost:8000/docs
-```
-
----
-
-## 🎨 Frontend Setup (Optional)
-
-```bash
-cd frontend
-npm install
-echo "VITE_API_BASE_URL=http://localhost:8000" > .env
-npm run dev
-```
-
-**Frontend**: http://localhost:5173
-
----
-
-## 🔧 Configuration
-
-### Environment Variables (`.env`)
-
-```bash
-# Required
-GOOGLE_API_KEY=your_google_api_key_here
-SECRET_KEY=generate_with_openssl_rand_hex_32
-
-# Database
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/market_research_db
-REDIS_URL=redis://localhost:6379/0
-NEO4J_URI=bolt://localhost:7687
-
-# LLM Settings
-DEFAULT_LLM_PROVIDER=google
-DEFAULT_MODEL=gemini-2.0-flash-exp
-TEMPERATURE=0.7
-MAX_TOKENS=8000
-```
-
-### Generate Secret Key
-```bash
-openssl rand -hex 32
-```
-
----
-
-## 🚨 Troubleshooting
-
-### Database Connection Error
-```bash
-docker ps | grep postgres
-docker compose restart postgres
-docker logs market-research-postgres
-```
-
-### Invalid API Key
-```bash
-# Test Gemini API directly
-curl -H "Content-Type: application/json" \
-     -d '{"contents":[{"parts":[{"text":"Hello"}]}]}' \
-     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=YOUR_KEY"
-```
-
-### Port Already in Use
-```bash
-lsof -i :8000
-kill -9 <PID>
-# Or use different port
-uvicorn app.main:app --port 8001
-```
-
-### Import Errors
-```bash
-pip install --upgrade -r requirements.txt
-find . -type d -name __pycache__ -exec rm -r {} +
-```
-
----
-
-## 📚 API Endpoints
+## 📊 API Endpoints
 
 ### Projects
 - `POST /api/v1/projects` - Create project
 - `GET /api/v1/projects` - List projects
 - `GET /api/v1/projects/{id}` - Get project details
+- `PUT /api/v1/projects/{id}` - Update project
+- `DELETE /api/v1/projects/{id}` - Delete project
 
 ### Personas
 - `POST /api/v1/projects/{id}/personas/generate` - Generate personas
+- `GET /api/v1/projects/{id}/personas` - List project personas
 - `GET /api/v1/personas/{id}` - Get persona details
 - `GET /api/v1/personas/{id}/history` - Get event history
 
 ### Focus Groups
 - `POST /api/v1/focus-groups` - Create focus group
-- `POST /api/v1/focus-groups/{id}/run` - Execute simulation
+- `POST /api/v1/focus-groups/{id}/run` - Run simulation
 - `GET /api/v1/focus-groups/{id}` - Get results
+- `POST /api/v1/focus-groups/{id}/analyze-polarization` - K-means clustering
 
-### Analysis
-- `POST /api/v1/focus-groups/{id}/analyze-polarization` - Detect polarization
-- `GET /api/v1/focus-groups/{id}/responses` - Get all responses
+Full API documentation: http://localhost:8000/docs
 
-**Full API docs**: http://localhost:8000/docs
+## 🐛 Troubleshooting
 
----
+### White Screen in Frontend
+**Cause**: Infinite React render loop in panels
+**Fix**: Applied in commit `664edb3` - removed unnecessary `setProjects`/`setPersonas` calls in useEffect
 
-## 🎓 Key Features
+### Personas Generation Fails
+**Cause**: Empty demographic distributions
+**Fix**: Default distributions added for education/income in `persona_generator_langchain.py:69-70`
 
-### LangChain Integration
-- **Prompt Templates**: Reusable, composable prompts
-- **Output Parsing**: Structured JSON parsing
-- **Model Flexibility**: Easy switching between providers
-- **Chains**: Composable LLM workflows
+### Docker Containers Not Starting
+```bash
+# Check logs
+docker compose logs api
+docker compose logs frontend
 
-### Event Sourcing
-- Immutable event log for all persona interactions
-- Vector embeddings for semantic retrieval
-- Temporal decay for relevance weighting
-- Consistency validation via LLM
+# Restart services
+docker compose down
+docker compose up -d
+```
 
-### Statistical Validation
-- Chi-square tests for demographic representativeness
-- Automated validation (p > 0.05)
-- Performance metrics (<3s per persona)
+### Database Connection Issues
+Ensure databases are healthy:
+```bash
+docker compose ps
+# All should show "healthy" status
 
----
+# Test database connection
+docker exec market_research_postgres pg_isready
+```
 
-## 📖 Documentation
+## 🔧 Common Tasks
 
-- **Polski**: [INSTRUKCJA_PL.md](INSTRUKCJA_PL.md)
-- **Gemini API**: https://ai.google.dev/gemini-api/docs
-- **LangChain**: https://python.langchain.com/docs/get_started/introduction
+### View Logs
+```bash
+docker compose logs -f api          # Backend API
+docker compose logs -f frontend     # Frontend
+docker compose logs -f celery_worker # Background tasks
+```
 
----
+### Reset Database
+```bash
+docker compose down -v  # Removes volumes
+docker compose up -d
+```
+
+### Rebuild Containers
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+### Access Database
+```bash
+docker exec -it market_research_postgres psql -U market_research -d market_research_db
+```
+
+## 📈 Performance Targets
+
+- **Persona Generation**: ~2-3 seconds per persona (Gemini API)
+- **Focus Group Simulation**: <30 seconds for 100 personas
+- **Chi-Square Validation**: p-value > 0.05 (95% confidence)
+- **Consistency Error Rate**: <5% contradiction rate
 
 ## 🤝 Contributing
 
-1. Fork repository
-2. Create feature branch
-3. Add tests
-4. Submit pull request
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is proprietary. All rights reserved.
+
+## 🔗 Resources
+
+- **Gemini API**: https://ai.google.dev/gemini-api/docs
+- **LangChain**: https://python.langchain.com/
+- **FastAPI**: https://fastapi.tiangolo.com/
+- **React Three Fiber**: https://docs.pmnd.rs/react-three-fiber
+
+## 📧 Support
+
+For issues or questions, open an issue in the GitHub repository.
 
 ---
 
-## 📄 License
-
-MIT License
-
----
-
-## 💡 Support
-
-- API Documentation: http://localhost:8000/docs
-- Gemini API Docs: https://ai.google.dev/gemini-api/docs
-- LangChain Docs: https://python.langchain.com/
-
----
-
-**Built with LangChain + Google Gemini** 🚀# Symulacja
+**Built with ❤️ using FastAPI, React, and Google Gemini**

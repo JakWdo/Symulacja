@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { KnowledgeGraph3D } from '@/components/graph/KnowledgeGraph3D';
 import { FloatingControls } from '@/components/layout/FloatingControls';
 import { ProjectPanel } from '@/components/panels/ProjectPanel';
@@ -8,19 +8,23 @@ import { AnalysisPanel } from '@/components/panels/AnalysisPanel';
 import { StatsOverlay } from '@/components/layout/StatsOverlay';
 import { useAppStore } from '@/store/appStore';
 import { useGraphData } from '@/hooks/useGraphData';
+import { personasApi } from '@/lib/api';
 
 export default function App() {
-  const { selectedProject, personas, graphData, setGraphData } = useAppStore();
+  const { selectedProject } = useAppStore();
+
+  // Fetch personas for selected project
+  const { data: personas = [] } = useQuery({
+    queryKey: ['personas', selectedProject?.id],
+    queryFn: async () => {
+      if (!selectedProject) return [];
+      return personasApi.getByProject(selectedProject.id);
+    },
+    enabled: !!selectedProject,
+  });
 
   // Generate graph data from personas
-  const generatedGraphData = useGraphData(personas);
-
-  // Update graph data when generated
-  useEffect(() => {
-    if (generatedGraphData) {
-      setGraphData(generatedGraphData);
-    }
-  }, [generatedGraphData, setGraphData]);
+  const graphData = useGraphData(personas);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">

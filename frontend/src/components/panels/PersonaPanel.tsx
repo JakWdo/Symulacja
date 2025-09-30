@@ -144,7 +144,7 @@ function PersonaCard({ persona, isSelected }: { persona: Persona; isSelected: bo
 }
 
 export function PersonaPanel() {
-  const { activePanel, setActivePanel, selectedProject, selectedPersona, setPersonas } =
+  const { activePanel, setActivePanel, selectedProject, selectedPersona } =
     useAppStore();
 
   const { data: personas, isLoading } = useQuery({
@@ -155,15 +155,6 @@ export function PersonaPanel() {
     },
     enabled: !!selectedProject,
   });
-
-  // Update store when data changes
-  useEffect(() => {
-    if (personas) {
-      setPersonas(personas);
-    } else if (!selectedProject) {
-      setPersonas([]);
-    }
-  }, [personas, selectedProject, setPersonas]);
 
   return (
     <FloatingPanel

@@ -86,7 +86,7 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
 
 
 export function ProjectPanel() {
-  const { activePanel, setActivePanel, selectedProject, setSelectedProject, setProjects } =
+  const { activePanel, setActivePanel, selectedProject, setSelectedProject } =
     useAppStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -94,10 +94,6 @@ export function ProjectPanel() {
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
   });
-
-  useEffect(() => {
-    setProjects(projects);
-  }, [projects, setProjects]);
 
   useEffect(() => {
     if (selectedProject && !projects.find((project) => project.id === selectedProject.id)) {
