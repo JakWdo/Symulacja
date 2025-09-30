@@ -65,12 +65,16 @@ class PersonaGeneratorLangChain:
         """Sample demographic profiles based on target distribution"""
         profiles = []
 
+        # Default distributions if not provided
+        default_education = {"high_school": 0.3, "bachelor": 0.4, "master": 0.2, "phd": 0.1}
+        default_income = {"<30k": 0.2, "30k-50k": 0.25, "50k-75k": 0.25, "75k-100k": 0.15, ">100k": 0.15}
+
         for _ in range(n_samples):
             profile = {
                 "age_group": self._weighted_sample(distribution.age_groups),
                 "gender": self._weighted_sample(distribution.genders),
-                "education_level": self._weighted_sample(distribution.education_levels),
-                "income_bracket": self._weighted_sample(distribution.income_brackets),
+                "education_level": self._weighted_sample(distribution.education_levels or default_education),
+                "income_bracket": self._weighted_sample(distribution.income_brackets or default_income),
                 "location": self._weighted_sample(distribution.locations),
             }
             profiles.append(profile)
@@ -79,6 +83,8 @@ class PersonaGeneratorLangChain:
 
     def _weighted_sample(self, distribution: Dict[str, float]) -> str:
         """Sample from weighted distribution"""
+        if not distribution:
+            raise ValueError("Distribution cannot be empty")
         categories = list(distribution.keys())
         weights = list(distribution.values())
         return np.random.choice(categories, p=weights)
@@ -170,36 +176,41 @@ Respond ONLY with valid JSON, no other text."""
         """
         results = {}
 
-        # Test age distribution
-        results["age"] = self._chi_square_test(
-            generated_personas, "age_group", target_distribution.age_groups
-        )
+        # Test age distribution (only if provided)
+        if target_distribution.age_groups:
+            results["age"] = self._chi_square_test(
+                generated_personas, "age_group", target_distribution.age_groups
+            )
 
-        # Test gender distribution
-        results["gender"] = self._chi_square_test(
-            generated_personas, "gender", target_distribution.genders
-        )
+        # Test gender distribution (only if provided)
+        if target_distribution.genders:
+            results["gender"] = self._chi_square_test(
+                generated_personas, "gender", target_distribution.genders
+            )
 
-        # Test education distribution
-        results["education"] = self._chi_square_test(
-            generated_personas, "education_level", target_distribution.education_levels
-        )
+        # Test education distribution (only if provided)
+        if target_distribution.education_levels:
+            results["education"] = self._chi_square_test(
+                generated_personas, "education_level", target_distribution.education_levels
+            )
 
-        # Test income distribution
-        results["income"] = self._chi_square_test(
-            generated_personas, "income_bracket", target_distribution.income_brackets
-        )
+        # Test income distribution (only if provided)
+        if target_distribution.income_brackets:
+            results["income"] = self._chi_square_test(
+                generated_personas, "income_bracket", target_distribution.income_brackets
+            )
 
-        # Test location distribution
-        results["location"] = self._chi_square_test(
-            generated_personas, "location", target_distribution.locations
-        )
+        # Test location distribution (only if provided)
+        if target_distribution.locations:
+            results["location"] = self._chi_square_test(
+                generated_personas, "location", target_distribution.locations
+            )
 
         # Overall validation
-        all_p_values = [r["p_value"] for r in results.values()]
+        all_p_values = [r["p_value"] for r in results.values() if "p_value" in r]
         results["overall_valid"] = all(
             p > settings.STATISTICAL_SIGNIFICANCE_THRESHOLD for p in all_p_values
-        )
+        ) if all_p_values else True
 
         return results
 

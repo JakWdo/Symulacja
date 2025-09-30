@@ -1,204 +1,121 @@
-import { useRef, useEffect, useMemo } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useRef, useMemo, memo } from 'react';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Line } from '@react-three/drei';
 import * as THREE from 'three';
-import { useAppStore } from '@/store/appStore';
-import type { GraphNode, GraphLink } from '@/types';
+import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force';
+import type { GraphData, GraphNode } from '@/types';
 
-interface NodeMeshProps {
-  node: GraphNode;
-  isSelected: boolean;
-  isHovered: boolean;
-  onClick: () => void;
-  onHover: (hovering: boolean) => void;
-}
-
-function NodeMesh({ node, isSelected, isHovered, onClick, onHover }: NodeMeshProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const showLabels = useAppStore((state) => state.showLabels);
-
-  const color = useMemo(() => {
-    if (isSelected) return '#e879f9'; // accent-400
-    if (isHovered) return '#38bdf8'; // primary-400
-    return node.color || '#94a3b8'; // slate-400
-  }, [isSelected, isHovered, node.color]);
-
-  const size = useMemo(() => {
-    return node.size || (isSelected ? 1.2 : isHovered ? 1 : 0.8);
-  }, [node.size, isSelected, isHovered]);
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      // Gentle floating animation
-      meshRef.current.position.y = node.y! + Math.sin(state.clock.elapsedTime + node.x!) * 0.1;
-
-      // Rotate when hovered or selected
-      if (isHovered || isSelected) {
-        meshRef.current.rotation.y += 0.01;
-      }
-    }
-  });
-
+// Memoized Node component for better performance
+const Node = memo(({ node }: { node: GraphNode }) => {
+  const ref = useRef<THREE.Mesh>(null);
   return (
-    <group position={[node.x!, node.y!, node.z!]}>
-      <mesh
-        ref={meshRef}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick();
-        }}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          onHover(true);
-          document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={() => {
-          onHover(false);
-          document.body.style.cursor = 'default';
-        }}
+    <mesh ref={ref} position={[node.x || 0, node.y || 0, node.z || 0]}>
+      <sphereGeometry args={[node.size || 0.5, 32, 32]} />
+      <meshStandardMaterial color={node.color || '#0ea5e9'} />
+      <Text
+        position={[0, (node.size || 0.5) + 0.3, 0]}
+        fontSize={0.3}
+        color="black"
+        anchorX="center"
+        anchorY="middle"
       >
-        <sphereGeometry args={[size, 32, 32]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={isSelected ? 0.5 : isHovered ? 0.3 : 0.1}
-          metalness={0.3}
-          roughness={0.4}
-        />
-      </mesh>
-
-      {/* Glow effect */}
-      {(isSelected || isHovered) && (
-        <mesh position={[0, 0, 0]} scale={size * 1.5}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <meshBasicMaterial
-            color={color}
-            transparent
-            opacity={0.2}
-            side={THREE.BackSide}
-          />
-        </mesh>
-      )}
-
-      {/* Label */}
-      {showLabels && (isSelected || isHovered) && (
-        <Text
-          position={[0, size + 0.5, 0]}
-          fontSize={0.3}
-          color="#1e293b"
-          anchorX="center"
-          anchorY="middle"
-          outlineWidth={0.02}
-          outlineColor="#ffffff"
-        >
-          {node.label}
-        </Text>
-      )}
-    </group>
+        {node.label}
+      </Text>
+    </mesh>
   );
-}
+});
 
-interface LinkLineProps {
-  link: GraphLink;
-  nodes: Map<string, GraphNode>;
-}
+Node.displayName = 'Node';
 
-function LinkLine({ link, nodes }: LinkLineProps) {
-  const sourceNode = nodes.get(
-    typeof link.source === 'string' ? link.source : link.source.id
-  );
-  const targetNode = nodes.get(
-    typeof link.target === 'string' ? link.target : link.target.id
-  );
+function Graph({ graphData }: { graphData: GraphData }) {
+  const { nodes, links } = graphData;
 
-  if (!sourceNode || !targetNode) return null;
+  // Memoize simulation to prevent re-running on every render
+  const simulatedNodes = useMemo(() => {
+    if (!nodes || nodes.length === 0) return [];
 
-  const points = useMemo<[number, number, number][]>(
-    () => [
-      [sourceNode.x!, sourceNode.y!, sourceNode.z!],
-      [targetNode.x!, targetNode.y!, targetNode.z!],
-    ],
-    [sourceNode, targetNode],
-  );
+    // Create a copy to avoid mutating original data
+    const nodesCopy = nodes.map(n => ({ ...n, x: 0, y: 0, z: 0 }));
 
-  return (
-    <Line
-      points={points}
-      color="#cbd5e1"
-      transparent
-      opacity={0.3}
-      lineWidth={1}
-    />
-  );
-}
+    const simulation = forceSimulation(nodesCopy)
+      .force('link', forceLink(links).id((d: any) => d.id).distance(5).strength(0.3))
+      .force('charge', forceManyBody().strength(-30))
+      .force('center', forceCenter(0, 0))
+      .force('collision', forceCollide().radius(1.5))
+      .stop();
 
-function Scene() {
-  const { camera } = useThree();
-  const graphData = useAppStore((state) => state.graphData);
-  const selectedNodes = useAppStore((state) => state.selectedNodes);
-  const hoveredNode = useAppStore((state) => state.hoveredNode);
-  const setHoveredNode = useAppStore((state) => state.setHoveredNode);
-  const toggleNodeSelection = useAppStore((state) => state.toggleNodeSelection);
+    // Run simulation for stable layout
+    for (let i = 0; i < 100; i++) {
+      simulation.tick();
+    }
 
-  const nodesMap = useMemo(() => {
-    const map = new Map<string, GraphNode>();
-    graphData?.nodes.forEach((node) => map.set(node.id, node));
-    return map;
-  }, [graphData]);
+    return simulation.nodes() as GraphNode[];
+  }, [nodes, links]);
 
-  useEffect(() => {
-    // Set initial camera position
-    camera.position.set(0, 0, 50);
-  }, [camera]);
+  // Memoize node map
+  const nodeMap = useMemo(() => {
+    return new Map(simulatedNodes.map(node => [node.id, node]));
+  }, [simulatedNodes]);
 
-  if (!graphData) return null;
+  // Limit number of links for performance (only show strong connections)
+  const visibleLinks = useMemo(() => {
+    if (links.length <= 100) return links;
+
+    // Sort by value and take top 100 connections
+    return [...links]
+      .sort((a, b) => (b.value || 0) - (a.value || 0))
+      .slice(0, 100);
+  }, [links]);
 
   return (
     <>
-      <ambientLight intensity={0.6} />
-      <pointLight position={[10, 10, 10]} intensity={0.8} />
-      <pointLight position={[-10, -10, -10]} intensity={0.3} />
-
-      {/* Render links */}
-      {graphData.links.map((link, idx) => (
-        <LinkLine key={idx} link={link} nodes={nodesMap} />
+      {simulatedNodes.map((node) => (
+        <Node key={node.id} node={node} />
       ))}
+      {visibleLinks.map((link, i) => {
+        const source = nodeMap.get(link.source as string);
+        const target = nodeMap.get(link.target as string);
+        if (!source || !target) return null;
 
-      {/* Render nodes */}
-      {graphData.nodes.map((node) => (
-        <NodeMesh
-          key={node.id}
-          node={node}
-          isSelected={selectedNodes.includes(node.id)}
-          isHovered={hoveredNode === node.id}
-          onClick={() => toggleNodeSelection(node.id)}
-          onHover={(hovering) => setHoveredNode(hovering ? node.id : null)}
-        />
-      ))}
-
-      <OrbitControls
-        enableDamping
-        dampingFactor={0.05}
-        rotateSpeed={0.5}
-        zoomSpeed={0.8}
-        minDistance={10}
-        maxDistance={200}
-      />
+        return (
+          <Line
+            key={i}
+            points={[
+              [source.x || 0, source.y || 0, source.z || 0],
+              [target.x || 0, target.y || 0, target.z || 0]
+            ]}
+            color="#cbd5e1"
+            transparent
+            opacity={0.3}
+            lineWidth={1}
+          />
+        );
+      })}
     </>
   );
 }
 
-export function KnowledgeGraph3D() {
+
+export function KnowledgeGraph3D({ graphData }: { graphData: GraphData | null }) {
+  if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full text-slate-500">
+        <p>No personas to display. Generate personas to see the graph.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="absolute inset-0 w-full h-full">
-      <Canvas
-        camera={{ position: [0, 0, 50], fov: 60 }}
-        gl={{ antialias: true, alpha: true }}
-      >
-        <color attach="background" args={['#f8fafc']} />
-        <fog attach="fog" args={['#f8fafc', 50, 200]} />
-        <Scene />
-      </Canvas>
-    </div>
+    <Canvas camera={{ position: [0, 0, 30], fov: 50 }}>
+      <ambientLight intensity={0.5} />
+      <pointLight position={[10, 10, 10]} />
+      <Graph graphData={graphData} />
+      <OrbitControls
+        enableDamping
+        dampingFactor={0.05}
+        maxDistance={100}
+        minDistance={10}
+      />
+    </Canvas>
   );
 }

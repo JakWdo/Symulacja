@@ -8,7 +8,7 @@ import json
 from app.db import get_db
 from app.models import Project, Persona
 from app.schemas.persona import PersonaResponse, PersonaGenerateRequest
-from app.services import PersonaGenerator, DemographicDistribution
+from app.services.persona_generator_langchain import PersonaGeneratorLangChain, DemographicDistribution
 
 router = APIRouter()
 
@@ -57,7 +57,7 @@ async def _generate_personas_task(
     """Background task to generate personas"""
     from app.services import AdversarialService
 
-    generator = PersonaGenerator()
+    generator = PersonaGeneratorLangChain()
 
     # Load project
     result = await db.execute(
@@ -67,10 +67,10 @@ async def _generate_personas_task(
 
     # Create distribution from target demographics
     distribution = DemographicDistribution(
-        age_groups=project.target_demographics.get("age", {}),
+        age_groups=project.target_demographics.get("age_group", {}),
         genders=project.target_demographics.get("gender", {}),
-        education_levels=project.target_demographics.get("education", {}),
-        income_brackets=project.target_demographics.get("income", {}),
+        education_levels=project.target_demographics.get("education_level", {}),
+        income_brackets=project.target_demographics.get("income_bracket", {}),
         locations=project.target_demographics.get("location", {}),
     )
 
@@ -93,11 +93,9 @@ async def _generate_personas_task(
             cultural = generator.sample_cultural_dimensions()
             psychological.update(cultural)
 
-            prompt, personality_json = await generator.generate_persona_personality(
+            prompt, personality = await generator.generate_persona_personality(
                 demographic, psychological
             )
-
-            personality = json.loads(personality_json)
 
             # Extract age from age group
             age_group = demographic.get("age_group", "25-34")

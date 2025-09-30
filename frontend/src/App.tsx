@@ -26,7 +26,7 @@ export default function App() {
     <div className="relative w-full h-screen overflow-hidden">
       {/* Background Graph */}
       {graphData ? (
-        <KnowledgeGraph3D />
+        <KnowledgeGraph3D graphData={graphData} />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center space-y-4 px-4">
