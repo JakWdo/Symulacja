@@ -1,39 +1,69 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
-import { MessageSquare, Play, Clock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { formatDate, formatTime, formatPercentage } from '@/lib/utils';
+import {
+  MessageSquare,
+  Play,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Users,
+  HelpCircle,
+  Plus,
+  Minus,
+} from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { cn, formatDate, formatTime, formatPercentage } from '@/lib/utils';
 import type { FocusGroup } from '@/types';
 
 function StatusBadge({ status }: { status: FocusGroup['status'] }) {
   const configs = {
     pending: { icon: Clock, color: 'text-slate-600 bg-slate-100', label: 'Pending' },
-    running: { icon: Loader2, color: 'text-blue-600 bg-blue-100 animate-pulse', label: 'Running' },
+    running: {
+      icon: Loader2,
+      color: 'text-blue-600 bg-blue-100 animate-pulse',
+      label: 'Running',
+    },
     completed: { icon: CheckCircle2, color: 'text-green-600 bg-green-100', label: 'Completed' },
     failed: { icon: AlertCircle, color: 'text-red-600 bg-red-100', label: 'Failed' },
-  };
+  } as const;
 
   const config = configs[status];
   const Icon = config.icon;
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${config.color}`}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium',
+        config.color,
+      )}
+    >
       <Icon className="w-3 h-3" />
       {config.label}
     </span>
   );
 }
 
-function FocusGroupCard({ focusGroup }: { focusGroup: FocusGroup }) {
+function FocusGroupCard({
+  focusGroup,
+  isSelected,
+}: {
+  focusGroup: FocusGroup;
+  isSelected: boolean;
+}) {
   const { setSelectedFocusGroup } = useAppStore();
   const queryClient = useQueryClient();
 
   const runMutation = useMutation({
     mutationFn: () => focusGroupsApi.run(focusGroup.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['focus-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-groups', focusGroup.project_id] });
+    },
+    onError: (error: Error) => {
+      alert(`Unable to start focus group: ${error.message}`);
     },
   });
 
@@ -42,16 +72,27 @@ function FocusGroupCard({ focusGroup }: { focusGroup: FocusGroup }) {
     runMutation.mutate();
   };
 
-  const meetsRequirements = focusGroup.status === 'completed' && focusGroup.avg_response_time_ms
-    ? focusGroup.avg_response_time_ms <= 3000 &&
-      (focusGroup.total_execution_time_ms || 0) <= 30000 &&
-      (focusGroup.consistency_error_rate || 0) <= 0.05
-    : null;
+  const meetsRequirements = useMemo(() => {
+    if (focusGroup.status !== 'completed') {
+      return null;
+    }
+
+    const avgResponse = focusGroup.avg_response_time_ms ?? Infinity;
+    const totalTime = focusGroup.total_execution_time_ms ?? Infinity;
+    const errorRate = focusGroup.consistency_error_rate ?? 1;
+
+    return avgResponse <= 3000 && totalTime <= 30000 && errorRate <= 0.05;
+  }, [focusGroup]);
 
   return (
     <div
       onClick={() => setSelectedFocusGroup(focusGroup)}
-      className="node-card cursor-pointer group"
+      className={cn(
+        'node-card cursor-pointer group border-2 transition-colors',
+        isSelected
+          ? 'border-primary-200 shadow-lg bg-white'
+          : 'border-transparent hover:border-primary-100',
+      )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -75,8 +116,7 @@ function FocusGroupCard({ focusGroup }: { focusGroup: FocusGroup }) {
             <span>📅 {formatDate(focusGroup.created_at)}</span>
           </div>
 
-          {/* Performance Metrics */}
-          {focusGroup.status === 'completed' && focusGroup.avg_response_time_ms && (
+          {focusGroup.status === 'completed' && (
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div className="px-3 py-2 rounded-lg bg-slate-50">
                 <div className="text-xs text-slate-500">Avg Response</div>
@@ -87,121 +127,359 @@ function FocusGroupCard({ focusGroup }: { focusGroup: FocusGroup }) {
               <div className="px-3 py-2 rounded-lg bg-slate-50">
                 <div className="text-xs text-slate-500">Total Time</div>
                 <div className="text-sm font-semibold text-slate-900">
-                  {formatTime(focusGroup.total_execution_time_ms || 0)}
+                  {formatTime(focusGroup.total_execution_time_ms)}
                 </div>
               </div>
               <div className="px-3 py-2 rounded-lg bg-slate-50">
                 <div className="text-xs text-slate-500">Consistency</div>
                 <div className="text-sm font-semibold text-slate-900">
-                  {formatPercentage(1 - (focusGroup.consistency_error_rate || 0))}
+                  {formatPercentage(1 - (focusGroup.consistency_error_rate ?? 0))}
                 </div>
               </div>
               <div className="px-3 py-2 rounded-lg bg-slate-50">
                 <div className="text-xs text-slate-500">Polarization</div>
                 <div className="text-sm font-semibold text-slate-900">
-                  {focusGroup.polarization_score
-                    ? (focusGroup.polarization_score * 100).toFixed(1)
+                  {focusGroup.polarization_score !== null && focusGroup.polarization_score !== undefined
+                    ? formatPercentage(focusGroup.polarization_score)
                     : 'N/A'}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Requirements Badge */}
           {meetsRequirements !== null && (
-            <div className={`px-3 py-2 rounded-lg ${meetsRequirements ? 'bg-green-50' : 'bg-yellow-50'}`}>
+            <div className={cn('px-3 py-2 rounded-lg text-xs font-medium', meetsRequirements
+              ? 'bg-green-50 text-green-700'
+              : 'bg-yellow-50 text-yellow-700')}
+            >
               <div className="flex items-center gap-2">
                 {meetsRequirements ? (
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  <CheckCircle2 className="w-4 h-4" />
                 ) : (
-                  <AlertCircle className="w-4 h-4 text-yellow-600" />
+                  <AlertCircle className="w-4 h-4" />
                 )}
-                <span className={`text-xs font-medium ${meetsRequirements ? 'text-green-700' : 'text-yellow-700'}`}>
-                  {meetsRequirements ? 'Meets all requirements' : 'Some requirements not met'}
+                <span>
+                  {meetsRequirements
+                    ? 'Meets all performance requirements'
+                    : 'Some requirements need attention'}
                 </span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Run Button */}
         {focusGroup.status === 'pending' && (
-          <button
+          <Button
             onClick={handleRun}
             disabled={runMutation.isPending}
-            className="floating-button p-3"
-            title="Run focus group"
+            variant="secondary"
+            className="p-3"
+            aria-label="Run focus group"
           >
             {runMutation.isPending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <Play className="w-5 h-5" />
             )}
-          </button>
+          </Button>
         )}
       </div>
     </div>
   );
 }
 
-export function FocusGroupPanel() {
-  const { activePanel, setActivePanel, selectedProject, setFocusGroups } = useAppStore();
-  const [showCreateForm, setShowCreateForm] = useState(false);
+function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
+  const queryClient = useQueryClient();
+  const { selectedProject, personas, setSelectedFocusGroup } = useAppStore();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<string[]>(['']);
+  const [mode, setMode] = useState<'normal' | 'adversarial'>('normal');
 
-  const { data: focusGroups, isLoading } = useQuery({
-    queryKey: ['focus-groups', selectedProject?.id],
-    queryFn: async () => {
-      if (!selectedProject) return [];
-      const response = await focusGroupsApi.getByProject(selectedProject.id);
-      return response.data;
+  const createMutation = useMutation({
+    mutationFn: () =>
+      focusGroupsApi.create(selectedProject!.id, {
+        name: name.trim(),
+        description: description.trim() || null,
+        persona_ids: selectedPersonaIds,
+        questions: questions.map((question) => question.trim()).filter(Boolean),
+        mode,
+      }),
+    onSuccess: (createdFocusGroup) => {
+      queryClient.invalidateQueries({ queryKey: ['focus-groups', selectedProject?.id] });
+      setSelectedFocusGroup(createdFocusGroup);
+      onCancel();
     },
-    enabled: !!selectedProject,
-    refetchInterval: (data) => {
-      // Refresh every 5s if any focus group is running
-      const isStillRunning = data?.messages?.some(
-        (message) => message.status === 'in_progress'
-      );
-      return isStillRunning ? 1000 : false;
+    onError: (error: Error) => {
+      alert(`Unable to create focus group: ${error.message}`);
     },
   });
 
-  // Update store
-  if (focusGroups) {
-    setFocusGroups(focusGroups);
+  const availablePersonas = personas ?? [];
+  const canSubmit =
+    name.trim().length > 0 &&
+    selectedPersonaIds.length >= 2 &&
+    questions.some((question) => question.trim().length > 0);
+
+  const togglePersona = (personaId: string) => {
+    setSelectedPersonaIds((prev) =>
+      prev.includes(personaId)
+        ? prev.filter((id) => id !== personaId)
+        : [...prev, personaId],
+    );
+  };
+
+  const updateQuestion = (index: number, value: string) => {
+    setQuestions((prev) => prev.map((question, idx) => (idx === index ? value : question)));
+  };
+
+  const addQuestion = () => setQuestions((prev) => [...prev, '']);
+  const removeQuestion = (index: number) => {
+    setQuestions((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedProject || !canSubmit) {
+      return;
+    }
+
+    createMutation.mutate();
+  };
+
+  if (!selectedProject) {
+    return null;
   }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-4 space-y-4 border-t border-slate-200/60 pt-4">
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-slate-700">Name</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Competitive positioning test"
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-slate-700">Description</label>
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Understanding reactions to new feature pricing"
+          rows={3}
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+        />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <Users className="w-4 h-4" /> Select personas (min. 2)
+        </div>
+        <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200/60 divide-y divide-slate-200/60">
+          {availablePersonas.length === 0 ? (
+            <div className="p-4 text-sm text-slate-500">
+              No personas available yet. Generate personas for this project first.
+            </div>
+          ) : (
+            availablePersonas.map((persona) => {
+              const label = `${persona.gender}, ${persona.age} • ${persona.location ?? 'Unknown location'}`;
+              const checked = selectedPersonaIds.includes(persona.id);
+              return (
+                <label
+                  key={persona.id}
+                  className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => togglePersona(persona.id)}
+                    className="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-slate-700">{label}</span>
+                </label>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <HelpCircle className="w-4 h-4" /> Discussion questions
+        </div>
+        <div className="space-y-2">
+          {questions.map((question, index) => (
+            <div key={index} className="flex gap-2">
+              <input
+                type="text"
+                value={question}
+                onChange={(event) => updateQuestion(index, event.target.value)}
+                placeholder={`Question ${index + 1}`}
+                className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                required
+              />
+              {questions.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="px-3"
+                  onClick={() => removeQuestion(index)}
+                  aria-label="Remove question"
+                >
+                  <Minus className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+        <Button type="button" variant="secondary" size="sm" onClick={addQuestion} className="gap-2">
+          <Plus className="w-4 h-4" />
+          Add question
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-slate-700">Mode</label>
+        <select
+          value={mode}
+          onChange={(event) => setMode(event.target.value as 'normal' | 'adversarial')}
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          <option value="normal">Normal</option>
+          <option value="adversarial">Adversarial</option>
+        </select>
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={!canSubmit || createMutation.isPending} isLoading={createMutation.isPending}>
+          Create focus group
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function FocusGroupPanel() {
+  const {
+    activePanel,
+    setActivePanel,
+    selectedProject,
+    selectedFocusGroup,
+    personas,
+    setFocusGroups,
+  } = useAppStore();
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
+  const {
+    data: focusGroups = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery<FocusGroup[]>({
+    queryKey: ['focus-groups', selectedProject?.id],
+    queryFn: () => focusGroupsApi.getByProject(selectedProject!.id),
+    enabled: !!selectedProject,
+    refetchInterval: (query) =>
+      query.state.data?.some((group) => group.status === 'running') ? 2000 : false,
+  });
+
+  useEffect(() => {
+    if (selectedProject) {
+      setFocusGroups(focusGroups);
+    } else {
+      setFocusGroups([]);
+    }
+  }, [focusGroups, selectedProject, setFocusGroups]);
+
+  const hasEnoughPersonas = (personas?.length ?? 0) >= 2;
 
   return (
     <FloatingPanel
       isOpen={activePanel === 'focus-groups'}
       onClose={() => setActivePanel(null)}
-      title={`Focus Groups ${focusGroups ? `(${focusGroups.length})` : ''}`}
+      title={`Focus Groups${focusGroups.length ? ` (${focusGroups.length})` : ''}`}
       position="left"
       size="lg"
     >
-      <div className="p-4">
+      <div className="p-4 space-y-4">
         {!selectedProject ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <MessageSquare className="w-12 h-12 text-slate-300 mb-3" />
             <p className="text-slate-600">Select a project first</p>
           </div>
-        ) : isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
-          </div>
-        ) : focusGroups && focusGroups.length > 0 ? (
-          <div className="space-y-3">
-            {focusGroups.map((focusGroup) => (
-              <FocusGroupCard key={focusGroup.id} focusGroup={focusGroup} />
-            ))}
-          </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <MessageSquare className="w-12 h-12 text-slate-300 mb-3" />
-            <p className="text-slate-600 mb-4">No focus groups yet</p>
-            <button className="floating-button" onClick={() => setShowCreateForm(true)}>
-              Create Focus Group
-            </button>
-          </div>
+          <>
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-slate-600">
+                Manage AI-simulated focus group sessions for the selected project.
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => setShowCreateForm((prev) => !prev)}
+                disabled={!hasEnoughPersonas}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                {showCreateForm ? 'Hide form' : 'New focus group'}
+              </Button>
+            </div>
+
+            {!hasEnoughPersonas && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                Add at least two personas before creating a focus group.
+              </div>
+            )}
+
+            {showCreateForm && hasEnoughPersonas && (
+              <CreateFocusGroupForm onCancel={() => setShowCreateForm(false)} />
+            )}
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+              </div>
+            ) : isError ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-600">
+                {error instanceof Error ? error.message : 'Unable to load focus groups.'}
+              </div>
+            ) : focusGroups.length > 0 ? (
+              <div className="space-y-3">
+                {focusGroups.map((focusGroup) => (
+                  <FocusGroupCard
+                    key={focusGroup.id}
+                    focusGroup={focusGroup}
+                    isSelected={selectedFocusGroup?.id === focusGroup.id}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+                <MessageSquare className="w-12 h-12 text-slate-300" />
+                <div>
+                  <p className="text-slate-600">No focus groups yet.</p>
+                  <p className="text-sm text-slate-500">
+                    Create a simulation to gather qualitative insights from your personas.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowCreateForm(true)}
+                  disabled={!hasEnoughPersonas}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Create focus group
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </FloatingPanel>

@@ -188,8 +188,7 @@ export function AnalysisPanel() {
     queryKey: ['responses', selectedFocusGroup?.id],
     queryFn: async () => {
       if (!selectedFocusGroup) return null;
-      const response = await focusGroupsApi.getResponses(selectedFocusGroup.id);
-      return response.data;
+      return focusGroupsApi.getResponses(selectedFocusGroup.id);
     },
     enabled: !!selectedFocusGroup && selectedFocusGroup.status === 'completed',
   });
@@ -200,7 +199,7 @@ export function AnalysisPanel() {
     }
   };
 
-  const analysis = analyzeMutation.data?.data;
+  const analysis = analyzeMutation.data;
 
   return (
     <FloatingPanel
