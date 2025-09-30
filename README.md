@@ -335,3 +335,163 @@ For issues or questions, open an issue in the GitHub repository.
 ---
 
 **Built with ❤️ using FastAPI, React, and Google Gemini**
+
+## 🐍 Testing API with Python
+
+### Quick Test Script
+
+A complete Python example is provided in `examples/test_api.py`. This script demonstrates the full workflow:
+
+```bash
+# Make sure backend is running
+docker compose up -d
+
+# Run the example
+python examples/test_api.py
+```
+
+### Manual API Testing
+
+```python
+import requests
+
+# Configuration
+API_URL = "http://localhost:8000/api/v1"
+
+# 1. Create a project
+project = requests.post(f"{API_URL}/projects", json={
+    "name": "Test Project",
+    "description": "API testing",
+    "target_demographics": {
+        "age_group": {"18-24": 0.3, "25-34": 0.4, "35+": 0.3},
+        "gender": {"male": 0.5, "female": 0.5},
+        "location": {"urban": 0.6, "suburban": 0.4}
+    },
+    "target_sample_size": 10
+}).json()
+
+project_id = project["id"]
+print(f"Created project: {project_id}")
+
+# 2. Generate personas
+response = requests.post(
+    f"{API_URL}/projects/{project_id}/personas/generate",
+    json={"num_personas": 10, "adversarial_mode": False}
+).json()
+
+print(f"Generating {response['num_personas']} personas...")
+
+# 3. Wait and check personas (takes ~20-30 seconds for 10 personas)
+import time
+time.sleep(30)
+
+personas = requests.get(f"{API_URL}/projects/{project_id}/personas").json()
+print(f"Generated {len(personas)} personas!")
+
+# 4. Create focus group
+persona_ids = [p["id"] for p in personas[:5]]
+
+focus_group = requests.post(
+    f"{API_URL}/projects/{project_id}/focus-groups",
+    json={
+        "name": "Test Focus Group",
+        "persona_ids": persona_ids,
+        "questions": ["What do you think about our product?"],
+        "mode": "normal"
+    }
+).json()
+
+print(f"Created focus group: {focus_group['id']}")
+
+# 5. Run focus group
+requests.post(f"{API_URL}/focus-groups/{focus_group['id']}/run")
+print("Focus group running...")
+```
+
+### Using the API Client
+
+```python
+from examples.test_api import MarketResearchAPI
+
+# Initialize client
+api = MarketResearchAPI(base_url="http://localhost:8000/api/v1")
+
+# Create project
+project = api.create_project(
+    name="My Research Project",
+    description="Testing the API",
+    target_demographics={
+        "age_group": {"18-24": 0.2, "25-34": 0.5, "35+": 0.3},
+        "gender": {"male": 0.5, "female": 0.5}
+    },
+    target_sample_size=15
+)
+
+# Generate personas
+api.generate_personas(project["id"], num_personas=15)
+
+# Wait for generation (~45 seconds for 15 personas)
+import time
+time.sleep(50)
+
+# Get personas
+personas = api.list_personas(project["id"])
+print(f"Generated {len(personas)} personas")
+
+# Get detailed persona
+persona_detail = api.get_persona(personas[0]["id"])
+print(f"Persona: {persona_detail['age']} y/o {persona_detail['gender']}")
+print(f"Values: {persona_detail['values']}")
+print(f"Background: {persona_detail['background_story']}")
+```
+
+### Automated Testing with pytest
+
+```python
+# tests/test_api_integration.py
+import pytest
+import requests
+import time
+
+API_URL = "http://localhost:8000/api/v1"
+
+def test_full_workflow():
+    # Create project
+    project = requests.post(f"{API_URL}/projects", json={
+        "name": "Test",
+        "target_demographics": {"age_group": {"18-24": 1.0}, "gender": {"male": 1.0}},
+        "target_sample_size": 10
+    }).json()
+    
+    assert "id" in project
+    
+    # Generate personas
+    response = requests.post(
+        f"{API_URL}/projects/{project['id']}/personas/generate",
+        json={"num_personas": 10, "adversarial_mode": False}
+    )
+    
+    assert response.status_code == 202
+    
+    # Wait for completion
+    time.sleep(30)
+    
+    personas = requests.get(f"{API_URL}/projects/{project['id']}/personas").json()
+    assert len(personas) == 10
+
+# Run with: pytest tests/test_api_integration.py -v
+```
+
+### Performance Timing
+
+Typical execution times with Gemini 2.5-flash:
+
+| Operation | Time | Notes |
+|-----------|------|-------|
+| Create Project | <100ms | Instant |
+| Generate 1 Persona | 2-3s | LLM call + validation |
+| Generate 10 Personas | 20-30s | Sequential generation |
+| Generate 50 Personas | 2-3min | Sequential generation |
+| Run Focus Group (10 personas, 3 questions) | 30-60s | Parallel execution |
+| Polarization Analysis | 5-10s | K-means clustering |
+

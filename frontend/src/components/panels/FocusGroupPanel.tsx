@@ -375,7 +375,6 @@ export function FocusGroupPanel() {
     selectedProject,
     selectedFocusGroup,
     personas,
-    setFocusGroups,
   } = useAppStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -391,14 +390,6 @@ export function FocusGroupPanel() {
     refetchInterval: (query) =>
       query.state.data?.some((group) => group.status === 'running') ? 2000 : false,
   });
-
-  useEffect(() => {
-    if (selectedProject) {
-      setFocusGroups(focusGroups);
-    } else {
-      setFocusGroups([]);
-    }
-  }, [focusGroups, selectedProject, setFocusGroups]);
 
   const hasEnoughPersonas = (personas?.length ?? 0) >= 2;
 
