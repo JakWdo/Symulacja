@@ -375,6 +375,7 @@ export function FocusGroupPanel() {
     selectedProject,
     selectedFocusGroup,
     personas,
+    setFocusGroups,
   } = useAppStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -392,6 +393,14 @@ export function FocusGroupPanel() {
   });
 
   const hasEnoughPersonas = (personas?.length ?? 0) >= 2;
+
+  useEffect(() => {
+    if (selectedProject) {
+      setFocusGroups(focusGroups);
+    } else {
+      setFocusGroups([]);
+    }
+  }, [focusGroups, selectedProject, setFocusGroups]);
 
   return (
     <FloatingPanel
