@@ -38,7 +38,7 @@ async def create_focus_group(
         project_id=project_id,
         name=focus_group.name,
         description=focus_group.description,
-        persona_ids=[str(pid) for pid in focus_group.persona_ids],
+        persona_ids=focus_group.persona_ids,
         questions=focus_group.questions,
         mode=focus_group.mode,
     )
@@ -70,18 +70,13 @@ async def run_focus_group(
     if focus_group.status == "running":
         raise HTTPException(status_code=400, detail="Focus group is already running")
 
-    # Schedule background task
-    background_tasks.add_task(_schedule_focus_group_run, focus_group_id)
+    # Schedule background task - use asyncio.create_task directly
+    asyncio.create_task(_run_focus_group_task(focus_group_id))
 
     return {
         "message": "Focus group execution started",
         "focus_group_id": str(focus_group_id),
     }
-
-
-def _schedule_focus_group_run(focus_group_id: UUID):
-    """Helper to schedule focus group execution on the running event loop."""
-    asyncio.create_task(_run_focus_group_task(focus_group_id))
 
 
 async def _run_focus_group_task(focus_group_id: UUID):
@@ -148,3 +143,23 @@ async def list_focus_groups(
     )
     focus_groups = result.scalars().all()
     return focus_groups
+
+
+@router.delete("/focus-groups/{focus_group_id}", status_code=204)
+async def delete_focus_group(
+    focus_group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a focus group (hard delete)"""
+    result = await db.execute(
+        select(FocusGroup).where(FocusGroup.id == focus_group_id)
+    )
+    focus_group = result.scalar_one_or_none()
+
+    if not focus_group:
+        raise HTTPException(status_code=404, detail="Focus group not found")
+
+    await db.delete(focus_group)
+    await db.commit()
+
+    return None

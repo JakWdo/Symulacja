@@ -40,7 +40,7 @@ async def list_projects(
     """List all projects"""
     result = await db.execute(
         select(Project)
-        .where(Project.is_active == True)
+        .where(Project.is_active.is_(True))
         .offset(skip)
         .limit(limit)
     )

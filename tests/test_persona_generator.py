@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from app.services.persona_generator import PersonaGenerator, DemographicDistribution
+from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PersonaGenerator, DemographicDistribution
 
 
 @pytest.fixture

@@ -206,7 +206,7 @@ export function AnalysisPanel() {
       isOpen={activePanel === 'analysis'}
       onClose={() => setActivePanel(null)}
       title="Analysis & Insights"
-      position="right"
+      panelKey="analysis"
       size="xl"
     >
       <div className="p-4 space-y-4">

@@ -173,6 +173,7 @@ market-research-saas/
 ├── tests/                        # Backend tests
 ├── scripts/                      # Utility scripts
 │   └── init_db.py                # Database initialization
+├── alembic/                      # Database migrations
 ├── docker-compose.yml            # Multi-service Docker setup
 ├── Dockerfile                    # Backend container
 └── .env                          # Environment configuration
@@ -205,6 +206,14 @@ REDIS_URL=redis://localhost:6379/0
 NEO4J_URI=bolt://localhost:7687
 ```
 
+### Critical Configuration Notes
+
+**IMPORTANT: Model Version Requirements**
+- **ALWAYS use Gemini 2.5 models**: `gemini-2.5-pro` or `gemini-2.5-flash`
+- **NEVER use Gemini 2.0 models** (e.g., `gemini-2.0-flash-exp`)
+- Default should be `gemini-2.5-flash` for fast, cost-effective operations
+- Use `gemini-2.5-pro` for more complex reasoning tasks
+
 ## 🧪 Testing
 
 ### Run All Tests
@@ -222,6 +231,18 @@ pytest tests/test_persona_generator.py -v
 pytest --cov=app --cov-report=html
 ```
 
+### Code Quality
+```bash
+# Format code
+black app/ tests/
+
+# Lint
+flake8 app/ tests/
+
+# Type checking
+mypy app/
+```
+
 ## 📊 API Endpoints
 
 ### Projects
@@ -229,112 +250,24 @@ pytest --cov=app --cov-report=html
 - `GET /api/v1/projects` - List projects
 - `GET /api/v1/projects/{id}` - Get project details
 - `PUT /api/v1/projects/{id}` - Update project
-- `DELETE /api/v1/projects/{id}` - Delete project
+- `DELETE /api/v1/projects/{id}` - Delete project (soft)
 
 ### Personas
 - `POST /api/v1/projects/{id}/personas/generate` - Generate personas
 - `GET /api/v1/projects/{id}/personas` - List project personas
 - `GET /api/v1/personas/{id}` - Get persona details
 - `GET /api/v1/personas/{id}/history` - Get event history
+- `DELETE /api/v1/personas/{id}` - Delete persona (soft)
 
 ### Focus Groups
-- `POST /api/v1/focus-groups` - Create focus group
+- `POST /api/v1/projects/{project_id}/focus-groups` - Create focus group
 - `POST /api/v1/focus-groups/{id}/run` - Run simulation
 - `GET /api/v1/focus-groups/{id}` - Get results
+- `GET /api/v1/projects/{project_id}/focus-groups` - List focus groups
 - `POST /api/v1/focus-groups/{id}/analyze-polarization` - K-means clustering
+- `DELETE /api/v1/focus-groups/{id}` - Delete focus group (hard)
 
 Full API documentation: http://localhost:8000/docs
-
-## 🐛 Troubleshooting
-
-### White Screen in Frontend
-**Cause**: Infinite React render loop in panels
-**Fix**: Applied in commit `664edb3` - removed unnecessary `setProjects`/`setPersonas` calls in useEffect
-
-### Personas Generation Fails
-**Cause**: Empty demographic distributions
-**Fix**: Default distributions added for education/income in `persona_generator_langchain.py:69-70`
-
-### Docker Containers Not Starting
-```bash
-# Check logs
-docker compose logs api
-docker compose logs frontend
-
-# Restart services
-docker compose down
-docker compose up -d
-```
-
-### Database Connection Issues
-Ensure databases are healthy:
-```bash
-docker compose ps
-# All should show "healthy" status
-
-# Test database connection
-docker exec market_research_postgres pg_isready
-```
-
-## 🔧 Common Tasks
-
-### View Logs
-```bash
-docker compose logs -f api          # Backend API
-docker compose logs -f frontend     # Frontend
-docker compose logs -f celery_worker # Background tasks
-```
-
-### Reset Database
-```bash
-docker compose down -v  # Removes volumes
-docker compose up -d
-```
-
-### Rebuild Containers
-```bash
-docker compose build --no-cache
-docker compose up -d
-```
-
-### Access Database
-```bash
-docker exec -it market_research_postgres psql -U market_research -d market_research_db
-```
-
-## 📈 Performance Targets
-
-- **Persona Generation**: ~2-3 seconds per persona (Gemini API)
-- **Focus Group Simulation**: <30 seconds for 100 personas
-- **Chi-Square Validation**: p-value > 0.05 (95% confidence)
-- **Consistency Error Rate**: <5% contradiction rate
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is proprietary. All rights reserved.
-
-## 🔗 Resources
-
-- **Gemini API**: https://ai.google.dev/gemini-api/docs
-- **LangChain**: https://python.langchain.com/
-- **FastAPI**: https://fastapi.tiangolo.com/
-- **React Three Fiber**: https://docs.pmnd.rs/react-three-fiber
-
-## 📧 Support
-
-For issues or questions, open an issue in the GitHub repository.
-
----
-
-**Built with ❤️ using FastAPI, React, and Google Gemini**
 
 ## 🐍 Testing API with Python
 
@@ -445,44 +378,95 @@ print(f"Values: {persona_detail['values']}")
 print(f"Background: {persona_detail['background_story']}")
 ```
 
-### Automated Testing with pytest
+## 🔧 Database Operations
 
-```python
-# tests/test_api_integration.py
-import pytest
-import requests
-import time
+### Database Migrations
 
-API_URL = "http://localhost:8000/api/v1"
+```bash
+# Create new migration
+alembic revision --autogenerate -m "description"
 
-def test_full_workflow():
-    # Create project
-    project = requests.post(f"{API_URL}/projects", json={
-        "name": "Test",
-        "target_demographics": {"age_group": {"18-24": 1.0}, "gender": {"male": 1.0}},
-        "target_sample_size": 10
-    }).json()
-    
-    assert "id" in project
-    
-    # Generate personas
-    response = requests.post(
-        f"{API_URL}/projects/{project['id']}/personas/generate",
-        json={"num_personas": 10, "adversarial_mode": False}
-    )
-    
-    assert response.status_code == 202
-    
-    # Wait for completion
-    time.sleep(30)
-    
-    personas = requests.get(f"{API_URL}/projects/{project['id']}/personas").json()
-    assert len(personas) == 10
+# Apply migrations
+alembic upgrade head
 
-# Run with: pytest tests/test_api_integration.py -v
+# Rollback one migration
+alembic downgrade -1
 ```
 
-### Performance Timing
+### View Logs
+
+```bash
+docker compose logs -f api          # Backend API
+docker compose logs -f frontend     # Frontend
+docker compose logs -f celery_worker # Background tasks
+docker compose logs -f postgres     # PostgreSQL
+```
+
+### Reset Database
+
+```bash
+docker compose down -v  # Removes volumes
+docker compose up -d
+```
+
+### Rebuild Containers
+
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+### Access Database
+
+```bash
+docker exec -it market_research_postgres psql -U market_research -d market_research_db
+```
+
+## 🐛 Troubleshooting
+
+### White Screen in Frontend
+**Cause**: Infinite React render loop in panels
+**Fix**: Applied in commit `664edb3` - removed unnecessary `setProjects`/`setPersonas` calls in useEffect
+
+### Personas Generation Fails
+**Cause**: Empty demographic distributions
+**Fix**: Default distributions added for education/income in `persona_generator_langchain.py:69-70`
+
+### Docker Containers Not Starting
+```bash
+# Check logs
+docker compose logs api
+docker compose logs frontend
+
+# Restart services
+docker compose down
+docker compose up -d
+```
+
+### Database Connection Issues
+Ensure databases are healthy:
+```bash
+docker compose ps
+# All should show "healthy" status
+
+# Test database connection
+docker exec market_research_postgres pg_isready
+```
+
+### Background Task Event Loop Error
+**Cause**: Using background_tasks wrapper instead of asyncio.create_task
+**Fix**: Applied in `focus_groups.py:74` - use `asyncio.create_task()` directly
+
+### Persona Selection Not Working in Focus Groups
+**Cause**: Store not updating with generated personas
+**Fix**: Update store in `queryFn` instead of deprecated `onSuccess` callback
+
+## 📈 Performance Targets
+
+- **Persona Generation**: ~2-3 seconds per persona (Gemini API)
+- **Focus Group Simulation**: <30 seconds for 100 personas
+- **Chi-Square Validation**: p-value > 0.05 (95% confidence)
+- **Consistency Error Rate**: <5% contradiction rate
 
 Typical execution times with Gemini 2.5-flash:
 
@@ -495,3 +479,162 @@ Typical execution times with Gemini 2.5-flash:
 | Run Focus Group (10 personas, 3 questions) | 30-60s | Parallel execution |
 | Polarization Analysis | 5-10s | K-means clustering |
 
+## 🏛️ Architecture Deep Dive
+
+### LangChain-Based Service Architecture
+
+The project uses **LangChain** for all LLM interactions with **Google Gemini** as the primary provider.
+
+**LangChain Services** (active implementation):
+- `app/services/persona_generator_langchain.py`
+- `app/services/memory_service_langchain.py`
+- `app/services/focus_group_service_langchain.py`
+
+### Event Sourcing Pattern
+
+The memory system uses **event sourcing** for temporal consistency:
+
+- **Immutable Event Log**: All persona interactions stored as events in `app/models/event.py`
+- **Sequence Numbers**: Events ordered by `sequence_number` for temporal queries
+- **Vector Embeddings**: Each event embedded using Google Generative AI Embeddings (`models/embedding-001`)
+- **Temporal Decay**: Relevance weighting with 30-day half-life (`exp(-time_diff / 30 days)`)
+- **Consistency Checking**: LLM-based validation against past events
+
+Key methods in `memory_service_langchain.py`:
+- `create_event()`: Append immutable event with embedding
+- `retrieve_relevant_context()`: Semantic search with temporal weighting
+- `check_consistency()`: LLM validation against history
+
+### Persona Generation Pipeline
+
+1. **Demographic Sampling**: Chi-square validated distribution sampling
+2. **Psychological Profiling**: Big Five traits + Hofstede cultural dimensions
+3. **LLM Generation**: Gemini creates personality via LangChain chains
+4. **Statistical Validation**: Automated chi-square tests (p > 0.05 threshold)
+
+Core chain structure in `persona_generator_langchain.py`:
+```python
+persona_chain = persona_prompt | llm | json_parser
+```
+
+### Multi-Database Strategy
+
+- **PostgreSQL + pgvector**: Relational data + vector similarity search
+- **Redis**: Caching and Celery task queue
+- **Neo4j**: Graph relationships (persona networks, influence mapping)
+
+All databases managed via `docker-compose.yml`.
+
+### API Layer
+
+FastAPI async endpoints in `app/api/`:
+- `projects.py`: CRUD for research projects
+- `personas.py`: Persona generation and retrieval
+- `focus_groups.py`: Focus group simulation
+- `analysis.py`: Polarization detection and analytics
+
+All endpoints use async SQLAlchemy sessions via `Depends(get_db)`.
+
+### Async Execution Model
+
+- **FastAPI**: Fully async request handling
+- **SQLAlchemy 2.0**: AsyncSession with asyncpg driver
+- **LangChain**: Async chains using `.ainvoke()` and `.aembed_query()`
+- **Focus Groups**: Concurrent execution with `asyncio.gather()` for 100+ personas
+
+## 🎯 Key Design Patterns
+
+### LangChain Chains
+
+All LLM interactions use composable chains:
+```python
+# Prompt -> LLM -> Parser
+chain = ChatPromptTemplate.from_messages(...) | llm | JsonOutputParser()
+result = await chain.ainvoke({"prompt": text})
+```
+
+### Dependency Injection
+
+Settings accessed via `get_settings()` with LRU cache:
+```python
+from app.core.config import get_settings
+settings = get_settings()
+```
+
+### Repository Pattern
+
+Database access through SQLAlchemy models with async sessions:
+```python
+async def get_project(db: AsyncSession = Depends(get_db), project_id: UUID):
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    return result.scalar_one_or_none()
+```
+
+## 📚 Common Development Workflows
+
+### Adding a New LLM Provider
+
+1. Add API key to `app/core/config.py`
+2. Install LangChain provider: `pip install langchain-<provider>`
+3. Update service initialization in LangChain service files
+4. Add provider to `.env.example` documentation
+
+### Modifying Persona Psychology
+
+Update prompt templates in `persona_generator_langchain.py:122-160`. Big Five and Hofstede dimensions are sampled from normal distributions (μ=0.5, σ=0.15-0.2).
+
+### Adding Event Types
+
+1. Define event type in `memory_service_langchain.py`
+2. Update `_event_to_text()` method for proper embedding
+3. Add event schema to `app/models/event.py`
+
+### Debugging Focus Group Consistency
+
+Check event history and consistency scores:
+```bash
+curl http://localhost:8000/api/v1/personas/{persona_id}/history
+```
+
+Consistency validation occurs in `memory_service_langchain.py:169-222`.
+
+## ⚠️ Important Development Notes
+
+- **Never commit `.env`** - contains API keys
+- **Use async/await** throughout - this is an async codebase
+- **Prefer LangChain abstractions** over direct API calls
+- **Validate demographics** using chi-square tests before deployment
+- **Check consistency scores** if persona behavior seems erratic
+- **Use Google Generative AI Embeddings** (`models/embedding-001`), not sentence-transformers
+- **Remember**: Gemini 2.5 models ONLY (never 2.0)
+- **SQL Safety**: Use `.is_(True)` instead of `== True` in SQLAlchemy queries
+- **Datetime**: Use `datetime.now(timezone.utc)` instead of deprecated `datetime.utcnow()`
+
+## 🔗 Resources
+
+- **Gemini API**: https://ai.google.dev/gemini-api/docs
+- **LangChain**: https://python.langchain.com/
+- **FastAPI**: https://fastapi.tiangolo.com/
+- **React Three Fiber**: https://docs.pmnd.rs/react-three-fiber
+- **SQLAlchemy 2.0**: https://docs.sqlalchemy.org/en/20/
+- **TanStack Query**: https://tanstack.com/query/latest
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is proprietary. All rights reserved.
+
+## 📧 Support
+
+For issues or questions, open an issue in the GitHub repository.
+
+---
+
+**Built with ❤️ using FastAPI, React, and Google Gemini**

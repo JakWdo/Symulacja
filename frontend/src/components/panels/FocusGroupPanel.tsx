@@ -16,8 +16,8 @@ import {
   Minus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { cn, formatDate, formatTime, formatPercentage } from '@/lib/utils';
-import type { FocusGroup } from '@/types';
+import { cn, formatDate, formatTime, formatPercentage, truncateText } from '@/lib/utils';
+import type { FocusGroup, Persona } from '@/types';
 
 function StatusBadge({ status }: { status: FocusGroup['status'] }) {
   const configs = {
@@ -188,9 +188,72 @@ function FocusGroupCard({
   );
 }
 
+function PersonaQuickPreview({ persona }: { persona: Persona | null }) {
+  if (!persona) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+        Select personas on the left to preview their profiles here.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white/80 backdrop-blur-sm shadow-sm p-4 space-y-3">
+      <div>
+        <h4 className="text-base font-semibold text-slate-900">
+          {persona.gender}, {persona.age}
+        </h4>
+        {persona.location && (
+          <p className="text-sm text-slate-500">{persona.location}</p>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-lg bg-slate-50 p-2">
+          <span className="text-slate-500 block">Education</span>
+          <span className="text-slate-800 font-medium">
+            {persona.education_level ?? 'N/A'}
+          </span>
+        </div>
+        <div className="rounded-lg bg-slate-50 p-2">
+          <span className="text-slate-500 block">Income</span>
+          <span className="text-slate-800 font-medium">
+            {persona.income_bracket ?? 'N/A'}
+          </span>
+        </div>
+      </div>
+      {persona.values && persona.values.length > 0 && (
+        <div>
+          <span className="text-xs font-semibold text-slate-700">Values</span>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {persona.values.slice(0, 4).map((value) => (
+              <span
+                key={value}
+                className="px-2 py-0.5 text-xs rounded-full bg-primary-50 text-primary-700"
+              >
+                {value}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {persona.background_story && (
+        <p className="text-xs text-slate-600 leading-relaxed">
+          {truncateText(persona.background_story, 180)}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
   const queryClient = useQueryClient();
-  const { selectedProject, personas, setSelectedFocusGroup } = useAppStore();
+  const {
+    selectedProject,
+    personas,
+    setSelectedFocusGroup,
+    setSelectedPersona,
+    selectedPersona,
+  } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
@@ -223,11 +286,18 @@ function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
     questions.some((question) => question.trim().length > 0);
 
   const togglePersona = (personaId: string) => {
-    setSelectedPersonaIds((prev) =>
-      prev.includes(personaId)
-        ? prev.filter((id) => id !== personaId)
-        : [...prev, personaId],
-    );
+    const persona = availablePersonas.find((p) => p.id === personaId) ?? null;
+    setSelectedPersonaIds((prev) => {
+      const alreadySelected = prev.includes(personaId);
+      if (alreadySelected) {
+        if (selectedPersona?.id === personaId) {
+          setSelectedPersona(null);
+        }
+        return prev.filter((id) => id !== personaId);
+      }
+      setSelectedPersona(persona);
+      return [...prev, personaId];
+    });
   };
 
   const updateQuestion = (index: number, value: string) => {
@@ -253,7 +323,8 @@ function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-4 border-t border-slate-200/60 pt-4">
+    <div className="mt-4 space-y-4 border-t border-slate-200/60 pt-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <label className="block text-sm font-medium text-slate-700">Name</label>
         <input
@@ -281,31 +352,41 @@ function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
         <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
           <Users className="w-4 h-4" /> Select personas (min. 2)
         </div>
-        <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200/60 divide-y divide-slate-200/60">
-          {availablePersonas.length === 0 ? (
-            <div className="p-4 text-sm text-slate-500">
-              No personas available yet. Generate personas for this project first.
-            </div>
-          ) : (
-            availablePersonas.map((persona) => {
-              const label = `${persona.gender}, ${persona.age} • ${persona.location ?? 'Unknown location'}`;
-              const checked = selectedPersonaIds.includes(persona.id);
-              return (
-                <label
-                  key={persona.id}
-                  className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => togglePersona(persona.id)}
-                    className="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <span className="text-slate-700">{label}</span>
-                </label>
-              );
-            })
-          )}
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr),minmax(0,1fr)]">
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-slate-200/60 divide-y divide-slate-200/60 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+            {availablePersonas.length === 0 ? (
+              <div className="p-4 text-sm text-slate-500">
+                No personas available yet. Generate personas for this project first.
+              </div>
+            ) : (
+              availablePersonas.map((persona) => {
+                const label = `${persona.gender}, ${persona.age} • ${persona.location ?? 'Unknown location'}`;
+                const checked = selectedPersonaIds.includes(persona.id);
+                return (
+                  <label
+                    key={persona.id}
+                    className="flex items-start gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => togglePersona(persona.id)}
+                      className="mt-0.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-slate-700">{label}</span>
+                      {persona.background_story && (
+                        <span className="text-xs text-slate-500">
+                          {truncateText(persona.background_story, 90)}
+                        </span>
+                      )}
+                    </div>
+                  </label>
+                );
+              })
+            )}
+          </div>
+          <PersonaQuickPreview persona={selectedPersona ?? null} />
         </div>
       </div>
 
@@ -356,15 +437,16 @@ function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
         </select>
       </div>
 
-      <div className="flex justify-end gap-3">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={!canSubmit || createMutation.isPending} isLoading={createMutation.isPending}>
-          Create focus group
-        </Button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!canSubmit || createMutation.isPending} isLoading={createMutation.isPending}>
+            Create focus group
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -375,39 +457,41 @@ export function FocusGroupPanel() {
     selectedProject,
     selectedFocusGroup,
     personas,
+    focusGroups,
     setFocusGroups,
   } = useAppStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const {
-    data: focusGroups = [],
     isLoading,
     isError,
     error,
   } = useQuery<FocusGroup[]>({
     queryKey: ['focus-groups', selectedProject?.id],
-    queryFn: () => focusGroupsApi.getByProject(selectedProject!.id),
+    queryFn: async () => {
+      const data = await focusGroupsApi.getByProject(selectedProject!.id);
+      setFocusGroups(data); // Update store immediately
+      return data;
+    },
     enabled: !!selectedProject,
     refetchInterval: (query) =>
       query.state.data?.some((group) => group.status === 'running') ? 2000 : false,
   });
 
-  const hasEnoughPersonas = (personas?.length ?? 0) >= 2;
-
   useEffect(() => {
-    if (selectedProject) {
-      setFocusGroups(focusGroups);
-    } else {
+    if (!selectedProject) {
       setFocusGroups([]);
     }
-  }, [focusGroups, selectedProject, setFocusGroups]);
+  }, [selectedProject, setFocusGroups]);
+
+  const hasEnoughPersonas = (personas?.length ?? 0) >= 2;
 
   return (
     <FloatingPanel
       isOpen={activePanel === 'focus-groups'}
       onClose={() => setActivePanel(null)}
       title={`Focus Groups${focusGroups.length ? ` (${focusGroups.length})` : ''}`}
-      position="left"
+      panelKey="focus-groups"
       size="lg"
     >
       <div className="p-4 space-y-4">

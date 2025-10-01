@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import type { Project, Persona, FocusGroup, GraphData } from '@/types';
 
+export type PanelKey = 'projects' | 'personas' | 'focus-groups' | 'analysis';
+
+type Position = {
+  x: number;
+  y: number;
+};
+
 interface AppState {
   // Selected entities
   selectedProject: Project | null;
@@ -14,9 +21,11 @@ interface AppState {
   graphData: GraphData | null;
 
   // UI State
-  activePanel: 'projects' | 'personas' | 'focus-groups' | 'analysis' | null;
+  activePanel: PanelKey | null;
   isLoading: boolean;
   error: string | null;
+  panelPositions: Record<PanelKey, Position>;
+  triggerPositions: Record<PanelKey, Position>;
 
   // Graph View State
   hoveredNode: string | null;
@@ -40,6 +49,8 @@ interface AppState {
   clearSelection: () => void;
   setGraphLayout: (layout: '2d' | '3d') => void;
   toggleLabels: () => void;
+  setPanelPosition: (panel: PanelKey, position: Position) => void;
+  setTriggerPosition: (panel: PanelKey, position: Position) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -58,6 +69,18 @@ export const useAppStore = create<AppState>((set) => ({
   selectedNodes: [],
   graphLayout: '3d',
   showLabels: true,
+  panelPositions: {
+    projects: { x: 80, y: 140 },
+    personas: { x: 440, y: 160 },
+    'focus-groups': { x: 820, y: 180 },
+    analysis: { x: 1200, y: 160 },
+  },
+  triggerPositions: {
+    projects: { x: 40, y: 200 },
+    personas: { x: 40, y: 320 },
+    'focus-groups': { x: 40, y: 440 },
+    analysis: { x: 40, y: 560 },
+  },
 
   // Actions
   setSelectedProject: (project) => set({ selectedProject: project }),
@@ -80,4 +103,12 @@ export const useAppStore = create<AppState>((set) => ({
   clearSelection: () => set({ selectedNodes: [], selectedPersona: null }),
   setGraphLayout: (layout) => set({ graphLayout: layout }),
   toggleLabels: () => set((state) => ({ showLabels: !state.showLabels })),
+  setPanelPosition: (panel, position) =>
+    set((state) => ({
+      panelPositions: { ...state.panelPositions, [panel]: position },
+    })),
+  setTriggerPosition: (panel, position) =>
+    set((state) => ({
+      triggerPositions: { ...state.triggerPositions, [panel]: position },
+    })),
 }));

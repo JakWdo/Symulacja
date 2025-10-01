@@ -14,6 +14,13 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnablePassthrough
 
 from app.core.config import get_settings
+from app.core.constants import (
+    DEFAULT_AGE_GROUPS,
+    DEFAULT_GENDERS,
+    DEFAULT_EDUCATION_LEVELS,
+    DEFAULT_INCOME_BRACKETS,
+    DEFAULT_LOCATIONS,
+)
 from app.models import Persona
 
 settings = get_settings()
@@ -34,6 +41,7 @@ class PersonaGeneratorLangChain:
 
     def __init__(self):
         self.settings = settings
+        self._rng = np.random.default_rng(self.settings.RANDOM_SEED)
 
         # Initialize LangChain Gemini LLM
         self.llm = ChatGoogleGenerativeAI(
@@ -65,17 +73,26 @@ class PersonaGeneratorLangChain:
         """Sample demographic profiles based on target distribution"""
         profiles = []
 
-        # Default distributions if not provided
-        default_education = {"high_school": 0.3, "bachelor": 0.4, "master": 0.2, "phd": 0.1}
-        default_income = {"<30k": 0.2, "30k-50k": 0.25, "50k-75k": 0.25, "75k-100k": 0.15, ">100k": 0.15}
-
         for _ in range(n_samples):
+            age_groups = self._prepare_distribution(
+                distribution.age_groups, DEFAULT_AGE_GROUPS
+            )
+            genders = self._prepare_distribution(distribution.genders, DEFAULT_GENDERS)
+            education_levels = self._prepare_distribution(
+                distribution.education_levels, DEFAULT_EDUCATION_LEVELS
+            )
+            income_brackets = self._prepare_distribution(
+                distribution.income_brackets, DEFAULT_INCOME_BRACKETS
+            )
+            locations = self._prepare_distribution(
+                distribution.locations, DEFAULT_LOCATIONS
+            )
             profile = {
-                "age_group": self._weighted_sample(distribution.age_groups),
-                "gender": self._weighted_sample(distribution.genders),
-                "education_level": self._weighted_sample(distribution.education_levels or default_education),
-                "income_bracket": self._weighted_sample(distribution.income_brackets or default_income),
-                "location": self._weighted_sample(distribution.locations),
+                "age_group": self._weighted_sample(age_groups),
+                "gender": self._weighted_sample(genders),
+                "education_level": self._weighted_sample(education_levels),
+                "income_bracket": self._weighted_sample(income_brackets),
+                "location": self._weighted_sample(locations),
             }
             profiles.append(profile)
 
@@ -87,27 +104,43 @@ class PersonaGeneratorLangChain:
             raise ValueError("Distribution cannot be empty")
         categories = list(distribution.keys())
         weights = list(distribution.values())
-        return np.random.choice(categories, p=weights)
+        return self._rng.choice(categories, p=weights)
+
+    def _prepare_distribution(
+        self, distribution: Dict[str, float], fallback: Dict[str, float]
+    ) -> Dict[str, float]:
+        if not distribution:
+            return fallback
+        total = sum(distribution.values())
+        if total <= 0:
+            return fallback
+        normalized = {key: value / total for key, value in distribution.items()}
+        normalized_total = sum(normalized.values())
+        if not np.isclose(normalized_total, 1.0):
+            normalized = {
+                key: value / normalized_total for key, value in normalized.items()
+            }
+        return normalized
 
     def sample_big_five_traits(self) -> Dict[str, float]:
         """Sample Big Five personality traits from normal distributions"""
         return {
-            "openness": np.clip(np.random.normal(0.5, 0.15), 0, 1),
-            "conscientiousness": np.clip(np.random.normal(0.5, 0.15), 0, 1),
-            "extraversion": np.clip(np.random.normal(0.5, 0.15), 0, 1),
-            "agreeableness": np.clip(np.random.normal(0.5, 0.15), 0, 1),
-            "neuroticism": np.clip(np.random.normal(0.5, 0.15), 0, 1),
+            "openness": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
+            "conscientiousness": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
+            "extraversion": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
+            "agreeableness": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
+            "neuroticism": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
         }
 
     def sample_cultural_dimensions(self) -> Dict[str, float]:
         """Sample Hofstede cultural dimensions"""
         return {
-            "power_distance": np.clip(np.random.normal(0.5, 0.2), 0, 1),
-            "individualism": np.clip(np.random.normal(0.5, 0.2), 0, 1),
-            "masculinity": np.clip(np.random.normal(0.5, 0.2), 0, 1),
-            "uncertainty_avoidance": np.clip(np.random.normal(0.5, 0.2), 0, 1),
-            "long_term_orientation": np.clip(np.random.normal(0.5, 0.2), 0, 1),
-            "indulgence": np.clip(np.random.normal(0.5, 0.2), 0, 1),
+            "power_distance": np.clip(self._rng.normal(0.5, 0.2), 0, 1),
+            "individualism": np.clip(self._rng.normal(0.5, 0.2), 0, 1),
+            "masculinity": np.clip(self._rng.normal(0.5, 0.2), 0, 1),
+            "uncertainty_avoidance": np.clip(self._rng.normal(0.5, 0.2), 0, 1),
+            "long_term_orientation": np.clip(self._rng.normal(0.5, 0.2), 0, 1),
+            "indulgence": np.clip(self._rng.normal(0.5, 0.2), 0, 1),
         }
 
     async def generate_persona_personality(
@@ -218,25 +251,59 @@ Respond ONLY with valid JSON, no other text."""
         self, personas: List[Dict[str, Any]], field: str, expected_dist: Dict[str, float]
     ) -> Dict[str, float]:
         """Perform chi-square test for a specific demographic field"""
-        # Count observed frequencies
-        observed_counts = {}
+        # Filter categories with non-positive expected probabilities
+        valid_categories = [
+            (category, probability)
+            for category, probability in expected_dist.items()
+            if probability and probability > 0
+        ]
+
+        if not valid_categories:
+            return {
+                "chi_square_statistic": 0.0,
+                "p_value": 1.0,
+                "degrees_of_freedom": 0,
+                "observed": {},
+                "expected": {},
+            }
+
+        total_prob = sum(probability for _, probability in valid_categories)
+        normalized_probs = {
+            category: probability / total_prob for category, probability in valid_categories
+        }
+
+        observed_counts = {category: 0 for category in normalized_probs}
+        valid_samples = 0
         for persona in personas:
             value = persona.get(field)
-            observed_counts[value] = observed_counts.get(value, 0) + 1
+            if value in observed_counts:
+                observed_counts[value] += 1
+                valid_samples += 1
 
-        # Calculate expected frequencies
-        total = len(personas)
-        categories = list(expected_dist.keys())
-        observed = [observed_counts.get(cat, 0) for cat in categories]
-        expected = [expected_dist[cat] * total for cat in categories]
+        if valid_samples == 0:
+            return {
+                "chi_square_statistic": 0.0,
+                "p_value": 1.0,
+                "degrees_of_freedom": len(observed_counts) - 1,
+                "observed": observed_counts,
+                "expected": {category: 0.0 for category in observed_counts},
+            }
 
-        # Perform chi-square test
+        expected_counts = {
+            category: normalized_probs[category] * valid_samples
+            for category in normalized_probs
+        }
+
+        observed = [observed_counts[category] for category in normalized_probs]
+        expected = [expected_counts[category] for category in normalized_probs]
+
         chi2_stat, p_value = stats.chisquare(f_obs=observed, f_exp=expected)
 
         return {
             "chi_square_statistic": float(chi2_stat),
             "p_value": float(p_value),
-            "degrees_of_freedom": len(categories) - 1,
-            "observed": dict(zip(categories, observed)),
-            "expected": dict(zip(categories, expected)),
+            "degrees_of_freedom": len(normalized_probs) - 1,
+            "observed": observed_counts,
+            "expected": expected_counts,
+            "sample_size": valid_samples,
         }

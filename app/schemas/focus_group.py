@@ -17,7 +17,7 @@ class FocusGroupResponse(BaseModel):
     project_id: UUID
     name: str
     description: Optional[str]
-    persona_ids: List[str]
+    persona_ids: List[UUID]
     questions: List[str]
     mode: str
     status: str
@@ -41,7 +41,7 @@ class FocusGroupResultResponse(BaseModel):
     project_id: UUID
     name: str
     description: Optional[str]
-    persona_ids: List[str]
+    persona_ids: List[UUID]
     questions: List[str]
     mode: str
     status: str

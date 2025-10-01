@@ -24,7 +24,9 @@ export default function App() {
     queryKey: ['personas', selectedProject?.id],
     queryFn: async () => {
       if (!selectedProject) return [];
-      return personasApi.getByProject(selectedProject.id);
+      const data = await personasApi.getByProject(selectedProject.id);
+      setPersonas(data);
+      return data;
     },
     enabled: !!selectedProject,
   });
@@ -34,13 +36,11 @@ export default function App() {
 
   // Sync fetched personas with the global store
   useEffect(() => {
-    if (selectedProject) {
-      setPersonas(personas);
-    } else {
+    if (!selectedProject) {
       setPersonas([]);
       setSelectedPersona(null);
     }
-  }, [personas, selectedProject, setPersonas, setSelectedPersona]);
+  }, [selectedProject, setPersonas, setSelectedPersona]);
 
   // Keep graph data in the store for components that read it from there
   useEffect(() => {

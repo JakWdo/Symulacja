@@ -1,9 +1,26 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.api import projects, personas, focus_groups, analysis
+import logging
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+# Validate critical settings in production
+if settings.ENVIRONMENT == "production":
+    if settings.SECRET_KEY == "change-me":
+        raise ValueError(
+            "SECRET_KEY must be changed in production! "
+            "Generate a secure key with: openssl rand -hex 32"
+        )
+    if "password" in settings.DATABASE_URL.lower() or "dev_password" in settings.DATABASE_URL.lower():
+        raise ValueError(
+            "Default database password detected in production! "
+            "Please use secure passwords."
+        )
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -13,10 +30,14 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS middleware
+# CORS middleware - restrict origins based on environment
+allowed_origins = (
+    ["*"] if settings.ENVIRONMENT == "development"
+    else settings.ALLOWED_ORIGINS.split(",")
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,3 +65,17 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "environment": settings.ENVIRONMENT}
+
+
+# Global exception handlers
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle all unhandled exceptions"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "Internal server error",
+            "error": str(exc) if settings.DEBUG else "An unexpected error occurred",
+        },
+    )

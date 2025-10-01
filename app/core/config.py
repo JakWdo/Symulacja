@@ -1,7 +1,10 @@
 from typing import Optional
 from functools import lru_cache
 
-from pydantic_settings import BaseSettings
+try:
+    from pydantic_settings import BaseSettings
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    from pydantic import BaseSettings  # type: ignore
 
 
 class Settings(BaseSettings):
@@ -42,6 +45,7 @@ class Settings(BaseSettings):
     MAX_FOCUS_GROUP_TIME: int = 30
     CONSISTENCY_ERROR_THRESHOLD: float = 0.05
     STATISTICAL_SIGNIFICANCE_THRESHOLD: float = 0.05
+    RANDOM_SEED: int = 42
 
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
@@ -54,6 +58,7 @@ class Settings(BaseSettings):
     # API
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "Market Research SaaS"
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"  # Comma-separated list
 
     class Config:
         env_file = ".env"

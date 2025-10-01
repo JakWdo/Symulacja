@@ -4,12 +4,15 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-# Create async engine
+# Create async engine with connection pooling
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
     poolclass=NullPool if settings.ENVIRONMENT == "test" else None,
     pool_pre_ping=True,
+    pool_size=5 if settings.ENVIRONMENT == "production" else 5,
+    max_overflow=10 if settings.ENVIRONMENT == "production" else 10,
+    pool_recycle=3600,  # Recycle connections after 1 hour
 )
 
 # Create async session factory

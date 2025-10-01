@@ -6,7 +6,7 @@ Uses LangChain for embeddings and consistency checking
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timezone
 import numpy as np
 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
@@ -85,7 +85,7 @@ class MemoryServiceLangChain:
             event_data=event_data,
             sequence_number=sequence_number,
             embedding=embedding,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         db.add(event)
@@ -123,7 +123,7 @@ class MemoryServiceLangChain:
 
         # Calculate similarity scores
         scored_events = []
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
 
         for event in events:
             if event.embedding is None:

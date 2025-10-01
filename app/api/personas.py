@@ -1,24 +1,52 @@
 import asyncio
-from typing import List
+import logging
+import random
+from typing import Dict
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import AsyncSessionLocal, get_db
 from app.models import Project, Persona
 from app.schemas.persona import PersonaResponse, PersonaGenerateRequest
-from app.services.persona_generator_langchain import PersonaGeneratorLangChain, DemographicDistribution
+from app.services import DemographicDistribution, PersonaGenerator
+from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PreferredPersonaGenerator
+from app.services.local_persona_generator import LocalPersonaSynthesizer
+from app.services.local_persona_generator import LocalPersonaSynthesizer as LegacyPersonaGenerator
+from app.core.constants import (
+    DEFAULT_AGE_GROUPS,
+    DEFAULT_GENDERS,
+    DEFAULT_EDUCATION_LEVELS,
+    DEFAULT_INCOME_BRACKETS,
+    DEFAULT_LOCATIONS,
+    DEFAULT_OCCUPATIONS,
+    DEFAULT_VALUES,
+    DEFAULT_INTERESTS,
+)
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_distribution(
+    distribution: Dict[str, float], fallback: Dict[str, float]
+) -> Dict[str, float]:
+    """Normalize distribution to sum to 1.0, or use fallback if invalid."""
+    if not distribution:
+        return fallback
+    total = sum(distribution.values())
+    if total <= 0:
+        return fallback
+    return {key: value / total for key, value in distribution.items()}
 
 
 @router.post("/projects/{project_id}/personas/generate", status_code=202)
 async def generate_personas(
     project_id: UUID,
     request: PersonaGenerateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """Generate synthetic personas for a project"""
@@ -32,13 +60,29 @@ async def generate_personas(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Schedule background task for persona generation
-    background_tasks.add_task(
-        _schedule_persona_generation,
-        project_id,
-        request.num_personas,
-        request.adversarial_mode,
-    )
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(
+            _generate_personas_task(
+                project_id,
+                request.num_personas,
+                request.adversarial_mode,
+            )
+        )
+        logger.info(
+            "Scheduled persona generation",
+            extra={
+                "project_id": str(project_id),
+                "num_personas": request.num_personas,
+                "adversarial_mode": request.adversarial_mode,
+            },
+        )
+    except RuntimeError as exc:  # pragma: no cover - defensive fallback
+        logger.exception("Failed to schedule persona generation", exc_info=exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to schedule persona generation task.",
+        ) from exc
 
     return {
         "message": "Persona generation started",
@@ -46,19 +90,6 @@ async def generate_personas(
         "num_personas": request.num_personas,
         "adversarial_mode": request.adversarial_mode,
     }
-
-
-def _schedule_persona_generation(
-    project_id: UUID,
-    num_personas: int,
-    adversarial_mode: bool,
-):
-    """Helper to schedule persona generation on the running event loop."""
-    asyncio.create_task(
-        _generate_personas_task(project_id, num_personas, adversarial_mode)
-    )
-
-
 async def _generate_personas_task(
     project_id: UUID,
     num_personas: int,
@@ -68,7 +99,37 @@ async def _generate_personas_task(
     from app.services import AdversarialService
 
     async with AsyncSessionLocal() as db:
-        generator = PersonaGeneratorLangChain()
+        generator = None
+        generator_name = ""
+
+        for candidate, label in (
+            (PreferredPersonaGenerator, "langchain"),
+            (LegacyPersonaGenerator, "legacy"),
+        ):
+            try:
+                generator = candidate()
+                generator_name = label
+                logger.info(
+                    "Using %s persona generator",
+                    label,
+                    extra={"project_id": str(project_id)},
+                )
+                break
+            except Exception as exc:
+                logger.warning(
+                    "Persona generator %s unavailable, falling back",
+                    label,
+                    exc_info=exc,
+                    extra={"project_id": str(project_id)},
+                )
+
+        if generator is None:
+            generator = LocalPersonaSynthesizer()
+            generator_name = "local"
+            logger.info(
+                "Using local persona synthesizer",
+                extra={"project_id": str(project_id)},
+            )
 
         # Load project
         result = await db.execute(
@@ -81,13 +142,25 @@ async def _generate_personas_task(
 
         target_demographics = project.target_demographics or {}
 
-        # Create distribution from target demographics
+        # Create distribution from target demographics with sensible fallbacks
         distribution = DemographicDistribution(
-            age_groups=target_demographics.get("age_group", {}),
-            genders=target_demographics.get("gender", {}),
-            education_levels=target_demographics.get("education_level", {}),
-            income_brackets=target_demographics.get("income_bracket", {}),
-            locations=target_demographics.get("location", {}),
+            age_groups=_normalize_distribution(
+                target_demographics.get("age_group", {}), DEFAULT_AGE_GROUPS
+            ),
+            genders=_normalize_distribution(
+                target_demographics.get("gender", {}), DEFAULT_GENDERS
+            ),
+            education_levels=_normalize_distribution(
+                target_demographics.get("education_level", {}),
+                DEFAULT_EDUCATION_LEVELS,
+            ),
+            income_brackets=_normalize_distribution(
+                target_demographics.get("income_bracket", {}),
+                DEFAULT_INCOME_BRACKETS,
+            ),
+            locations=_normalize_distribution(
+                target_demographics.get("location", {}), DEFAULT_LOCATIONS
+            ),
         )
 
         if adversarial_mode:
@@ -103,23 +176,74 @@ async def _generate_personas_task(
         else:
             # Generate normal personas
             personas_data = []
+            validation_samples = []
             for _ in range(num_personas):
-                demographic = generator.sample_demographic_profile(distribution)[0]
+                try:
+                    demographic = generator.sample_demographic_profile(distribution)[0]
+                except Exception as exc:
+                    logger.exception(
+                        "Demographic sampling failed, using local fallback",
+                        exc_info=exc,
+                        extra={"project_id": str(project_id)},
+                    )
+                    demographic = LocalPersonaSynthesizer().sample_demographic_profile(
+                        distribution
+                    )[0]
+
                 psychological = generator.sample_big_five_traits()
                 cultural = generator.sample_cultural_dimensions()
                 psychological.update(cultural)
 
-                prompt, personality = await generator.generate_persona_personality(
-                    demographic, psychological
+                validation_samples.append(
+                    {
+                        "age_group": demographic.get("age_group"),
+                        "gender": demographic.get("gender"),
+                        "education_level": demographic.get("education_level"),
+                        "income_bracket": demographic.get("income_bracket"),
+                        "location": demographic.get("location"),
+                    }
                 )
+
+                try:
+                    prompt, personality = await generator.generate_persona_personality(
+                        demographic, psychological
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Persona personality generation failed; using offline template",
+                        exc_info=exc,
+                        extra={
+                            "project_id": str(project_id),
+                            "generator": generator_name,
+                        },
+                    )
+                    local_generator = LocalPersonaSynthesizer()
+                    prompt, personality = await local_generator.generate_persona_personality(
+                        demographic, psychological
+                    )
 
                 # Extract age from age group
                 age_group = demographic.get("age_group", "25-34")
                 if "-" in age_group:
-                    age_parts = age_group.split("-")
-                    age = (int(age_parts[0]) + int(age_parts[1])) // 2
+                    start, end = age_group.split("-", maxsplit=1)
+                    try:
+                        age = random.randint(int(start), int(end))
+                    except ValueError:
+                        age = random.randint(25, 44)
+                elif age_group.endswith("+"):
+                    base = age_group.rstrip("+")
+                    try:
+                        lower = int(base)
+                        age = random.randint(lower, lower + 25)
+                    except ValueError:
+                        age = random.randint(45, 70)
                 else:
-                    age = 35
+                    age = random.randint(25, 44)
+
+                fallback_values = random.sample(DEFAULT_VALUES, k=min(3, len(DEFAULT_VALUES)))
+                fallback_interests = random.sample(
+                    DEFAULT_INTERESTS, k=min(3, len(DEFAULT_INTERESTS))
+                )
 
                 personas_data.append(
                     {
@@ -129,7 +253,8 @@ async def _generate_personas_task(
                         "location": demographic.get("location"),
                         "education_level": demographic.get("education_level"),
                         "income_bracket": demographic.get("income_bracket"),
-                        "occupation": personality.get("occupation", "N/A"),
+                        "occupation": personality.get("occupation")
+                        or random.choice(DEFAULT_OCCUPATIONS),
                         "openness": psychological.get("openness"),
                         "conscientiousness": psychological.get("conscientiousness"),
                         "extraversion": psychological.get("extraversion"),
@@ -141,8 +266,8 @@ async def _generate_personas_task(
                         "uncertainty_avoidance": psychological.get("uncertainty_avoidance"),
                         "long_term_orientation": psychological.get("long_term_orientation"),
                         "indulgence": psychological.get("indulgence"),
-                        "values": personality.get("values", []),
-                        "interests": personality.get("interests", []),
+                        "values": personality.get("values") or fallback_values,
+                        "interests": personality.get("interests") or fallback_interests,
                         "background_story": personality.get("background_story", ""),
                         "personality_prompt": prompt,
                     }
@@ -156,37 +281,50 @@ async def _generate_personas_task(
         await db.commit()
 
         # Validate distribution if not adversarial
-        if not adversarial_mode and personas_data:
-            validation = generator.validate_distribution(
-                [
-                    {
-                        "age_group": f"{p['age']}-{p['age']}",
-                        "gender": p["gender"],
-                        "education_level": p["education_level"],
-                        "income_bracket": p["income_bracket"],
-                        "location": p["location"],
-                    }
-                    for p in personas_data
-                ],
-                distribution,
-            )
+        if (
+            not adversarial_mode
+            and personas_data
+            and hasattr(generator, "validate_distribution")
+        ):
+            try:
+                validation = generator.validate_distribution(
+                    validation_samples,
+                    distribution,
+                )
 
-            # Update project validation results
-            project.chi_square_statistic = {
-                k: v["chi_square_statistic"]
-                for k, v in validation.items()
-                if k != "overall_valid"
-            }
-            project.p_values = {
-                k: v["p_value"] for k, v in validation.items() if k != "overall_valid"
-            }
-            project.is_statistically_valid = validation["overall_valid"]
+                project.chi_square_statistic = {
+                    k: v["chi_square_statistic"]
+                    for k, v in validation.items()
+                    if k != "overall_valid"
+                }
+                project.p_values = {
+                    k: v["p_value"]
+                    for k, v in validation.items()
+                    if k != "overall_valid"
+                }
+                project.is_statistically_valid = validation["overall_valid"]
 
-            from datetime import datetime
+                from datetime import datetime, timezone
 
-            project.validation_date = datetime.utcnow()
+                project.validation_date = datetime.now(timezone.utc)
 
-            await db.commit()
+                await db.commit()
+            except Exception as exc:
+                logger.warning(
+                    "Validation step failed",
+                    exc_info=exc,
+                    extra={"project_id": str(project_id)},
+                )
+
+        logger.info(
+            "Persona generation completed",
+            extra={
+                "project_id": str(project_id),
+                "num_personas": len(personas_data),
+                "generator": generator_name,
+                "adversarial": adversarial_mode,
+            },
+        )
 
 
 @router.get("/projects/{project_id}/personas", response_model=List[PersonaResponse])
@@ -199,7 +337,7 @@ async def list_personas(
     """List personas for a project"""
     result = await db.execute(
         select(Persona)
-        .where(Persona.project_id == project_id, Persona.is_active == True)
+        .where(Persona.project_id == project_id, Persona.is_active.is_(True))
         .offset(skip)
         .limit(limit)
     )
@@ -222,3 +360,24 @@ async def get_persona(
         raise HTTPException(status_code=404, detail="Persona not found")
 
     return persona
+
+
+@router.delete("/personas/{persona_id}", status_code=204)
+async def delete_persona(
+    persona_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft delete a persona"""
+    result = await db.execute(
+        select(Persona).where(Persona.id == persona_id)
+    )
+    persona = result.scalar_one_or_none()
+
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    # Soft delete
+    persona.is_active = False
+    await db.commit()
+
+    return None

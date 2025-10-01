@@ -6,7 +6,12 @@ from pydantic import BaseModel, Field
 
 
 class PersonaGenerateRequest(BaseModel):
-    num_personas: int = Field(default=100, ge=10, le=1000)
+    num_personas: int = Field(
+        default=10,
+        ge=2,
+        le=100,
+        description="Number of personas to generate (2-100)"
+    )
     adversarial_mode: bool = Field(
         default=False,
         description="Generate adversarial personas for campaign stress testing",

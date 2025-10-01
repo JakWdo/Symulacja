@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+from uuid import UUID
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -65,7 +66,7 @@ class FocusGroupServiceLangChain:
 
         # Update status
         focus_group.status = "running"
-        focus_group.started_at = datetime.utcnow()
+        focus_group.started_at = datetime.now(timezone.utc)
         await db.commit()
 
         try:
@@ -107,7 +108,7 @@ class FocusGroupServiceLangChain:
 
             # Update focus group
             focus_group.status = "completed"
-            focus_group.completed_at = datetime.utcnow()
+            focus_group.completed_at = datetime.now(timezone.utc)
             focus_group.total_execution_time_ms = int(total_time)
             focus_group.avg_response_time_ms = avg_response_time
             focus_group.max_response_time_ms = int(max_response_time)
@@ -136,7 +137,7 @@ class FocusGroupServiceLangChain:
             raise e
 
     async def _load_personas(
-        self, db: AsyncSession, persona_ids: List[str]
+        self, db: AsyncSession, persona_ids: List[UUID]
     ) -> List[Persona]:
         """Load persona objects"""
         result = await db.execute(select(Persona).where(Persona.id.in_(persona_ids)))
