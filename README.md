@@ -3,8 +3,22 @@
 AI-powered market research platform for generating synthetic personas with statistically valid behavioral analytics.
 
 ## 📚 Documentation
-- **[Statistical Validity Explained](STATISTICAL_VALIDITY.md)** - Understand how we ensure your personas are representative
-- **API Documentation**: Available at http://localhost:8000/docs when backend is running
+
+### 🌟 **[COMPLETE GUIDE](COMPLETE_GUIDE.md)** - Wszystko w jednym miejscu!
+**1000+ linii kompletnej dokumentacji obejmującej:**
+- 🏗️ Architekturę systemu (diagramy)
+- 📦 Wszystkie 4 fazy implementacji
+- 🔌 Pełna dokumentacja API
+- 🎨 Komponenty Frontend
+- 🧪 Testing & Deployment
+- 📖 Instrukcje użytkowania (krok po kroku)
+- 🐛 Troubleshooting
+- ⚡ Optymalizacja wydajności
+
+### Dodatkowa dokumentacja:
+- **[Statistical Validity Explained](STATISTICAL_VALIDITY.md)** - Statystyczna walidacja person
+- **[Implementation Details](IMPROVEMENTS.md)**
+- **API Documentation**: http://localhost:8000/docs (interactive Swagger UI)
 
 ## 🚀 Quick Start (Docker - Recommended)
 
@@ -45,6 +59,51 @@ docker compose ps
 ```
 
 All containers should show "healthy" or "Up" status.
+
+## ✨ Enhanced Insights Features (All 4 Phases Complete!)
+
+### 🎯 Phase 1: Core Services ✅
+- **PersonaV2 Schema**: Hierarchical structure (demographics/psychology/profile/metadata)
+- **CustomPersonaGenerator**: Advanced filtering (geographic, psychographic, occupation)
+- **DiscussionSummarizerService**: AI summaries with Gemini 2.0/2.5
+- **MetricsExplainerService**: Human-readable metric explanations
+
+### 🎨 Phase 2: Frontend Integration ✅
+- **MetricCardWithExplanation**: Interactive metric cards with animations
+- **AISummaryPanel**: Collapsible AI summary sections (insights, recommendations)
+- **Enhanced API**: 5 new endpoints for advanced analytics
+
+### 📊 Phase 3: Advanced Analytics ✅
+- **Demographic Correlations**: Age/gender/education vs sentiment (Pearson, ANOVA)
+- **Behavioral Segmentation**: K-Means clustering with auto-generated labels
+- **Temporal Analysis**: Trends, momentum shifts, fatigue detection
+- **Response Quality**: Depth, constructiveness, specificity scores
+- **Outlier Detection**: Z-score based anomaly detection
+
+### 📄 Phase 4: Enhanced PDF Reports ✅
+- **Professional PDF Export**: Multi-section reports with ReportLab
+- **AI Integration**: Executive summaries, key insights, strategic recommendations
+- **Advanced Analytics**: Demographics, segments, quality metrics in reports
+- **Custom Styling**: Color-coded health badges, professional typography
+
+### Quick Feature Access
+```bash
+# Generate AI Summary (Fast with Gemini Flash)
+curl -X POST "http://localhost:8000/api/v1/focus-groups/{id}/ai-summary?use_pro_model=false"
+
+# Get Human-Readable Metric Explanations
+curl "http://localhost:8000/api/v1/focus-groups/{id}/metric-explanations"
+
+# Get Advanced Analytics (Correlations, Segments, Quality)
+curl "http://localhost:8000/api/v1/focus-groups/{id}/advanced-insights"
+
+# Download Enhanced PDF Report
+curl "http://localhost:8000/api/v1/focus-groups/{id}/enhanced-report?include_ai_summary=true&include_advanced_insights=true" > report.pdf
+```
+
+**📖 See [COMPLETE_GUIDE.md](COMPLETE_GUIDE.md) for full implementation details!**
+
+---
 
 ## 📖 Usage
 
