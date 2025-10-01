@@ -4,7 +4,7 @@ Provides human-readable explanations for all insight metrics
 Helps users understand what metrics mean and how to act on them
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 

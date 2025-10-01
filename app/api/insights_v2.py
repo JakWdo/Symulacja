@@ -15,6 +15,7 @@ from app.services.discussion_summarizer import DiscussionSummarizerService
 from app.services.metrics_explainer import MetricsExplainerService
 from app.services.insight_service import InsightService
 from app.services.advanced_insights_service import AdvancedInsightsService
+from app.services.enhanced_report_generator import EnhancedReportGenerator
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -195,4 +196,59 @@ async def get_advanced_insights(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate advanced insights: {str(e)}"
+        )
+
+
+@router.get("/focus-groups/{focus_group_id}/enhanced-report")
+async def generate_enhanced_report(
+    focus_group_id: UUID,
+    include_ai_summary: bool = Query(True, description="Include AI-generated executive summary"),
+    include_advanced_insights: bool = Query(True, description="Include advanced analytics"),
+    use_pro_model: bool = Query(False, description="Use Gemini 2.5 Pro for AI summary (slower but higher quality)"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate enhanced PDF report with AI summary and advanced insights
+
+    Returns a comprehensive professional PDF report including:
+    - Cover page with project overview and health score
+    - AI executive summary (optional, uses Gemini 2.0/2.5)
+    - Key insights and strategic recommendations
+    - Detailed metrics with explanations and context
+    - Advanced analytics (correlations, segments, quality metrics)
+    - Professional formatting with color-coded sections
+
+    **Performance notes:**
+    - Basic report: ~2-3 seconds
+    - With AI summary (Flash): ~5-8 seconds
+    - With AI summary (Pro): ~10-15 seconds
+    - With advanced insights: +2-3 seconds
+    """
+    try:
+        from fastapi.responses import StreamingResponse
+
+        generator = EnhancedReportGenerator()
+        pdf_bytes = await generator.generate_enhanced_pdf_report(
+            db=db,
+            focus_group_id=focus_group_id,
+            include_ai_summary=include_ai_summary,
+            include_advanced_insights=include_advanced_insights,
+            use_pro_model=use_pro_model,
+        )
+
+        return StreamingResponse(
+            iter([pdf_bytes]),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=focus_group_{focus_group_id}_enhanced_report.pdf"
+            }
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to generate enhanced report", exc_info=e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate enhanced report: {str(e)}"
         )

@@ -185,4 +185,23 @@ export const analysisApi = {
     );
     return data;
   },
+  exportEnhancedPDF: async (
+    focusGroupId: string,
+    includeAISummary = true,
+    includeAdvancedInsights = true,
+    useProModel = false
+  ): Promise<Blob> => {
+    const { data } = await api.get(
+      `/focus-groups/${focusGroupId}/enhanced-report`,
+      {
+        responseType: 'blob',
+        params: {
+          include_ai_summary: includeAISummary,
+          include_advanced_insights: includeAdvancedInsights,
+          use_pro_model: useProModel,
+        },
+      }
+    );
+    return data;
+  },
 };
