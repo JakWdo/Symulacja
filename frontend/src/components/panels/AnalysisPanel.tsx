@@ -2,7 +2,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { analysisApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
-import { BarChart3, TrendingUp, Users, Zap, AlertTriangle } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Zap, AlertTriangle, Download, FileText } from 'lucide-react';
 import { getPolarizationLevel, generateColorScale, truncateText } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -184,6 +184,34 @@ export function AnalysisPanel() {
     mutationFn: () => analysisApi.analyzePolarization(selectedFocusGroup!.id),
   });
 
+  const exportPDFMutation = useMutation({
+    mutationFn: () => analysisApi.exportPDF(selectedFocusGroup!.id),
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analysis_${selectedFocusGroup!.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    },
+  });
+
+  const exportCSVMutation = useMutation({
+    mutationFn: () => analysisApi.exportCSV(selectedFocusGroup!.id),
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analysis_${selectedFocusGroup!.id}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    },
+  });
+
   const { data: responses } = useQuery({
     queryKey: ['responses', selectedFocusGroup?.id],
     queryFn: async () => {
@@ -196,6 +224,18 @@ export function AnalysisPanel() {
   const handleAnalyze = () => {
     if (selectedFocusGroup) {
       analyzeMutation.mutate();
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (selectedFocusGroup) {
+      exportPDFMutation.mutate();
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (selectedFocusGroup) {
+      exportCSVMutation.mutate();
     }
   };
 
@@ -247,6 +287,44 @@ export function AnalysisPanel() {
           </div>
         ) : (
           <>
+            {/* Export Buttons */}
+            <div className="flex gap-3 justify-end mb-4">
+              <button
+                onClick={handleExportPDF}
+                disabled={exportPDFMutation.isPending}
+                className="floating-button px-4 py-2 flex items-center gap-2 text-sm"
+              >
+                {exportPDFMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-slate-600" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    Export PDF
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleExportCSV}
+                disabled={exportCSVMutation.isPending}
+                className="floating-button px-4 py-2 flex items-center gap-2 text-sm"
+              >
+                {exportCSVMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-slate-600" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </>
+                )}
+              </button>
+            </div>
+
             <PolarizationScore score={analysis.overall_polarization_score} />
 
             {analysis.questions[0]?.clusters && (

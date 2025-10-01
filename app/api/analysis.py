@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
@@ -6,6 +7,7 @@ from uuid import UUID
 from app.db import get_db
 from app.models import FocusGroup
 from app.services import PolarizationService
+from app.services.report_generator import ReportGenerator
 
 router = APIRouter()
 
@@ -123,3 +125,51 @@ async def get_persona_history(
             for event in reversed(events)  # Show chronologically
         ],
     }
+
+
+@router.get("/focus-groups/{focus_group_id}/export/pdf")
+async def export_analysis_pdf(
+    focus_group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Export focus group analysis as PDF"""
+
+    # Get analysis data first
+    service = PolarizationService()
+    analysis_data = await service.analyze_polarization(db, str(focus_group_id))
+
+    # Generate PDF report
+    report_gen = ReportGenerator()
+    pdf_bytes = await report_gen.generate_pdf_report(db, focus_group_id, analysis_data)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=focus_group_analysis_{focus_group_id}.pdf"
+        }
+    )
+
+
+@router.get("/focus-groups/{focus_group_id}/export/csv")
+async def export_analysis_csv(
+    focus_group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Export focus group analysis as CSV"""
+
+    # Get analysis data first
+    service = PolarizationService()
+    analysis_data = await service.analyze_polarization(db, str(focus_group_id))
+
+    # Generate CSV report
+    report_gen = ReportGenerator()
+    csv_bytes = await report_gen.generate_csv_report(db, focus_group_id, analysis_data)
+
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=focus_group_analysis_{focus_group_id}.csv"
+        }
+    )

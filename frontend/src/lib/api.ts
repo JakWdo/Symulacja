@@ -114,4 +114,18 @@ export const analysisApi = {
     );
     return data;
   },
+  exportPDF: async (focusGroupId: string): Promise<Blob> => {
+    const { data } = await api.get(
+      `/focus-groups/${focusGroupId}/export/pdf`,
+      { responseType: 'blob' }
+    );
+    return data;
+  },
+  exportCSV: async (focusGroupId: string): Promise<Blob> => {
+    const { data } = await api.get(
+      `/focus-groups/${focusGroupId}/export/csv`,
+      { responseType: 'blob' }
+    );
+    return data;
+  },
 };

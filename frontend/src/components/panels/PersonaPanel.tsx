@@ -41,49 +41,51 @@ function PersonaCard({ persona, isSelected }: { persona: Persona; isSelected: bo
     <div
       onClick={() => setSelectedPersona(persona)}
       className={cn(
-        'rounded-xl border-2 transition-all duration-200 cursor-pointer hover:shadow-md bg-white p-4',
+        'rounded-2xl border-2 transition-all duration-200 cursor-pointer hover:shadow-xl bg-white p-5',
         isSelected
-          ? 'border-primary-400 shadow-lg ring-2 ring-primary-100'
-          : 'border-slate-200 hover:border-primary-200',
+          ? 'border-primary-500 shadow-xl ring-4 ring-primary-100 scale-[1.02]'
+          : 'border-slate-200 hover:border-primary-300',
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="p-2.5 rounded-lg bg-gradient-to-br from-primary-50 to-accent-50 text-primary-600">
-          <User className="w-5 h-5" />
+      <div className="flex items-center gap-4 mb-4">
+        <div className="p-3 rounded-xl bg-gradient-to-br from-primary-100 via-primary-50 to-accent-100 text-primary-700 shadow-sm">
+          <User className="w-6 h-6" />
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-base text-slate-900">
+          <h4 className="font-bold text-lg text-slate-900 tracking-tight">
             {persona.gender}, {persona.age}
           </h4>
           {persona.location && (
-            <p className="text-xs text-slate-500">📍 {persona.location}</p>
+            <p className="text-sm text-slate-600 flex items-center gap-1 mt-0.5">
+              📍 {persona.location}
+            </p>
           )}
         </div>
       </div>
 
       {/* Demographics Grid */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="grid grid-cols-2 gap-3 mb-4">
         {persona.education_level && (
-          <div className="px-2.5 py-1.5 rounded-lg bg-slate-50">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wide">Education</div>
-            <div className="text-xs text-slate-800 font-medium mt-0.5">
+          <div className="px-3 py-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100">
+            <div className="text-[11px] text-blue-700 font-semibold uppercase tracking-wide">Education</div>
+            <div className="text-sm text-blue-900 font-semibold mt-1">
               {persona.education_level}
             </div>
           </div>
         )}
         {persona.income_bracket && (
-          <div className="px-2.5 py-1.5 rounded-lg bg-slate-50">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wide">Income</div>
-            <div className="text-xs text-slate-800 font-medium mt-0.5">
+          <div className="px-3 py-2.5 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100">
+            <div className="text-[11px] text-emerald-700 font-semibold uppercase tracking-wide">Income</div>
+            <div className="text-sm text-emerald-900 font-semibold mt-1">
               {persona.income_bracket}
             </div>
           </div>
         )}
       </div>
 
-      {/* Personality Traits - Compact */}
-      <div className="space-y-1.5 mb-3">
+      {/* Personality Traits */}
+      <div className="space-y-2.5 mb-4">
         {[
           { label: 'Openness', value: persona.openness, icon: Brain },
           { label: 'Conscientiousness', value: persona.conscientiousness, icon: Target },
@@ -93,18 +95,18 @@ function PersonaCard({ persona, isSelected }: { persona: Persona; isSelected: bo
           .filter((trait) => trait.value !== null)
           .slice(0, 3)
           .map(({ label, value, icon: Icon }) => (
-            <div key={label} className="flex items-center gap-2">
-              <Icon className="w-3 h-3 text-slate-400" />
+            <div key={label} className="flex items-center gap-2.5">
+              <Icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
               <div className="flex-1">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] text-slate-600">{label}</span>
-                  <span className="text-xs font-medium text-slate-700">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-slate-700">{label}</span>
+                  <span className="text-sm font-bold text-slate-900">
                     {Math.round(value! * 100)}%
                   </span>
                 </div>
-                <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                   <div
-                    className="h-full transition-all duration-500"
+                    className="h-full transition-all duration-500 rounded-full"
                     style={{
                       width: `${value! * 100}%`,
                       backgroundColor: getPersonalityColor(label, value!),
@@ -116,14 +118,14 @@ function PersonaCard({ persona, isSelected }: { persona: Persona; isSelected: bo
           ))}
       </div>
 
-      {/* Values & Interests - Inline */}
+      {/* Values & Interests */}
       {((persona.values && persona.values.length > 0) || (persona.interests && persona.interests.length > 0)) && (
-        <div className="pt-3 border-t border-slate-100">
-          <div className="flex flex-wrap gap-1">
+        <div className="pt-4 border-t border-slate-200">
+          <div className="flex flex-wrap gap-2">
             {persona.values?.slice(0, 2).map((value) => (
               <span
                 key={value}
-                className="text-[10px] px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 font-medium"
+                className="text-xs px-3 py-1.5 rounded-full bg-gradient-to-r from-primary-100 to-primary-50 text-primary-800 font-semibold border border-primary-200"
               >
                 {value}
               </span>
@@ -131,7 +133,7 @@ function PersonaCard({ persona, isSelected }: { persona: Persona; isSelected: bo
             {persona.interests?.slice(0, 2).map((interest) => (
               <span
                 key={interest}
-                className="text-[10px] px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 font-medium"
+                className="text-xs px-3 py-1.5 rounded-full bg-gradient-to-r from-accent-100 to-accent-50 text-accent-800 font-semibold border border-accent-200"
               >
                 {interest}
               </span>
