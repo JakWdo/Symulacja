@@ -14,6 +14,7 @@ from app.db import get_db
 from app.services.discussion_summarizer import DiscussionSummarizerService
 from app.services.metrics_explainer import MetricsExplainerService
 from app.services.insight_service import InsightService
+from app.services.advanced_insights_service import AdvancedInsightsService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -156,4 +157,42 @@ async def get_health_check(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get health check: {str(e)}"
+        )
+
+
+@router.get("/focus-groups/{focus_group_id}/advanced-insights")
+async def get_advanced_insights(
+    focus_group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Get advanced analytics for focus group
+
+    Returns comprehensive insights including:
+    - Demographic-sentiment correlations
+    - Temporal analysis (sentiment evolution over time)
+    - Behavioral segmentation (participant clusters)
+    - Response quality metrics
+    - Comparative question analysis
+    - Outlier detection
+    - Engagement patterns
+
+    This is computationally intensive and may take a few seconds.
+    """
+    try:
+        advanced_service = AdvancedInsightsService()
+        insights = await advanced_service.generate_advanced_insights(
+            db=db,
+            focus_group_id=str(focus_group_id)
+        )
+
+        return insights
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to generate advanced insights", exc_info=e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate advanced insights: {str(e)}"
         )

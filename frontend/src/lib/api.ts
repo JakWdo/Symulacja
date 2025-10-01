@@ -179,4 +179,10 @@ export const analysisApi = {
     );
     return data;
   },
+  getAdvancedInsights: async (focusGroupId: string): Promise<any> => {
+    const { data } = await api.get(
+      `/focus-groups/${focusGroupId}/advanced-insights`
+    );
+    return data;
+  },
 };
