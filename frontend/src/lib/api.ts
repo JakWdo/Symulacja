@@ -149,4 +149,34 @@ export const analysisApi = {
     );
     return data;
   },
+  // Enhanced Insights v2 API
+  generateAISummary: async (
+    focusGroupId: string,
+    useProModel = false,
+    includeRecommendations = true
+  ): Promise<any> => {
+    const { data } = await api.post(
+      `/focus-groups/${focusGroupId}/ai-summary`,
+      {},
+      {
+        params: {
+          use_pro_model: useProModel,
+          include_recommendations: includeRecommendations,
+        },
+      }
+    );
+    return data;
+  },
+  getMetricExplanations: async (focusGroupId: string): Promise<any> => {
+    const { data } = await api.get(
+      `/focus-groups/${focusGroupId}/metric-explanations`
+    );
+    return data;
+  },
+  getHealthCheck: async (focusGroupId: string): Promise<any> => {
+    const { data } = await api.get(
+      `/focus-groups/${focusGroupId}/health-check`
+    );
+    return data;
+  },
 };

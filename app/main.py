@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import get_settings
-from app.api import projects, personas, focus_groups, analysis
+from app.api import projects, personas, focus_groups, analysis, insights_v2
 import logging
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["Projec
 app.include_router(personas.router, prefix=settings.API_V1_PREFIX, tags=["Personas"])
 app.include_router(focus_groups.router, prefix=settings.API_V1_PREFIX, tags=["Focus Groups"])
 app.include_router(analysis.router, prefix=settings.API_V1_PREFIX, tags=["Analysis"])
+app.include_router(insights_v2.router, prefix=settings.API_V1_PREFIX, tags=["Enhanced Insights"])
 
 
 @app.get("/")
