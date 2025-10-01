@@ -1466,21 +1466,6 @@ CACHE_TTL = 3600  # 1 hour
 - [ ] Public API (developer platform)
 - [ ] Marketplace (persona templates)
 
----
-
-## Credits & License
-
-**Developed by:** Market Research SaaS Team
-**AI Assistant:** Claude (Anthropic)
-**License:** MIT
-
-**Key Technologies:**
-- FastAPI (Sebastián Ramírez)
-- LangChain (Harrison Chase)
-- Google Gemini (Google DeepMind)
-- React (Meta)
-- ReportLab (ReportLab Inc.)
-
 **Last Updated:** 2025-10-01
 **Version:** 1.0.0 (All 4 Phases Complete)
 
@@ -1523,19 +1508,3 @@ curl localhost:8000/api/v1/focus-groups/{id}/enhanced-report > report.pdf
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
 - **Database:** postgresql://localhost:5432/market_research
-
----
-
-## Support & Contact
-
-**Issues:** GitHub Issues
-**Email:** support@example.com
-**Docs:** https://docs.example.com
-
-**Community:**
-- Discord: https://discord.gg/example
-- Twitter: @example
-
----
-
-🎉 **Wszystkie 4 fazy zakończone! System gotowy do produkcji.** 🚀
