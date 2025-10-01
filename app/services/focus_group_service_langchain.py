@@ -91,7 +91,13 @@ class FocusGroupServiceLangChain:
 
                 # Count consistency errors
                 for resp in responses:
-                    if resp["consistency_score"] < 0.95:
+                    score = resp.get("consistency_score") if isinstance(resp, dict) else None
+                    try:
+                        score_value = float(score) if score is not None else None
+                    except (TypeError, ValueError):
+                        score_value = None
+
+                    if score_value is None or score_value < 0.95:
                         consistency_errors += 1
 
                 all_responses.append(
@@ -132,9 +138,26 @@ class FocusGroupServiceLangChain:
             }
 
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f"Focus group {focus_group_id} failed: {str(e)}",
+                exc_info=True,
+                extra={"focus_group_id": str(focus_group_id)}
+            )
+
             focus_group.status = "failed"
+            # Store first 500 chars of error for debugging
+            if hasattr(focus_group, 'error_message'):
+                focus_group.error_message = str(e)[:500]
             await db.commit()
-            raise e
+
+            # Don't re-raise - this is background task, just log
+            return {
+                "focus_group_id": str(focus_group_id),
+                "status": "failed",
+                "error": str(e)
+            }
 
     async def _load_personas(
         self, db: AsyncSession, persona_ids: List[UUID]
@@ -200,6 +223,14 @@ class FocusGroupServiceLangChain:
             db, str(persona.id), response_text, context
         )
 
+        if not isinstance(consistency_check, dict):
+            consistency_check = {"consistency_score": 1.0, "contradictions": [], "is_consistent": True}
+
+        consistency_score = float(consistency_check.get("consistency_score", 1.0))
+        contradictions = consistency_check.get("contradictions") or []
+        if not isinstance(contradictions, list):
+            contradictions = [contradictions]
+
         response_time = (time.time() - start_time) * 1000
 
         # Create event for this interaction
@@ -222,8 +253,8 @@ class FocusGroupServiceLangChain:
             llm_provider=self.settings.DEFAULT_LLM_PROVIDER,
             llm_model=self.settings.DEFAULT_MODEL,
             temperature=self.settings.TEMPERATURE,
-            consistency_score=consistency_check["consistency_score"],
-            contradicts_events=consistency_check.get("contradictions", []),
+            consistency_score=consistency_score,
+            contradicts_events=contradictions,
         )
 
         db.add(persona_response)
@@ -233,8 +264,8 @@ class FocusGroupServiceLangChain:
             "persona_id": str(persona.id),
             "response": response_text,
             "response_time_ms": response_time,
-            "consistency_score": consistency_check["consistency_score"],
-            "contradictions": consistency_check.get("contradictions", []),
+            "consistency_score": consistency_score,
+            "contradictions": contradictions,
             "context_used": len(context),
         }
 

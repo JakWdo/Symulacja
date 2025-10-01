@@ -3,8 +3,9 @@ import type {
   Project,
   Persona,
   FocusGroup,
-  PolarizationAnalysis,
+  FocusGroupInsights,
   FocusGroupResponses,
+  PersonaInsight,
 } from '@/types';
 
 export interface CreateProjectPayload {
@@ -106,11 +107,15 @@ export const focusGroupsApi = {
 };
 
 export const analysisApi = {
-  analyzePolarization: async (
-    focusGroupId: string,
-  ): Promise<PolarizationAnalysis> => {
-    const { data } = await api.post<PolarizationAnalysis>(
-      `/focus-groups/${focusGroupId}/analyze-polarization`,
+  getInsights: async (focusGroupId: string): Promise<FocusGroupInsights> => {
+    const { data } = await api.get<FocusGroupInsights>(
+      `/focus-groups/${focusGroupId}/insights`,
+    );
+    return data;
+  },
+  generateInsights: async (focusGroupId: string): Promise<FocusGroupInsights> => {
+    const { data } = await api.post<FocusGroupInsights>(
+      `/focus-groups/${focusGroupId}/insights`,
     );
     return data;
   },
@@ -125,6 +130,22 @@ export const analysisApi = {
     const { data } = await api.get(
       `/focus-groups/${focusGroupId}/export/csv`,
       { responseType: 'blob' }
+    );
+    return data;
+  },
+  getPersonaHistory: async (
+    personaId: string,
+    limit = 50,
+  ): Promise<any> => {
+    const { data } = await api.get(
+      `/personas/${personaId}/history`,
+      { params: { limit } }
+    );
+    return data;
+  },
+  getPersonaInsights: async (personaId: string): Promise<PersonaInsight> => {
+    const { data } = await api.get<PersonaInsight>(
+      `/personas/${personaId}/insights`,
     );
     return data;
   },

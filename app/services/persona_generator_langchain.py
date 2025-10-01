@@ -43,12 +43,14 @@ class PersonaGeneratorLangChain:
         self.settings = settings
         self._rng = np.random.default_rng(self.settings.RANDOM_SEED)
 
-        # Initialize LangChain Gemini LLM
+        # Initialize LangChain Gemini LLM with higher temperature for diversity
         self.llm = ChatGoogleGenerativeAI(
             model=settings.DEFAULT_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=settings.TEMPERATURE,
+            temperature=0.9,  # Increased from default for more creative/diverse personas
             max_tokens=settings.MAX_TOKENS,
+            top_p=0.95,
+            top_k=40,
         )
 
         # Setup output parser for structured JSON responses
@@ -161,8 +163,27 @@ class PersonaGeneratorLangChain:
     def _create_persona_prompt(
         self, demographic: Dict[str, Any], psychological: Dict[str, Any]
     ) -> str:
-        """Create prompt for LLM persona generation"""
-        return f"""You are creating a synthetic persona for market research. Generate a detailed, realistic personality profile based on the following attributes:
+        """Create prompt for LLM persona generation with few-shot examples and trait guidance"""
+
+        # Generate unique seed for this persona
+        persona_seed = self._rng.integers(1000, 9999)
+
+        # Trait interpretation guidance
+        openness_val = psychological.get('openness', 0.5)
+        conscientiousness_val = psychological.get('conscientiousness', 0.5)
+        extraversion_val = psychological.get('extraversion', 0.5)
+        agreeableness_val = psychological.get('agreeableness', 0.5)
+        neuroticism_val = psychological.get('neuroticism', 0.5)
+
+        openness_hint = "creative, curious, open to new experiences" if openness_val > 0.6 else "practical, traditional, prefers routine" if openness_val < 0.4 else "moderately adventurous"
+        conscientiousness_hint = "organized, disciplined, detail-oriented" if conscientiousness_val > 0.6 else "spontaneous, flexible, less structured" if conscientiousness_val < 0.4 else "balanced planning style"
+        extraversion_hint = "outgoing, energetic, social" if extraversion_val > 0.6 else "reserved, introspective, prefers solitude" if extraversion_val < 0.4 else "ambivert"
+        agreeableness_hint = "cooperative, compassionate, empathetic" if agreeableness_val > 0.6 else "competitive, direct, skeptical" if agreeableness_val < 0.4 else "balanced social approach"
+        neuroticism_hint = "anxious, sensitive, stress-prone" if neuroticism_val > 0.6 else "calm, resilient, emotionally stable" if neuroticism_val < 0.4 else "moderately emotional"
+
+        return f"""You are a world-class market research expert creating synthetic personas for behavioral research. Your personas must be UNIQUE, REALISTIC, and INTERNALLY CONSISTENT.
+
+PERSONA #{persona_seed}
 
 DEMOGRAPHICS:
 - Age Group: {demographic.get('age_group')}
@@ -171,32 +192,73 @@ DEMOGRAPHICS:
 - Income: {demographic.get('income_bracket')}
 - Location: {demographic.get('location')}
 
-PSYCHOLOGICAL PROFILE (Big Five, 0-1 scale):
-- Openness: {psychological.get('openness', 0.5):.2f}
-- Conscientiousness: {psychological.get('conscientiousness', 0.5):.2f}
-- Extraversion: {psychological.get('extraversion', 0.5):.2f}
-- Agreeableness: {psychological.get('agreeableness', 0.5):.2f}
-- Neuroticism: {psychological.get('neuroticism', 0.5):.2f}
+PERSONALITY TRAITS (Big Five):
+- Openness: {openness_val:.2f} → {openness_hint}
+- Conscientiousness: {conscientiousness_val:.2f} → {conscientiousness_hint}
+- Extraversion: {extraversion_val:.2f} → {extraversion_hint}
+- Agreeableness: {agreeableness_val:.2f} → {agreeableness_hint}
+- Neuroticism: {neuroticism_val:.2f} → {neuroticism_hint}
 
-CULTURAL DIMENSIONS (Hofstede, 0-1 scale):
+CULTURAL DIMENSIONS (Hofstede):
 - Power Distance: {psychological.get('power_distance', 0.5):.2f}
 - Individualism: {psychological.get('individualism', 0.5):.2f}
-- Masculinity: {psychological.get('masculinity', 0.5):.2f}
 - Uncertainty Avoidance: {psychological.get('uncertainty_avoidance', 0.5):.2f}
-- Long-term Orientation: {psychological.get('long_term_orientation', 0.5):.2f}
-- Indulgence: {psychological.get('indulgence', 0.5):.2f}
 
-Generate a JSON response with:
-1. "background_story": A brief 2-3 sentence background (career, life situation, family)
-2. "values": List of 5-7 core values that guide their decisions
-3. "interests": List of 5-7 interests/hobbies
-4. "communication_style": How they typically express themselves
-5. "decision_making_style": How they approach decisions
-6. "typical_concerns": Common worries or priorities
+CRITICAL INSTRUCTIONS FOR DIVERSITY:
+1. Make this persona DISTINCTIVE - avoid generic descriptions
+2. Age matters: 25yo and 65yo have VERY different life contexts
+3. Occupation must align with education level and income
+4. Background story must reflect personality traits:
+   - High Openness → travel, creative hobbies, diverse experiences
+   - High Conscientiousness → structured career path, planning
+   - High Extraversion → social activities, networking
+   - Low Agreeableness → competitive fields, independent work
+   - High Individualism → entrepreneurial, self-reliant
+5. Be specific with details (actual city neighborhoods, specific brands, real activities)
 
-Ensure the personality is internally consistent and reflects the demographic and psychological attributes provided.
+FEW-SHOT EXAMPLES:
 
-Respond ONLY with valid JSON, no other text."""
+Example 1 (High Openness, Mid-career professional):
+{{
+  "background_story": "Maya is a 34-year-old UX designer in Brooklyn who left corporate life to freelance after a transformative trip to Japan. She's currently learning Japanese and building a side project exploring AR interfaces for museums. Single and loving the freedom to take on diverse clients from sustainable fashion to educational tech startups.",
+  "values": ["Creativity", "Autonomy", "Continuous Learning", "Authenticity", "Sustainability"],
+  "interests": ["Japanese language", "AR/VR Design", "Sustainable Fashion", "Museum Visits", "Meditation", "Urban Sketching"],
+  "communication_style": "enthusiastic and visual, often uses metaphors and examples from diverse fields",
+  "decision_making_style": "intuition-based with research; tests ideas quickly through prototypes",
+  "typical_concerns": ["Maintaining creative freedom while ensuring financial stability", "Finding meaningful client work", "Balancing solo work with social connection"]
+}}
+
+Example 2 (Low Openness, High Conscientiousness, approaching retirement):
+{{
+  "background_story": "Robert is a 58-year-old financial advisor in Dallas who has worked at the same firm for 32 years. Married with two grown children, he's meticulously planning his retirement and recently purchased a lake house. He serves as treasurer of his local Rotary Club and takes pride in his predictable routine and extensive client relationships built over decades.",
+  "values": ["Stability", "Loyalty", "Family", "Responsibility", "Tradition", "Integrity"],
+  "interests": ["Golf", "Classic Cars", "Financial Planning Podcasts", "Grilling", "Rotary Club", "Lake Fishing"],
+  "communication_style": "formal and professional, prefers face-to-face meetings, uses established frameworks",
+  "decision_making_style": "methodical and risk-averse, relies on proven methods and extensive planning",
+  "typical_concerns": ["Ensuring sufficient retirement savings", "Maintaining client relationships through succession", "Health insurance in retirement", "Legacy planning for children"]
+}}
+
+Example 3 (High Extraversion, High Neuroticism, recent graduate):
+{{
+  "background_story": "Jasmine is a 23-year-old social media manager in Los Angeles who recently graduated with a marketing degree. She juggles anxiety about job security with excitement for the creator economy. Living with three roommates in Echo Park, she's always networking at industry events while building her personal brand as a Gen-Z marketing consultant. She's close to her immigrant parents who don't fully understand her career choice.",
+  "values": ["Connection", "Recognition", "Authenticity", "Innovation", "Family", "Success"],
+  "interests": ["TikTok Content Creation", "Networking Events", "Brunch Culture", "Thrifting", "Podcast Listening", "Mental Health Advocacy", "K-pop"],
+  "communication_style": "energetic and trend-aware, uses social media vernacular, highly expressive",
+  "decision_making_style": "impulsive but collaborative, seeks validation from peers before committing",
+  "typical_concerns": ["Job security in volatile industry", "Student loan debt", "Comparison anxiety from social media", "Proving career choice to family", "Building sustainable income"]
+}}
+
+Now generate a COMPLETELY DIFFERENT persona following the same level of specificity and consistency with the provided demographic and psychological profile.
+
+Generate JSON ONLY (no markdown, no extra text):
+{{
+  "background_story": "<2-3 specific sentences about their current life, career trajectory, and unique context>",
+  "values": ["<5-7 specific values that drive their decisions>"],
+  "interests": ["<5-7 specific hobbies/activities they actually do>"],
+  "communication_style": "<how they express themselves>",
+  "decision_making_style": "<how they approach important choices>",
+  "typical_concerns": ["<3-5 specific worries or priorities in their current life stage>"]
+}}"""
 
     def validate_distribution(
         self,

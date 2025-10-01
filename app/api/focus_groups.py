@@ -100,6 +100,12 @@ async def get_focus_group(
     if not focus_group:
         raise HTTPException(status_code=404, detail="Focus group not found")
 
+    idea_score = (
+        round(float(focus_group.polarization_score) * 100, 2)
+        if focus_group.polarization_score is not None
+        else None
+    )
+
     return {
         "id": focus_group.id,
         "project_id": focus_group.project_id,
@@ -115,12 +121,11 @@ async def get_focus_group(
             "max_response_time_ms": focus_group.max_response_time_ms,
             "consistency_errors_count": focus_group.consistency_errors_count,
             "consistency_error_rate": focus_group.consistency_error_rate,
+            "overall_consistency_score": focus_group.overall_consistency_score,
+            "idea_score": idea_score,
             "meets_requirements": focus_group.meets_performance_requirements(),
         },
-        "polarization": {
-            "score": focus_group.polarization_score,
-            "clusters": focus_group.polarization_clusters,
-        },
+        "insights": focus_group.polarization_clusters,
         "created_at": focus_group.created_at,
         "started_at": focus_group.started_at,
         "completed_at": focus_group.completed_at,

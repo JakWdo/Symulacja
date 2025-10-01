@@ -3,6 +3,7 @@ LangChain-based Memory Service with Event Sourcing
 Uses LangChain for embeddings and consistency checking
 """
 
+import logging
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -18,6 +19,7 @@ from app.models import PersonaEvent, PersonaResponse, Persona
 from app.core.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class MemoryServiceLangChain:
@@ -211,6 +213,52 @@ If no contradictions, return empty list and consistency_score=1.0"""
 
         try:
             result = await self.consistency_chain.ainvoke({"prompt": prompt_text})
+
+            if not isinstance(result, dict):
+                logger.warning(
+                    "Consistency chain returned non-dict result; defaulting to safe values",
+                    extra={"persona_id": persona_id, "result_type": type(result).__name__},
+                )
+                return {
+                    "consistency_score": 1.0,
+                    "contradictions": [],
+                    "is_consistent": True,
+                    "raw_result": result,
+                }
+
+            consistency_score = result.get("consistency_score")
+            if consistency_score is None:
+                logger.warning(
+                    "Consistency chain missing consistency_score; using default",
+                    extra={"persona_id": persona_id},
+                )
+                consistency_score = 1.0
+            else:
+                try:
+                    consistency_score = float(consistency_score)
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Consistency score not numeric; using default",
+                        extra={"persona_id": persona_id, "consistency_score": consistency_score},
+                    )
+                    consistency_score = 1.0
+
+            contradictions = result.get("contradictions") or []
+            if not isinstance(contradictions, list):
+                contradictions = [contradictions]
+
+            is_consistent = result.get("is_consistent")
+            if is_consistent is None:
+                is_consistent = consistency_score >= 0.95
+
+            result.update(
+                {
+                    "consistency_score": consistency_score,
+                    "contradictions": contradictions,
+                    "is_consistent": bool(is_consistent),
+                }
+            )
+
             return result
         except Exception as e:
             # Fallback if parsing fails

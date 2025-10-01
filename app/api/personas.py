@@ -15,6 +15,8 @@ from app.services import DemographicDistribution, PersonaGenerator
 from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PreferredPersonaGenerator
 from app.services.local_persona_generator import LocalPersonaSynthesizer
 from app.services.local_persona_generator import LocalPersonaSynthesizer as LegacyPersonaGenerator
+from app.services.demographic_consistency import get_consistent_occupation, validate_occupation_consistency
+from app.services.persona_validator import PersonaValidator
 from app.core.constants import (
     DEFAULT_AGE_GROUPS,
     DEFAULT_GENDERS,
@@ -240,10 +242,47 @@ async def _generate_personas_task(
                 else:
                     age = random.randint(25, 44)
 
-                fallback_values = random.sample(DEFAULT_VALUES, k=min(3, len(DEFAULT_VALUES)))
+                fallback_values = random.sample(DEFAULT_VALUES, k=min(5, len(DEFAULT_VALUES)))
                 fallback_interests = random.sample(
-                    DEFAULT_INTERESTS, k=min(3, len(DEFAULT_INTERESTS))
+                    DEFAULT_INTERESTS, k=min(5, len(DEFAULT_INTERESTS))
                 )
+
+                # Get occupation from LLM or use demographic-consistent fallback
+                llm_occupation = personality.get("occupation")
+                if llm_occupation:
+                    # Validate LLM-generated occupation
+                    consistency = validate_occupation_consistency(
+                        llm_occupation,
+                        demographic.get("education_level"),
+                        demographic.get("income_bracket"),
+                        age
+                    )
+                    # If not consistent, get a better one
+                    if not all(consistency.values()):
+                        logger.warning(
+                            "LLM occupation inconsistent, replacing",
+                            extra={
+                                "occupation": llm_occupation,
+                                "consistency": consistency,
+                                "age": age,
+                            }
+                        )
+                        occupation = get_consistent_occupation(
+                            demographic.get("education_level"),
+                            demographic.get("income_bracket"),
+                            age,
+                            DEFAULT_OCCUPATIONS
+                        )
+                    else:
+                        occupation = llm_occupation
+                else:
+                    # No occupation from LLM, generate consistent one
+                    occupation = get_consistent_occupation(
+                        demographic.get("education_level"),
+                        demographic.get("income_bracket"),
+                        age,
+                        DEFAULT_OCCUPATIONS
+                    )
 
                 personas_data.append(
                     {
@@ -253,8 +292,7 @@ async def _generate_personas_task(
                         "location": demographic.get("location"),
                         "education_level": demographic.get("education_level"),
                         "income_bracket": demographic.get("income_bracket"),
-                        "occupation": personality.get("occupation")
-                        or random.choice(DEFAULT_OCCUPATIONS),
+                        "occupation": occupation,
                         "openness": psychological.get("openness"),
                         "conscientiousness": psychological.get("conscientiousness"),
                         "extraversion": psychological.get("extraversion"),
@@ -272,6 +310,21 @@ async def _generate_personas_task(
                         "personality_prompt": prompt,
                     }
                 )
+
+        # Validate persona quality before saving
+        validator = PersonaValidator(similarity_threshold=0.75)
+        validation_results = validator.validate_personas(personas_data)
+
+        if not validation_results["is_valid"]:
+            logger.warning(
+                "Persona validation found issues",
+                extra={
+                    "project_id": str(project_id),
+                    "diversity_score": validation_results["diversity"]["diversity_score"],
+                    "duplicates": len(validation_results["uniqueness"]["duplicate_pairs"]),
+                    "recommendations": validation_results["recommendations"],
+                }
+            )
 
         # Save personas to database
         for persona_data in personas_data:

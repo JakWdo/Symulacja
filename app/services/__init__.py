@@ -7,7 +7,7 @@ from .persona_generator_langchain import (
 )
 from .memory_service_langchain import MemoryServiceLangChain as MemoryService
 from .focus_group_service_langchain import FocusGroupServiceLangChain as FocusGroupService
-from .polarization_service import PolarizationService
+from .insight_service import InsightService
 from .adversarial_service import AdversarialService
 
 __all__ = [
@@ -15,6 +15,6 @@ __all__ = [
     "DemographicDistribution",
     "MemoryService",
     "FocusGroupService",
-    "PolarizationService",
+    "InsightService",
     "AdversarialService",
 ]

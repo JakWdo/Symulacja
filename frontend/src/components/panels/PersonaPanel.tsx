@@ -6,33 +6,9 @@ import { personasApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { User, Brain, Heart, Zap, Target, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { cn, getPersonalityColor, truncateText } from '@/lib/utils';
+import { cn, getPersonalityColor } from '@/lib/utils';
+import { toast } from '@/components/ui/toastStore';
 import type { Persona } from '@/types';
-
-function PersonalityBar({ label, value, icon: Icon }: { label: string; value: number; icon: any }) {
-  const color = getPersonalityColor(label, value);
-
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1">
-          <Icon className="w-3 h-3 text-slate-500" />
-          <span className="text-slate-600">{label}</span>
-        </div>
-        <span className="font-medium">{Math.round(value * 100)}%</span>
-      </div>
-      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-        <div
-          className="h-full transition-all duration-500"
-          style={{
-            width: `${value * 100}%`,
-            backgroundColor: color,
-          }}
-        />
-      </div>
-    </div>
-  );
-}
 
 function PersonaCard({ persona, isSelected }: { persona: Persona; isSelected: boolean }) {
   const { setSelectedPersona } = useAppStore();
@@ -275,9 +251,18 @@ export function PersonaPanel() {
     },
     enabled: !!selectedProject,
     refetchInterval: (query) => {
-      // Refetch every 5s if project exists but no personas yet (generation in progress)
+      // Refetch every 3s if project exists but no personas yet (generation in progress)
       const data = query.state.data;
-      return selectedProject && (!data || data.length === 0) ? 5000 : false;
+      return selectedProject && (!data || data.length === 0) ? 3000 : false;
+    },
+    onSuccess: (data) => {
+      // Show toast when personas generation completes
+      if (data.length > 0 && personas && personas.length === 0) {
+        toast.success(
+          'Personas generated!',
+          `Successfully created ${data.length} personas`
+        );
+      }
     },
   });
 
@@ -306,9 +291,13 @@ export function PersonaPanel() {
     onSuccess: () => {
       setShowGenerateForm(false);
       queryClient.invalidateQueries({ queryKey: ['personas', selectedProject?.id] });
+      toast.info(
+        'Generation started',
+        `Creating ${numPersonas} personas. This may take a few minutes...`
+      );
     },
     onError: (error: Error) => {
-      alert(`Failed to generate personas: ${error.message}`);
+      toast.error('Generation failed', error.message);
     },
   });
 

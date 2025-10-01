@@ -1,6 +1,10 @@
 # Market Research SaaS - Behavioral Analytics Platform
 
-AI-powered market research platform for generating synthetic personas with behavioral analytics and 3D visualization.
+AI-powered market research platform for generating synthetic personas with statistically valid behavioral analytics.
+
+## 📚 Documentation
+- **[Statistical Validity Explained](STATISTICAL_VALIDITY.md)** - Understand how we ensure your personas are representative
+- **API Documentation**: Available at http://localhost:8000/docs when backend is running
 
 ## 🚀 Quick Start (Docker - Recommended)
 

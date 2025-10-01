@@ -46,7 +46,7 @@ class FocusGroupResultResponse(BaseModel):
     mode: str
     status: str
     metrics: Dict[str, Any]
-    polarization: Dict[str, Any]
+    insights: Optional[Dict[str, Any]]
     created_at: datetime
     started_at: Optional[datetime]
     completed_at: Optional[datetime]

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn, formatDate, formatTime, formatPercentage, truncateText } from '@/lib/utils';
+import { toast } from '@/components/ui/toastStore';
 import type { FocusGroup, Persona } from '@/types';
 
 function StatusBadge({ status }: { status: FocusGroup['status'] }) {
@@ -61,9 +62,10 @@ function FocusGroupCard({
     mutationFn: () => focusGroupsApi.run(focusGroup.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['focus-groups', focusGroup.project_id] });
+      toast.info('Focus group started', `"${focusGroup.name}" is now running`);
     },
     onError: (error: Error) => {
-      alert(`Unable to start focus group: ${error.message}`);
+      toast.error('Failed to start focus group', error.message);
     },
   });
 
@@ -137,10 +139,10 @@ function FocusGroupCard({
                 </div>
               </div>
               <div className="px-3 py-2 rounded-lg bg-slate-50">
-                <div className="text-xs text-slate-500">Polarization</div>
+                <div className="text-xs text-slate-500">Idea Score</div>
                 <div className="text-sm font-semibold text-slate-900">
                   {focusGroup.polarization_score !== null && focusGroup.polarization_score !== undefined
-                    ? formatPercentage(focusGroup.polarization_score)
+                    ? `${(focusGroup.polarization_score * 100).toFixed(1)}`
                     : 'N/A'}
                 </div>
               </div>
@@ -163,6 +165,20 @@ function FocusGroupCard({
                     ? 'Meets all performance requirements'
                     : 'Some requirements need attention'}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {focusGroup.status === 'failed' && (
+            <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-xs">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                <div>
+                  <div className="font-semibold">Execution Failed</div>
+                  <div className="text-xs opacity-80 mt-1">
+                    Check backend logs for details. Common causes: API quota exceeded, network issues, or invalid personas.
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -273,9 +289,10 @@ function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
       queryClient.invalidateQueries({ queryKey: ['focus-groups', selectedProject?.id] });
       setSelectedFocusGroup(createdFocusGroup);
       onCancel();
+      toast.success('Focus group created!', `"${createdFocusGroup.name}" is ready to run`);
     },
     onError: (error: Error) => {
-      alert(`Unable to create focus group: ${error.message}`);
+      toast.error('Failed to create focus group', error.message);
     },
   });
 
@@ -476,6 +493,18 @@ export function FocusGroupPanel() {
     enabled: !!selectedProject,
     refetchInterval: (query) =>
       query.state.data?.some((group) => group.status === 'running') ? 2000 : false,
+    onSuccess: (data) => {
+      // Show toast when focus groups complete
+      const previousRunning = focusGroups.filter(fg => fg.status === 'running');
+      const nowCompleted = data.filter(fg =>
+        fg.status === 'completed' &&
+        previousRunning.some(prev => prev.id === fg.id)
+      );
+
+      nowCompleted.forEach(fg => {
+        toast.success('Focus group completed!', `"${fg.name}" has finished`);
+      });
+    },
   });
 
   useEffect(() => {

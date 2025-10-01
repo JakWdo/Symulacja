@@ -61,6 +61,7 @@ export interface FocusGroup {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+  idea_score?: number | null;
 }
 
 export interface PersonaResponse {
@@ -72,44 +73,85 @@ export interface PersonaResponse {
   context_used: number;
 }
 
-export interface PolarizationAnalysis {
-  focus_group_id: string;
-  overall_polarization_score: number;
-  polarization_level: string;
-  questions: QuestionAnalysis[];
-}
-
-export interface QuestionAnalysis {
-  question: string;
-  polarization_score: number;
-  num_clusters: number;
-  clusters: ClusterDetail[];
-  sentiment_divergence: number;
-  num_responses: number;
-}
-
-export interface ClusterDetail {
-  cluster_id: number;
-  size: number;
-  persona_ids: string[];
-  representative_response: string;
-  avg_sentiment: number;
-}
-
 export interface FocusGroupResponses {
   focus_group_id: string;
   total_responses: number;
-  responses_by_question: Record<
-    string,
-    Array<{
+  questions: Array<{
+    question: string;
+    responses: Array<{
       persona_id: string;
       response: string;
       response_time_ms: number | null;
       consistency_score: number | null;
       contradicts_events: unknown;
       created_at: string;
-    }>
-  >;
+      sentiment: number;
+    }>;
+  }>;
+}
+
+export interface FocusGroupInsights {
+  focus_group_id: string;
+  idea_score: number;
+  idea_grade: string;
+  metrics: {
+    consensus: number;
+    average_sentiment: number;
+    sentiment_summary: {
+      positive_ratio: number;
+      negative_ratio: number;
+      neutral_ratio: number;
+    };
+    engagement: {
+      average_response_time_ms: number | null;
+      completion_rate: number;
+      consistency_score: number | null;
+    };
+  };
+  key_themes: Array<{
+    keyword: string;
+    mentions: number;
+    representative_quote: string | null;
+  }>;
+  question_breakdown: Array<{
+    question: string;
+    idea_score: number;
+    consensus: number;
+    avg_sentiment: number;
+    response_count: number;
+    top_quotes: Array<{
+      persona_id: string;
+      response: string;
+      sentiment: number;
+      consistency_score: number | null;
+      created_at: string;
+    }>;
+    participants: string[];
+  }>;
+  persona_engagement: Array<{
+    persona_id: string;
+    contribution_count: number;
+    avg_sentiment: number;
+    average_response_time_ms: number;
+    last_activity: string | null;
+  }>;
+}
+
+export interface PersonaInsight {
+  persona: {
+    id: string;
+    age: number;
+    gender: string;
+    location: string | null;
+    education_level: string | null;
+    income_bracket: string | null;
+    occupation: string | null;
+    values: string[];
+    interests: string[];
+    background_story: string | null;
+  };
+  trait_scores: Record<string, number>;
+  expectations: string[];
 }
 
 // Graph Types

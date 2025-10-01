@@ -76,3 +76,4 @@ prometheus-client
 # Report Generation
 reportlab
 jinja2
+openpyxl
