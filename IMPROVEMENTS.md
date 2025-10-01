@@ -518,20 +518,59 @@ Pytania? Problemy?
 
 ---
 
+## 🎯 Phase 3 Complete - Advanced Analytics!
+
+### **New in Phase 3:**
+
+#### **AdvancedInsightsService** (`app/services/advanced_insights_service.py`)
+
+**1. Demographic-Sentiment Correlations:**
+- Age vs Sentiment (Pearson correlation + p-values)
+- Gender vs Sentiment (ANOVA for group differences)
+- Education vs Sentiment (segment performance)
+- Personality traits (Big Five) vs Sentiment
+- Auto-generated human-readable interpretations
+
+**2. Temporal Analysis:**
+- Overall trend detection (improving/declining/stable)
+- Sentiment trajectory (initial, final, peak, trough, volatility)
+- Momentum shifts (sudden sentiment changes)
+- Fatigue detection (declining response quality)
+- Rolling averages with linear regression
+
+**3. Behavioral Segmentation:**
+- K-Means clustering on participant behavior
+- Optimal cluster detection (elbow method)
+- Auto-generated segment labels ("Enthusiastic Contributors", "Detailed Critics", etc.)
+- Segment characteristics (sentiment, length, consistency)
+- Demographic profiles per segment
+
+**4. Response Quality Metrics:**
+- Depth Score, Constructiveness Score, Specificity Score
+- Quality distribution (high/medium/low responses)
+
+**5. Comparative Analysis + Outlier Detection + Engagement Patterns**
+
+**API:** `GET /focus-groups/{id}/advanced-insights`
+
+---
+
 ## 📊 Implementation Statistics
 
 | Phase | Status | Files Added | Lines of Code | Key Features |
 |-------|--------|-------------|---------------|--------------|
 | **Phase 1** | ✅ Complete | 6 files | ~2,400 | Backend services, schemas, types |
 | **Phase 2** | ✅ Complete | 3 files | ~2,100 | UI components, API integration |
-| **Total** | 🟢 2/4 Phases | **9 files** | **~4,500** | Full-stack enhanced insights |
+| **Phase 3** | ✅ Complete | 1 file | ~700 | Advanced analytics engine |
+| **Total** | 🟢 3/4 Phases | **10 files** | **~5,200** | Full-stack + advanced analytics |
 
 ---
 
-**Status:** 🟢 Active Development (**Phase 2/4 Complete!** 🎉)
+**Status:** 🟢 Active Development (**Phase 3/4 Complete!** 🚀)
 
 **Commits:**
 - Phase 1: `ca22b73` - Core Services & Types
 - Phase 2: `1e9f74f` - Frontend Integration & UI Components
+- Phase 3: `25580d0` - Advanced Analytics Service
 
-**Last Updated:** 2025-10-01 (Phase 2 Complete)
+**Last Updated:** 2025-10-01 (Phase 3 Complete)
