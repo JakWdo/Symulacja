@@ -165,84 +165,23 @@ function OptionChip({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
-function PersonaCard({ persona, isSelected }: { persona: Persona; isSelected: boolean }) {
+function PersonaListItem({ persona, isSelected }: { persona: Persona; isSelected: boolean }) {
   const { setSelectedPersona } = useAppStore();
-
   const displayName = getPersonaDisplayName(persona);
-  const subtitle = persona.persona_title?.trim() || persona.occupation?.trim() || 'Persona';
-  const headline = (persona.headline && persona.headline.trim()) || extractStorySummary(persona.background_story);
-  const locationLabel = formatLocation(persona.location);
-
-  const topValues = persona.values?.slice(0, 3) ?? [];
-  const topInterests = persona.interests?.slice(0, 2) ?? [];
-
-  const initials = displayName
-    .split(' ')
-    .slice(0, 2)
-    .map((part) => part.charAt(0))
-    .join('')
-    .toUpperCase();
 
   return (
     <button
       type="button"
       onClick={() => setSelectedPersona(persona)}
       className={cn(
-        'relative flex h-full w-full flex-col overflow-hidden rounded-3xl border transition-all duration-200',
+        'w-full text-left px-4 py-3 border-l-4 transition-all hover:bg-slate-50',
         isSelected
-          ? 'border-primary-500 shadow-xl ring-4 ring-primary-100'
-          : 'border-slate-200 hover:border-primary-200 hover:shadow-lg'
+          ? 'border-l-primary-600 bg-primary-50/50'
+          : 'border-l-transparent hover:border-l-slate-300'
       )}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary-50 via-white to-accent-50 opacity-60" />
-      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary-200/40 blur-3xl" />
-      <div className="relative z-10 flex flex-col gap-4 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-accent-500 text-base font-semibold text-white shadow-md">
-              {initials || <User className="h-5 w-5" />}
-            </div>
-            <div className="space-y-1 text-left">
-              <h4 className="text-lg font-semibold text-slate-900">{displayName}</h4>
-              <p className="text-sm text-slate-500">{subtitle}</p>
-            </div>
-          </div>
-          <div className="text-right text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 font-semibold text-slate-700 shadow-sm">
-              {persona.age} lat
-            </span>
-            <p className="mt-2 inline-flex items-center gap-1 text-slate-500">
-              <MapPin className="h-3.5 w-3.5" />
-              {locationLabel}
-            </p>
-          </div>
-        </div>
-
-        {headline && (
-          <p className="text-sm leading-relaxed text-slate-600">
-            {headline}
-          </p>
-        )}
-
-        <div className="mt-auto space-y-2">
-          {topValues.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {topValues.map((value) => (
-                <TagPill key={value}>{value}</TagPill>
-              ))}
-            </div>
-          )}
-          {topInterests.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {topInterests.map((interest) => (
-                <TagPill key={interest} tone="accent">
-                  {interest}
-                </TagPill>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <p className="font-semibold text-slate-900 text-sm">{displayName}</p>
+      <p className="text-xs text-slate-500 mt-0.5">{persona.age} lat</p>
     </button>
   );
 }
@@ -270,7 +209,7 @@ function PersonaDetails({ persona }: { persona: Persona | null }) {
   ];
 
   return (
-    <div className="h-full space-y-5 overflow-y-auto rounded-2xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-sm scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+    <div className="h-full space-y-5 overflow-y-auto rounded-2xl border border-slate-200/60 bg-white/80 p-8 shadow-sm backdrop-blur-sm scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h4 className="text-xl font-semibold text-slate-900">{displayName}</h4>
@@ -379,63 +318,11 @@ export function PersonaPanel() {
     setPersonas,
     setSelectedPersona,
   } = useAppStore();
-  const [showGenerateForm, setShowGenerateForm] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
-  const [numPersonas, setNumPersonas] = useState(10);
-  const [adversarialMode, setAdversarialMode] = useState(false);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [advancedOptions, setAdvancedOptions] = useState({
-    ageFocus: 'balanced',
-    genderBalance: 'balanced',
-    urbanicity: 'any',
-    targetCities: '',
-    targetCountries: '',
-    industries: '',
-    requiredValues: '',
-    excludedValues: '',
-    requiredInterests: '',
-    excludedInterests: '',
-    ageMin: '',
-    ageMax: '',
-    customAge: '',
-    customGender: '',
-    customLocation: '',
-    customEducation: '',
-    customIncome: '',
-  });
   const queryClient = useQueryClient();
   const [generationProgress, setGenerationProgress] = useState(0);
   const [progressMeta, setProgressMeta] = useState<{ start: number; duration: number } | null>(null);
-  const updateAdvancedOption = (key: keyof typeof advancedOptions, value: string) => {
-    setAdvancedOptions((prev) => ({ ...prev, [key]: value }));
-  };
-  const resetAdvanced = () => {
-    setAdvancedOptions({
-      ageFocus: 'balanced',
-      genderBalance: 'balanced',
-      urbanicity: 'any',
-      targetCities: '',
-      targetCountries: '',
-      industries: '',
-      requiredValues: '',
-      excludedValues: '',
-      requiredInterests: '',
-      excludedInterests: '',
-      ageMin: '',
-      ageMax: '',
-      customAge: '',
-      customGender: '',
-      customLocation: '',
-      customEducation: '',
-      customIncome: '',
-    });
-  };
-  const parseList = (value: string) =>
-    value
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
 
   const { data: personas, isLoading } = useQuery({
     queryKey: ['personas', selectedProject?.id],
@@ -544,87 +431,6 @@ export function PersonaPanel() {
     generateMutation.mutate(config);
   };
 
-  const handleGenerate = () => {
-    if (!selectedProject) {
-      return;
-    }
-
-    const payload: GeneratePersonasPayload = {
-      num_personas: numPersonas,
-      adversarial_mode: adversarialMode,
-    };
-
-    if (showAdvancedOptions) {
-      const advancedPayload: PersonaAdvancedOptions = {};
-
-      if (advancedOptions.ageFocus !== 'balanced') {
-        advancedPayload.age_focus = advancedOptions.ageFocus as PersonaAdvancedOptions['age_focus'];
-      }
-      if (advancedOptions.genderBalance !== 'balanced') {
-        advancedPayload.gender_balance = advancedOptions.genderBalance as PersonaAdvancedOptions['gender_balance'];
-      }
-      if (advancedOptions.urbanicity !== 'any') {
-        advancedPayload.urbanicity = advancedOptions.urbanicity as PersonaAdvancedOptions['urbanicity'];
-      }
-
-      const cities = parseList(advancedOptions.targetCities);
-      if (cities.length > 0) {
-        advancedPayload.target_cities = cities;
-      }
-
-      const countries = parseList(advancedOptions.targetCountries);
-      if (countries.length > 0) {
-        advancedPayload.target_countries = countries;
-      }
-
-      const industries = parseList(advancedOptions.industries);
-      if (industries.length > 0) {
-        advancedPayload.industries = industries;
-      }
-
-      const requiredValues = parseList(advancedOptions.requiredValues);
-      if (requiredValues.length > 0) {
-        advancedPayload.required_values = requiredValues;
-      }
-
-      const excludedValues = parseList(advancedOptions.excludedValues);
-      if (excludedValues.length > 0) {
-        advancedPayload.excluded_values = excludedValues;
-      }
-
-      const requiredInterests = parseList(advancedOptions.requiredInterests);
-      if (requiredInterests.length > 0) {
-        advancedPayload.required_interests = requiredInterests;
-      }
-
-      const excludedInterests = parseList(advancedOptions.excludedInterests);
-      if (excludedInterests.length > 0) {
-        advancedPayload.excluded_interests = excludedInterests;
-      }
-
-      const ageMinNumber = advancedOptions.ageMin ? Number(advancedOptions.ageMin) : undefined;
-      const ageMaxNumber = advancedOptions.ageMax ? Number(advancedOptions.ageMax) : undefined;
-      if (
-        typeof ageMinNumber === 'number' &&
-        !Number.isNaN(ageMinNumber) &&
-        typeof ageMaxNumber === 'number' &&
-        !Number.isNaN(ageMaxNumber) &&
-        ageMinNumber <= ageMaxNumber
-      ) {
-        advancedPayload.age_min = ageMinNumber;
-        advancedPayload.age_max = ageMaxNumber;
-      }
-
-      if (Object.keys(advancedPayload).length > 0) {
-        payload.advanced_options = advancedPayload;
-      }
-    }
-
-    setProgressMeta({ start: Date.now(), duration: Math.max(5000, numPersonas * 2500) });
-    setGenerationProgress(5);
-    generateMutation.mutate(payload);
-  };
-
   const isGenerating = generateMutation.isPending || (isLoading && sortedPersonas.length === 0);
   const totalPersonas = personas?.length ?? 0;
 
@@ -691,263 +497,6 @@ export function PersonaPanel() {
     return () => clearInterval(interval);
   }, [isGenerating, progressMeta, generationProgress]);
 
-  const renderGenerateForm = (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-      <h4 className="font-semibold text-slate-800">Generate Personas</h4>
-      <div className="space-y-3">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Number of personas (10-100)
-          </label>
-          <input
-            type="number"
-            min="10"
-            max="100"
-            value={numPersonas}
-            onChange={(e) => setNumPersonas(Number(e.target.value))}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          <p className="text-xs text-slate-500 mt-1">
-            ~{Math.round(numPersonas * 2.5)}s estimated time
-          </p>
-        </div>
-        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <div className="flex items-center gap-2">
-            <ShieldHalf className="w-4 h-4 text-accent-600" />
-            <div>
-              <p className="text-sm font-medium text-slate-700">Adversarial mode</p>
-              <p className="text-xs text-slate-500">
-                Generates contrarian personas for stress-testing messaging.
-              </p>
-            </div>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={adversarialMode}
-              onChange={(e) => setAdversarialMode(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-500" />
-          </label>
-        </div>
-
-        <div className="border border-slate-200 rounded-xl bg-white">
-          <button
-            type="button"
-            onClick={() => setShowAdvancedOptions((prev) => !prev)}
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-t-xl"
-          >
-            <span className="flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-primary-600" />
-              Advanced targeting
-            </span>
-            {showAdvancedOptions ? (
-              <ChevronUp className="w-4 h-4 text-slate-500" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-slate-500" />
-            )}
-          </button>
-          {showAdvancedOptions && (
-            <div className="px-3 pb-3 pt-2 space-y-3 text-sm text-slate-600">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Age focus</span>
-                  <select
-                    value={advancedOptions.ageFocus}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, ageFocus: e.target.value }))
-                    }
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="balanced">Balanced distribution</option>
-                    <option value="young_adults">Young adopters (18-34)</option>
-                    <option value="experienced_leaders">Experienced leaders (35+)</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Gender balance</span>
-                  <select
-                    value={advancedOptions.genderBalance}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, genderBalance: e.target.value }))
-                    }
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="balanced">Balanced</option>
-                    <option value="female_skew">Female leaning</option>
-                    <option value="male_skew">Male leaning</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="flex flex-col gap-1">
-                <span className="font-medium text-slate-700">Urbanicity</span>
-                <select
-                  value={advancedOptions.urbanicity}
-                  onChange={(e) =>
-                    setAdvancedOptions((prev) => ({ ...prev, urbanicity: e.target.value }))
-                  }
-                  className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="any">Any location mix</option>
-                  <option value="urban">Urban (city-centric)</option>
-                  <option value="suburban">Suburban mix</option>
-                  <option value="rural">Rural leaning</option>
-                </select>
-              </label>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Target cities</span>
-                  <input
-                    type="text"
-                    value={advancedOptions.targetCities}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, targetCities: e.target.value }))
-                    }
-                    placeholder="e.g. San Francisco, New York"
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                  <span className="text-xs text-slate-500">Comma-separated list. Leave blank for any.</span>
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Target countries</span>
-                  <input
-                    type="text"
-                    value={advancedOptions.targetCountries}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, targetCountries: e.target.value }))
-                    }
-                    placeholder="e.g. United States, Canada"
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </label>
-              </div>
-
-              <label className="flex flex-col gap-1">
-                <span className="font-medium text-slate-700">Industry focus</span>
-                <input
-                  type="text"
-                  value={advancedOptions.industries}
-                  onChange={(e) =>
-                    setAdvancedOptions((prev) => ({ ...prev, industries: e.target.value }))
-                  }
-                  placeholder="e.g. Technology, Finance"
-                  className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </label>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Required values</span>
-                  <input
-                    type="text"
-                    value={advancedOptions.requiredValues}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, requiredValues: e.target.value }))
-                    }
-                    placeholder="innovation, sustainability"
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Exclude values</span>
-                  <input
-                    type="text"
-                    value={advancedOptions.excludedValues}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, excludedValues: e.target.value }))
-                    }
-                    placeholder="tradition"
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Required interests</span>
-                  <input
-                    type="text"
-                    value={advancedOptions.requiredInterests}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, requiredInterests: e.target.value }))
-                    }
-                    placeholder="AI, design thinking"
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Exclude interests</span>
-                  <input
-                    type="text"
-                    value={advancedOptions.excludedInterests}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, excludedInterests: e.target.value }))
-                    }
-                    placeholder="legacy systems"
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Minimum age</span>
-                  <input
-                    type="number"
-                    min={18}
-                    max={90}
-                    value={advancedOptions.ageMin}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, ageMin: e.target.value }))
-                    }
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-700">Maximum age</span>
-                  <input
-                    type="number"
-                    min={18}
-                    max={90}
-                    value={advancedOptions.ageMax}
-                    onChange={(e) =>
-                      setAdvancedOptions((prev) => ({ ...prev, ageMax: e.target.value }))
-                    }
-                    className="border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </label>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setShowGenerateForm(false);
-              setShowAdvancedOptions(false);
-            }}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleGenerate}
-            disabled={generateMutation.isPending || numPersonas < 10 || numPersonas > 100}
-            isLoading={generateMutation.isPending}
-            className="flex-1"
-          >
-            Generate
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
   let content: ReactNode;
 
   if (!selectedProject) {
@@ -973,31 +522,37 @@ export function PersonaPanel() {
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
           >
             <Sparkles className="w-5 h-5" />
-            Advanced Wizard
-          </Button>
-          <Button
-            onClick={() => setShowGenerateForm((prev) => !prev)}
-            variant={showGenerateForm ? 'outline' : 'secondary'}
-            className="flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            {showGenerateForm ? 'Hide quick generator' : 'Quick generate'}
+            AI Wizard
           </Button>
         </div>
 
-        {showGenerateForm && renderGenerateForm}
-
-        <div className="flex-1 grid gap-4 xl:grid-cols-[minmax(0,1.2fr),minmax(0,1fr)]">
-          <div className="space-y-3 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
-            {sortedPersonas.map((persona) => (
-              <PersonaCard
-                key={persona.id}
-                persona={persona}
-                isSelected={selectedPersona?.id === persona.id}
-              />
-            ))}
+        <div className="flex-1 grid gap-4 grid-cols-[280px,1fr]">
+          <div className="border-r border-slate-200 flex flex-col">
+            <div className="p-3 border-b border-slate-200">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search personas..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+              {filteredPersonas.map((persona) => (
+                <PersonaListItem
+                  key={persona.id}
+                  persona={persona}
+                  isSelected={selectedPersona?.id === persona.id}
+                />
+              ))}
+            </div>
           </div>
-          <PersonaDetails persona={selectedPersona ?? null} />
+          <div className="overflow-y-auto px-4">
+            <PersonaDetails persona={selectedPersona ?? null} />
+          </div>
         </div>
       </div>
     );
@@ -1007,7 +562,7 @@ export function PersonaPanel() {
         <Loader2 className="w-12 h-12 text-primary-500 mb-3 animate-spin" />
         <p className="text-slate-900 font-medium mb-1">Generating personas...</p>
         <p className="text-sm text-slate-600">
-          This takes ~{Math.round(numPersonas * 2.5)}s for {numPersonas} personas
+          This may take a few moments...
         </p>
       </div>
     );
@@ -1021,20 +576,10 @@ export function PersonaPanel() {
             Generate a cohort to start building focus groups and analysis.
           </p>
         </div>
-        {showGenerateForm ? (
-          <div className="w-full max-w-sm">{renderGenerateForm}</div>
-        ) : (
-          <div className="flex gap-3">
-            <Button onClick={() => setShowWizard(true)} variant="primary" className="gap-2 bg-purple-600 hover:bg-purple-700">
-              <Sparkles className="w-5 h-5" />
-              Advanced Wizard
-            </Button>
-            <Button onClick={() => setShowGenerateForm(true)} variant="secondary" className="gap-2">
-              <Plus className="w-5 h-5" />
-              Quick Generate
-            </Button>
-          </div>
-        )}
+        <Button onClick={() => setShowWizard(true)} variant="primary" className="gap-2 bg-purple-600 hover:bg-purple-700">
+          <Sparkles className="w-5 h-5" />
+          AI Wizard
+        </Button>
       </div>
     );
   }
@@ -1042,7 +587,7 @@ export function PersonaPanel() {
   const showProgressBar = generationProgress > 0;
   const estimatedSeconds = progressMeta
     ? Math.max(1, Math.ceil((progressMeta.duration - (Date.now() - progressMeta.start)) / 1000))
-    : Math.max(1, Math.round(numPersonas * 2.5));
+    : 10;
 
   return (
     <FloatingPanel

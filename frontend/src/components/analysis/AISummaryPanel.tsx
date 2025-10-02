@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -22,14 +22,27 @@ import type { AISummary } from '@/types';
 interface AISummaryPanelProps {
   focusGroupId: string;
   focusGroupName: string;
+  hideGenerateButton?: boolean;
+  onGenerateStart?: () => void;
+  onGenerateComplete?: () => void;
+  triggerGenerate?: boolean;
+  useProModel?: boolean;
 }
 
-export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelProps) {
-  const [useProModel, setUseProModel] = useState(true);
+export function AISummaryPanel({
+  focusGroupId,
+  focusGroupName,
+  hideGenerateButton = false,
+  onGenerateStart,
+  onGenerateComplete,
+  triggerGenerate = false,
+  useProModel = true,
+}: AISummaryPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['executive', 'insights'])
   );
   const sessionTitle = focusGroupName || 'wybranej sesji';
+  const [hasTriggered, setHasTriggered] = useState(false);
 
   const {
     data: summary,
@@ -51,18 +64,29 @@ export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelP
 
   const handleGenerate = async () => {
     try {
+      onGenerateStart?.();
       await refetch({ throwOnError: true });
       toast.success(
         'Podsumowanie AI gotowe',
         `Model: ${useProModel ? 'Gemini 2.5 Pro' : 'Gemini 2.5 Flash'}`
       );
+      onGenerateComplete?.();
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data?.detail || err.message
         : 'Failed to generate summary';
       toast.error('Błąd generowania', message);
+      onGenerateComplete?.();
     }
   };
+
+  // Trigger generation when triggerGenerate prop changes
+  useEffect(() => {
+    if (triggerGenerate && !hasTriggered && !summary && !isLoading) {
+      setHasTriggered(true);
+      handleGenerate();
+    }
+  }, [triggerGenerate, hasTriggered, summary, isLoading]);
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
@@ -128,33 +152,12 @@ export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelP
             in seconds.
           </p>
 
-          <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-200">
-            <div className="flex items-center justify-between">
-              <div className="text-left">
-                <p className="text-sm font-semibold text-slate-900">Model Selection</p>
-                <p className="text-xs text-slate-600 mt-1">
-                  {useProModel
-                    ? 'Gemini 2.5 Pro - Highest quality, slower (~30s)'
-                    : 'Gemini 2.5 Flash - Fast & balanced (~10s)'}
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useProModel}
-                  onChange={(e) => setUseProModel(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                <span className="ml-3 text-sm font-medium text-slate-700">Pro Mode</span>
-              </label>
-            </div>
-          </div>
-
-          <Button onClick={handleGenerate} disabled={isLoading} className="gap-2" size="lg">
-            <Sparkles className="w-5 h-5" />
-            Generate AI Summary
-          </Button>
+          {!hideGenerateButton && (
+            <Button onClick={handleGenerate} disabled={isLoading} className="gap-2" size="lg">
+              <Sparkles className="w-5 h-5" />
+              Generate AI Summary
+            </Button>
+          )}
 
           <div className="mt-6 grid grid-cols-3 gap-4 text-sm">
             <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-lg">

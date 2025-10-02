@@ -126,13 +126,22 @@ class AdvancedInsightsService:
 
         # Age vs Sentiment
         if "age" in df.columns and "sentiment" in df.columns:
-            age_sentiment_corr, age_p_value = stats.pearsonr(df["age"], df["sentiment"])
-            correlations["age_sentiment"] = {
-                "correlation": float(age_sentiment_corr),
-                "p_value": float(age_p_value),
-                "significant": bool(age_p_value < 0.05),
-                "interpretation": self._interpret_correlation(age_sentiment_corr, age_p_value, "age", "sentiment"),
-            }
+            # Check for constant values (no variance)
+            if df["age"].nunique() > 1 and df["sentiment"].nunique() > 1:
+                age_sentiment_corr, age_p_value = stats.pearsonr(df["age"], df["sentiment"])
+                correlations["age_sentiment"] = {
+                    "correlation": float(age_sentiment_corr),
+                    "p_value": float(age_p_value),
+                    "significant": bool(age_p_value < 0.05),
+                    "interpretation": self._interpret_correlation(age_sentiment_corr, age_p_value, "age", "sentiment"),
+                }
+            else:
+                correlations["age_sentiment"] = {
+                    "correlation": 0.0,
+                    "p_value": 1.0,
+                    "significant": False,
+                    "interpretation": "Brak wariancji w danych - wszystkie wartości są identyczne",
+                }
 
         # Gender vs Sentiment
         gender_groups = df.groupby("gender")["sentiment"].agg(["mean", "std", "count"])
@@ -167,13 +176,15 @@ class AdvancedInsightsService:
 
         for trait in personality_traits:
             if trait in df.columns:
-                trait_corr, trait_p = stats.pearsonr(df[trait], df["sentiment"])
-                if abs(trait_corr) > 0.2:  # Only report meaningful correlations
-                    trait_correlations[trait] = {
-                        "correlation": float(trait_corr),
-                        "p_value": float(trait_p),
-                        "significant": bool(trait_p < 0.05),
-                    }
+                # Check for variance before calculating correlation
+                if df[trait].nunique() > 1 and df["sentiment"].nunique() > 1:
+                    trait_corr, trait_p = stats.pearsonr(df[trait], df["sentiment"])
+                    if abs(trait_corr) > 0.2:  # Only report meaningful correlations
+                        trait_correlations[trait] = {
+                            "correlation": float(trait_corr),
+                            "p_value": float(trait_p),
+                            "significant": bool(trait_p < 0.05),
+                        }
 
         if trait_correlations:
             correlations["personality_sentiment"] = trait_correlations
@@ -278,10 +289,21 @@ class AdvancedInsightsService:
             "_".join(col).strip("_") for col in persona_features.columns.values
         ]
 
-        # Normalize features
+        # Normalize features and handle NaN values
         feature_cols = [c for c in persona_features.columns if c != "persona_id"]
+        # Fill NaN values with 0 (e.g., std=0 when all values are identical)
+        persona_features[feature_cols] = persona_features[feature_cols].fillna(0)
+
         scaler = StandardScaler()
         features_scaled = scaler.fit_transform(persona_features[feature_cols])
+
+        # Check if we have any valid variance in the data
+        if np.isnan(features_scaled).any() or (features_scaled.std(axis=0) == 0).all():
+            # All features are constant - can't cluster
+            return {
+                "segments": [],
+                "message": "Insufficient variance in behavioral features for clustering"
+            }
 
         # Determine optimal number of clusters (2-5)
         optimal_k = self._find_optimal_clusters_elbow(features_scaled, max_k=min(5, len(persona_features) // 2))

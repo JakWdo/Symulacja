@@ -272,6 +272,7 @@ function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
   } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [projectContext, setProjectContext] = useState('');
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
   const [questions, setQuestions] = useState<string[]>(['']);
   const [mode, setMode] = useState<'normal' | 'adversarial'>('normal');
@@ -281,6 +282,7 @@ function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
       focusGroupsApi.create(selectedProject!.id, {
         name: name.trim(),
         description: description.trim() || null,
+        project_context: projectContext.trim() || null,
         persona_ids: selectedPersonaIds,
         questions: questions.map((question) => question.trim()).filter(Boolean),
         mode,
@@ -360,8 +362,22 @@ function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder="Understanding reactions to new feature pricing"
-          rows={3}
+          rows={2}
           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-slate-700">
+          Project Context
+          <span className="text-xs font-normal text-slate-500 ml-2">(Optional - provides additional context for AI responses)</span>
+        </label>
+        <textarea
+          value={projectContext}
+          onChange={(event) => setProjectContext(event.target.value)}
+          placeholder="e.g., We're launching a new SaaS product targeting small businesses. Our goal is to understand pricing sensitivity and feature preferences..."
+          rows={4}
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
         />
       </div>
 

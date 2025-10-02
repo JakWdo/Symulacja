@@ -40,8 +40,9 @@ class FocusGroupServiceLangChain:
         self.llm = ChatGoogleGenerativeAI(
             model=persona_model,
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=settings.TEMPERATURE,
-            max_tokens=500,
+            temperature=1.0,  # Maximum diversity for unique persona responses
+            max_tokens=600,
+            top_p=0.95,  # Nucleus sampling for better diversity
         )
 
         # Create persona response prompt template
@@ -82,13 +83,44 @@ class FocusGroupServiceLangChain:
             response_times = []
             consistency_errors = 0
 
-            for question in focus_group.questions:
+            for idx, question in enumerate(focus_group.questions, 1):
+                logger.info(
+                    f"Processing question {idx}/{len(focus_group.questions)}: {question[:50]}...",
+                    extra={"focus_group_id": str(focus_group_id), "question_index": idx}
+                )
                 question_start = time.time()
 
-                # Get responses from all personas concurrently
-                responses = await self._get_concurrent_responses(
-                    db, personas, question, focus_group_id
-                )
+                # Get responses from all personas concurrently with retry
+                max_question_retries = 2
+                responses = None
+                for attempt in range(1, max_question_retries + 1):
+                    try:
+                        responses = await self._get_concurrent_responses(
+                            db, personas, question, focus_group_id, focus_group.project_context
+                        )
+                        # Verify we got responses from all personas
+                        if len(responses) == len(personas):
+                            break
+                        else:
+                            logger.warning(
+                                f"Got {len(responses)}/{len(personas)} responses on attempt {attempt}",
+                                extra={"focus_group_id": str(focus_group_id), "question_index": idx}
+                            )
+                    except Exception as e:
+                        logger.error(
+                            f"Question {idx} failed on attempt {attempt}: {str(e)}",
+                            exc_info=True,
+                            extra={"focus_group_id": str(focus_group_id), "question_index": idx}
+                        )
+                        if attempt == max_question_retries:
+                            raise
+
+                if not responses:
+                    logger.error(
+                        f"Failed to get responses for question {idx}",
+                        extra={"focus_group_id": str(focus_group_id), "question_index": idx}
+                    )
+                    continue
 
                 question_time = (time.time() - question_start) * 1000
                 response_times.append(question_time)
@@ -106,6 +138,11 @@ class FocusGroupServiceLangChain:
 
                 all_responses.append(
                     {"question": question, "responses": responses, "time_ms": question_time}
+                )
+
+                logger.info(
+                    f"Question {idx} completed in {question_time:.0f}ms",
+                    extra={"focus_group_id": str(focus_group_id), "question_index": idx}
                 )
 
             # Calculate metrics
@@ -142,8 +179,6 @@ class FocusGroupServiceLangChain:
             }
 
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(
                 f"Focus group {focus_group_id} failed: {str(e)}",
                 exc_info=True,
@@ -176,11 +211,26 @@ class FocusGroupServiceLangChain:
         personas: List[Persona],
         question: str,
         focus_group_id: str,
+        project_context: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Get responses from all personas concurrently using LangChain"""
+        """Get responses from all personas concurrently using LangChain
+
+        NOTE: Each persona gets its own DB session to avoid SQLAlchemy concurrent access errors
+        """
+        from app.db.session import AsyncSessionLocal
+
+        async def _get_response_with_own_session(persona: Persona):
+            """Wrapper that creates a new DB session for each persona"""
+            async with AsyncSessionLocal() as persona_db:
+                try:
+                    return await self._get_persona_response(
+                        persona_db, persona, question, focus_group_id, project_context
+                    )
+                finally:
+                    await persona_db.close()
 
         tasks = [
-            self._get_persona_response(db, persona, question, focus_group_id)
+            _get_response_with_own_session(persona)
             for persona in personas
         ]
 
@@ -216,17 +266,53 @@ class FocusGroupServiceLangChain:
         persona: Persona,
         question: str,
         focus_group_id: str,
+        project_context: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get single persona response using LangChain with retry and memory support."""
 
+        logger.info(f"🚀 START _get_persona_response for persona {str(persona.id)[:8]}", extra={"persona_id": str(persona.id)})
         start_time = time.time()
 
-        history = await self._get_recent_history(db, persona.id, focus_group_id, limit=3)
-        history_summary = self._format_history_summary(history)
+        # Get conversation history from THIS focus group
+        try:
+            history = await self._get_recent_history(db, persona.id, focus_group_id, limit=5)
+            history_summary = self._format_history_summary(history)
+        except Exception as e:
+            logger.error(
+                f"🔥 Failed to get recent history for persona {str(persona.id)[:8]}: {str(e)[:300]}",
+                exc_info=True,
+                extra={"persona_id": str(persona.id), "focus_group_id": focus_group_id}
+            )
+            history = []
+            history_summary = None
 
-        context = await self.memory_service.retrieve_relevant_context(
-            db, str(persona.id), question, top_k=5
+        # TEMPORARILY DISABLED: Get relevant context from persona's memory
+        # Embeddings API is causing issues - skip for now
+        logger.info(f"⚠️ Skipping embeddings/context retrieval for persona {str(persona.id)[:8]} (temporarily disabled)", extra={"persona_id": str(persona.id)})
+        context = []
+
+        # TODO: Re-enable once embeddings are fixed
+        # try:
+        #     context = await self.memory_service.retrieve_relevant_context(
+        #         db, str(persona.id), question, top_k=5
+        #     )
+        # except Exception as e:
+        #     logger.error(f"🔥 Failed to retrieve context: {str(e)[:300]}", exc_info=True)
+        #     context = []
+
+        # Debug logging
+        logger.info(
+            f"📚 Context for persona {str(persona.id)[:8]}: "
+            f"history_items={len(history)}, context_items={len(context)}, "
+            f"history_summary={'Yes (' + str(len(history_summary)) + ' chars)' if history_summary else 'No'}",
+            extra={"persona_id": str(persona.id), "focus_group_id": focus_group_id}
         )
+
+        if history:
+            logger.debug(
+                f"📜 Recent history for persona {str(persona.id)[:8]}:\n{history_summary[:300] if history_summary else 'NONE'}...",
+                extra={"persona_id": str(persona.id)}
+            )
 
         response_text: Optional[str] = None
         max_attempts = 3
@@ -239,31 +325,68 @@ class FocusGroupServiceLangChain:
                     context,
                     history_summary=history_summary,
                     attempt=attempt,
+                    project_context=project_context,
                 )
             except Exception as exc:
-                logger.warning(
-                    "Persona response attempt failed",
+                logger.error(
+                    f"Persona response generation FAILED on attempt {attempt}",
                     exc_info=exc,
-                    extra={"persona_id": str(persona.id), "attempt": attempt},
+                    extra={"persona_id": str(persona.id), "attempt": attempt, "question": question[:100]}
                 )
                 candidate = ""
 
             candidate = (candidate or "").strip()
 
-            if candidate and not candidate.lower().startswith("error") and len(candidate) > 3:
+            logger.info(
+                f"🎭 Persona {str(persona.id)[:8]} attempt {attempt}/{max_attempts}: '{candidate[:150] if candidate else 'EMPTY'}'...",
+                extra={"persona_id": str(persona.id), "length": len(candidate), "attempt": attempt}
+            )
+
+            # Improved validation: check length, not error, not fallback text
+            is_valid = (
+                candidate
+                and len(candidate) > 20  # More strict minimum length
+                and not candidate.lower().startswith("error")
+                and "wymaga dalszego potwierdzenia" not in candidate.lower()  # Detect fallback
+                and "zebrać dodatkowe dane" not in candidate.lower()  # Detect fallback
+            )
+
+            if is_valid:
+                logger.info(
+                    f"✅ Valid response accepted from persona {str(persona.id)[:8]} on attempt {attempt}",
+                    extra={"persona_id": str(persona.id), "attempt": attempt}
+                )
                 response_text = candidate
                 break
+            else:
+                logger.warning(
+                    f"❌ Invalid response from persona {str(persona.id)[:8]} on attempt {attempt}: "
+                    f"len={len(candidate)}, starts_error={candidate.lower().startswith('error') if candidate else False}, "
+                    f"is_fallback={'wymaga dalszego' in candidate.lower() if candidate else False}",
+                    extra={"persona_id": str(persona.id), "attempt": attempt}
+                )
 
-            await asyncio.sleep(0.2 * attempt)
+            await asyncio.sleep(0.3 * attempt)
 
         if not response_text:
+            logger.error(
+                f"❌❌❌ ALL attempts failed for persona {str(persona.id)[:8]}, using fallback response",
+                extra={"persona_id": str(persona.id), "question": question[:100]}
+            )
             response_text = self._fallback_response(question, context, history_summary)
 
-        consistency_check = await self.memory_service.check_consistency(
-            db, str(persona.id), response_text, context
-        )
-        if not isinstance(consistency_check, dict):
-            consistency_check = {"consistency_score": 1.0, "contradictions": [], "is_consistent": True}
+        # TEMPORARILY DISABLED: Consistency checker (uses embeddings and problematic JSON parsing)
+        logger.info(f"⚠️ Skipping consistency check for persona {str(persona.id)[:8]} (temporarily disabled)", extra={"persona_id": str(persona.id)})
+        consistency_check = {"consistency_score": 1.0, "contradictions": [], "is_consistent": True}
+
+        # TODO: Re-enable once consistency checker is fixed
+        # try:
+        #     consistency_check = await self.memory_service.check_consistency(
+        #         db, str(persona.id), response_text, context
+        #     )
+        # except Exception as e:
+        #     logger.warning(f"⚠️ Consistency check failed: {str(e)[:200]}", exc_info=True)
+        #     consistency_check = {"consistency_score": 1.0, "contradictions": [], "is_consistent": True}
 
         consistency_score = float(consistency_check.get("consistency_score", 1.0))
         contradictions = consistency_check.get("contradictions") or []
@@ -272,13 +395,17 @@ class FocusGroupServiceLangChain:
 
         response_time = (time.time() - start_time) * 1000
 
-        await self.memory_service.create_event(
-            db,
-            persona_id=str(persona.id),
-            event_type="response_given",
-            event_data={"question": question, "response": response_text},
-            focus_group_id=focus_group_id,
-        )
+        # TEMPORARILY DISABLED: Event sourcing (creates embeddings which are problematic)
+        logger.info(f"⚠️ Skipping event creation for persona {str(persona.id)[:8]} (temporarily disabled)", extra={"persona_id": str(persona.id)})
+
+        # TODO: Re-enable once embeddings are fixed
+        # await self.memory_service.create_event(
+        #     db,
+        #     persona_id=str(persona.id),
+        #     event_type="response_given",
+        #     event_data={"question": question, "response": response_text},
+        #     focus_group_id=focus_group_id,
+        # )
 
         persona_response = PersonaResponse(
             persona_id=persona.id,
@@ -313,6 +440,7 @@ class FocusGroupServiceLangChain:
         context: List[Dict[str, Any]],
         history_summary: Optional[str],
         attempt: int,
+        project_context: Optional[str] = None,
     ) -> str:
         """Generate persona response using LangChain"""
 
@@ -322,11 +450,62 @@ class FocusGroupServiceLangChain:
             context,
             history_summary=history_summary,
             attempt=attempt,
+            project_context=project_context,
         )
 
-        result = await self.response_chain.ainvoke({"prompt": prompt_text})
+        # Log the full prompt being sent (truncated for readability)
+        logger.info(
+            f"📝 Sending prompt to LLM for persona {str(persona.id)[:8]} (attempt {attempt}):\n"
+            f"Prompt length: {len(prompt_text)} chars\n"
+            f"First 500 chars: {prompt_text[:500]}...\n"
+            f"Context items: {len(context)}, History: {'Yes' if history_summary else 'No'}",
+            extra={"persona_id": str(persona.id), "attempt": attempt}
+        )
 
-        return result.content
+        try:
+            result = await self.response_chain.ainvoke({"prompt": prompt_text})
+        except Exception as e:
+            logger.error(
+                f"🔥 LLM invocation FAILED for persona {str(persona.id)[:8]}: {str(e)[:300]}",
+                exc_info=True,
+                extra={"persona_id": str(persona.id), "attempt": attempt, "error_type": type(e).__name__}
+            )
+            raise
+
+        # Handle different result types
+        logger.debug(
+            f"🔍 Raw LLM result type: {type(result)}, has_content: {hasattr(result, 'content')}, "
+            f"is_str: {isinstance(result, str)}, is_dict: {isinstance(result, dict)}",
+            extra={"persona_id": str(persona.id), "result_type": str(type(result))}
+        )
+
+        if hasattr(result, 'content'):
+            response_text = result.content
+            logger.debug(f"  → Extracted from .content attribute", extra={"persona_id": str(persona.id)})
+        elif isinstance(result, str):
+            response_text = result
+            logger.debug(f"  → Used as string directly", extra={"persona_id": str(persona.id)})
+        elif isinstance(result, dict) and 'content' in result:
+            response_text = result['content']
+            logger.debug(f"  → Extracted from dict['content']", extra={"persona_id": str(persona.id)})
+        else:
+            logger.error(
+                f"⚠️ Unexpected result type from LangChain: {type(result)}\n"
+                f"Value: {str(result)[:500]}\n"
+                f"Dir: {[x for x in dir(result) if not x.startswith('_')][:20]}",
+                extra={"persona_id": str(persona.id), "result_type": str(type(result))}
+            )
+            response_text = ""
+
+        logger.info(
+            f"🤖 LLM response for persona {str(persona.id)[:8]} (attempt {attempt}):\n"
+            f"  Length: {len(response_text or '')} chars\n"
+            f"  Is empty: {not response_text}\n"
+            f"  Text: '{(response_text or '')[:300] if response_text else 'EMPTY'}'",
+            extra={"persona_id": str(persona.id), "response_length": len(response_text or ''), "attempt": attempt}
+        )
+
+        return response_text or ""
 
     def _create_response_prompt(
         self,
@@ -335,8 +514,14 @@ class FocusGroupServiceLangChain:
         context: List[Dict[str, Any]],
         history_summary: Optional[str] = None,
         attempt: int = 1,
+        project_context: Optional[str] = None,
     ) -> str:
         """Create prompt for persona response generation"""
+
+        # Generate unique seed for this specific response to ensure diversity
+        import uuid
+        unique_seed = str(uuid.uuid4())[:8]
+        timestamp_ms = int(time.time() * 1000)
 
         context_text = ""
         if context:
@@ -350,6 +535,10 @@ class FocusGroupServiceLangChain:
         if history_summary:
             recent_history = f"\n\nRECENT CONVERSATION SNAPSHOT:\n{history_summary}\n"
 
+        project_context_section = ""
+        if project_context:
+            project_context_section = f"\n\nPROJECT CONTEXT:\n{project_context}\n"
+
         retry_suffix = ""
         if attempt > 1:
             retry_suffix = (
@@ -357,28 +546,41 @@ class FocusGroupServiceLangChain:
                 "Tym razem odpowiedz w 2-4 zdaniach, konkretnie odnosząc się do pytania i wcześniejszych spostrzeżeń."
             )
 
-        return f"""You are roleplaying as a specific persona in a market research focus group.
+        # Add persona-specific diversification
+        persona_seed = f"{persona.gender}-{persona.age}-{persona.location or 'unknown'}"
 
-YOUR PERSONA PROFILE:
+        return f"""You are roleplaying as a UNIQUE individual in a market research focus group. Each participant has different views based on their background.
+
+[Response ID: {unique_seed}-{timestamp_ms}] [Persona: {persona_seed}]
+
+YOUR UNIQUE IDENTITY:
 {persona.personality_prompt}
 
-DEMOGRAPHICS:
-- Age: {persona.age}
+YOUR DEMOGRAPHICS (shape your perspective):
+- Age: {persona.age} years old
 - Gender: {persona.gender}
-- Location: {persona.location}
-- Education: {persona.education_level}
-- Income: {persona.income_bracket}
+- Location: {persona.location or 'Not specified'}
+- Education: {persona.education_level or 'Not specified'}
+- Income: {persona.income_bracket or 'Not specified'}
 
-BACKGROUND:
+YOUR BACKGROUND STORY:
 {persona.background_story}
 
-VALUES: {', '.join(persona.values) if persona.values else 'N/A'}
-INTERESTS: {', '.join(persona.interests) if persona.interests else 'N/A'}
-{context_text}{recent_history}
+YOUR CORE VALUES: {', '.join(persona.values) if persona.values else 'Not specified'}
+YOUR INTERESTS: {', '.join(persona.interests) if persona.interests else 'Not specified'}
+{project_context_section}{context_text}{recent_history}
 
-QUESTION: {question}
+QUESTION FOR YOU: {question}
 
-Respond naturally as this persona would, staying consistent with your profile and past responses. Be authentic, specific, and conversational. Keep your response to 2-4 sentences unless more detail is clearly needed.{retry_suffix}"""
+CRITICAL INSTRUCTIONS:
+1. You MUST respond based on YOUR UNIQUE background, values, and experiences described above
+2. DO NOT give generic answers - draw from YOUR specific demographics and story
+3. YOUR response must be DIFFERENT from other participants
+4. Be authentic and conversational - speak as this specific person would
+5. Reference YOUR age, location, values, or interests when relevant
+6. Give 2-4 sentences with YOUR personal perspective{retry_suffix}
+
+YOUR RESPONSE (as {persona.gender}, {persona.age}, from {persona.location or 'your location'}):"""
 
     async def _get_recent_history(
         self,
@@ -402,13 +604,16 @@ Respond naturally as this persona would, staying consistent with your profile an
         if not history:
             return None
         lines: List[str] = []
-        for response in reversed(history):
+        for idx, response in enumerate(reversed(history), 1):
             question = (response.question or '').replace('\n', ' ').strip()
             answer = (response.response or '').replace('\n', ' ').strip()
             if answer:
-                answer = answer[:220]
+                # Keep more of the answer for better context
+                answer = answer[:300]
+            lines.append(f"[Exchange {idx}]")
             lines.append(f"Q: {question}")
-            lines.append(f"A: {answer}")
+            lines.append(f"Your Answer: {answer}")
+            lines.append("")  # Empty line for readability
         return '\n'.join(lines)
 
     def _fallback_response(

@@ -7,7 +7,6 @@ import {
   Users,
   Zap,
   Download,
-  FileText,
   Sparkles,
   MessageSquare,
   Clock3,
@@ -538,6 +537,7 @@ function AdvancedInsightsSection({
   hasData,
   disabled,
   hasRequested,
+  hideGenerateButton = false,
 }: {
   insights?: AdvancedInsights;
   isFetching: boolean;
@@ -545,6 +545,7 @@ function AdvancedInsightsSection({
   hasData: boolean;
   disabled: boolean;
   hasRequested: boolean;
+  hideGenerateButton?: boolean;
 }) {
   if (disabled) {
     return null;
@@ -567,24 +568,26 @@ function AdvancedInsightsSection({
           <Brain className="w-5 h-5 text-purple-500" />
           Zaawansowana analityka
         </h3>
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={isFetching || disabled}
-          className="floating-button px-4 py-2 flex items-center gap-2 text-sm"
-        >
-          {isFetching ? (
-            <>
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-slate-600" />
-              Analizuję...
-            </>
-          ) : (
-            <>
-              <Zap className="w-4 h-4" />
-              {hasData ? 'Odśwież analizę' : 'Uruchom analizę' }
-            </>
-          )}
-        </button>
+        {!hideGenerateButton && (
+          <button
+            type="button"
+            onClick={onGenerate}
+            disabled={isFetching || disabled}
+            className="floating-button px-4 py-2 flex items-center gap-2 text-sm"
+          >
+            {isFetching ? (
+              <>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-slate-600" />
+                Analizuję...
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4" />
+                {hasData ? 'Odśwież analizę' : 'Uruchom analizę' }
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {!hasData ? (
@@ -868,6 +871,10 @@ export function AnalysisPanel() {
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const [hasRequestedAdvanced, setHasRequestedAdvanced] = useState(false);
   const [isExportingEnhanced, setIsExportingEnhanced] = useState(false);
+  const [isGeneratingComplete, setIsGeneratingComplete] = useState(false);
+  const [generationStep, setGenerationStep] = useState<string>('');
+  const [triggerAISummary, setTriggerAISummary] = useState(false);
+  const [useProModel, setUseProModel] = useState(true);
 
   const completedFocusGroups = useMemo(
     () => focusGroups.filter((fg) => fg.status === 'completed'),
@@ -1081,6 +1088,43 @@ export function AnalysisPanel() {
     }
   };
 
+  const handleGenerateCompleteAnalysis = async () => {
+    if (!selectedId || !isCompleted) {
+      return;
+    }
+
+    setIsGeneratingComplete(true);
+
+    try {
+      // Step 1: Basic Insights
+      setGenerationStep('Generating basic insights... (1/4)');
+      await refreshInsights.mutateAsync();
+
+      // Step 2: AI Business Insights
+      setGenerationStep('Generating AI business insights... (2/4)');
+      await businessInsightsQuery.refetch({ throwOnError: true });
+
+      // Step 3: Advanced Analytics
+      setGenerationStep('Generating advanced analytics... (3/4)');
+      setHasRequestedAdvanced(true);
+      await advancedInsightsQuery.refetch({ throwOnError: true });
+
+      // Step 4: AI Summary (trigger via prop)
+      setGenerationStep('Generating AI summary... (4/4)');
+      setTriggerAISummary(true);
+
+      toast.success('Complete analysis generated!', 'All insights have been successfully created.');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.detail ?? error.message
+        : 'Failed to generate complete analysis.';
+      toast.error('Analysis error', message);
+    } finally {
+      setIsGeneratingComplete(false);
+      setGenerationStep('');
+    }
+  };
+
   const handleEnhancedReportExport = async () => {
     if (!selectedFocusGroup) {
       return;
@@ -1142,6 +1186,10 @@ export function AnalysisPanel() {
               <AISummaryPanel
                 focusGroupId={selectedFocusGroup.id}
                 focusGroupName={selectedFocusGroup.name}
+                hideGenerateButton={true}
+                triggerGenerate={triggerAISummary}
+                onGenerateComplete={() => setTriggerAISummary(false)}
+                useProModel={useProModel}
               />
             )}
 
@@ -1270,6 +1318,7 @@ export function AnalysisPanel() {
               hasData={hasAdvancedResults}
               disabled={isAdvancedDisabled}
               hasRequested={hasRequestedAdvanced}
+              hideGenerateButton={true}
             />
           </div>
         ),
@@ -1319,73 +1368,56 @@ export function AnalysisPanel() {
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-slate-600" htmlFor="analysis-focus-group">
-                  Wybierz focus group:
-                </label>
-                <select
-                  id="analysis-focus-group"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  value={selectedFocusGroup.id}
-                  onChange={handleFocusGroupChange}
-                >
-                  {completedFocusGroups.map((fg) => (
-                    <option key={fg.id} value={fg.id}>
-                      {fg.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-slate-600" htmlFor="analysis-focus-group">
+                    Wybierz focus group:
+                  </label>
+                  <select
+                    id="analysis-focus-group"
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    value={selectedFocusGroup.id}
+                    onChange={handleFocusGroupChange}
+                  >
+                    {completedFocusGroups.map((fg) => (
+                      <option key={fg.id} value={fg.id}>
+                        {fg.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-slate-600" htmlFor="ai-model-select">
+                    AI Model:
+                  </label>
+                  <select
+                    id="ai-model-select"
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    value={useProModel ? 'pro' : 'flash'}
+                    onChange={(e) => setUseProModel(e.target.value === 'pro')}
+                  >
+                    <option value="flash">Gemini 2.5 Flash (Fast ~10s)</option>
+                    <option value="pro">Gemini 2.5 Pro (Quality ~30s)</option>
+                  </select>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleBusinessInsightsGenerate}
-                  disabled={businessInsightsQuery.isFetching || !isCompleted}
-                  className="floating-button px-4 py-2 flex items-center gap-2 text-sm bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={handleGenerateCompleteAnalysis}
+                  disabled={isGeneratingComplete || !isCompleted}
+                  className="floating-button px-4 py-2 flex items-center gap-2 text-sm bg-gradient-to-r from-purple-600 to-primary-600 hover:from-purple-700 hover:to-primary-700 text-white font-semibold shadow-lg"
                 >
-                  {businessInsightsQuery.isFetching ? (
+                  {isGeneratingComplete ? (
                     <>
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
-                      Generating AI Insights...
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      {generationStep || 'Generating...'}
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4" />
-                      {businessInsightsQuery.data ? 'Refresh AI Insights' : 'Generate AI Insights'}
+                      <Sparkles className="w-5 h-5" />
+                      Generate Complete AI Analysis
                     </>
                   )}
-                </button>
-                <button
-                  onClick={() => refreshInsights.mutate()}
-                  disabled={refreshInsights.isPending || !isCompleted}
-                  className="floating-button px-4 py-2 flex items-center gap-2 text-sm"
-                >
-                  {refreshInsights.isPending ? (
-                    <>
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-slate-600" />
-                      Analizuję...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4" />
-                      Odśwież analizę
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => analysisApi.exportPDF(selectedFocusGroup.id).then((blob) => {
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `analysis_${selectedFocusGroup.id}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                  })}
-                  className="floating-button px-3 py-2 text-sm flex items-center gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  PDF
                 </button>
                 <button
                   onClick={handleEnhancedReportExport}
@@ -1395,30 +1427,14 @@ export function AnalysisPanel() {
                   {isExportingEnhanced ? (
                     <>
                       <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-slate-600" />
-                      Generuję...
+                      Eksportuję...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4" />
-                      Raport AI
+                      <Download className="w-4 h-4" />
+                      Export PDF
                     </>
                   )}
-                </button>
-                <button
-                  onClick={() => analysisApi.exportCSV(selectedFocusGroup.id).then((blob) => {
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `analysis_${selectedFocusGroup.id}.xlsx`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                  })}
-                  className="floating-button px-3 py-2 text-sm flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  CSV/XLSX
                 </button>
               </div>
             </div>

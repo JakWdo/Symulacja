@@ -29,6 +29,7 @@ class FocusGroup(Base):
     )
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    project_context = Column(Text, nullable=True)
     persona_ids = Column(ARRAY(PGUUID(as_uuid=True)), nullable=False)
     questions = Column(ARRAY(Text), nullable=False)
     mode = Column(String(50), nullable=False, default="normal")

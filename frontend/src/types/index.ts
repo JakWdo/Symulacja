@@ -49,6 +49,7 @@ export interface FocusGroup {
   project_id: string;
   name: string;
   description: string | null;
+  project_context: string | null;
   persona_ids: string[];
   questions: string[];
   mode: 'normal' | 'adversarial';

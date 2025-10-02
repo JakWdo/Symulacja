@@ -15,12 +15,13 @@ function StatCard({
   trend?: string;
   color?: string;
 }) {
-  const colorClasses = {
+  const colorMap = {
     primary: "from-primary-100 to-primary-50 text-primary-700 border-primary-200",
     accent: "from-accent-100 to-accent-50 text-accent-700 border-accent-200",
     green: "from-green-100 to-green-50 text-green-700 border-green-200",
     blue: "from-blue-100 to-blue-50 text-blue-700 border-blue-200",
-  }[color] || colorClasses.primary;
+  };
+  const colorClasses = colorMap[color] || colorMap.primary;
 
   return (
     <motion.div

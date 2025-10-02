@@ -23,6 +23,7 @@ export interface CreateProjectPayload {
 export interface CreateFocusGroupPayload {
   name: string;
   description?: string | null;
+  project_context?: string | null;
   persona_ids: string[];
   questions: string[];
   mode: 'normal' | 'adversarial';

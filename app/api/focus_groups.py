@@ -111,6 +111,7 @@ async def get_focus_group(
         "project_id": focus_group.project_id,
         "name": focus_group.name,
         "description": focus_group.description,
+        "project_context": focus_group.project_context,
         "persona_ids": focus_group.persona_ids,
         "questions": focus_group.questions,
         "mode": focus_group.mode,

@@ -33,53 +33,6 @@ function MiniStatCard({
   );
 }
 
-function PersonaPreviewCard({ persona }: { persona: any }) {
-  return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="p-4 rounded-xl bg-gradient-to-br from-white to-slate-50 border border-slate-200 hover:border-primary-300 transition-all cursor-pointer"
-    >
-      <div className="flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-primary-100 text-primary-700">
-          <Users className="w-4 h-4" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-slate-900 text-sm">
-            {persona.gender}, {persona.age}
-          </h4>
-          <p className="text-xs text-slate-600 mt-1">
-            {persona.occupation || 'Professional'}
-          </p>
-          {persona.location && (
-            <p className="text-xs text-slate-500 mt-1">📍 {persona.location}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Mini traits preview */}
-      <div className="mt-3 flex gap-1">
-        {[
-          { label: 'O', value: persona.openness },
-          { label: 'C', value: persona.conscientiousness },
-          { label: 'E', value: persona.extraversion },
-        ]
-          .filter(t => t.value != null)
-          .map((trait, idx) => (
-            <div
-              key={idx}
-              className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden"
-              title={`${trait.label}: ${Math.round(trait.value * 100)}%`}
-            >
-              <div
-                className="h-full bg-gradient-to-r from-primary-400 to-primary-600"
-                style={{ width: `${trait.value * 100}%` }}
-              />
-            </div>
-          ))}
-      </div>
-    </motion.div>
-  );
-}
 
 function FocusGroupPreviewCard({
   focusGroup,
@@ -273,26 +226,6 @@ export function ImprovedDashboard() {
               </div>
             </div>
 
-            {/* Recent Personas */}
-            {personas.length > 0 && (
-              <div className="floating-panel p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">Recent Personas</h3>
-                  <button
-                    onClick={() => setActivePanel('personas')}
-                    className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-                  >
-                    View All →
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {personas.slice(0, 4).map((persona) => (
-                    <PersonaPreviewCard key={persona.id} persona={persona} />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Empty State for Personas */}
             {personas.length === 0 && (
               <div className="floating-panel p-12 text-center">
@@ -330,48 +263,6 @@ export function ImprovedDashboard() {
                   {focusGroups.slice(0, 3).map((fg) => (
                     <FocusGroupPreviewCard key={fg.id} focusGroup={fg} onOpenAnalysis={handleOpenAnalysis} />
                   ))}
-                </div>
-              </div>
-            )}
-
-            {/* Project Stats */}
-            {selectedProject.is_statistically_valid && selectedProject.p_values && (
-              <div className="floating-panel p-6">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-slate-900">Statistical Validation</h3>
-                  <span className="text-xs text-primary-600 cursor-help" title="Chi-square test results - zobacz COMPLETE_GUIDE.md (sekcja Generowanie Person)">
-                    ℹ️
-                  </span>
-                </div>
-                <div className="text-xs text-slate-600 mb-3">
-                  Chi-square p-values (threshold: 0.05)
-                </div>
-                <div className="space-y-3">
-                  {Object.entries(selectedProject.p_values).slice(0, 3).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600 capitalize">{key}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono text-slate-900">
-                          {typeof value === 'number' ? value.toFixed(3) : 'N/A'}
-                        </span>
-                        {typeof value === 'number' && (
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded cursor-help ${
-                              value > 0.05 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                            }`}
-                            title={value > 0.05 ? 'Good: personas match target distribution' : 'Poor: regenerate with more personas'}
-                          >
-                            {value > 0.05 ? '✓' : '✗'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 pt-3 border-t border-slate-200 text-xs text-slate-600">
-                  <strong>p &gt; 0.05</strong> = personas match target (good!)
-                  <br />
-                  <strong>p ≤ 0.05</strong> = regenerate with more personas
                 </div>
               </div>
             )}
