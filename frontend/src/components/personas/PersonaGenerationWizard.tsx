@@ -190,20 +190,20 @@ export function PersonaGenerationWizard({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Sparkles className="w-6 h-6" />
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Sparkles className="w-5 h-5" />
             Persona Generation Wizard
           </h2>
-          <p className="text-purple-100 text-sm mt-1">
+          <p className="text-purple-100 text-xs mt-1">
             Create custom personas with precise demographic control
           </p>
         </div>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-slate-50">
           {steps.map((step, idx) => {
             const Icon = step.icon;
             const isActive = currentStep === step.number;
@@ -213,7 +213,7 @@ export function PersonaGenerationWizard({
               <div key={step.number} className="flex items-center flex-1">
                 <div className="flex flex-col items-center flex-1">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                       isActive
                         ? 'bg-purple-600 text-white shadow-lg scale-110'
                         : isCompleted
@@ -222,13 +222,13 @@ export function PersonaGenerationWizard({
                     }`}
                   >
                     {isCompleted ? (
-                      <Check className="w-5 h-5" />
+                      <Check className="w-4 h-4" />
                     ) : (
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-4 h-4" />
                     )}
                   </div>
                   <span
-                    className={`text-xs mt-1 font-medium ${
+                    className={`text-[10px] mt-1 font-medium ${
                       isActive ? 'text-purple-600' : isCompleted ? 'text-green-600' : 'text-slate-400'
                     }`}
                   >
@@ -248,7 +248,7 @@ export function PersonaGenerationWizard({
         </div>
 
         {/* Step Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4">
           {currentStep === 1 && (
             <Step1BasicSetup
               numPersonas={numPersonas}
@@ -304,11 +304,11 @@ export function PersonaGenerationWizard({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-200 p-4 bg-slate-50 flex items-center justify-between">
+        <div className="border-t border-slate-200 px-4 py-2.5 bg-slate-50 flex items-center justify-between">
           <button
             onClick={onCancel}
             disabled={isGenerating}
-            className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium disabled:opacity-50"
+            className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 font-medium disabled:opacity-50"
           >
             Cancel
           </button>
@@ -317,34 +317,34 @@ export function PersonaGenerationWizard({
               <button
                 onClick={handleBack}
                 disabled={isGenerating}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 flex items-center gap-2 disabled:opacity-50"
+                className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 disabled:opacity-50"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5" />
                 Back
               </button>
             )}
             {currentStep < 5 ? (
               <button
                 onClick={handleNext}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                className="px-4 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-1.5"
               >
                 Next
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
                 disabled={isGenerating}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50"
+                className="px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isGenerating ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-3.5 h-3.5" />
                     Generate Personas
                   </>
                 )}
@@ -367,12 +367,12 @@ function Step1BasicSetup({
   onPresetChange,
 }: any) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Basic Configuration</h3>
+        <h3 className="text-base font-semibold text-slate-900 mb-3">Basic Configuration</h3>
 
         {/* Number of personas */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label className="block text-sm font-medium text-slate-700">
             Number of Personas
           </label>
@@ -382,7 +382,7 @@ function Step1BasicSetup({
             max="100"
             value={numPersonas}
             onChange={(e) => setNumPersonas(parseInt(e.target.value, 10))}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           <p className="text-xs text-slate-500">
             Generate between 2-100 personas (more = slower but more diverse)
@@ -390,7 +390,7 @@ function Step1BasicSetup({
         </div>
 
         {/* Adversarial mode */}
-        <div className="mt-4 flex items-center gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+        <div className="mt-3 flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
           <input
             type="checkbox"
             id="adversarial"
@@ -412,20 +412,20 @@ function Step1BasicSetup({
         <label className="block text-sm font-medium text-slate-700 mb-2">
           Demographic Preset
         </label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-2">
           {DEMOGRAPHIC_PRESETS.map((preset) => (
             <button
               key={preset.id}
               onClick={() => onPresetChange(preset.id)}
-              className={`p-4 rounded-lg border-2 text-left transition-all ${
+              className={`p-2.5 rounded-lg border-2 text-left transition-all ${
                 selectedPreset === preset.id
                   ? 'border-purple-500 bg-purple-50'
                   : 'border-slate-200 bg-white hover:border-purple-300'
               }`}
             >
-              <div className="text-2xl mb-1">{preset.icon}</div>
-              <div className="font-semibold text-sm text-slate-900">{preset.name}</div>
-              <div className="text-xs text-slate-600 mt-1">{preset.description}</div>
+              <div className="text-xl mb-0.5">{preset.icon}</div>
+              <div className="font-semibold text-xs text-slate-900">{preset.name}</div>
+              <div className="text-[10px] text-slate-600 mt-0.5 line-clamp-2">{preset.description}</div>
             </button>
           ))}
         </div>
@@ -446,12 +446,13 @@ function Step2Demographics({
   setIncomeWeights,
 }: any) {
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-slate-900">Demographic Distributions</h3>
-      <p className="text-sm text-slate-600">
-        Customize how your personas are distributed across age, gender, education, and income.
-        Sliders must sum to 100%.
-      </p>
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-base font-semibold text-slate-900">Demographic Distributions</h3>
+        <p className="text-xs text-slate-600 mt-1">
+          Customize how your personas are distributed across age, gender, education, and income. Sliders must sum to 100%.
+        </p>
+      </div>
 
       <DistributionBuilder
         title="Age Groups"
@@ -502,8 +503,8 @@ function Step3Geography({
   setUrbanicity,
 }: any) {
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-slate-900">Geographic Targeting</h3>
+    <div className="space-y-3">
+      <h3 className="text-base font-semibold text-slate-900">Geographic Targeting</h3>
 
       <DistributionBuilder
         title="Location Distribution"
@@ -515,7 +516,7 @@ function Step3Geography({
       />
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
+        <label className="block text-xs font-medium text-slate-700 mb-1">
           Target Cities (comma-separated)
         </label>
         <input
@@ -523,20 +524,20 @@ function Step3Geography({
           value={targetCities}
           onChange={(e) => setTargetCities(e.target.value)}
           placeholder="e.g., San Francisco, Seattle, Austin"
-          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
+        <label className="block text-xs font-medium text-slate-700 mb-1">
           Urbanicity Preference
         </label>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           {(['any', 'urban', 'suburban', 'rural'] as const).map((option) => (
             <button
               key={option}
               onClick={() => setUrbanicity(option)}
-              className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
                 urbanicity === option
                   ? 'border-purple-500 bg-purple-50 text-purple-700'
                   : 'border-slate-200 text-slate-700 hover:border-purple-300'
@@ -563,63 +564,65 @@ function Step4Psychographics({
   setExcludedInterests,
 }: any) {
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-slate-900">Psychographic Filters</h3>
-      <p className="text-sm text-slate-600">
-        Target specific values and interests. Leave blank for no restrictions.
-      </p>
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-base font-semibold text-slate-900">Psychographic Filters</h3>
+        <p className="text-xs text-slate-600 mt-1">
+          Target specific values and interests. Leave blank for no restrictions.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-xs font-medium text-slate-700 mb-1">
             Required Values
           </label>
           <textarea
             value={requiredValues}
             onChange={(e) => setRequiredValues(e.target.value)}
-            placeholder="e.g., Innovation, Sustainability, Family"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
+            placeholder="e.g., Innovation, Sustainability"
+            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-16 resize-none"
           />
-          <p className="text-xs text-slate-500 mt-1">Comma-separated</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Comma-separated</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-xs font-medium text-slate-700 mb-1">
             Excluded Values
           </label>
           <textarea
             value={excludedValues}
             onChange={(e) => setExcludedValues(e.target.value)}
             placeholder="e.g., Materialism, Risk-taking"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
+            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-16 resize-none"
           />
-          <p className="text-xs text-slate-500 mt-1">Comma-separated</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Comma-separated</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-xs font-medium text-slate-700 mb-1">
             Required Interests
           </label>
           <textarea
             value={requiredInterests}
             onChange={(e) => setRequiredInterests(e.target.value)}
-            placeholder="e.g., Technology, Travel, Fitness"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
+            placeholder="e.g., Technology, Travel"
+            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-16 resize-none"
           />
-          <p className="text-xs text-slate-500 mt-1">Comma-separated</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Comma-separated</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-xs font-medium text-slate-700 mb-1">
             Excluded Interests
           </label>
           <textarea
             value={excludedInterests}
             onChange={(e) => setExcludedInterests(e.target.value)}
             placeholder="e.g., Gambling, Smoking"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
+            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-16 resize-none"
           />
-          <p className="text-xs text-slate-500 mt-1">Comma-separated</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Comma-separated</p>
         </div>
       </div>
     </div>
@@ -634,11 +637,11 @@ function Step5Advanced({
   setPersonalitySkew,
 }: any) {
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-slate-900">Advanced Options</h3>
+    <div className="space-y-3">
+      <h3 className="text-base font-semibold text-slate-900">Advanced Options</h3>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
+        <label className="block text-xs font-medium text-slate-700 mb-1">
           Target Industries (comma-separated)
         </label>
         <input
@@ -646,27 +649,27 @@ function Step5Advanced({
           value={industries}
           onChange={(e) => setIndustries(e.target.value)}
           placeholder="e.g., Technology, Healthcare, Finance"
-          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
 
       <div>
-        <h4 className="text-sm font-semibold text-slate-700 mb-3">
+        <h4 className="text-xs font-semibold text-slate-700 mb-1">
           Personality Trait Skew (Big Five)
         </h4>
-        <p className="text-xs text-slate-600 mb-4">
+        <p className="text-[10px] text-slate-600 mb-2">
           Adjust sliders to bias personality traits. 50% = balanced, &lt;50% = low trait, &gt;50% = high trait.
         </p>
-        <div className="space-y-3">
+        <div className="space-y-2">
           {Object.entries(personalitySkew).map(([trait, value]) => {
             const numValue = typeof value === 'number' ? value : 0.5;
             return (
-              <div key={trait} className="space-y-1">
+              <div key={trait} className="space-y-0.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-slate-600 capitalize">
+                  <label className="text-[10px] font-medium text-slate-600 capitalize">
                     {trait}
                   </label>
-                  <span className="text-xs font-semibold text-slate-700">
+                  <span className="text-[10px] font-semibold text-slate-700">
                     {(numValue * 100).toFixed(0)}%
                   </span>
                 </div>
@@ -681,7 +684,7 @@ function Step5Advanced({
                       [trait]: parseFloat(e.target.value) / 100,
                     })
                   }
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
                 />
               </div>
             );
@@ -689,9 +692,9 @@ function Step5Advanced({
         </div>
       </div>
 
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-        <h4 className="text-sm font-semibold text-purple-900 mb-2">Summary</h4>
-        <ul className="text-xs text-purple-700 space-y-1">
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5">
+        <h4 className="text-xs font-semibold text-purple-900 mb-1">Summary</h4>
+        <ul className="text-[10px] text-purple-700 space-y-0.5">
           <li>• All distributions will be validated before generation</li>
           <li>• Custom options override preset templates</li>
           <li>• Generation may take 30-60 seconds for large batches</li>

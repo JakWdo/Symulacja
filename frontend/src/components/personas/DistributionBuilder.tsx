@@ -124,19 +124,19 @@ export function DistributionBuilder({
       </div>
 
       {/* Chart Preview */}
-      <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-        <ResponsiveContainer width="100%" height={150}>
+      <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
+        <ResponsiveContainer width="100%" height={100}>
           <BarChart data={chartData}>
             <XAxis
               dataKey="category"
-              tick={{ fontSize: 11 }}
+              tick={{ fontSize: 9 }}
               angle={-45}
               textAnchor="end"
-              height={60}
+              height={40}
             />
             <YAxis
-              tick={{ fontSize: 11 }}
-              label={{ value: '%', angle: -90, position: 'insideLeft', fontSize: 11 }}
+              tick={{ fontSize: 9 }}
+              label={{ value: '%', angle: -90, position: 'insideLeft', fontSize: 9 }}
             />
             <Tooltip
               formatter={(value: number) => `${value.toFixed(1)}%`}
@@ -144,7 +144,7 @@ export function DistributionBuilder({
                 backgroundColor: 'white',
                 border: '1px solid #e2e8f0',
                 borderRadius: '0.5rem',
-                fontSize: '12px',
+                fontSize: '10px',
               }}
             />
             <Bar dataKey="percentage" fill={colorScheme} radius={[4, 4, 0, 0]}>
@@ -161,15 +161,15 @@ export function DistributionBuilder({
       </div>
 
       {/* Sliders */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {Object.entries(distribution).map(([category, value]) => (
-          <div key={category} className="space-y-1">
+          <div key={category} className="space-y-0.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-slate-600">
+              <label className="text-[10px] font-medium text-slate-600">
                 {category}
               </label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-700 min-w-[45px] text-right">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-700 min-w-[40px] text-right">
                   {(value * 100).toFixed(1)}%
                 </span>
                 {allowCustomCategories && (
@@ -190,7 +190,7 @@ export function DistributionBuilder({
               step="0.1"
               value={value * 100}
               onChange={(e) => handleSliderChange(category, parseFloat(e.target.value))}
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
               style={{
                 background: `linear-gradient(to right, ${colorScheme} 0%, ${colorScheme} ${value * 100}%, #e2e8f0 ${value * 100}%, #e2e8f0 100%)`,
               }}
