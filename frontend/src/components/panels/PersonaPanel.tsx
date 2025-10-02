@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { cn, getPersonalityColor } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import type { Persona } from '@/types';
+import { PersonaGenerationWizard } from '@/components/personas/PersonaGenerationWizard';
 
 const NAME_FROM_STORY_REGEX = /^(?<name>[A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\s+is\s+(?:an|a)\s/;
 
@@ -379,6 +380,7 @@ export function PersonaPanel() {
     setSelectedPersona,
   } = useAppStore();
   const [showGenerateForm, setShowGenerateForm] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [numPersonas, setNumPersonas] = useState(10);
   const [adversarialMode, setAdversarialMode] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
@@ -530,6 +532,17 @@ export function PersonaPanel() {
       toast.error('Generation failed', error.message);
     },
   });
+
+  const handleWizardSubmit = (config: GeneratePersonasPayload) => {
+    if (!selectedProject) {
+      return;
+    }
+
+    setShowWizard(false);
+    setProgressMeta({ start: Date.now(), duration: Math.max(5000, config.num_personas * 2500) });
+    setGenerationProgress(5);
+    generateMutation.mutate(config);
+  };
 
   const handleGenerate = () => {
     if (!selectedProject) {
@@ -955,12 +968,20 @@ export function PersonaPanel() {
       <div className="flex h-full flex-col gap-4">
         <div className="flex flex-wrap gap-3">
           <Button
+            onClick={() => setShowWizard(true)}
+            variant="primary"
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+          >
+            <Sparkles className="w-5 h-5" />
+            Advanced Wizard
+          </Button>
+          <Button
             onClick={() => setShowGenerateForm((prev) => !prev)}
             variant={showGenerateForm ? 'outline' : 'secondary'}
             className="flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            {showGenerateForm ? 'Hide generator' : 'Generate more personas'}
+            {showGenerateForm ? 'Hide quick generator' : 'Quick generate'}
           </Button>
         </div>
 
@@ -1003,10 +1024,16 @@ export function PersonaPanel() {
         {showGenerateForm ? (
           <div className="w-full max-w-sm">{renderGenerateForm}</div>
         ) : (
-          <Button onClick={() => setShowGenerateForm(true)} variant="primary" className="gap-2">
-            <Plus className="w-5 h-5" />
-            Generate Personas
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={() => setShowWizard(true)} variant="primary" className="gap-2 bg-purple-600 hover:bg-purple-700">
+              <Sparkles className="w-5 h-5" />
+              Advanced Wizard
+            </Button>
+            <Button onClick={() => setShowGenerateForm(true)} variant="secondary" className="gap-2">
+              <Plus className="w-5 h-5" />
+              Quick Generate
+            </Button>
+          </div>
         )}
       </div>
     );
@@ -1045,6 +1072,15 @@ export function PersonaPanel() {
         </div>
       )}
       {content}
+
+      {/* Advanced Wizard Modal */}
+      {showWizard && (
+        <PersonaGenerationWizard
+          onSubmit={handleWizardSubmit}
+          onCancel={() => setShowWizard(false)}
+          isGenerating={generateMutation.isPending}
+        />
+      )}
     </FloatingPanel>
   );
 }

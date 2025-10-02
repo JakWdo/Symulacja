@@ -41,6 +41,12 @@ export interface PersonaAdvancedOptions {
   excluded_interests?: string[];
   age_min?: number;
   age_max?: number;
+  custom_age_groups?: Record<string, number>;
+  gender_weights?: Record<string, number>;
+  location_weights?: Record<string, number>;
+  education_weights?: Record<string, number>;
+  income_weights?: Record<string, number>;
+  personality_skew?: Record<string, number>;
 }
 
 export interface GeneratePersonasPayload {
