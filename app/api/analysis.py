@@ -11,10 +11,13 @@ from app.db import get_db
 from app.models import FocusGroup, Persona, PersonaResponse
 from app.services import InsightService
 from app.services.report_generator import ReportGenerator
+from app.services.business_insights_rater import BusinessInsightsRaterService
+from app.schemas.business_insights import BusinessInsightsResponse
 
 router = APIRouter()
 
 insight_service = InsightService()
+business_insights_service = BusinessInsightsRaterService()
 
 
 @router.post("/focus-groups/{focus_group_id}/insights")
@@ -249,6 +252,60 @@ async def export_analysis_csv(
             "Content-Disposition": f"attachment; filename=focus_group_analysis_{focus_group_id}.xlsx"
         },
     )
+
+
+@router.post("/focus-groups/{focus_group_id}/ai-business-insights")
+async def generate_ai_business_insights(
+    focus_group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> BusinessInsightsResponse:
+    """
+    Generate AI-driven business insights for a focus group.
+
+    Uses Gemini 2.5 to analyze responses and provide:
+    - Market fit assessment (0-100 score + rationale)
+    - Readiness level (not_ready/needs_work/ready/high_confidence)
+    - Risk profile (top business risks identified)
+    - Opportunity discovery (unexpected opportunities/use cases)
+    - Response quality assessment
+
+    This is a computationally expensive operation (multiple LLM calls).
+    Results should be cached on the client side.
+    """
+    focus_group = await _get_focus_group(db, focus_group_id)
+
+    if focus_group.status != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Focus group must be completed before AI analysis. Current status: {focus_group.status}",
+        )
+
+    # Get existing insights for context metrics
+    insights = focus_group.polarization_clusters or {}
+
+    # Extract context metrics if available
+    context_metrics = {}
+    if insights:
+        context_metrics = {
+            "consensus": insights.get("metrics", {}).get("consensus", 0.0),
+            "average_sentiment": insights.get("metrics", {}).get("average_sentiment", 0.0),
+            "completion_rate": insights.get("metrics", {}).get("engagement", {}).get("completion_rate", 0.0),
+        }
+
+    try:
+        business_insights = await business_insights_service.generate_complete_insights(
+            db=db,
+            focus_group_id=str(focus_group_id),
+            context_metrics=context_metrics
+        )
+        return business_insights
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate AI business insights: {str(exc)}"
+        ) from exc
 
 
 async def _get_focus_group(db: AsyncSession, focus_group_id: UUID) -> FocusGroup:

@@ -2,6 +2,7 @@
 
 import io
 from datetime import datetime
+from html import escape
 from typing import Any, Dict, List
 from uuid import UUID
 
@@ -259,108 +260,129 @@ class ReportGenerator:
         story.append(metrics_table)
         story.append(Spacer(1, 0.3 * inch))
 
-        # Key Themes
-        key_themes = analysis_data.get('key_themes', [])
-        if key_themes:
-            story.append(Paragraph("Key Themes & Signals", styles['Subsection']))
-            theme_items = []
-            for theme in key_themes:
-                keyword = theme.get('keyword', '')
-                mentions = theme.get('mentions', 0)
-                quote = theme.get('representative_quote') or '—'
-                bullet = (
-                    f"<b>{keyword.title()}</b> ({mentions} mentions) — "
-                    f"<i>{quote}</i>"
+        signal_breakdown = analysis_data.get('signal_breakdown', {})
+
+        def _render_signal_section(entries: List[Dict[str, Any]], heading: str) -> None:
+            if not entries:
+                return
+            story.append(Paragraph(heading, styles['Subsection']))
+            items: List[ListItem] = []
+            for entry in entries:
+                title = escape(str(entry.get('title', 'Insight')))
+                summary = escape(str(entry.get('summary', '')))
+                evidence = entry.get('evidence')
+                evidence_text = escape(str(evidence)) if evidence else ''
+                bullet_text = f"<b>{title}</b> — {summary}"
+                if evidence_text:
+                    bullet_text += f"<br/><font size=9 color='#475569'><i>{evidence_text}</i></font>"
+                items.append(
+                    ListItem(
+                        Paragraph(bullet_text, styles['BodyText']),
+                        bulletColor=colors.HexColor('#0f172a'),
+                    )
                 )
-                theme_items.append(ListItem(Paragraph(bullet, styles['BodyText']), bulletColor=colors.HexColor('#0f172a')))
 
             story.append(
                 ListFlowable(
-                    theme_items,
+                    items,
                     bulletType='bullet',
                     start='circle',
                     bulletFontName='Helvetica',
                     bulletFontSize=8,
                 )
             )
-            story.append(Spacer(1, 0.3 * inch))
+            story.append(Spacer(1, 0.2 * inch))
 
-        # Question breakdown
-        question_breakdown = analysis_data.get('question_breakdown', [])
-        if question_breakdown:
-            story.append(Paragraph("Question Breakdown", styles['Subsection']))
+        _render_signal_section(signal_breakdown.get('strengths', []), "Najsilniejsze sygnały")
+        _render_signal_section(signal_breakdown.get('opportunities', []), "Szanse do wykorzystania")
+        _render_signal_section(signal_breakdown.get('risks', []), "Ryzyka i bariery")
 
-            question_table_data = [[
-                'Question',
-                'Idea Score',
-                'Consensus',
-                'Avg Sentiment',
-                'Responses',
-            ]]
-
-            for entry in question_breakdown[:10]:
-                question_text = entry.get('question', '')
-                if len(question_text) > 70:
-                    question_text = question_text[:67] + '...'
-                question_table_data.append(
-                    [
-                        question_text,
-                        f"{entry.get('idea_score', 0.0):.1f}",
-                        f"{entry.get('consensus', 0.0) * 100:.0f}%",
-                        f"{entry.get('avg_sentiment', 0.0):+.2f}",
-                        str(entry.get('response_count', 0)),
-                    ]
-                )
-
-            question_table = Table(question_table_data, colWidths=[3.5*inch, 1*inch, 1*inch, 1*inch, 0.8*inch])
-            question_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
-                ('ALIGN', (0, 1), (0, -1), 'LEFT'),
-                ('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#94a3b8')),
-                ('PADDING', (0, 0), (-1, -1), 6),
-            ]))
-            story.append(question_table)
-            story.append(Spacer(1, 0.3 * inch))
-
-        # Persona engagement
-        persona_engagement = analysis_data.get('persona_engagement', [])
-        if persona_engagement:
-            story.append(Paragraph("Persona Engagement", styles['Subsection']))
+        persona_patterns = analysis_data.get('persona_patterns', [])
+        if persona_patterns:
+            story.append(Paragraph("Persona Patterns", styles['Subsection']))
             persona_table_data = [[
                 'Persona ID',
-                'Contributions',
+                'Klasyfikacja',
                 'Avg Sentiment',
-                'Avg Response Time (ms)',
+                'Contributions',
                 'Last Activity',
+                'Podsumowanie',
             ]]
 
-            for persona in persona_engagement[:12]:
+            classification_labels = {
+                'champion': 'Champion',
+                'detractor': 'Detraktor',
+                'low_engagement': 'Niska aktywność',
+                'neutral': 'Neutralny',
+            }
+
+            for pattern in persona_patterns[:12]:
                 persona_table_data.append(
                     [
-                        persona.get('persona_id'),
-                        str(persona.get('contribution_count', 0)),
-                        f"{persona.get('avg_sentiment', 0.0):+.2f}",
-                        f"{persona.get('average_response_time_ms', 0.0):.0f}",
-                        persona.get('last_activity', '—'),
+                        pattern.get('persona_id'),
+                        classification_labels.get(pattern.get('classification'), 'Neutralny'),
+                        f"{pattern.get('avg_sentiment', 0.0):+.2f}",
+                        str(pattern.get('contribution_count', 0)),
+                        pattern.get('last_activity', '—') or '—',
+                        pattern.get('summary', ''),
                     ]
                 )
 
-            persona_table = Table(persona_table_data, colWidths=[2.2*inch, 1*inch, 1.2*inch, 1.8*inch, 1.4*inch])
+            persona_table = Table(persona_table_data, colWidths=[1.4*inch, 1.2*inch, 1*inch, 1*inch, 1.4*inch, 2*inch])
             persona_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f1f5f9')),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 9),
                 ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
-                ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+                ('ALIGN', (2, 1), (3, -1), 'CENTER'),
+                ('ALIGN', (0, 1), (1, -1), 'LEFT'),
+                ('ALIGN', (4, 1), (5, -1), 'LEFT'),
                 ('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cbd5e1')),
                 ('PADDING', (0, 0), (-1, -1), 6),
             ]))
             story.append(persona_table)
+            story.append(Spacer(1, 0.2 * inch))
+
+        evidence_feed = analysis_data.get('evidence_feed', {})
+        positives = evidence_feed.get('positives', [])
+        negatives = evidence_feed.get('negatives', [])
+        if positives or negatives:
+            story.append(Paragraph("Evidence Highlights", styles['Subsection']))
+
+            negative_style = ParagraphStyle(
+                name='NegativeInsight',
+                parent=styles['Insight'],
+                textColor=colors.HexColor('#991b1b'),
+                backColor=colors.HexColor('#fef2f2'),
+                borderColor=colors.HexColor('#fee2e2'),
+            )
+
+            def _format_quote(sample: Dict[str, Any], tone: str) -> Paragraph:
+                persona_id = escape(str(sample.get('persona_id', '—') or '—'))
+                sentiment = sample.get('sentiment', 0.0)
+                question_raw = sample.get('question', '') or ''
+                question = escape(question_raw[:200]) if question_raw else ''
+                quote = escape(str(sample.get('response', '')))
+                meta = f"Persona: {persona_id} • Sentiment: {sentiment:+.2f}"
+                if question:
+                    meta += f" • Question: {question[:80]}"
+                text = (
+                    f"<b>{quote}</b><br/><font size=9 color='#475569'>{meta}</font>"
+                )
+                style = styles['Insight'] if tone == 'positive' else styles['BodyText']
+                if tone == 'negative':
+                    style = negative_style
+                return Paragraph(text, style)
+
+            if positives:
+                story.append(Paragraph("Pozytywne sygnały", styles['BodyText']))
+                for sample in positives[:5]:
+                    story.append(_format_quote(sample, 'positive'))
+
+            if negatives:
+                story.append(Paragraph("Ostrzeżenia / bariery", styles['BodyText']))
+                for sample in negatives[:5]:
+                    story.append(_format_quote(sample, 'negative'))
 
         # Build PDF
         doc.build(story)
@@ -426,45 +448,53 @@ class ReportGenerator:
             }
             pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
 
-            question_breakdown = analysis_data.get('question_breakdown', [])
-            if question_breakdown:
-                questions_df = pd.DataFrame([
+            signal_breakdown = analysis_data.get('signal_breakdown', {})
+            signals_rows: List[Dict[str, Any]] = []
+            for category, entries in signal_breakdown.items():
+                for entry in entries or []:
+                    signals_rows.append(
+                        {
+                            'Category': category,
+                            'Title': entry.get('title'),
+                            'Summary': entry.get('summary'),
+                            'Evidence': entry.get('evidence'),
+                        }
+                    )
+            if signals_rows:
+                pd.DataFrame(signals_rows).to_excel(writer, sheet_name='Signals', index=False)
+
+            persona_patterns = analysis_data.get('persona_patterns', [])
+            if persona_patterns:
+                persona_pattern_rows = [
                     {
-                        'Question': item.get('question'),
-                        'Idea Score': item.get('idea_score'),
-                        'Consensus': item.get('consensus'),
+                        'Persona ID': item.get('persona_id'),
+                        'Classification': item.get('classification'),
                         'Average Sentiment': item.get('avg_sentiment'),
-                        'Responses': item.get('response_count'),
+                        'Contributions': item.get('contribution_count'),
+                        'Last Activity': item.get('last_activity'),
+                        'Summary': item.get('summary'),
                     }
-                    for item in question_breakdown
-                ])
-                questions_df.to_excel(writer, sheet_name='Question Breakdown', index=False)
+                    for item in persona_patterns
+                ]
+                pd.DataFrame(persona_pattern_rows).to_excel(writer, sheet_name='Persona Patterns', index=False)
 
-            key_themes = analysis_data.get('key_themes', [])
-            if key_themes:
-                themes_df = pd.DataFrame([
-                    {
-                        'Keyword': theme.get('keyword'),
-                        'Mentions': theme.get('mentions'),
-                        'Representative Quote': theme.get('representative_quote'),
-                    }
-                    for theme in key_themes
-                ])
-                themes_df.to_excel(writer, sheet_name='Key Themes', index=False)
-
-            persona_engagement = analysis_data.get('persona_engagement', [])
-            if persona_engagement:
-                personas_df = pd.DataFrame([
-                    {
-                        'Persona ID': persona.get('persona_id'),
-                        'Contributions': persona.get('contribution_count'),
-                        'Average Sentiment': persona.get('avg_sentiment'),
-                        'Average Response Time (ms)': persona.get('average_response_time_ms'),
-                        'Last Activity': persona.get('last_activity'),
-                    }
-                    for persona in persona_engagement
-                ])
-                personas_df.to_excel(writer, sheet_name='Persona Engagement', index=False)
+            evidence_feed = analysis_data.get('evidence_feed', {})
+            evidence_rows: List[Dict[str, Any]] = []
+            for tone, entries in evidence_feed.items():
+                for entry in entries or []:
+                    evidence_rows.append(
+                        {
+                            'Tone': tone,
+                            'Persona ID': entry.get('persona_id'),
+                            'Question': entry.get('question'),
+                            'Response': entry.get('response'),
+                            'Sentiment': entry.get('sentiment'),
+                            'Consistency Score': entry.get('consistency_score'),
+                            'Created At': entry.get('created_at'),
+                        }
+                    )
+            if evidence_rows:
+                pd.DataFrame(evidence_rows).to_excel(writer, sheet_name='Evidence', index=False)
 
         output.seek(0)
         return output.getvalue()

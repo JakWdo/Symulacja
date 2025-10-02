@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 async def generate_ai_summary(
     focus_group_id: UUID,
     use_pro_model: bool = Query(
-        False,
-        description="Use Gemini 2.5 Pro for highest quality (slower) vs Gemini 2.0 Flash (faster)"
+        True,
+        description="Use Gemini 2.5 Pro for highest-quality analysis (toggle off for Gemini 2.5 Flash)"
     ),
     include_recommendations: bool = Query(True, description="Include strategic recommendations"),
     db: AsyncSession = Depends(get_db),
@@ -34,7 +34,7 @@ async def generate_ai_summary(
     """
     Generate AI-powered discussion summary for a focus group
 
-    This endpoint uses advanced LLMs (Gemini 2.0/2.5) to analyze all responses
+    This endpoint uses Gemini 2.5 models to analyze all responses
     and generate executive summaries, key insights, and strategic recommendations.
 
     **Response includes:**
@@ -212,7 +212,7 @@ async def generate_enhanced_report(
 
     Returns a comprehensive professional PDF report including:
     - Cover page with project overview and health score
-    - AI executive summary (optional, uses Gemini 2.0/2.5)
+    - AI executive summary (optional, uses Gemini 2.5 Flash/Pro)
     - Key insights and strategic recommendations
     - Detailed metrics with explanations and context
     - Advanced analytics (correlations, segments, quality metrics)

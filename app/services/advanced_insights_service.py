@@ -130,7 +130,7 @@ class AdvancedInsightsService:
             correlations["age_sentiment"] = {
                 "correlation": float(age_sentiment_corr),
                 "p_value": float(age_p_value),
-                "significant": age_p_value < 0.05,
+                "significant": bool(age_p_value < 0.05),
                 "interpretation": self._interpret_correlation(age_sentiment_corr, age_p_value, "age", "sentiment"),
             }
 
@@ -147,7 +147,7 @@ class AdvancedInsightsService:
                     "mean_by_gender": {str(k): float(v) for k, v in gender_means.items()},
                     "f_statistic": float(f_stat),
                     "p_value": float(gender_p_value),
-                    "significant": gender_p_value < 0.05,
+                    "significant": bool(gender_p_value < 0.05),
                     "interpretation": self._interpret_group_difference(gender_means, gender_p_value, "gender"),
                 }
 
@@ -172,7 +172,7 @@ class AdvancedInsightsService:
                     trait_correlations[trait] = {
                         "correlation": float(trait_corr),
                         "p_value": float(trait_p),
-                        "significant": trait_p < 0.05,
+                        "significant": bool(trait_p < 0.05),
                     }
 
         if trait_correlations:
@@ -219,7 +219,7 @@ class AdvancedInsightsService:
             length_trend_slope, _, _, length_p, _ = stats.linregress(
                 time_index, response_lengths
             )
-            fatigue_detected = length_trend_slope < -5 and length_p < 0.05
+            fatigue_detected = bool(length_trend_slope < -5 and length_p < 0.05)
         else:
             fatigue_detected = False
 
@@ -229,7 +229,7 @@ class AdvancedInsightsService:
                 "direction": "improving" if slope > 0.01 else "declining" if slope < -0.01 else "stable",
                 "r_squared": float(r_value ** 2),
                 "p_value": float(p_value),
-                "significant": p_value < 0.05,
+                "significant": bool(p_value < 0.05),
             },
             "sentiment_trajectory": {
                 "initial_sentiment": float(df_sorted["sentiment"].iloc[0]),

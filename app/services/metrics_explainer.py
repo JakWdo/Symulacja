@@ -50,9 +50,10 @@ class MetricsExplainerService:
             benchmark = "Bottom 10% of concepts"
 
         context = (
-            "Idea Score combines participant sentiment (how they feel) with consensus "
-            "(how aligned they are). High scores indicate both positive feelings AND agreement, "
-            "which are both critical for product-market fit."
+            "Idea Score is a 1-100 evaluation produced by the Insight Rater LLM. "
+            "It looks across every response to judge sentiment, consistency, depth of insight, "
+            "and whether participants converge on the same takeaways. High scores mean the concept "
+            "resonated strongly and feedback is actionable."
         )
 
         return MetricExplanation(

@@ -70,7 +70,7 @@ const getVariantIcon = (variant: string) => {
 };
 
 export function MetricCardWithExplanation({
-  metricKey,
+  metricKey: _metricKey,
   explanation,
   variant = 'default',
   icon,

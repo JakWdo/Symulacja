@@ -1,5 +1,5 @@
 """
-AI-powered Discussion Summarizer using Gemini 2.0 Flash Exp or Gemini 2.5 Pro
+AI-powered Discussion Summarizer using Gemini 2.5 Flash (default) or Gemini 2.5 Pro
 Generates executive summaries, key insights, and actionable recommendations
 """
 
@@ -32,12 +32,15 @@ class DiscussionSummarizerService:
 
         Args:
             use_pro_model: If True, use gemini-2.5-pro (slower, higher quality)
-                          If False, use gemini-2.0-flash-exp (faster, good quality)
+                          If False, use gemini-2.5-flash (szybszy, zbalansowana jakość)
         """
         self.settings = settings
 
         # Choose model based on need
-        model_name = "gemini-2.0-flash-exp" if not use_pro_model else "gemini-2.5-pro"
+        analysis_model = getattr(settings, "ANALYSIS_MODEL", "gemini-2.5-pro")
+        generation_model = getattr(settings, "PERSONA_GENERATION_MODEL", settings.DEFAULT_MODEL)
+
+        model_name = analysis_model if use_pro_model else generation_model
 
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,

@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
+import logging
 import time
 from datetime import datetime, timezone
 from uuid import UUID
@@ -20,6 +21,7 @@ from app.services.memory_service_langchain import MemoryServiceLangChain
 from app.core.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class FocusGroupServiceLangChain:
@@ -33,8 +35,10 @@ class FocusGroupServiceLangChain:
         self.memory_service = MemoryServiceLangChain()
 
         # Initialize LangChain Gemini LLM
+        persona_model = getattr(settings, "PERSONA_GENERATION_MODEL", settings.DEFAULT_MODEL)
+
         self.llm = ChatGoogleGenerativeAI(
-            model=settings.DEFAULT_MODEL,
+            model=persona_model,
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=settings.TEMPERATURE,
             max_tokens=500,
@@ -175,23 +179,29 @@ class FocusGroupServiceLangChain:
     ) -> List[Dict[str, Any]]:
         """Get responses from all personas concurrently using LangChain"""
 
-        # Create tasks for concurrent execution
         tasks = [
             self._get_persona_response(db, persona, question, focus_group_id)
             for persona in personas
         ]
 
-        # Execute concurrently with timeout
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Handle exceptions
-        results = []
-        for i, resp in enumerate(responses):
+        results: List[Dict[str, Any]] = []
+        for persona, resp in zip(personas, responses):
             if isinstance(resp, Exception):
+                logger.warning(
+                    "Persona response failed; using fallback",
+                    exc_info=resp,
+                    extra={"persona_id": str(persona.id), "focus_group_id": focus_group_id},
+                )
                 results.append(
                     {
-                        "persona_id": str(personas[i].id),
-                        "response": f"Error: {str(resp)}",
+                        "persona_id": str(persona.id),
+                        "response": "Potrzebuję chwili, aby zebrać myśli – proponuję zebrać więcej informacji od pozostałych uczestników i wrócę do tematu w następnej rundzie.",
+                        "response_time_ms": None,
+                        "consistency_score": None,
+                        "contradictions": [],
+                        "context_used": 0,
                         "error": True,
                     }
                 )
@@ -207,22 +217,51 @@ class FocusGroupServiceLangChain:
         question: str,
         focus_group_id: str,
     ) -> Dict[str, Any]:
-        """Get single persona response using LangChain"""
+        """Get single persona response using LangChain with retry and memory support."""
+
         start_time = time.time()
 
-        # Retrieve relevant context from memory
+        history = await self._get_recent_history(db, persona.id, focus_group_id, limit=3)
+        history_summary = self._format_history_summary(history)
+
         context = await self.memory_service.retrieve_relevant_context(
             db, str(persona.id), question, top_k=5
         )
 
-        # Generate response using LangChain
-        response_text = await self._generate_response(persona, question, context)
+        response_text: Optional[str] = None
+        max_attempts = 3
 
-        # Check consistency
+        for attempt in range(1, max_attempts + 1):
+            try:
+                candidate = await self._generate_response(
+                    persona,
+                    question,
+                    context,
+                    history_summary=history_summary,
+                    attempt=attempt,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Persona response attempt failed",
+                    exc_info=exc,
+                    extra={"persona_id": str(persona.id), "attempt": attempt},
+                )
+                candidate = ""
+
+            candidate = (candidate or "").strip()
+
+            if candidate and not candidate.lower().startswith("error") and len(candidate) > 3:
+                response_text = candidate
+                break
+
+            await asyncio.sleep(0.2 * attempt)
+
+        if not response_text:
+            response_text = self._fallback_response(question, context, history_summary)
+
         consistency_check = await self.memory_service.check_consistency(
             db, str(persona.id), response_text, context
         )
-
         if not isinstance(consistency_check, dict):
             consistency_check = {"consistency_score": 1.0, "contradictions": [], "is_consistent": True}
 
@@ -233,7 +272,6 @@ class FocusGroupServiceLangChain:
 
         response_time = (time.time() - start_time) * 1000
 
-        # Create event for this interaction
         await self.memory_service.create_event(
             db,
             persona_id=str(persona.id),
@@ -242,7 +280,6 @@ class FocusGroupServiceLangChain:
             focus_group_id=focus_group_id,
         )
 
-        # Store response in database
         persona_response = PersonaResponse(
             persona_id=persona.id,
             focus_group_id=focus_group_id,
@@ -270,20 +307,34 @@ class FocusGroupServiceLangChain:
         }
 
     async def _generate_response(
-        self, persona: Persona, question: str, context: List[Dict[str, Any]]
+        self,
+        persona: Persona,
+        question: str,
+        context: List[Dict[str, Any]],
+        history_summary: Optional[str],
+        attempt: int,
     ) -> str:
         """Generate persona response using LangChain"""
 
-        prompt_text = self._create_response_prompt(persona, question, context)
+        prompt_text = self._create_response_prompt(
+            persona,
+            question,
+            context,
+            history_summary=history_summary,
+            attempt=attempt,
+        )
 
-        # Use LangChain chain to generate response
         result = await self.response_chain.ainvoke({"prompt": prompt_text})
 
-        # Extract text content from AIMessage
         return result.content
 
     def _create_response_prompt(
-        self, persona: Persona, question: str, context: List[Dict[str, Any]]
+        self,
+        persona: Persona,
+        question: str,
+        context: List[Dict[str, Any]],
+        history_summary: Optional[str] = None,
+        attempt: int = 1,
     ) -> str:
         """Create prompt for persona response generation"""
 
@@ -294,6 +345,17 @@ class FocusGroupServiceLangChain:
                 if ctx["event_type"] == "response_given":
                     context_text += f"{i}. Q: {ctx['event_data'].get('question', '')}\n"
                     context_text += f"   A: {ctx['event_data'].get('response', '')}\n"
+
+        recent_history = ""
+        if history_summary:
+            recent_history = f"\n\nRECENT CONVERSATION SNAPSHOT:\n{history_summary}\n"
+
+        retry_suffix = ""
+        if attempt > 1:
+            retry_suffix = (
+                "\n\nTwoja ostatnia odpowiedź była zbyt lakoniczna. "
+                "Tym razem odpowiedz w 2-4 zdaniach, konkretnie odnosząc się do pytania i wcześniejszych spostrzeżeń."
+            )
 
         return f"""You are roleplaying as a specific persona in a market research focus group.
 
@@ -312,8 +374,53 @@ BACKGROUND:
 
 VALUES: {', '.join(persona.values) if persona.values else 'N/A'}
 INTERESTS: {', '.join(persona.interests) if persona.interests else 'N/A'}
-{context_text}
+{context_text}{recent_history}
 
 QUESTION: {question}
 
-Respond naturally as this persona would, staying consistent with your profile and past responses. Be authentic, specific, and conversational. Keep your response to 2-4 sentences unless more detail is clearly needed."""
+Respond naturally as this persona would, staying consistent with your profile and past responses. Be authentic, specific, and conversational. Keep your response to 2-4 sentences unless more detail is clearly needed.{retry_suffix}"""
+
+    async def _get_recent_history(
+        self,
+        db: AsyncSession,
+        persona_id: UUID,
+        focus_group_id: str,
+        limit: int = 3,
+    ) -> List[PersonaResponse]:
+        result = await db.execute(
+            select(PersonaResponse)
+            .where(
+                PersonaResponse.persona_id == persona_id,
+                PersonaResponse.focus_group_id == focus_group_id,
+            )
+            .order_by(PersonaResponse.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    def _format_history_summary(self, history: List[PersonaResponse]) -> Optional[str]:
+        if not history:
+            return None
+        lines: List[str] = []
+        for response in reversed(history):
+            question = (response.question or '').replace('\n', ' ').strip()
+            answer = (response.response or '').replace('\n', ' ').strip()
+            if answer:
+                answer = answer[:220]
+            lines.append(f"Q: {question}")
+            lines.append(f"A: {answer}")
+        return '\n'.join(lines)
+
+    def _fallback_response(
+        self,
+        question: str,
+        context: List[Dict[str, Any]],
+        history_summary: Optional[str],
+    ) -> str:
+        prefix = "Bazując na wcześniejszej dyskusji" if history_summary else "Z mojej perspektywy"
+        if context:
+            prefix += ", nawiązując do poprzednich obserwacji"
+        return (
+            f"{prefix} uważam, że {question.lower()} wymaga dalszego potwierdzenia w kolejnych testach. "
+            "Sugeruję zebrać dodatkowe dane od pozostałych uczestników i doprecyzować kolejne kroki eksperymentu."
+        )

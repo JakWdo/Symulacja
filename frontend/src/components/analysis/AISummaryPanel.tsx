@@ -9,7 +9,6 @@ import {
   Target,
   TrendingUp,
   ChevronDown,
-  ChevronUp,
   Loader2,
   Zap,
 } from 'lucide-react';
@@ -17,24 +16,8 @@ import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/toastStore';
 import axios from 'axios';
-
-interface AISummary {
-  executive_summary: string;
-  key_insights: string[];
-  surprising_findings: string[];
-  segment_analysis: Record<string, string>;
-  recommendations: string[];
-  sentiment_narrative: string;
-  full_analysis: string;
-  metadata: {
-    focus_group_id: string;
-    focus_group_name: string;
-    generated_at: string;
-    model_used: string;
-    total_responses: number;
-    total_participants: number;
-  };
-}
+import { analysisApi } from '@/lib/api';
+import type { AISummary } from '@/types';
 
 interface AISummaryPanelProps {
   focusGroupId: string;
@@ -42,10 +25,11 @@ interface AISummaryPanelProps {
 }
 
 export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelProps) {
-  const [useProModel, setUseProModel] = useState(false);
+  const [useProModel, setUseProModel] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['executive', 'insights'])
   );
+  const sessionTitle = focusGroupName || 'wybranej sesji';
 
   const {
     data: summary,
@@ -55,17 +39,11 @@ export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelP
   } = useQuery<AISummary>({
     queryKey: ['ai-summary', focusGroupId, useProModel],
     queryFn: async () => {
-      const response = await axios.post(
-        `/api/v1/focus-groups/${focusGroupId}/ai-summary`,
-        {},
-        {
-          params: {
-            use_pro_model: useProModel,
-            include_recommendations: true,
-          },
-        }
+      return analysisApi.generateAISummary(
+        focusGroupId,
+        useProModel,
+        true
       );
-      return response.data;
     },
     enabled: false, // Manual trigger only
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes
@@ -73,16 +51,16 @@ export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelP
 
   const handleGenerate = async () => {
     try {
-      await refetch();
+      await refetch({ throwOnError: true });
       toast.success(
-        'AI Summary Generated',
-        `Summary created using ${useProModel ? 'Gemini 2.5 Pro' : 'Gemini 2.0 Flash'}`
+        'Podsumowanie AI gotowe',
+        `Model: ${useProModel ? 'Gemini 2.5 Pro' : 'Gemini 2.5 Flash'}`
       );
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data?.detail || err.message
         : 'Failed to generate summary';
-      toast.error('Generation Failed', message);
+      toast.error('Błąd generowania', message);
     }
   };
 
@@ -143,7 +121,7 @@ export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelP
             <Sparkles className="w-8 h-8 text-primary-600" />
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-900 mb-3">AI-Powered Discussion Summary</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-3">AI podsumowanie: {sessionTitle}</h2>
           <p className="text-slate-600 mb-6 leading-relaxed">
             Generate an intelligent summary of your focus group discussion using advanced AI.
             Get executive summaries, key insights, surprising findings, and strategic recommendations
@@ -157,7 +135,7 @@ export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelP
                 <p className="text-xs text-slate-600 mt-1">
                   {useProModel
                     ? 'Gemini 2.5 Pro - Highest quality, slower (~30s)'
-                    : 'Gemini 2.0 Flash Exp - Fast & good quality (~10s)'}
+                    : 'Gemini 2.5 Flash - Fast & balanced (~10s)'}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -209,7 +187,7 @@ export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelP
           <p className="text-slate-600 mb-4">
             {useProModel
               ? 'Using Gemini 2.5 Pro for highest quality analysis'
-              : 'Using Gemini 2.0 Flash for fast analysis'}
+              : 'Using Gemini 2.5 Flash for fast analysis'}
           </p>
           <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
             <motion.div
@@ -251,11 +229,24 @@ export function AISummaryPanel({ focusGroupId, focusGroupName }: AISummaryPanelP
               <Sparkles className="w-6 h-6 text-primary-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">AI Discussion Summary</h2>
+              <h2 className="text-xl font-bold text-slate-900">Podsumowanie dyskusji • {sessionTitle}</h2>
               <p className="text-sm text-slate-600">
-                Generated with {summary.metadata.model_used} •{' '}
+                Wygenerowano modelem {summary.metadata.model_used} •{' '}
                 {new Date(summary.metadata.generated_at).toLocaleString()}
               </p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                <span className="px-2 py-1 bg-slate-100 rounded-full">
+                  Odpowiedzi: {summary.metadata.total_responses}
+                </span>
+                <span className="px-2 py-1 bg-slate-100 rounded-full">
+                  Uczestnicy: {summary.metadata.total_participants}
+                </span>
+                {summary.metadata.questions_asked !== undefined && (
+                  <span className="px-2 py-1 bg-slate-100 rounded-full">
+                    Pytania: {summary.metadata.questions_asked}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <Button onClick={handleGenerate} variant="outline" size="sm" className="gap-2">

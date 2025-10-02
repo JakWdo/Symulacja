@@ -36,7 +36,9 @@ class Settings(BaseSettings):
 
     # Persona Generation
     DEFAULT_LLM_PROVIDER: str = "google"  # google, openai, anthropic
-    DEFAULT_MODEL: str = "gemini-2.5-flash"  # gemini-2.5-flash or gemini-2.5-pro (NEVER use 2.0!)
+    PERSONA_GENERATION_MODEL: str = "gemini-2.5-flash"
+    ANALYSIS_MODEL: str = "gemini-2.5-pro"
+    DEFAULT_MODEL: str = "gemini-2.5-flash"  # Backwards compatibility
     TEMPERATURE: float = 0.7
     MAX_TOKENS: int = 8000
 

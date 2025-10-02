@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 from collections import Counter
@@ -16,8 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models import FocusGroup, PersonaResponse
+from app.services.insight_rater_service import InsightRaterService
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class InsightService:
@@ -140,6 +143,7 @@ class InsightService:
         avg_sentiments: List[float] = []
         consensus_scores: List[float] = []
         idea_scores: List[float] = []
+        evidence_samples: List[Dict[str, Any]] = []
 
         for question, question_responses in responses_by_question.items():
             texts = [resp.response for resp in question_responses]
@@ -214,6 +218,17 @@ class InsightService:
                 if stats["last_activity"] is None or stats["last_activity"] < timestamp:
                     stats["last_activity"] = timestamp
 
+                evidence_samples.append(
+                    {
+                        "persona_id": persona_id,
+                        "question": question,
+                        "response": resp.response,
+                        "sentiment": sentiments[idx],
+                        "consistency_score": resp.consistency_score,
+                        "created_at": resp.created_at.isoformat(),
+                    }
+                )
+
             for resp in question_responses:
                 theme_counter.update(self._extract_keywords(resp.response))
 
@@ -221,30 +236,9 @@ class InsightService:
             consensus_scores.append(consensus)
             idea_scores.append(idea_score)
 
-        personas_engagement = [
-            {
-                "persona_id": persona_id,
-                "contribution_count": stats["contribution_count"],
-                "avg_sentiment": (
-                    stats["sentiment_total"] / stats["contribution_count"]
-                    if stats["contribution_count"]
-                    else 0.0
-                ),
-                "average_response_time_ms": (
-                    stats["average_response_time_ms"] / stats["contribution_count"]
-                    if stats["contribution_count"]
-                    else 0.0
-                ),
-                "last_activity": stats["last_activity"],
-            }
-            for persona_id, stats in persona_stats.items()
-        ]
-        personas_engagement.sort(
-            key=lambda item: (item["contribution_count"], item["avg_sentiment"]),
-            reverse=True,
-        )
+        personas_engagement = self._normalize_persona_engagement(persona_stats)
 
-        overall_idea_score = float(np.mean(idea_scores)) if idea_scores else 0.0
+        fallback_idea_score = float(np.mean(idea_scores)) if idea_scores else 0.0
         overall_consensus = float(np.mean(consensus_scores)) if consensus_scores else 0.0
         overall_sentiment = float(np.mean(avg_sentiments)) if avg_sentiments else 0.0
 
@@ -264,6 +258,42 @@ class InsightService:
 
         key_themes = self._build_theme_list(theme_counter, responses, limit=6)
 
+        rating_payload = {
+            "focus_group_id": focus_group_id,
+            "total_responses": len(responses),
+            "participant_count": len({str(resp.persona_id) for resp in responses}),
+            "metrics": {
+                "consensus": overall_consensus,
+                "average_sentiment": overall_sentiment,
+                "sentiment_summary": {
+                    "positive_ratio": positive_ratio,
+                    "negative_ratio": negative_ratio,
+                    "neutral_ratio": max(0.0, 1.0 - positive_ratio - negative_ratio),
+                },
+                "engagement": engagement_metrics,
+            },
+            "key_themes": key_themes,
+            "question_breakdown": question_insights,
+        }
+
+        llm_ratings: Dict[str, Any] = {}
+        if settings.GOOGLE_API_KEY:
+            try:
+                rater = InsightRaterService(use_pro_model=True)
+                llm_ratings = await rater.rate_focus_group(rating_payload)
+            except Exception as exc:  # pragma: no cover - falls back to heuristic
+                logger.warning(
+                    "InsightRaterService failed, falling back to heuristic score",
+                    exc_info=exc,
+                    extra={"focus_group_id": focus_group_id},
+                )
+
+        overall_idea_score = float(
+            np.clip(llm_ratings.get("idea_score", fallback_idea_score), 0.0, 100.0)
+        )
+        llm_confidence = float(np.clip(llm_ratings.get("confidence", 0.0), 0.0, 1.0))
+        llm_rationale = llm_ratings.get("rationale", "")
+
         analysis_payload = {
             "focus_group_id": focus_group_id,
             "idea_score": overall_idea_score,
@@ -278,9 +308,21 @@ class InsightService:
                 },
                 "engagement": engagement_metrics,
             },
-            "key_themes": key_themes,
-            "question_breakdown": question_insights,
-            "persona_engagement": personas_engagement,
+            "signal_breakdown": self._compose_signal_breakdown(
+                llm_ratings,
+                overall_consensus,
+                overall_sentiment,
+                positive_ratio,
+                negative_ratio,
+                engagement_metrics,
+            ),
+            "persona_patterns": self._build_persona_patterns(
+                personas_engagement,
+                overall_sentiment,
+            ),
+            "evidence_feed": self._build_evidence_feed(evidence_samples),
+            "llm_confidence": llm_confidence,
+            "llm_rationale": llm_rationale,
         }
 
         # Persist summary for quick retrieval in the focus group record
@@ -326,9 +368,215 @@ class InsightService:
                     "consistency_score": None,
                 },
             },
-            "key_themes": [],
-            "question_breakdown": [],
-            "persona_engagement": [],
+            "signal_breakdown": {
+                "strengths": [],
+                "risks": [],
+                "opportunities": [],
+            },
+            "persona_patterns": [],
+            "evidence_feed": {
+                "positives": [],
+                "negatives": [],
+            },
+            "llm_confidence": 0.0,
+            "llm_rationale": "",
+        }
+
+    def _normalize_persona_engagement(
+        self, persona_stats: Dict[str, Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        personas_engagement: List[Dict[str, Any]] = []
+        for persona_id, stats in persona_stats.items():
+            contributions = stats["contribution_count"]
+            avg_sentiment = (
+                stats["sentiment_total"] / contributions if contributions else 0.0
+            )
+            avg_response_time = (
+                stats["average_response_time_ms"] / contributions if contributions else 0.0
+            )
+
+            personas_engagement.append(
+                {
+                    "persona_id": persona_id,
+                    "contribution_count": contributions,
+                    "avg_sentiment": avg_sentiment,
+                    "average_response_time_ms": avg_response_time,
+                    "last_activity": stats["last_activity"],
+                }
+            )
+
+        personas_engagement.sort(
+            key=lambda item: (item["contribution_count"], item["avg_sentiment"]),
+            reverse=True,
+        )
+        return personas_engagement
+
+    def _compose_signal_breakdown(
+        self,
+        llm_ratings: Dict[str, Any],
+        consensus: float,
+        sentiment: float,
+        positive_ratio: float,
+        negative_ratio: float,
+        engagement_metrics: Dict[str, Any],
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        strengths = llm_ratings.get("strengths") or []
+        risks = llm_ratings.get("risks") or []
+        opportunities = llm_ratings.get("opportunities") or []
+
+        if not strengths:
+            strengths = []
+            if consensus >= 0.7:
+                strengths.append(
+                    {
+                        "title": "Silny konsensus",
+                        "summary": "Większość uczestników zgadza się co do wartości propozycji, co zmniejsza ryzyko polarizacji.",
+                    }
+                )
+            if sentiment >= 0.2:
+                strengths.append(
+                    {
+                        "title": "Pozytywny odbiór",
+                        "summary": "Średni sentyment jest powyżej progu 0.2, co sugeruje autentyczne poparcie dla konceptu.",
+                    }
+                )
+            if positive_ratio > 0.5:
+                strengths.append(
+                    {
+                        "title": "Przewaga pozytywnych odpowiedzi",
+                        "summary": "Ponad połowa wypowiedzi ma pozytywny ton, co wzmacnia narrację sukcesu.",
+                    }
+                )
+
+        if not risks:
+            risks = []
+            if consensus < 0.55:
+                risks.append(
+                    {
+                        "title": "Rozbieżne opinie",
+                        "summary": "Koncentracja opinii jest niska – koncepcja może wymagać doprecyzowania dla poszczególnych segmentów.",
+                    }
+                )
+            if negative_ratio > 0.25:
+                risks.append(
+                    {
+                        "title": "Istotny odsetek krytyki",
+                        "summary": "Ponad jedna czwarta wypowiedzi ma negatywny charakter, co wskazuje na konkretne bariery adopcji.",
+                    }
+                )
+            completion_rate = engagement_metrics.get("completion_rate") or 0.0
+            if completion_rate < 0.6:
+                risks.append(
+                    {
+                        "title": "Niski completion rate",
+                        "summary": "Uczestnicy nie kończą scenariusza – format badań może wymagać skrócenia lub doprecyzowania.",
+                    }
+                )
+
+        if not opportunities:
+            opportunities = []
+            if sentiment >= -0.05 and negative_ratio > 0.15:
+                opportunities.append(
+                    {
+                        "title": "Potencjał do adresowania obaw",
+                        "summary": "Krytyczne komentarze są konstruktywne – można je przekuć w roadmapę poprawek.",
+                    }
+                )
+            consistency = engagement_metrics.get("consistency_score")
+            if consistency is not None and consistency >= 0.7:
+                opportunities.append(
+                    {
+                        "title": "Spójne zachowania person",
+                        "summary": "Stabilne odpowiedzi sugerują, że można szybko iterować komunikację bez ryzyka utraty wiarygodności.",
+                    }
+                )
+
+        return {
+            "strengths": strengths,
+            "risks": risks,
+            "opportunities": opportunities,
+        }
+
+    def _build_persona_patterns(
+        self,
+        personas_engagement: List[Dict[str, Any]],
+        overall_sentiment: float,
+    ) -> List[Dict[str, Any]]:
+        if not personas_engagement:
+            return []
+
+        contribution_values = [p["contribution_count"] for p in personas_engagement]
+        avg_contribution = float(np.mean(contribution_values)) if contribution_values else 0.0
+
+        patterns: List[Dict[str, Any]] = []
+        for persona in personas_engagement:
+            sentiment_delta = persona["avg_sentiment"] - overall_sentiment
+            contributions = persona["contribution_count"]
+            classification = "neutral"
+
+            if sentiment_delta >= 0.15:
+                classification = "champion"
+            elif sentiment_delta <= -0.15:
+                classification = "detractor"
+            elif contributions < max(1.0, avg_contribution * 0.6):
+                classification = "low_engagement"
+
+            summary_bits: List[str] = []
+            summary_bits.append(
+                f"Sentiment delta vs średnia: {sentiment_delta:+.2f}"
+            )
+            summary_bits.append(f"Wkład: {contributions} odpowiedzi")
+            if persona["average_response_time_ms"]:
+                summary_bits.append(
+                    f"Śr. czas reakcji: {persona['average_response_time_ms']:.0f} ms"
+                )
+
+            patterns.append(
+                {
+                    "persona_id": persona["persona_id"],
+                    "classification": classification,
+                    "avg_sentiment": persona["avg_sentiment"],
+                    "contribution_count": contributions,
+                    "last_activity": persona["last_activity"],
+                    "summary": "; ".join(summary_bits),
+                }
+            )
+
+        return patterns
+
+    def _build_evidence_feed(
+        self, evidence_samples: List[Dict[str, Any]]
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        if not evidence_samples:
+            return {"positives": [], "negatives": []}
+
+        positives = [
+            sample
+            for sample in evidence_samples
+            if sample["sentiment"] >= 0.15
+        ]
+        negatives = [
+            sample
+            for sample in evidence_samples
+            if sample["sentiment"] <= -0.15
+        ]
+
+        positives.sort(key=lambda item: item["sentiment"], reverse=True)
+        negatives.sort(key=lambda item: item["sentiment"])
+
+        def _format(sample: Dict[str, Any]) -> Dict[str, Any]:
+            return {
+                "persona_id": sample["persona_id"],
+                "question": sample["question"],
+                "response": sample["response"],
+                "sentiment": sample["sentiment"],
+                "consistency_score": sample.get("consistency_score"),
+                "created_at": sample.get("created_at"),
+            }
+
+        return {
+            "positives": [_format(item) for item in positives[:6]],
+            "negatives": [_format(item) for item in negatives[:6]],
         }
 
     def _compute_engagement_metrics(

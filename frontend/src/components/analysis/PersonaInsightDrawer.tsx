@@ -2,6 +2,30 @@ import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar, Tool
 import { X, Sparkles, Clock, BookOpen } from 'lucide-react';
 import type { Persona, PersonaInsight } from '@/types';
 
+const NAME_FROM_STORY_REGEX = /^(?<name>[A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\s+is\s+(?:an|a)\s/;
+
+function guessNameFromStory(story?: string | null) {
+  if (!story) return null;
+  const match = story.trim().match(NAME_FROM_STORY_REGEX);
+  return match?.groups?.name ?? null;
+}
+
+function getPersonaDisplayName(persona: Persona) {
+  if (persona.full_name && persona.full_name.trim()) {
+    return persona.full_name.trim();
+  }
+  const inferred = guessNameFromStory(persona.background_story);
+  if (inferred) {
+    return inferred;
+  }
+  const genderLabel = persona.gender ? `${persona.gender.charAt(0).toUpperCase()}${persona.gender.slice(1)}` : 'Persona';
+  return `${genderLabel} ${persona.age}`;
+}
+
+function formatLocationLabel(location?: string | null) {
+  return location ?? 'lokalizacja nieznana';
+}
+
 interface PersonaHistory {
   persona_id: string;
   total_events: number;
@@ -35,6 +59,11 @@ export function PersonaInsightDrawer({
     return null;
   }
 
+  const displayName = getPersonaDisplayName(persona);
+  const subtitle = persona.persona_title?.trim() || persona.occupation?.trim();
+  const locationLabel = formatLocationLabel(persona.location);
+  const headline = persona.headline?.trim();
+
   const traitScores = Object.entries(insight?.trait_scores ?? {}).map(([trait, value]) => ({
     trait: trait.replace(/_/g, ' '),
     value: Math.round((value ?? 0) * 100),
@@ -50,8 +79,16 @@ export function PersonaInsightDrawer({
     <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col">
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">Profil persony</h3>
-          <p className="text-xs text-slate-500">{persona.gender}, {persona.age} • {persona.location ?? 'lokalizacja nieznana'}</p>
+          <h3 className="text-lg font-semibold text-slate-900">{displayName}</h3>
+          <p className="text-xs text-slate-500">
+            {persona.age} lat • {locationLabel}
+          </p>
+          {subtitle && (
+            <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
+          )}
+          {headline && (
+            <p className="text-xs text-slate-500 mt-1 italic">{headline}</p>
+          )}
         </div>
         <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100" aria-label="Zamknij panel">
           <X className="w-5 h-5" />

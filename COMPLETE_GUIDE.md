@@ -22,9 +22,9 @@ Market Research SaaS to platforma do przeprowadzania wirtualnych grup fokusowych
 ### Kluczowe Funkcjonalności
 
 ✅ **Generowanie Person** - Realistyczne persony z pełnymi profilami demograficznymi i psychologicznymi
-✅ **Grupy Fokusowe** - Symulowane dyskusje z AI (Gemini 2.0 Flash Experimental)
+✅ **Grupy Fokusowe** - Symulowane dyskusje z AI (domyślnie Gemini 2.5 Flash)
 ✅ **Zaawansowane Analizy** - Korelacje demograficzne, segmentacja behawioralna, analiza temporalna
-✅ **AI Summaries** - Automatyczne podsumowania dyskusji (Gemini 2.0 Flash / 2.5 Pro)
+✅ **AI Summaries** - Automatyczne podsumowania dyskusji (Gemini 2.5 Flash lub 2.5 Pro)
 ✅ **Enhanced PDF Reports** - Profesjonalne raporty z AI insights i zaawansowanymi metrykami
 ✅ **Real-time Insights** - Interaktywne karty metryk z wyjaśnieniami
 
@@ -35,7 +35,7 @@ Market Research SaaS to platforma do przeprowadzania wirtualnych grup fokusowych
 - FastAPI (async web framework)
 - PostgreSQL + SQLAlchemy (ORM)
 - LangChain (AI orchestration)
-- Google Generative AI (Gemini 2.0 Flash Exp, 2.5 Pro, Embeddings)
+- Google Generative AI (Gemini 2.5 Flash, 2.5 Pro, Embeddings)
 - Pandas + NumPy + Scikit-learn (analytics)
 - ReportLab (PDF generation)
 
@@ -77,7 +77,7 @@ Market Research SaaS to platforma do przeprowadzania wirtualnych grup fokusowych
 │  └──────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │                  Service Layer                           │   │
-│  │  • PersonaGeneratorLangChain (Gemini 2.0)               │   │
+│  │  • PersonaGeneratorLangChain (Gemini 2.5 Flash)          │   │
 │  │  • CustomPersonaGenerator (advanced filtering)           │   │
 │  │  • FocusGroupService (discussion orchestration)          │   │
 │  │  • InsightService (basic metrics)                        │   │
@@ -99,7 +99,7 @@ Market Research SaaS to platforma do przeprowadzania wirtualnych grup fokusowych
                               ↕
 ┌─────────────────────────────────────────────────────────────────┐
 │                  EXTERNAL SERVICES                               │
-│  • Google Gemini 2.0 Flash Exp (persona generation, responses)  │
+│  • Google Gemini 2.5 Flash (persona generation, responses)      │
 │  • Google Gemini 2.5 Pro (advanced AI summaries)                │
 │  • Google Generative AI Embeddings (semantic analysis)          │
 └─────────────────────────────────────────────────────────────────┘
@@ -116,7 +116,7 @@ Market Research SaaS to platforma do przeprowadzania wirtualnych grup fokusowych
    └─> POST /api/v1/projects/{id}/generate-personas
        └─> PersonaGeneratorLangChain.generate_personas()
            ├─> Tworzy prompt z demografią + psychografią
-           ├─> Wywołuje Gemini 2.0 Flash Exp (100+ tokens/s)
+           ├─> Wywołuje Gemini 2.5 Flash (wysoka przepustowość)
            ├─> Waliduje rozkłady (chi-square test)
            └─> Zapisuje ~10-50 person do DB
 
@@ -132,8 +132,7 @@ Market Research SaaS to platforma do przeprowadzania wirtualnych grup fokusowych
            │   ├─> Dla każdej persony:
            │   │   ├─> Buduje kontekst (persona + historia + poprzednie odpowiedzi)
            │   │   ├─> Wywołuje Gemini z prompt templates
-           │   │   ├─> Analizuje sentiment (embeddings)
-           │   │   └─> Zapisuje response + metadata
+           │   │   └─> Zapisuje response + metadata (czas, spójność)
            │   └─> Zapisuje event log
            └─> Status = "completed"
 
@@ -150,7 +149,7 @@ Market Research SaaS to platforma do przeprowadzania wirtualnych grup fokusowych
        └─> DiscussionSummarizerService.generate_discussion_summary()
            ├─> Pobiera wszystkie responses
            ├─> Formatuje dla LLM (prompt engineering)
-           ├─> Wywołuje Gemini 2.0 Flash / 2.5 Pro
+           ├─> Wywołuje Gemini 2.5 Flash / 2.5 Pro
            ├─> Parsuje structured output
            └─> Zwraca: executive_summary, key_insights, recommendations
 
@@ -215,6 +214,12 @@ persona_v1 = persona_v2_to_v1(new_data)
 - TypeScript interfaces matching Pydantic schemas
 - Helper functions: `validateDistribution()`, `normalizeDistribution()`
 - Constants: `BIG_FIVE_DESCRIPTIONS`, `HOFSTEDE_DESCRIPTIONS`
+
+**Walidacja statystyczna:**
+- Podczas generowania person kolekcjonowany jest pakiet próbek do testu chi-kwadrat.
+- `PersonaGeneratorLangChain.validate_distribution()` porównuje rozkłady wieku, płci, edukacji, dochodu oraz lokalizacji.
+- Wyniki zapisujemy w `Project.p_values`, `Project.chi_square_statistic` oraz `Project.is_statistically_valid` (pole podglądane w UI).
+- Progiem sukcesu jest `p_value > 0.05` dla większości kategorii; dashboard sygnalizuje odchylenia kolorami.
 
 ---
 
@@ -316,7 +321,7 @@ class DiscussionSummarizerService:
         """
         Args:
             use_pro_model: True = Gemini 2.5 Pro (wolniejszy, lepsza jakość)
-                          False = Gemini 2.0 Flash (szybszy, dobra jakość)
+                          False = Gemini 2.5 Flash (szybszy, zbalansowana jakość)
         """
 
     async def generate_discussion_summary(
@@ -356,7 +361,7 @@ class DiscussionSummarizerService:
 ```
 
 **Model Selection:**
-- **Gemini 2.0 Flash**: ~5-8s, dobry dla podstawowych summary
+- **Gemini 2.5 Flash**: ~5-8s, dobry dla podstawowych summary
 - **Gemini 2.5 Pro**: ~10-15s, excellent dla szczegółowych analiz
 
 ---
@@ -987,36 +992,41 @@ GET    /api/v1/focus-groups/{id}/enhanced-report
 src/
 ├── components/
 │   ├── analysis/
-│   │   ├── MetricCardWithExplanation.tsx  ✅ Phase 2
-│   │   ├── AISummaryPanel.tsx             ✅ Phase 2
-│   │   └── AdvancedInsightsPanel.tsx      📝 Optional
-│   ├── projects/
-│   │   ├── ProjectList.tsx
-│   │   ├── ProjectForm.tsx
-│   │   └── ProjectCard.tsx
-│   ├── personas/
-│   │   ├── PersonaList.tsx
-│   │   ├── PersonaCard.tsx
-│   │   └── PersonaDetails.tsx
-│   ├── focus-groups/
-│   │   ├── FocusGroupList.tsx
-│   │   ├── FocusGroupForm.tsx
-│   │   └── FocusGroupResults.tsx
-│   └── visualizations/
-│       ├── KnowledgeGraph3D.tsx
-│       ├── SentimentChart.tsx
-│       └── DemographicsChart.tsx
+│   │   ├── AISummaryPanel.tsx
+│   │   ├── MetricCardWithExplanation.tsx
+│   │   └── PersonaInsightDrawer.tsx
+│   ├── graph/
+│   │   └── KnowledgeGraph3D.tsx
+│   ├── layout/
+│   │   ├── Dashboard.tsx
+│   │   ├── FloatingControls.tsx
+│   │   ├── ImprovedDashboard.tsx
+│   │   └── StatsOverlay.tsx
+│   ├── panels/
+│   │   ├── AnalysisPanel.tsx
+│   │   ├── FocusGroupPanel.tsx
+│   │   ├── PersonaPanel.tsx
+│   │   └── ProjectPanel.tsx
+│   └── ui/
+│       ├── Button.tsx
+│       ├── FloatingPanel.tsx
+│       ├── Toast.tsx
+│       └── toastStore.ts
+├── hooks/
+│   └── useGraphData.ts
 ├── lib/
-│   ├── api.ts                             ✅ Extended
+│   ├── api.ts      # Rozszerzone endpointy insights v2
 │   └── utils.ts
+├── store/
+│   └── appStore.ts
+├── styles/
+│   └── index.css
 ├── types/
 │   ├── index.ts
-│   └── persona_v2.ts                      ✅ Phase 1
-└── pages/
-    ├── ProjectsPage.tsx
-    ├── PersonasPage.tsx
-    ├── FocusGroupPage.tsx
-    └── AnalysisPage.tsx
+│   └── persona_v2.ts
+├── App.tsx
+├── main.tsx
+└── vite-env.d.ts
 ```
 
 ---
@@ -1062,16 +1072,14 @@ npm run dev
 # Run all passing tests
 python -m pytest tests/test_insights_v2_api.py tests/test_persona_generator.py -v
 
-# Expected: 25 tests, 25 passed ✅
+# Expected: 20 testów w obecnym pakiecie ✅
 ```
 
-**Test Coverage:**
-- ✅ API endpoint validation (19 tests)
-- ✅ Service initialization (12 tests)
-- ✅ Core functionality (8 tests)
-- ✅ File existence (5 tests)
-- ✅ Documentation (2 tests)
-- ✅ Persona generator (6 tests)
+**Zakres testów:**
+- ✅ Podstawowe endpointy API i health-check
+- ✅ Inicjalizacja kluczowych serwisów (insights, raporty, LLM)
+- ✅ Walidacja generatora person (rozklady, statystyki)
+- ✅ Kontrola dokumentacji (spójność Complete Guide)
 
 **Performance Tests:**
 ```bash
@@ -1141,9 +1149,9 @@ curl -X POST http://localhost:8000/api/v1/projects/{project_id}/generate-persona
 
 **Co się dzieje:**
 1. PersonaGeneratorLangChain tworzy prompt z demografią
-2. Gemini 2.0 Flash Exp generuje 20 person (batch)
+2. Gemini 2.5 Flash generuje 20 person (batch)
 3. Walidacja chi-square test (rozkłady)
-4. Zapisanie do DB z embeddings
+4. Zapisanie do DB (wraz z promptem dla audytu)
 
 ---
 
@@ -1151,7 +1159,7 @@ curl -X POST http://localhost:8000/api/v1/projects/{project_id}/generate-persona
 
 **UI:**
 1. W projekcie kliknij "New Focus Group"
-2. Wybierz persony (min 3, max 50)
+2. Wybierz persony (min 2 — zalecane 3+, max 100)
 3. Dodaj pytania:
    ```
    - What are your first impressions of this product?

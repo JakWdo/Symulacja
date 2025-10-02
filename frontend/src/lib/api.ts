@@ -6,6 +6,11 @@ import type {
   FocusGroupInsights,
   FocusGroupResponses,
   PersonaInsight,
+  AISummary,
+  MetricExplanationsResponse,
+  HealthCheck,
+  AdvancedInsights,
+  BusinessInsights,
 } from '@/types';
 
 export interface CreateProjectPayload {
@@ -23,9 +28,25 @@ export interface CreateFocusGroupPayload {
   mode: 'normal' | 'adversarial';
 }
 
+export interface PersonaAdvancedOptions {
+  age_focus?: 'balanced' | 'young_adults' | 'experienced_leaders';
+  gender_balance?: 'balanced' | 'female_skew' | 'male_skew';
+  urbanicity?: 'any' | 'urban' | 'suburban' | 'rural';
+  target_cities?: string[];
+  target_countries?: string[];
+  industries?: string[];
+  required_values?: string[];
+  excluded_values?: string[];
+  required_interests?: string[];
+  excluded_interests?: string[];
+  age_min?: number;
+  age_max?: number;
+}
+
 export interface GeneratePersonasPayload {
   num_personas: number;
   adversarial_mode: boolean;
+  advanced_options?: PersonaAdvancedOptions;
 }
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL
@@ -154,8 +175,8 @@ export const analysisApi = {
     focusGroupId: string,
     useProModel = false,
     includeRecommendations = true
-  ): Promise<any> => {
-    const { data } = await api.post(
+  ): Promise<AISummary> => {
+    const { data } = await api.post<AISummary>(
       `/focus-groups/${focusGroupId}/ai-summary`,
       {},
       {
@@ -167,20 +188,24 @@ export const analysisApi = {
     );
     return data;
   },
-  getMetricExplanations: async (focusGroupId: string): Promise<any> => {
-    const { data } = await api.get(
+  getMetricExplanations: async (
+    focusGroupId: string
+  ): Promise<MetricExplanationsResponse> => {
+    const { data } = await api.get<MetricExplanationsResponse>(
       `/focus-groups/${focusGroupId}/metric-explanations`
     );
     return data;
   },
-  getHealthCheck: async (focusGroupId: string): Promise<any> => {
-    const { data } = await api.get(
+  getHealthCheck: async (focusGroupId: string): Promise<HealthCheck> => {
+    const { data } = await api.get<HealthCheck>(
       `/focus-groups/${focusGroupId}/health-check`
     );
     return data;
   },
-  getAdvancedInsights: async (focusGroupId: string): Promise<any> => {
-    const { data } = await api.get(
+  getAdvancedInsights: async (
+    focusGroupId: string
+  ): Promise<AdvancedInsights> => {
+    const { data } = await api.get<AdvancedInsights>(
       `/focus-groups/${focusGroupId}/advanced-insights`
     );
     return data;
@@ -201,6 +226,15 @@ export const analysisApi = {
           use_pro_model: useProModel,
         },
       }
+    );
+    return data;
+  },
+  // AI Business Insights (new endpoint)
+  generateBusinessInsights: async (
+    focusGroupId: string
+  ): Promise<BusinessInsights> => {
+    const { data } = await api.post<BusinessInsights>(
+      `/focus-groups/${focusGroupId}/ai-business-insights`
     );
     return data;
   },

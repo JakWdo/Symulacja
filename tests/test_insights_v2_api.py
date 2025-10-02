@@ -141,21 +141,21 @@ class TestInsightsV2API:
 
 
 class TestDocumentation:
-    """Test that documentation is complete"""
+    """Test that consolidated documentation is complete"""
 
-    def test_improvements_md_exists(self):
-        """Test that IMPROVEMENTS.md exists"""
+    def test_complete_guide_exists(self):
+        """Complete implementation guide should be the single source of truth"""
         import os
-        assert os.path.exists("IMPROVEMENTS.md")
+        assert os.path.exists("COMPLETE_GUIDE.md")
 
-    def test_improvements_md_content(self):
-        """Test that IMPROVEMENTS.md has Phase 4 content"""
-        with open("IMPROVEMENTS.md", "r") as f:
+    def test_complete_guide_content(self):
+        """Guide should mention the latest phases and key services"""
+        with open("COMPLETE_GUIDE.md", "r", encoding="utf-8") as f:
             content = f.read()
 
         assert "Phase 4" in content
-        assert "Enhanced PDF Reports" in content or "Report" in content
         assert "EnhancedReportGenerator" in content
+        assert "Gemini 2.5 Flash" in content
 
 
 class TestNewFiles:

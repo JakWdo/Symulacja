@@ -1,8 +1,47 @@
-from typing import List, Optional
+from typing import List, Optional, Literal, Dict
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+
+class PersonaGenerationAdvancedOptions(BaseModel):
+    age_focus: Optional[Literal['balanced', 'young_adults', 'experienced_leaders']] = None
+    gender_balance: Optional[Literal['balanced', 'female_skew', 'male_skew']] = None
+    urbanicity: Optional[Literal['any', 'urban', 'suburban', 'rural']] = None
+    target_cities: Optional[List[str]] = None
+    target_countries: Optional[List[str]] = None
+    industries: Optional[List[str]] = None
+    required_values: Optional[List[str]] = None
+    excluded_values: Optional[List[str]] = None
+    required_interests: Optional[List[str]] = None
+    excluded_interests: Optional[List[str]] = None
+    age_min: Optional[int] = Field(None, ge=18, le=90)
+    age_max: Optional[int] = Field(None, ge=18, le=90)
+    custom_age_groups: Optional[Dict[str, float]] = Field(
+        None,
+        description="Custom age group distribution, e.g., {'18-22': 0.3, '23-29': 0.4, '30-40': 0.3}"
+    )
+    gender_weights: Optional[Dict[str, float]] = Field(
+        None,
+        description="Custom gender distribution weights"
+    )
+    location_weights: Optional[Dict[str, float]] = Field(
+        None,
+        description="Custom location distribution weights"
+    )
+    education_weights: Optional[Dict[str, float]] = Field(
+        None,
+        description="Custom education level distribution weights"
+    )
+    income_weights: Optional[Dict[str, float]] = Field(
+        None,
+        description="Custom income bracket distribution weights"
+    )
+    personality_skew: Optional[Dict[str, float]] = Field(
+        None,
+        description="Skew Big Five personality traits (openness, conscientiousness, extraversion, agreeableness, neuroticism). Values 0.0-1.0 shift mean towards low/high."
+    )
 
 
 class PersonaGenerateRequest(BaseModel):
@@ -16,6 +55,10 @@ class PersonaGenerateRequest(BaseModel):
         default=False,
         description="Generate adversarial personas for campaign stress testing",
     )
+    advanced_options: Optional[PersonaGenerationAdvancedOptions] = Field(
+        default=None,
+        description="Optional advanced persona targeting controls",
+    )
 
 
 class PersonaResponse(BaseModel):
@@ -27,6 +70,9 @@ class PersonaResponse(BaseModel):
     education_level: Optional[str]
     income_bracket: Optional[str]
     occupation: Optional[str]
+    full_name: Optional[str]
+    persona_title: Optional[str]
+    headline: Optional[str]
     openness: Optional[float]
     conscientiousness: Optional[float]
     extraversion: Optional[float]

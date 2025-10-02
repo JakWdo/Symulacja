@@ -12,17 +12,55 @@ import {
   MessageSquare,
   Clock3,
   Gauge,
+  CheckCircle2,
+  HeartPulse,
+  Brain,
+  Activity,
+  Layers,
+  AlertTriangle,
+  ShieldCheck,
+  Lightbulb,
+  Quote,
 } from 'lucide-react';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { analysisApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
-import type { FocusGroupInsights, FocusGroupResponses, Persona } from '@/types';
-import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
+import type {
+  FocusGroupInsights,
+  FocusGroupResponses,
+  Persona,
+  MetricExplanationsResponse,
+  HealthCheck,
+  AdvancedInsights,
+  HealthAssessment,
+  DemographicCorrelations,
+  TemporalAnalysis,
+  BehavioralSegmentation,
+  QualityMetrics,
+  ComparativeAnalysis,
+  OutlierDetection,
+  EngagementPatterns,
+  BusinessInsights,
+} from '@/types';
+// Removed unused Recharts imports - charts moved to dedicated components
 import { formatTime } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import { PersonaInsightDrawer } from '@/components/analysis/PersonaInsightDrawer';
+import { AISummaryPanel } from '@/components/analysis/AISummaryPanel';
+import { MetricCardWithExplanation } from '@/components/analysis/MetricCardWithExplanation';
+import { BusinessMetricsOverview } from '@/components/analysis/BusinessMetricsOverview';
 
-function IdeaScoreGauge({ score, grade }: { score: number; grade: string }) {
+function IdeaScoreGauge({
+  score,
+  grade,
+  confidence,
+  rationale,
+}: {
+  score: number;
+  grade: string;
+  confidence?: number;
+  rationale?: string;
+}) {
   return (
     <div className="floating-panel p-6 flex items-center gap-6">
       <div className="relative w-28 h-28">
@@ -35,14 +73,24 @@ function IdeaScoreGauge({ score, grade }: { score: number; grade: string }) {
         <p className="text-sm text-slate-500 uppercase tracking-wide">Idea Score</p>
         <p className="text-lg font-semibold text-slate-900">{grade}</p>
         <p className="text-xs text-slate-500 mt-1">
-          Miara łącząca sentyment uczestników i poziom konsensusu.
+          Ocena ekspercka modelu w skali 1-100 bazująca na jakości odpowiedzi.
         </p>
+        {typeof confidence === 'number' && (
+          <p className="text-xs text-slate-500 mt-2">
+            Pewność modelu: {(confidence * 100).toFixed(0)}%
+          </p>
+        )}
+        {rationale && (
+          <p className="text-sm text-slate-600 mt-3 leading-relaxed">
+            {rationale}
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
-function MetricCard({ label, value, helper }: { label: string; value: string; helper?: string }) {
+function QuickStatCard({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
     <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
@@ -52,168 +100,673 @@ function MetricCard({ label, value, helper }: { label: string; value: string; he
   );
 }
 
-function KeyThemes({ themes }: { themes: FocusGroupInsights['key_themes'] }) {
-  if (!themes || themes.length === 0) {
+function SignalBreakdownSection({ signals }: { signals?: FocusGroupInsights['signal_breakdown'] }) {
+  if (!signals) {
     return null;
   }
+
+  const sections: Array<{
+    key: keyof NonNullable<FocusGroupInsights['signal_breakdown']>;
+    label: string;
+    icon: JSX.Element;
+    empty: string;
+  }> = [
+    {
+      key: 'strengths',
+      label: 'Najsilniejsze sygnały',
+      icon: <ShieldCheck className="w-4 h-4 text-emerald-600" />,
+      empty: 'Brak wyróżniających pozytywnych sygnałów.',
+    },
+    {
+      key: 'opportunities',
+      label: 'Szanse do wykorzystania',
+      icon: <Lightbulb className="w-4 h-4 text-amber-500" />,
+      empty: 'Brak wyraźnych szans do opisania.',
+    },
+    {
+      key: 'risks',
+      label: 'Ryzyka i bariery',
+      icon: <AlertTriangle className="w-4 h-4 text-red-500" />,
+      empty: 'Nie znaleziono poważnych ryzyk.',
+    },
+  ];
+
+  const hasContent = sections.some((section) => (signals?.[section.key] ?? []).length > 0);
+  if (!hasContent) {
+    return null;
+  }
+
   return (
-    <div className="floating-panel p-6">
-      <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-        <Sparkles className="w-5 h-5 text-primary-500" />
-        Najważniejsze motywy
-      </h3>
+    <div className="floating-panel p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-slate-900">Strategiczne odczyty</h3>
+        <p className="text-xs text-slate-500">Wnioski łączące ocenę 1-100 z komentarzami uczestników.</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {sections.map((section) => {
+          const entries = signals?.[section.key] ?? [];
+          return (
+            <div key={section.key} className="border border-slate-200 rounded-xl bg-white p-4 space-y-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                {section.icon}
+                <p className="text-sm font-semibold text-slate-900">{section.label}</p>
+              </div>
+              {entries.length === 0 ? (
+                <p className="text-xs text-slate-500">{section.empty}</p>
+              ) : (
+                <ul className="space-y-3">
+                  {entries.map((entry, idx) => (
+                    <li key={`${section.key}-${idx}`} className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                      <p className="text-sm font-medium text-slate-900">{entry.title}</p>
+                      {entry.summary && (
+                        <p className="text-xs text-slate-600 mt-1 leading-relaxed">{entry.summary}</p>
+                      )}
+                      {entry.evidence && (
+                        <p className="text-xs text-slate-500 mt-2 italic">„{entry.evidence}”</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PersonaPatternsSection({
+  personas,
+  patterns,
+  onSelect,
+}: {
+  personas: Persona[];
+  patterns?: FocusGroupInsights['persona_patterns'];
+  onSelect: (personaId: string) => void;
+}) {
+  const personaMap = useMemo(() => new Map(personas.map((p) => [p.id, p])), [personas]);
+  const items = patterns ?? [];
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  const classificationStyles: Record<string, string> = {
+    champion: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    detractor: 'bg-rose-100 text-rose-700 border-rose-200',
+    low_engagement: 'bg-amber-100 text-amber-700 border-amber-200',
+    neutral: 'bg-slate-100 text-slate-600 border-slate-200',
+  };
+
+  const classificationLabel: Record<string, string> = {
+    champion: 'Champion',
+    detractor: 'Detraktor',
+    low_engagement: 'Niska aktywność',
+    neutral: 'Neutralny',
+  };
+
+  const formatPersona = (id: string) => {
+    const persona = personaMap.get(id);
+    if (!persona) return `Persona ${id.slice(0, 6)}`;
+    const location = persona.location ?? 'brak lokalizacji';
+    return `${persona.gender}, ${persona.age} • ${location}`;
+  };
+
+  return (
+    <div className="floating-panel p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-slate-900">Zachowania person</h3>
+        <p className="text-xs text-slate-500">Kliknij, żeby podejrzeć pełny profil i historię odpowiedzi.</p>
+      </div>
       <div className="space-y-3">
-        {themes.map((theme) => (
-          <div key={theme.keyword} className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <p className="text-sm font-medium text-slate-900">
-              {theme.keyword} <span className="text-xs text-slate-500">({theme.mentions} wzm.)</span>
-            </p>
-            {theme.representative_quote && (
-              <p className="text-xs text-slate-600 mt-2 italic">“{theme.representative_quote}”</p>
+        {items.map((pattern) => (
+          <button
+            key={pattern.persona_id}
+            onClick={() => onSelect(pattern.persona_id)}
+            className="w-full text-left p-4 rounded-xl border border-slate-200 hover:border-primary-300 hover:bg-primary-50 transition"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{formatPersona(pattern.persona_id)}</p>
+                <p className="text-xs text-slate-500 mt-1">Persona ID: {pattern.persona_id.slice(0, 8)}</p>
+              </div>
+              <span
+                className={`px-2 py-1 text-[11px] font-semibold rounded-full border ${classificationStyles[pattern.classification] ?? classificationStyles.neutral}`}
+              >
+                {classificationLabel[pattern.classification] ?? classificationLabel.neutral}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 mt-3">
+              <span>Sentyment: <strong>{pattern.avg_sentiment.toFixed(2)}</strong></span>
+              <span>Wkład: <strong>{pattern.contribution_count}</strong></span>
+              {pattern.last_activity && (
+                <span>Ostatnia aktywność: <strong>{new Date(pattern.last_activity).toLocaleString()}</strong></span>
+              )}
+            </div>
+            {pattern.summary && (
+              <p className="text-sm text-slate-600 mt-3 leading-relaxed">{pattern.summary}</p>
             )}
-          </div>
+          </button>
         ))}
       </div>
     </div>
   );
 }
 
-function QuestionBreakdown({ questions }: { questions: FocusGroupInsights['question_breakdown'] }) {
-  if (!questions || questions.length === 0) {
+function EvidenceFeedSection({
+  personas,
+  evidence,
+  onPersonaClick,
+}: {
+  personas: Persona[];
+  evidence?: FocusGroupInsights['evidence_feed'];
+  onPersonaClick: (personaId: string) => void;
+}) {
+  const personaMap = useMemo(() => new Map(personas.map((p) => [p.id, p])), [personas]);
+  const positives = evidence?.positives ?? [];
+  const negatives = evidence?.negatives ?? [];
+
+  if (positives.length === 0 && negatives.length === 0) {
     return null;
   }
 
-  const chartData = questions.map((q, idx) => ({
-    name: `Q${idx + 1}`,
-    idea: q.idea_score,
-    consensus: q.consensus * 100,
-  }));
+  const renderPersona = (personaId: string | null) => {
+    if (!personaId) return 'Nieznana persona';
+    const persona = personaMap.get(personaId);
+    if (!persona) return `Persona ${personaId.slice(0, 6)}`;
+    return `${persona.gender}, ${persona.age}`;
+  };
+
+  const QuoteCard = ({
+    tone,
+    entry,
+  }: {
+    tone: 'positive' | 'negative';
+    entry: NonNullable<FocusGroupInsights['evidence_feed']>['positives'][number];
+  }) => {
+    const isPositive = tone === 'positive';
+    const accent = isPositive
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : 'border-rose-200 bg-rose-50 text-rose-700';
+
+    return (
+      <div className={`rounded-xl border p-4 space-y-3 ${accent}`}>
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Quote className="w-4 h-4" />
+          <span>{isPositive ? 'Pozytywny sygnał' : 'Ostrzeżenie'}</span>
+        </div>
+        <p className="text-sm leading-relaxed text-slate-900">„{entry.response}”</p>
+        <div className="text-[11px] text-slate-600 space-y-1">
+          <p>
+            Persona:{' '}
+            {entry.persona_id ? (
+              <button
+                type="button"
+                className="underline decoration-dotted decoration-slate-500 hover:text-slate-900"
+                onClick={() => onPersonaClick(entry.persona_id!)}
+              >
+                {renderPersona(entry.persona_id)}
+              </button>
+            ) : (
+              <span>{renderPersona(entry.persona_id ?? null)}</span>
+            )}
+          </p>
+          <p>Sentyment: {entry.sentiment.toFixed(2)}</p>
+          {entry.question && <p>Pytanie: {entry.question}</p>}
+          {entry.created_at && <p>Czas: {new Date(entry.created_at).toLocaleString()}</p>}
+        </div>
+        {typeof entry.consistency_score === 'number' && (
+          <p className="text-[11px] text-slate-500">Spójność odpowiedzi: {entry.consistency_score.toFixed(2)}</p>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="floating-panel p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-slate-900">Evidence Feed</h3>
+        <p className="text-xs text-slate-500">Najważniejsze cytaty wspierające ocenę.</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {positives.slice(0, 4).map((entry, idx) => (
+          <QuoteCard tone="positive" entry={entry} key={`pos-${idx}`} />
+        ))}
+        {negatives.slice(0, 4).map((entry, idx) => (
+          <QuoteCard tone="negative" entry={entry} key={`neg-${idx}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const metricIconMap: Record<string, JSX.Element> = {
+  idea_score: <TrendingUp className="w-5 h-5" />,
+  consensus: <Users className="w-5 h-5" />,
+  sentiment: <Sparkles className="w-5 h-5" />,
+  completion_rate: <CheckCircle2 className="w-5 h-5" />,
+  consistency_score: <Gauge className="w-5 h-5" />,
+  response_time: <Clock3 className="w-5 h-5" />,
+};
+
+function getMetricVariant(
+  metricKey: string,
+  insights: FocusGroupInsights | null
+): 'success' | 'warning' | 'danger' | 'default' {
+  if (!insights) {
+    return 'default';
+  }
+
+  switch (metricKey) {
+    case 'idea_score': {
+      const score = insights.idea_score ?? 0;
+      if (score >= 85) return 'success';
+      if (score >= 60) return 'default';
+      if (score >= 45) return 'warning';
+      return 'danger';
+    }
+    case 'consensus': {
+      const value = insights.metrics.consensus ?? 0;
+      if (value >= 0.7) return 'success';
+      if (value >= 0.55) return 'default';
+      if (value >= 0.4) return 'warning';
+      return 'danger';
+    }
+    case 'sentiment': {
+      const value = insights.metrics.average_sentiment ?? 0;
+      if (value >= 0.25) return 'success';
+      if (value >= 0.1) return 'default';
+      if (value >= -0.1) return 'warning';
+      return 'danger';
+    }
+    case 'completion_rate': {
+      const value = insights.metrics.engagement.completion_rate ?? 0;
+      if (value >= 0.9) return 'success';
+      if (value >= 0.75) return 'default';
+      if (value >= 0.6) return 'warning';
+      return 'danger';
+    }
+    case 'consistency_score': {
+      const value = insights.metrics.engagement.consistency_score;
+      if (value === null || value === undefined) return 'warning';
+      if (value >= 0.85) return 'success';
+      if (value >= 0.7) return 'default';
+      if (value >= 0.55) return 'warning';
+      return 'danger';
+    }
+    case 'response_time': {
+      const value = insights.metrics.engagement.average_response_time_ms;
+      if (value === null || value === undefined) return 'default';
+      if (value <= 2500) return 'success';
+      if (value <= 4000) return 'default';
+      if (value <= 6000) return 'warning';
+      return 'danger';
+    }
+    default:
+      return 'default';
+  }
+}
+
+function MetricInsightsSection({
+  explanations,
+  insights,
+}: {
+  explanations?: MetricExplanationsResponse['explanations'];
+  insights: FocusGroupInsights | null;
+}) {
+  if (!explanations || Object.keys(explanations).length === 0) {
+    return null;
+  }
 
   return (
     <div className="floating-panel p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-accent-600" />
-          Szczegóły pytań
+          <Gauge className="w-5 h-5 text-primary-500" />
+          Interpretacja metryk
         </h3>
       </div>
-
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="name" stroke="#64748b" />
-            <YAxis stroke="#64748b" />
-            <Tooltip
-              formatter={(value: number, name: string) =>
-                name === 'idea' ? `${value.toFixed(1)}` : `${value.toFixed(0)}%`
-              }
-              labelStyle={{ fontSize: 12, color: '#0f172a' }}
-              contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 8, border: '1px solid #e2e8f0' }}
-            />
-            <Bar dataKey="idea" name="Idea Score" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="space-y-3">
-        {questions.map((q, idx) => (
-          <div key={idx} className="p-3 rounded-lg border border-slate-200 bg-white">
-            <p className="text-sm font-medium text-slate-900">{q.question}</p>
-            <div className="flex flex-wrap gap-4 text-xs text-slate-600 mt-2">
-              <span>Idea Score: <strong>{q.idea_score.toFixed(1)}</strong></span>
-              <span>Konsensus: <strong>{(q.consensus * 100).toFixed(0)}%</strong></span>
-              <span>Sentyment: <strong>{q.avg_sentiment.toFixed(2)}</strong></span>
-              <span>Odpowiedzi: <strong>{q.response_count}</strong></span>
-            </div>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {Object.entries(explanations).map(([metricKey, explanation]) => (
+          <MetricCardWithExplanation
+            key={metricKey}
+            metricKey={metricKey}
+            explanation={explanation}
+            variant={getMetricVariant(metricKey, insights)}
+            icon={metricIconMap[metricKey] ?? <Sparkles className="w-5 h-5" />}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function InsightRecommendations({ insights }: { insights: FocusGroupInsights }) {
-  const recommendations: string[] = [];
-  const { metrics } = insights;
-
-  if (metrics.consensus < 0.55) {
-    recommendations.push('Niski konsensus – rozważ doprecyzowanie propozycji wartości i sprawdź, które persony wyrażają wątpliwości.');
-  }
-  if (metrics.sentiment_summary.negative_ratio > 0.25) {
-    recommendations.push('Ponad 25% odpowiedzi jest negatywnych. Zbierz wątki krytyczne i przygotuj scenariusze zmian produktu.');
-  }
-  if ((metrics.engagement.completion_rate ?? 0) < 0.7) {
-    recommendations.push('Completion rate poniżej 70%. Sprawdź, czy liczba pytań lub forma scenariusza nie przeciąża uczestników.');
-  }
-  if (insights.key_themes.length > 0) {
-    const topTheme = insights.key_themes[0];
-    recommendations.push(`Najczęściej pojawia się temat „${topTheme.keyword}”. Zaplanuj działania testujące ten motyw w następnych iteracjach.`);
-  }
-
-  if (recommendations.length === 0) {
-    recommendations.push('Wyniki wyglądają stabilnie – możesz przejść do walidacji koncepcji na szerszej grupie person.');
-  }
-
-  return (
-    <div className="floating-panel p-6">
-      <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-green-600" />
-        Następne kroki
-      </h3>
-      <ul className="list-disc list-inside text-sm text-slate-600 space-y-2">
-        {recommendations.map((item, idx) => (
-          <li key={idx}>{item}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function PersonaEngagement({
-  personas,
-  personaStats,
-  onSelect,
-}: {
-  personas: Persona[];
-  personaStats: FocusGroupInsights['persona_engagement'];
-  onSelect: (personaId: string) => void;
-}) {
-  const personaMap = useMemo(() => new Map(personas.map((p) => [p.id, p])), [personas]);
-
-  if (!personaStats || personaStats.length === 0) {
+function HealthOverview({ assessment }: { assessment?: HealthAssessment }) {
+  if (!assessment) {
     return null;
   }
 
-  const formatLabel = (personaId: string) => {
-    const persona = personaMap.get(personaId);
-    if (!persona) return `Persona ${personaId.slice(0, 6)}`;
-    return `${persona.gender}, ${persona.age} • ${persona.location ?? 'brak lokalizacji'}`;
+  const healthStyles: Record<string, { badge: string; accent: string }> = {
+    healthy: {
+      badge: 'bg-green-100 text-green-700',
+      accent: 'border-green-200',
+    },
+    good: {
+      badge: 'bg-blue-100 text-blue-700',
+      accent: 'border-blue-200',
+    },
+    fair: {
+      badge: 'bg-yellow-100 text-yellow-700',
+      accent: 'border-yellow-200',
+    },
+    poor: {
+      badge: 'bg-red-100 text-red-700',
+      accent: 'border-red-200',
+    },
+  };
+
+  const styles = healthStyles[assessment.status] ?? {
+    badge: 'bg-slate-100 text-slate-700',
+    accent: 'border-slate-200',
   };
 
   return (
-    <div className="floating-panel p-6">
-      <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-        <Users className="w-5 h-5 text-primary-600" />
-        Aktywność person
-      </h3>
-      <div className="space-y-3">
-        {personaStats.map((persona) => (
-          <button
-            key={persona.persona_id}
-            onClick={() => onSelect(persona.persona_id)}
-            className="w-full text-left p-3 rounded-lg border border-slate-200 hover:border-primary-300 hover:bg-primary-50 transition"
-          >
-            <p className="text-sm font-medium text-slate-900">{formatLabel(persona.persona_id)}</p>
-            <div className="flex flex-wrap gap-4 text-xs text-slate-600 mt-1">
-              <span>Wkład: <strong>{persona.contribution_count}</strong></span>
-              <span>Sentyment: <strong>{persona.avg_sentiment.toFixed(2)}</strong></span>
-              <span>Śr. czas: <strong>{persona.average_response_time_ms.toFixed(0)} ms</strong></span>
-              <span>Ostatnia aktywność: <strong>{persona.last_activity ? new Date(persona.last_activity).toLocaleString() : '—'}</strong></span>
-            </div>
-          </button>
-        ))}
+    <div className={`floating-panel p-6 border ${styles.accent} space-y-4`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <HeartPulse className="w-5 h-5 text-red-500" />
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Health score</p>
+            <p className="text-2xl font-semibold text-slate-900">
+              {assessment.health_score.toFixed(1)} / 100
+            </p>
+          </div>
+        </div>
+        <span className={`text-xs px-3 py-1 rounded-full font-semibold ${styles.badge}`}>
+          {assessment.status_label}
+        </span>
       </div>
+
+      <p className="text-sm text-slate-700 leading-relaxed">{assessment.message}</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase text-slate-500 mb-2">Mocne strony</p>
+          {assessment.strengths.length > 0 ? (
+            <ul className="space-y-1 text-sm text-green-700">
+              {assessment.strengths.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 mt-0.5" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-slate-500">Brak wyraźnych przewag.</p>
+          )}
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase text-slate-500 mb-2">Ryzyka</p>
+          {assessment.concerns.length > 0 ? (
+            <ul className="space-y-1 text-sm text-amber-700">
+              {assessment.concerns.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 mt-0.5" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-slate-500">Brak krytycznych ostrzeżeń.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdvancedInsightsSection({
+  insights,
+  isFetching,
+  onGenerate,
+  hasData,
+  disabled,
+  hasRequested,
+}: {
+  insights?: AdvancedInsights;
+  isFetching: boolean;
+  onGenerate: () => void;
+  hasData: boolean;
+  disabled: boolean;
+  hasRequested: boolean;
+}) {
+  if (disabled) {
+    return null;
+  }
+
+  const demographic = (insights?.demographic_correlations ?? {}) as DemographicCorrelations;
+  const temporal = insights?.temporal_analysis as TemporalAnalysis | undefined;
+  const segments = (
+    insights?.behavioral_segments as BehavioralSegmentation | undefined
+  )?.segments ?? [];
+  const quality = (insights?.quality_metrics ?? {}) as QualityMetrics;
+  const comparison = (insights?.comparative_analysis ?? {}) as ComparativeAnalysis;
+  const outliers = (insights?.outlier_detection ?? {}) as OutlierDetection;
+  const engagement = (insights?.engagement_patterns ?? {}) as EngagementPatterns;
+
+  return (
+    <div className="floating-panel p-6 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+          <Brain className="w-5 h-5 text-purple-500" />
+          Zaawansowana analityka
+        </h3>
+        <button
+          type="button"
+          onClick={onGenerate}
+          disabled={isFetching || disabled}
+          className="floating-button px-4 py-2 flex items-center gap-2 text-sm"
+        >
+          {isFetching ? (
+            <>
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-slate-600" />
+              Analizuję...
+            </>
+          ) : (
+            <>
+              <Zap className="w-4 h-4" />
+              {hasData ? 'Odśwież analizę' : 'Uruchom analizę' }
+            </>
+          )}
+        </button>
+      </div>
+
+      {!hasData ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
+          {hasRequested ? (
+            <p>Analiza w toku – odśwież za chwilę, aby zobaczyć wyniki.</p>
+          ) : (
+            <p>
+              Wygeneruj głęboką analizę korelacji demograficznych, segmentacji behawioralnej i dynamiki w czasie.
+              Proces może potrwać kilka sekund.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-primary-500" />
+              Korelacje demograficzne
+            </h4>
+            <ul className="space-y-2 text-sm text-slate-600">
+              {demographic && 'age_sentiment' in demographic && demographic.age_sentiment ? (
+                <li>
+                  <strong>Wiek:</strong> {demographic.age_sentiment.interpretation} (r = {demographic.age_sentiment.correlation.toFixed(2)})
+                </li>
+              ) : null}
+              {demographic && 'gender_sentiment' in demographic && demographic.gender_sentiment ? (
+                <li>
+                  <strong>Płeć:</strong> {demographic.gender_sentiment.interpretation}
+                </li>
+              ) : null}
+              {demographic && 'education_sentiment' in demographic && demographic.education_sentiment ? (
+                <li>
+                  <strong>Edukacja:</strong> Najlepszy segment: {demographic.education_sentiment.top_segment ?? '—'};
+                  najsłabszy: {demographic.education_sentiment.bottom_segment ?? '—'}
+                </li>
+              ) : null}
+              {demographic && 'personality_sentiment' in demographic && demographic.personality_sentiment ? (
+                <li>
+                  <strong>Cechy osobowości:</strong> {Object.entries(demographic.personality_sentiment)
+                    .slice(0, 3)
+                    .map(([trait, value]) => `${trait}: r=${value.correlation.toFixed(2)}`)
+                    .join(', ')}
+                </li>
+              ) : null}
+              {(!demographic || Object.keys(demographic).length === 0) && (
+                <li>Brak wykrytych zależności demograficznych.</li>
+              )}
+            </ul>
+          </section>
+
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-accent-500" />
+              Trendy w czasie
+            </h4>
+            {temporal?.overall_trend ? (
+              <div className="text-sm text-slate-600 space-y-1">
+                <p>
+                  Kierunek: <strong>{temporal.overall_trend.direction === 'improving' ? 'rosnący' : temporal.overall_trend.direction === 'declining' ? 'spadkowy' : 'stabilny'}</strong>
+                  {temporal.overall_trend.significant ? ' (istotny statystycznie)' : ''}
+                </p>
+                <p>
+                  Początek vs koniec sentymentu:{' '}
+                  {temporal.sentiment_trajectory?.initial_sentiment !== undefined
+                    ? temporal.sentiment_trajectory.initial_sentiment.toFixed(2)
+                    : '—'}{' '}
+                  →{' '}
+                  {temporal.sentiment_trajectory?.final_sentiment !== undefined
+                    ? temporal.sentiment_trajectory.final_sentiment.toFixed(2)
+                    : '—'}
+                </p>
+                {temporal.fatigue_analysis && (
+                  <p>{temporal.fatigue_analysis.interpretation}</p>
+                )}
+                {temporal.momentum_shifts && temporal.momentum_shifts.length > 0 && (
+                  <ul className="list-disc list-inside text-xs text-slate-500">
+                    {temporal.momentum_shifts.map((shift, idx) => (
+                      <li key={idx}>
+                        Q{shift.index + 1}: zmiana sentymentu {shift.sentiment_change.toFixed(2)} ({shift.question})
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Brak danych do analizy trendów.</p>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary-600" />
+              Segmentacja behawioralna
+            </h4>
+            {segments && segments.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {segments.map((segment) => (
+                  <div key={segment.segment_id} className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-900">{segment.label}</p>
+                      <span className="text-xs text-slate-500">{segment.percentage.toFixed(0)}% ({segment.size})</span>
+                    </div>
+                    <p className="text-xs text-slate-500">Śr. sentyment: {segment.characteristics.avg_sentiment.toFixed(2)}</p>
+                    <p className="text-xs text-slate-500">Śr. długość odpowiedzi: {segment.characteristics.avg_response_length.toFixed(0)} słów</p>
+                    <p className="text-xs text-slate-500">Dominująca edukacja: {segment.demographics.top_education}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Zbyt mało danych, by utworzyć segmenty.</p>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              Jakość odpowiedzi
+            </h4>
+            {quality && Object.keys(quality).length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-slate-600">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Ogólna jakość</p>
+                  <p className="text-lg font-semibold text-slate-900">{(quality.overall_quality ?? 0).toFixed(2)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Głębokość</p>
+                  <p className="text-lg font-semibold text-slate-900">{(quality.depth_score ?? 0).toFixed(2)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Konstruktywność</p>
+                  <p className="text-lg font-semibold text-slate-900">{(quality.constructiveness_score ?? 0).toFixed(2)}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Brak dodatkowych metryk jakości.</p>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-accent-600" />
+              Porównanie pytań
+            </h4>
+            {comparison && (comparison.best_questions?.length || comparison.worst_questions?.length) ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-600">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">Top 3 pytania</p>
+                  <ul className="space-y-1">
+                    {comparison.best_questions?.map((item, idx) => (
+                      <li key={`${item.question}-${idx}`}>
+                        <strong>{item.avg_sentiment.toFixed(2)}</strong> – {item.question}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">Najtrudniejsze pytania</p>
+                  <ul className="space-y-1">
+                    {comparison.worst_questions?.map((item, idx) => (
+                      <li key={`${item.question}-${idx}`}>
+                        <strong>{item.avg_sentiment.toFixed(2)}</strong> – {item.question}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Brak wystarczających danych do porównań.</p>
+            )}
+          </section>
+
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-600">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Wykryte odchylenia</p>
+              <p>Sentiment: {outliers.sentiment_outliers ?? 0}</p>
+              <p>Długość wypowiedzi: {outliers.length_outliers ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Zaangażowanie</p>
+              <p>Wysoko zaangażowani: {engagement.high_engagers ?? 0}</p>
+              <p>Nisko zaangażowani: {engagement.low_engagers ?? 0}</p>
+              <p>Śr. czas odpowiedzi: {engagement.avg_response_time ? `${engagement.avg_response_time.toFixed(0)} ms` : '—'}</p>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -305,6 +858,8 @@ export function AnalysisPanel() {
   } = useAppStore();
   const queryClient = useQueryClient();
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+  const [hasRequestedAdvanced, setHasRequestedAdvanced] = useState(false);
+  const [isExportingEnhanced, setIsExportingEnhanced] = useState(false);
 
   const completedFocusGroups = useMemo(
     () => focusGroups.filter((fg) => fg.status === 'completed'),
@@ -347,6 +902,10 @@ export function AnalysisPanel() {
     },
     onSuccess: () => {
       toast.success('Analiza odświeżona', 'Nowe metryki są już dostępne.');
+      if (selectedId) {
+        queryClient.invalidateQueries({ queryKey: ['focus-group-metric-explanations', selectedId] });
+        queryClient.invalidateQueries({ queryKey: ['focus-group-health-check', selectedId] });
+      }
     },
     onError: (error: unknown) => {
       const message = axios.isAxiosError(error)
@@ -365,6 +924,34 @@ export function AnalysisPanel() {
     enabled: Boolean(selectedId && isCompleted),
   });
 
+  const metricExplanationsQuery = useQuery<MetricExplanationsResponse>({
+    queryKey: ['focus-group-metric-explanations', selectedId],
+    queryFn: () => analysisApi.getMetricExplanations(selectedId!),
+    enabled: Boolean(selectedId && isCompleted),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const healthCheckQuery = useQuery<HealthCheck>({
+    queryKey: ['focus-group-health-check', selectedId],
+    queryFn: () => analysisApi.getHealthCheck(selectedId!),
+    enabled: Boolean(selectedId && isCompleted),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const advancedInsightsQuery = useQuery<AdvancedInsights>({
+    queryKey: ['focus-group-advanced-insights', selectedId],
+    queryFn: () => analysisApi.getAdvancedInsights(selectedId!),
+    enabled: false,
+  });
+
+  // AI Business Insights Query (manual trigger only - expensive operation)
+  const businessInsightsQuery = useQuery<BusinessInsights>({
+    queryKey: ['focus-group-business-insights', selectedId],
+    queryFn: () => analysisApi.generateBusinessInsights(selectedId!),
+    enabled: false, // Only fetch when explicitly requested
+    staleTime: 1000 * 60 * 15, // Cache for 15 minutes (expensive to regenerate)
+  });
+
   const personaInsightsQuery = useQuery({
     queryKey: ['persona-insights', activePersonaId],
     queryFn: () => analysisApi.getPersonaInsights(activePersonaId!),
@@ -378,6 +965,144 @@ export function AnalysisPanel() {
   });
 
   const insights = insightsQuery.data ?? null;
+  const metricExplanations = metricExplanationsQuery.data;
+  const healthCheck = healthCheckQuery.data;
+  const advancedInsights = advancedInsightsQuery.data;
+  const isAdvancedFetching = advancedInsightsQuery.isFetching;
+  const isAdvancedDisabled = !isCompleted || !selectedId;
+  const healthAssessment = metricExplanations?.health_assessment ?? healthCheck;
+  const metricExplanationError = metricExplanationsQuery.error;
+  const metricExplanationErrorMessage = metricExplanationError
+    ? axios.isAxiosError(metricExplanationError)
+      ? metricExplanationError.response?.data?.detail ?? metricExplanationError.message
+      : 'Nie udało się pobrać interpretacji metryk.'
+    : null;
+
+  useEffect(() => {
+    setHasRequestedAdvanced(false);
+  }, [selectedId]);
+
+  const hasAdvancedResults = useMemo(() => {
+    if (!advancedInsights) return false;
+    const {
+      demographic_correlations,
+      temporal_analysis,
+      behavioral_segments,
+      quality_metrics,
+      comparative_analysis,
+      outlier_detection,
+      engagement_patterns,
+    } = advancedInsights;
+
+    if (demographic_correlations && Object.keys(demographic_correlations).length > 0) {
+      return true;
+    }
+
+    if (
+      temporal_analysis &&
+      (
+        Boolean(temporal_analysis.overall_trend) ||
+        Boolean(temporal_analysis.momentum_shifts && temporal_analysis.momentum_shifts.length > 0)
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      behavioral_segments?.segments &&
+      behavioral_segments.segments.length > 0
+    ) {
+      return true;
+    }
+
+    if (quality_metrics && Object.keys(quality_metrics).length > 0) {
+      return true;
+    }
+
+    if (
+      comparative_analysis &&
+      ((comparative_analysis.best_questions?.length ?? 0) > 0 ||
+        (comparative_analysis.worst_questions?.length ?? 0) > 0)
+    ) {
+      return true;
+    }
+
+    if (
+      outlier_detection &&
+      ((outlier_detection.sentiment_outliers ?? 0) > 0 || (outlier_detection.length_outliers ?? 0) > 0)
+    ) {
+      return true;
+    }
+
+    if (engagement_patterns && Object.keys(engagement_patterns).length > 0) {
+      return true;
+    }
+
+    return false;
+  }, [advancedInsights]);
+
+  const handleAdvancedInsightsGenerate = async () => {
+    if (!selectedId || !isCompleted) {
+      return;
+    }
+    setHasRequestedAdvanced(true);
+    try {
+      await advancedInsightsQuery.refetch({ throwOnError: true });
+      toast.success('Zaawansowana analiza gotowa', 'Sekcja została zaktualizowana.');
+    } catch (error) {
+      setHasRequestedAdvanced(false);
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.detail ?? error.message
+        : 'Nie udało się wygenerować zaawansowanej analizy.';
+      toast.error('Błąd analizy', message);
+    }
+  };
+
+  const handleBusinessInsightsGenerate = async () => {
+    if (!selectedId || !isCompleted) {
+      return;
+    }
+    try {
+      await businessInsightsQuery.refetch({ throwOnError: true });
+      toast.success('AI Business Insights gotowe', 'Metryki biznesowe zostały wygenerowane.');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.detail ?? error.message
+        : 'Nie udało się wygenerować AI Business Insights.';
+      toast.error('Błąd AI Insights', message);
+    }
+  };
+
+  const handleEnhancedReportExport = async () => {
+    if (!selectedFocusGroup) {
+      return;
+    }
+    setIsExportingEnhanced(true);
+    try {
+      const blob = await analysisApi.exportEnhancedPDF(
+        selectedFocusGroup.id,
+        true,
+        true,
+        false
+      );
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `enhanced_report_${selectedFocusGroup.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('Raport pobrany', 'Rozszerzony PDF został zapisany lokalnie.');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.detail ?? error.message
+        : 'Nie udało się wygenerować rozszerzonego raportu.';
+      toast.error('Błąd eksportu', message);
+    } finally {
+      setIsExportingEnhanced(false);
+    }
+  };
 
   const handleFocusGroupChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const id = event.target.value;
@@ -434,6 +1159,23 @@ export function AnalysisPanel() {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={handleBusinessInsightsGenerate}
+                  disabled={businessInsightsQuery.isFetching || !isCompleted}
+                  className="floating-button px-4 py-2 flex items-center gap-2 text-sm bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {businessInsightsQuery.isFetching ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
+                      Generating AI Insights...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      {businessInsightsQuery.data ? 'Refresh AI Insights' : 'Generate AI Insights'}
+                    </>
+                  )}
+                </button>
+                <button
                   onClick={() => refreshInsights.mutate()}
                   disabled={refreshInsights.isPending || !isCompleted}
                   className="floating-button px-4 py-2 flex items-center gap-2 text-sm"
@@ -467,6 +1209,23 @@ export function AnalysisPanel() {
                   PDF
                 </button>
                 <button
+                  onClick={handleEnhancedReportExport}
+                  disabled={isExportingEnhanced}
+                  className="floating-button px-3 py-2 text-sm flex items-center gap-2"
+                >
+                  {isExportingEnhanced ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-slate-600" />
+                      Generuję...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Raport AI
+                    </>
+                  )}
+                </button>
+                <button
                   onClick={() => analysisApi.exportCSV(selectedFocusGroup.id).then((blob) => {
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -497,46 +1256,78 @@ export function AnalysisPanel() {
               </div>
             ) : (
               <div className="space-y-4">
+                {isCompleted && selectedFocusGroup && (
+                  <AISummaryPanel
+                    focusGroupId={selectedFocusGroup.id}
+                    focusGroupName={selectedFocusGroup.name}
+                  />
+                )}
+
+                {/* AI Business Metrics Overview */}
+                <BusinessMetricsOverview
+                  insights={businessInsightsQuery.data || null}
+                  isLoading={businessInsightsQuery.isFetching}
+                />
+
                 {insights && (
                   <>
-                    <IdeaScoreGauge score={insights.idea_score} grade={insights.idea_grade} />
+                    <IdeaScoreGauge
+                      score={insights.idea_score}
+                      grade={insights.idea_grade}
+                      confidence={insights.llm_confidence}
+                      rationale={insights.llm_rationale}
+                    />
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <MetricCard
+                      <QuickStatCard
                         label="Konsensus"
                         value={`${(insights.metrics.consensus * 100).toFixed(1)}%`}
                         helper="Im wyżej, tym mniejsze rozbieżności w opiniach."
                       />
-                      <MetricCard
+                      <QuickStatCard
                         label="Średni sentyment"
                         value={insights.metrics.average_sentiment.toFixed(2)}
                         helper="Dodatnie wartości oznaczają pozytywny odbiór."
                       />
-                      <MetricCard
-                        label="Pozytywne odpowiedzi"
-                        value={`${(insights.metrics.sentiment_summary.positive_ratio * 100).toFixed(1)}%`}
-                        helper={`Negatywne: ${(insights.metrics.sentiment_summary.negative_ratio * 100).toFixed(1)}%`}
-                      />
-                      <MetricCard
-                        label="Completion rate"
-                        value={`${(insights.metrics.engagement.completion_rate * 100).toFixed(1)}%`}
-                      />
-                      <MetricCard
-                        label="Śr. czas odpowiedzi"
-                        value={insights.metrics.engagement.average_response_time_ms ? `${insights.metrics.engagement.average_response_time_ms.toFixed(0)} ms` : 'N/A'}
-                      />
-                      <MetricCard
-                        label="Spójność person"
-                        value={insights.metrics.engagement.consistency_score ? insights.metrics.engagement.consistency_score.toFixed(2) : 'N/A'}
+                      <QuickStatCard
+                        label="Pozytywne vs negatywne"
+                        value={`${(insights.metrics.sentiment_summary.positive_ratio * 100).toFixed(0)}% / ${(insights.metrics.sentiment_summary.negative_ratio * 100).toFixed(0)}%`}
+                        helper="Balans emocji w wypowiedziach uczestników."
                       />
                     </div>
-                    <KeyThemes themes={insights.key_themes} />
-                    <InsightRecommendations insights={insights} />
-                    <QuestionBreakdown questions={insights.question_breakdown} />
-                    <PersonaEngagement
+
+                    {metricExplanationsQuery.isLoading && (
+                      <div className="floating-panel p-6 text-sm text-slate-600">
+                        Ładowanie interpretacji metryk...
+                      </div>
+                    )}
+
+                    {metricExplanationsQuery.isError && metricExplanationErrorMessage && (
+                      <div className="floating-panel p-6 border border-red-200 bg-red-50 text-sm text-red-700">
+                        {metricExplanationErrorMessage}
+                      </div>
+                    )}
+
+                    <MetricInsightsSection
+                      explanations={metricExplanations?.explanations}
+                      insights={insights}
+                    />
+
+                    <SignalBreakdownSection signals={insights.signal_breakdown} />
+
+                    <PersonaPatternsSection
                       personas={personas}
-                      personaStats={insights.persona_engagement}
+                      patterns={insights.persona_patterns}
                       onSelect={handlePersonaSelect}
                     />
+
+                    <EvidenceFeedSection
+                      personas={personas}
+                      evidence={insights.evidence_feed}
+                      onPersonaClick={handlePersonaSelect}
+                    />
+
+                    <HealthOverview assessment={healthAssessment} />
                   </>
                 )}
 
@@ -549,6 +1340,15 @@ export function AnalysisPanel() {
                     </div>
                   </div>
                 )}
+
+                <AdvancedInsightsSection
+                  insights={advancedInsights}
+                  isFetching={isAdvancedFetching}
+                  onGenerate={handleAdvancedInsightsGenerate}
+                  hasData={hasAdvancedResults}
+                  disabled={isAdvancedDisabled}
+                  hasRequested={hasRequestedAdvanced}
+                />
 
                 <ResponseExplorer
                   personas={personas}

@@ -339,7 +339,7 @@ export function ImprovedDashboard() {
               <div className="floating-panel p-6">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="text-lg font-semibold text-slate-900">Statistical Validation</h3>
-                  <span className="text-xs text-primary-600 cursor-help" title="Chi-square test results - see STATISTICAL_VALIDITY.md">
+                  <span className="text-xs text-primary-600 cursor-help" title="Chi-square test results - zobacz COMPLETE_GUIDE.md (sekcja Generowanie Person)">
                     ℹ️
                   </span>
                 </div>

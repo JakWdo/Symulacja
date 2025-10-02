@@ -44,8 +44,10 @@ class PersonaGeneratorLangChain:
         self._rng = np.random.default_rng(self.settings.RANDOM_SEED)
 
         # Initialize LangChain Gemini LLM with higher temperature for diversity
+        persona_model = getattr(settings, "PERSONA_GENERATION_MODEL", settings.DEFAULT_MODEL)
+
         self.llm = ChatGoogleGenerativeAI(
-            model=settings.DEFAULT_MODEL,
+            model=persona_model,
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.9,  # Increased from default for more creative/diverse personas
             max_tokens=settings.MAX_TOKENS,
@@ -124,15 +126,28 @@ class PersonaGeneratorLangChain:
             }
         return normalized
 
-    def sample_big_five_traits(self) -> Dict[str, float]:
-        """Sample Big Five personality traits from normal distributions"""
-        return {
-            "openness": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
-            "conscientiousness": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
-            "extraversion": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
-            "agreeableness": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
-            "neuroticism": np.clip(self._rng.normal(0.5, 0.15), 0, 1),
-        }
+    def sample_big_five_traits(self, personality_skew: Dict[str, float] = None) -> Dict[str, float]:
+        """
+        Sample Big Five personality traits from normal distributions.
+
+        Args:
+            personality_skew: Optional dict to skew distributions.
+                              Keys: 'openness', 'conscientiousness', etc.
+                              Values: 0.0-1.0 (mean shift: 0=low, 0.5=balanced, 1.0=high)
+        """
+        skew = personality_skew or {}
+
+        traits = {}
+        for trait in ['openness', 'conscientiousness', 'extraversion', 'agreeableness', 'neuroticism']:
+            # Default mean = 0.5, std = 0.15
+            mean = skew.get(trait, 0.5)
+            # Ensure mean is valid
+            mean = np.clip(mean, 0.0, 1.0)
+
+            value = np.clip(self._rng.normal(mean, 0.15), 0, 1)
+            traits[trait] = value
+
+        return traits
 
     def sample_cultural_dimensions(self) -> Dict[str, float]:
         """Sample Hofstede cultural dimensions"""
@@ -220,6 +235,9 @@ FEW-SHOT EXAMPLES:
 
 Example 1 (High Openness, Mid-career professional):
 {{
+  "full_name": "Maya Chen",
+  "persona_title": "Freelance UX Designer",
+  "headline": "Brooklyn-based UX designer experimenting with AR storytelling for museums.",
   "background_story": "Maya is a 34-year-old UX designer in Brooklyn who left corporate life to freelance after a transformative trip to Japan. She's currently learning Japanese and building a side project exploring AR interfaces for museums. Single and loving the freedom to take on diverse clients from sustainable fashion to educational tech startups.",
   "values": ["Creativity", "Autonomy", "Continuous Learning", "Authenticity", "Sustainability"],
   "interests": ["Japanese language", "AR/VR Design", "Sustainable Fashion", "Museum Visits", "Meditation", "Urban Sketching"],
@@ -230,6 +248,9 @@ Example 1 (High Openness, Mid-career professional):
 
 Example 2 (Low Openness, High Conscientiousness, approaching retirement):
 {{
+  "full_name": "Robert Hayes",
+  "persona_title": "Veteran Financial Advisor",
+  "headline": "Dallas advisor meticulously planning retirement while mentoring the next generation.",
   "background_story": "Robert is a 58-year-old financial advisor in Dallas who has worked at the same firm for 32 years. Married with two grown children, he's meticulously planning his retirement and recently purchased a lake house. He serves as treasurer of his local Rotary Club and takes pride in his predictable routine and extensive client relationships built over decades.",
   "values": ["Stability", "Loyalty", "Family", "Responsibility", "Tradition", "Integrity"],
   "interests": ["Golf", "Classic Cars", "Financial Planning Podcasts", "Grilling", "Rotary Club", "Lake Fishing"],
@@ -240,6 +261,9 @@ Example 2 (Low Openness, High Conscientiousness, approaching retirement):
 
 Example 3 (High Extraversion, High Neuroticism, recent graduate):
 {{
+  "full_name": "Jasmine Ortiz",
+  "persona_title": "Social Media Manager & Creator",
+  "headline": "Gen-Z marketer hustling in LA's creator economy while navigating early-career anxiety.",
   "background_story": "Jasmine is a 23-year-old social media manager in Los Angeles who recently graduated with a marketing degree. She juggles anxiety about job security with excitement for the creator economy. Living with three roommates in Echo Park, she's always networking at industry events while building her personal brand as a Gen-Z marketing consultant. She's close to her immigrant parents who don't fully understand her career choice.",
   "values": ["Connection", "Recognition", "Authenticity", "Innovation", "Family", "Success"],
   "interests": ["TikTok Content Creation", "Networking Events", "Brunch Culture", "Thrifting", "Podcast Listening", "Mental Health Advocacy", "K-pop"],
@@ -252,6 +276,9 @@ Now generate a COMPLETELY DIFFERENT persona following the same level of specific
 
 Generate JSON ONLY (no markdown, no extra text):
 {{
+  "full_name": "<realistic first and last name aligned with location>",
+  "persona_title": "<concise professional or life-stage title>",
+  "headline": "<one sentence summary consistent with age, occupation, and motivations>",
   "background_story": "<2-3 specific sentences about their current life, career trajectory, and unique context>",
   "values": ["<5-7 specific values that drive their decisions>"],
   "interests": ["<5-7 specific hobbies/activities they actually do>"],
