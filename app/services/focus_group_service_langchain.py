@@ -314,6 +314,7 @@ class FocusGroupServiceLangChain:
                 extra={"persona_id": str(persona.id)}
             )
 
+        # Generate response with retry logic and validation
         response_text: Optional[str] = None
         max_attempts = 3
 
@@ -438,8 +439,8 @@ class FocusGroupServiceLangChain:
         persona: Persona,
         question: str,
         context: List[Dict[str, Any]],
-        history_summary: Optional[str],
-        attempt: int,
+        history_summary: Optional[str] = None,
+        attempt: int = 1,
         project_context: Optional[str] = None,
     ) -> str:
         """Generate persona response using LangChain"""
@@ -490,22 +491,21 @@ class FocusGroupServiceLangChain:
             logger.debug(f"  → Extracted from dict['content']", extra={"persona_id": str(persona.id)})
         else:
             logger.error(
-                f"⚠️ Unexpected result type from LangChain: {type(result)}\n"
-                f"Value: {str(result)[:500]}\n"
-                f"Dir: {[x for x in dir(result) if not x.startswith('_')][:20]}",
-                extra={"persona_id": str(persona.id), "result_type": str(type(result))}
+                f"❌ Unexpected result type from LLM: {type(result)}, raw={str(result)[:200]}",
+                extra={"persona_id": str(persona.id), "attempt": attempt}
             )
             response_text = ""
 
+        # Log the response received
         logger.info(
-            f"🤖 LLM response for persona {str(persona.id)[:8]} (attempt {attempt}):\n"
-            f"  Length: {len(response_text or '')} chars\n"
-            f"  Is empty: {not response_text}\n"
-            f"  Text: '{(response_text or '')[:300] if response_text else 'EMPTY'}'",
-            extra={"persona_id": str(persona.id), "response_length": len(response_text or ''), "attempt": attempt}
+            f"📬 Received from LLM for persona {str(persona.id)[:8]}: "
+            f"length={len(response_text) if response_text else 0}, "
+            f"preview='{response_text[:100] if response_text else 'EMPTY'}'...",
+            extra={"persona_id": str(persona.id), "attempt": attempt}
         )
 
         return response_text or ""
+
 
     def _create_response_prompt(
         self,
@@ -518,11 +518,7 @@ class FocusGroupServiceLangChain:
     ) -> str:
         """Create prompt for persona response generation"""
 
-        # Generate unique seed for this specific response to ensure diversity
-        import uuid
-        unique_seed = str(uuid.uuid4())[:8]
-        timestamp_ms = int(time.time() * 1000)
-
+        # Format context from past interactions
         context_text = ""
         if context:
             context_text = "\n\nRELEVANT PAST INTERACTIONS:\n"
@@ -531,56 +527,40 @@ class FocusGroupServiceLangChain:
                     context_text += f"{i}. Q: {ctx['event_data'].get('question', '')}\n"
                     context_text += f"   A: {ctx['event_data'].get('response', '')}\n"
 
+        # Format recent conversation history
         recent_history = ""
         if history_summary:
-            recent_history = f"\n\nRECENT CONVERSATION SNAPSHOT:\n{history_summary}\n"
+            recent_history = f"\n\nRECENT CONVERSATION:\n{history_summary}\n"
 
-        project_context_section = ""
+        # Project context
+        project_section = ""
         if project_context:
-            project_context_section = f"\n\nPROJECT CONTEXT:\n{project_context}\n"
+            project_section = f"\n\nPROJECT CONTEXT:\n{project_context}\n"
 
-        retry_suffix = ""
-        if attempt > 1:
-            retry_suffix = (
-                "\n\nTwoja ostatnia odpowiedź była zbyt lakoniczna. "
-                "Tym razem odpowiedz w 2-4 zdaniach, konkretnie odnosząc się do pytania i wcześniejszych spostrzeżeń."
-            )
+        return f"""You are roleplaying as a specific persona in a market research focus group.
 
-        # Add persona-specific diversification
-        persona_seed = f"{persona.gender}-{persona.age}-{persona.location or 'unknown'}"
+YOUR PERSONA PROFILE:
+{persona.personality_prompt or f"A {persona.age}-year-old {persona.gender} from {persona.location or 'an urban area'}."}
 
-        return f"""You are roleplaying as a UNIQUE individual in a market research focus group. Each participant has different views based on their background.
-
-[Response ID: {unique_seed}-{timestamp_ms}] [Persona: {persona_seed}]
-
-YOUR UNIQUE IDENTITY:
-{persona.personality_prompt}
-
-YOUR DEMOGRAPHICS (shape your perspective):
-- Age: {persona.age} years old
+DEMOGRAPHICS:
+- Name: {persona.full_name or f'{persona.gender} {persona.age}'}
+- Age: {persona.age}
 - Gender: {persona.gender}
 - Location: {persona.location or 'Not specified'}
 - Education: {persona.education_level or 'Not specified'}
 - Income: {persona.income_bracket or 'Not specified'}
+- Occupation: {persona.occupation or 'Not specified'}
 
-YOUR BACKGROUND STORY:
-{persona.background_story}
+BACKGROUND:
+{persona.background_story or 'A person with unique life experiences and perspectives.'}
 
-YOUR CORE VALUES: {', '.join(persona.values) if persona.values else 'Not specified'}
-YOUR INTERESTS: {', '.join(persona.interests) if persona.interests else 'Not specified'}
-{project_context_section}{context_text}{recent_history}
+VALUES: {', '.join(persona.values) if persona.values else 'Not specified'}
+INTERESTS: {', '.join(persona.interests) if persona.interests else 'Not specified'}
+{project_section}{context_text}{recent_history}
 
-QUESTION FOR YOU: {question}
+QUESTION: {question}
 
-CRITICAL INSTRUCTIONS:
-1. You MUST respond based on YOUR UNIQUE background, values, and experiences described above
-2. DO NOT give generic answers - draw from YOUR specific demographics and story
-3. YOUR response must be DIFFERENT from other participants
-4. Be authentic and conversational - speak as this specific person would
-5. Reference YOUR age, location, values, or interests when relevant
-6. Give 2-4 sentences with YOUR personal perspective{retry_suffix}
-
-YOUR RESPONSE (as {persona.gender}, {persona.age}, from {persona.location or 'your location'}):"""
+Respond naturally as this persona would, staying consistent with your profile and past responses. Be authentic, specific, and conversational. Draw from YOUR unique background, age, location, and values. Keep your response to 2-4 sentences unless more detail is clearly needed."""
 
     async def _get_recent_history(
         self,

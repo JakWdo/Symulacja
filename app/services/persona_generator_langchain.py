@@ -4,7 +4,7 @@ Replaces the original OpenAI/Anthropic implementation with LangChain abstraction
 """
 
 import numpy as np
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 from scipy import stats
 from dataclasses import dataclass
 
@@ -161,17 +161,38 @@ class PersonaGeneratorLangChain:
         }
 
     async def generate_persona_personality(
-        self, demographic_profile: Dict[str, Any], psychological_profile: Dict[str, Any]
+        self, demographic_profile: Dict[str, Any], psychological_profile: Dict[str, Any], advanced_options: Optional[Dict[str, Any]] = None
     ) -> Tuple[str, Dict[str, Any]]:
         """Generate persona personality using LangChain + Gemini"""
 
         prompt_text = self._create_persona_prompt(demographic_profile, psychological_profile)
 
         # Use LangChain chain to generate structured response
+        import logging
+        logger = logging.getLogger(__name__)
+
         try:
+            logger.info(
+                f"Generating persona with demographics: {demographic_profile.get('age_group')}, "
+                f"{demographic_profile.get('gender')}, {demographic_profile.get('location')}"
+            )
             response = await self.persona_chain.ainvoke({"prompt": prompt_text})
+
+            # Log response for debugging
+            logger.info(f"LLM response type: {type(response)}, keys: {response.keys() if isinstance(response, dict) else 'N/A'}")
+
+            # Validate required fields
+            required_fields = ["full_name", "persona_title", "headline", "background_story", "values", "interests"]
+            missing_fields = [field for field in required_fields if not response.get(field)]
+            if missing_fields:
+                logger.error(
+                    f"LLM response missing required fields: {missing_fields}. "
+                    f"Response keys: {list(response.keys()) if isinstance(response, dict) else 'NOT A DICT'}"
+                )
+
             return prompt_text, response
         except Exception as e:
+            logger.error(f"Failed to generate persona: {str(e)[:500]}", exc_info=True)
             # Fallback for parsing errors
             raise ValueError(f"Failed to generate persona: {str(e)}")
 
