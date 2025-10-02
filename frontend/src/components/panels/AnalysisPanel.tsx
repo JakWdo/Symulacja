@@ -21,6 +21,10 @@ import {
   ShieldCheck,
   Lightbulb,
   Quote,
+  LayoutDashboard,
+  PieChart,
+  CheckSquare,
+  Settings,
 } from 'lucide-react';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { analysisApi, focusGroupsApi } from '@/lib/api';
@@ -49,6 +53,7 @@ import { PersonaInsightDrawer } from '@/components/analysis/PersonaInsightDrawer
 import { AISummaryPanel } from '@/components/analysis/AISummaryPanel';
 import { MetricCardWithExplanation } from '@/components/analysis/MetricCardWithExplanation';
 import { BusinessMetricsOverview } from '@/components/analysis/BusinessMetricsOverview';
+import { Tabs, type TabItem } from '@/components/ui/Tabs';
 
 function IdeaScoreGauge({
   score,
@@ -831,9 +836,12 @@ function ResponseExplorer({
                   <p className="text-sm text-slate-700 mt-2 leading-relaxed">
                     {response.response}
                   </p>
-                  {response.contradicts_events && Array.isArray(response.contradicts_events) && response.contradicts_events.length > 0 && (
-                    <p className="text-xs text-red-500 mt-2">⚠️ Sprzeczności z pamięcią persony</p>
-                  )}
+                  {(() => {
+                    const contradicts = response.contradicts_events;
+                    return contradicts && Array.isArray(contradicts) && contradicts.length > 0 ? (
+                      <p className="text-xs text-red-500 mt-2">⚠️ Sprzeczności z pamięcią persony</p>
+                    ) : null;
+                  })()}
                   <p className="text-[10px] text-slate-400 mt-2">
                     {new Date(response.created_at).toLocaleString()}
                   </p>
@@ -1118,6 +1126,177 @@ export function AnalysisPanel() {
     setActivePersonaId(null);
   };
 
+  // Tabs configuration
+  const analysisTabs = useMemo((): TabItem[] => {
+    if (!insights) return [];
+
+    return [
+      {
+        id: 'overview',
+        label: 'Overview',
+        icon: <LayoutDashboard className="w-4 h-4" />,
+        content: (
+          <div className="space-y-4">
+            {/* AI Summary */}
+            {isCompleted && selectedFocusGroup && (
+              <AISummaryPanel
+                focusGroupId={selectedFocusGroup.id}
+                focusGroupName={selectedFocusGroup.name}
+              />
+            )}
+
+            {/* AI Business Metrics */}
+            <BusinessMetricsOverview
+              insights={businessInsightsQuery.data || null}
+              isLoading={businessInsightsQuery.isFetching}
+            />
+
+            {/* Idea Score */}
+            <IdeaScoreGauge
+              score={insights.idea_score}
+              grade={insights.idea_grade}
+              confidence={insights.llm_confidence}
+              rationale={insights.llm_rationale}
+            />
+
+            {/* Key Metrics (without response_time) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <QuickStatCard
+                label="Konsensus"
+                value={`${(insights.metrics.consensus * 100).toFixed(1)}%`}
+                helper="Im wyżej, tym mniejsze rozbieżności w opiniach."
+              />
+              <QuickStatCard
+                label="Średni sentyment"
+                value={insights.metrics.average_sentiment.toFixed(2)}
+                helper="Dodatnie wartości oznaczają pozytywny odbiór."
+              />
+            </div>
+
+            {/* Signal Breakdown */}
+            <SignalBreakdownSection signals={insights.signal_breakdown} />
+
+            {/* Health Overview */}
+            <HealthOverview assessment={healthAssessment} />
+          </div>
+        ),
+      },
+      {
+        id: 'demographics',
+        label: 'Demographics',
+        icon: <PieChart className="w-4 h-4" />,
+        content: (
+          <div className="space-y-4">
+            {/* Persona Patterns */}
+            <PersonaPatternsSection
+              personas={personas}
+              patterns={insights.persona_patterns}
+              onSelect={handlePersonaSelect}
+            />
+
+            {/* Evidence Feed */}
+            <EvidenceFeedSection
+              personas={personas}
+              evidence={insights.evidence_feed}
+              onPersonaClick={handlePersonaSelect}
+            />
+
+            {/* Metric Explanations */}
+            {metricExplanationsQuery.isLoading && (
+              <div className="floating-panel p-6 text-sm text-slate-600">
+                Ładowanie interpretacji metryk...
+              </div>
+            )}
+
+            {metricExplanationsQuery.isError && metricExplanationErrorMessage && (
+              <div className="floating-panel p-6 border border-red-200 bg-red-50 text-sm text-red-700">
+                {metricExplanationErrorMessage}
+              </div>
+            )}
+
+            <MetricInsightsSection
+              explanations={metricExplanations?.explanations}
+              insights={insights}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'quality',
+        label: 'Quality & Engagement',
+        icon: <CheckSquare className="w-4 h-4" />,
+        content: (
+          <div className="space-y-4">
+            {/* Quality metrics would go here */}
+            <div className="floating-panel p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <CheckSquare className="w-5 h-5 text-green-600" />
+                Response Quality
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <QuickStatCard
+                  label="Completion Rate"
+                  value={`${((insights.metrics.engagement?.completion_rate || 0) * 100).toFixed(1)}%`}
+                  helper="Percentage of questions answered by participants."
+                />
+                <QuickStatCard
+                  label="Avg. Consistency"
+                  value={(insights.metrics.engagement?.consistency_score || 0).toFixed(2)}
+                  helper="How consistent responses are with persona profiles."
+                />
+              </div>
+            </div>
+
+            {/* Response Explorer */}
+            <ResponseExplorer
+              personas={personas}
+              responses={responsesQuery.data}
+              onPersonaClick={handlePersonaSelect}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'advanced',
+        label: 'Advanced Analytics',
+        icon: <Settings className="w-4 h-4" />,
+        content: (
+          <div className="space-y-4">
+            {/* Advanced Insights Section */}
+            <AdvancedInsightsSection
+              insights={advancedInsights}
+              isFetching={isAdvancedFetching}
+              onGenerate={handleAdvancedInsightsGenerate}
+              hasData={hasAdvancedResults}
+              disabled={isAdvancedDisabled}
+              hasRequested={hasRequestedAdvanced}
+            />
+          </div>
+        ),
+      },
+    ];
+  }, [
+    insights,
+    selectedFocusGroup,
+    isCompleted,
+    businessInsightsQuery.data,
+    businessInsightsQuery.isFetching,
+    personas,
+    healthAssessment,
+    metricExplanationsQuery.isLoading,
+    metricExplanationsQuery.isError,
+    metricExplanationErrorMessage,
+    metricExplanations,
+    responsesQuery.data,
+    advancedInsights,
+    isAdvancedFetching,
+    hasAdvancedResults,
+    isAdvancedDisabled,
+    hasRequestedAdvanced,
+    handlePersonaSelect,
+    handleAdvancedInsightsGenerate,
+  ]);
+
   return (
     <FloatingPanel
       isOpen={activePanel === 'analysis'}
@@ -1254,107 +1433,23 @@ export function AnalysisPanel() {
                 <TrendingUp className="w-12 h-12 text-primary-300 mb-3 animate-spin" />
                 <p className="text-slate-600">Ładowanie insightów...</p>
               </div>
+            ) : insights ? (
+              <Tabs tabs={analysisTabs} defaultTab="overview" />
             ) : (
               <div className="space-y-4">
-                {isCompleted && selectedFocusGroup && (
-                  <AISummaryPanel
-                    focusGroupId={selectedFocusGroup.id}
-                    focusGroupName={selectedFocusGroup.name}
-                  />
-                )}
-
-                {/* AI Business Metrics Overview */}
+                {/* Show Business Metrics even without insights */}
                 <BusinessMetricsOverview
                   insights={businessInsightsQuery.data || null}
                   isLoading={businessInsightsQuery.isFetching}
                 />
 
-                {insights && (
-                  <>
-                    <IdeaScoreGauge
-                      score={insights.idea_score}
-                      grade={insights.idea_grade}
-                      confidence={insights.llm_confidence}
-                      rationale={insights.llm_rationale}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <QuickStatCard
-                        label="Konsensus"
-                        value={`${(insights.metrics.consensus * 100).toFixed(1)}%`}
-                        helper="Im wyżej, tym mniejsze rozbieżności w opiniach."
-                      />
-                      <QuickStatCard
-                        label="Średni sentyment"
-                        value={insights.metrics.average_sentiment.toFixed(2)}
-                        helper="Dodatnie wartości oznaczają pozytywny odbiór."
-                      />
-                      <QuickStatCard
-                        label="Pozytywne vs negatywne"
-                        value={`${(insights.metrics.sentiment_summary.positive_ratio * 100).toFixed(0)}% / ${(insights.metrics.sentiment_summary.negative_ratio * 100).toFixed(0)}%`}
-                        helper="Balans emocji w wypowiedziach uczestników."
-                      />
-                    </div>
-
-                    {metricExplanationsQuery.isLoading && (
-                      <div className="floating-panel p-6 text-sm text-slate-600">
-                        Ładowanie interpretacji metryk...
-                      </div>
-                    )}
-
-                    {metricExplanationsQuery.isError && metricExplanationErrorMessage && (
-                      <div className="floating-panel p-6 border border-red-200 bg-red-50 text-sm text-red-700">
-                        {metricExplanationErrorMessage}
-                      </div>
-                    )}
-
-                    <MetricInsightsSection
-                      explanations={metricExplanations?.explanations}
-                      insights={insights}
-                    />
-
-                    <SignalBreakdownSection signals={insights.signal_breakdown} />
-
-                    <PersonaPatternsSection
-                      personas={personas}
-                      patterns={insights.persona_patterns}
-                      onSelect={handlePersonaSelect}
-                    />
-
-                    <EvidenceFeedSection
-                      personas={personas}
-                      evidence={insights.evidence_feed}
-                      onPersonaClick={handlePersonaSelect}
-                    />
-
-                    <HealthOverview assessment={healthAssessment} />
-                  </>
-                )}
-
-                {!insights && (
-                  <div className="floating-panel p-6 flex items-center gap-4">
-                    <TrendingUp className="w-8 h-8 text-primary-400" />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Brak zapisanych insightów</p>
-                      <p className="text-xs text-slate-600">Użyj przycisku „Odśwież analizę”, aby wyliczyć ocenę pomysłu na podstawie zebranych odpowiedzi.</p>
-                    </div>
+                <div className="floating-panel p-6 flex items-center gap-4">
+                  <TrendingUp className="w-8 h-8 text-primary-400" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Brak zapisanych insightów</p>
+                    <p className="text-xs text-slate-600">Użyj przycisku „Odśwież analizę", aby wyliczyć ocenę pomysłu na podstawie zebranych odpowiedzi.</p>
                   </div>
-                )}
-
-                <AdvancedInsightsSection
-                  insights={advancedInsights}
-                  isFetching={isAdvancedFetching}
-                  onGenerate={handleAdvancedInsightsGenerate}
-                  hasData={hasAdvancedResults}
-                  disabled={isAdvancedDisabled}
-                  hasRequested={hasRequestedAdvanced}
-                />
-
-                <ResponseExplorer
-                  personas={personas}
-                  responses={responsesQuery.data}
-                  onPersonaClick={handlePersonaSelect}
-                />
+                </div>
               </div>
             )}
           </>
