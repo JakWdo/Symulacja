@@ -10,10 +10,7 @@ from sqlalchemy import select
 from datetime import datetime, timezone
 import numpy as np
 
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
-from langchain.schema import Document
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 from app.models import PersonaEvent, PersonaResponse, Persona
 from app.core.config import get_settings
@@ -37,26 +34,6 @@ class MemoryServiceLangChain:
             google_api_key=settings.GOOGLE_API_KEY
         )
 
-        # Initialize LLM for consistency checking
-        self.llm = ChatGoogleGenerativeAI(
-            model=settings.DEFAULT_MODEL,
-            google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.3,  # Lower temperature for consistency checking
-        )
-
-        # Setup consistency checking chain
-        self.consistency_prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are analyzing consistency in a persona's responses over time. Respond only with valid JSON."),
-            ("user", "{prompt}")
-        ])
-
-        self.json_parser = JsonOutputParser()
-        self.consistency_chain = (
-            self.consistency_prompt
-            | self.llm
-            | self.json_parser
-        )
-
     async def create_event(
         self,
         db: AsyncSession,
@@ -72,6 +49,7 @@ class MemoryServiceLangChain:
             select(PersonaEvent)
             .where(PersonaEvent.persona_id == persona_id)
             .order_by(PersonaEvent.sequence_number.desc())
+            .limit(1)
         )
         last_event = result.scalar_one_or_none()
         sequence_number = (last_event.sequence_number + 1) if last_event else 1
@@ -168,106 +146,6 @@ class MemoryServiceLangChain:
             for e in top_events
         ]
 
-    async def check_consistency(
-        self,
-        db: AsyncSession,
-        persona_id: str,
-        new_response: str,
-        context: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        """
-        Check if new response contradicts past events using LangChain
-        Returns consistency score and list of contradictions
-        """
-
-        if not context:
-            return {"consistency_score": 1.0, "contradictions": [], "is_consistent": True}
-
-        # Build context summary
-        context_text = self._format_context(context)
-
-        # Create consistency checking prompt
-        prompt_text = f"""You are analyzing consistency in a persona's responses over time.
-
-PAST CONTEXT:
-{context_text}
-
-NEW RESPONSE:
-{new_response}
-
-Analyze if the new response contradicts any information in the past context. Consider:
-1. Factual contradictions (changed opinions, preferences, or stated facts)
-2. Behavioral inconsistencies (out of character actions)
-3. Value contradictions (violates stated values or principles)
-
-Respond with JSON:
-{{
-    "contradictions": [
-        {{"event_id": "...", "contradiction": "description", "severity": 0-1}}
-    ],
-    "consistency_score": 0-1,
-    "is_consistent": true/false
-}}
-
-If no contradictions, return empty list and consistency_score=1.0"""
-
-        try:
-            result = await self.consistency_chain.ainvoke({"prompt": prompt_text})
-
-            if not isinstance(result, dict):
-                logger.warning(
-                    "Consistency chain returned non-dict result; defaulting to safe values",
-                    extra={"persona_id": persona_id, "result_type": type(result).__name__},
-                )
-                return {
-                    "consistency_score": 1.0,
-                    "contradictions": [],
-                    "is_consistent": True,
-                    "raw_result": result,
-                }
-
-            consistency_score = result.get("consistency_score")
-            if consistency_score is None:
-                logger.warning(
-                    "Consistency chain missing consistency_score; using default",
-                    extra={"persona_id": persona_id},
-                )
-                consistency_score = 1.0
-            else:
-                try:
-                    consistency_score = float(consistency_score)
-                except (TypeError, ValueError):
-                    logger.warning(
-                        "Consistency score not numeric; using default",
-                        extra={"persona_id": persona_id, "consistency_score": consistency_score},
-                    )
-                    consistency_score = 1.0
-
-            contradictions = result.get("contradictions") or []
-            if not isinstance(contradictions, list):
-                contradictions = [contradictions]
-
-            is_consistent = result.get("is_consistent")
-            if is_consistent is None:
-                is_consistent = consistency_score >= 0.95
-
-            result.update(
-                {
-                    "consistency_score": consistency_score,
-                    "contradictions": contradictions,
-                    "is_consistent": bool(is_consistent),
-                }
-            )
-
-            return result
-        except Exception as e:
-            # Fallback if parsing fails
-            return {
-                "consistency_score": 1.0,
-                "contradictions": [],
-                "is_consistent": True,
-                "error": str(e)
-            }
 
     async def get_persona_history(
         self, db: AsyncSession, persona_id: str, limit: int = 50
