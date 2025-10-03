@@ -1,4 +1,4 @@
-"""Service exports - using LangChain implementations as default."""
+"""Service exports - simplified version."""
 
 # Use LangChain implementations (preferred)
 from .persona_generator_langchain import (
@@ -7,7 +7,7 @@ from .persona_generator_langchain import (
 )
 from .memory_service_langchain import MemoryServiceLangChain as MemoryService
 from .focus_group_service_langchain import FocusGroupServiceLangChain as FocusGroupService
-from .insight_service import InsightService
+from .discussion_summarizer import DiscussionSummarizerService
 from .adversarial_service import AdversarialService
 
 __all__ = [
@@ -15,6 +15,6 @@ __all__ = [
     "DemographicDistribution",
     "MemoryService",
     "FocusGroupService",
-    "InsightService",
+    "DiscussionSummarizerService",
     "AdversarialService",
 ]

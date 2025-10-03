@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
@@ -11,49 +12,67 @@ import {
   AlertCircle,
   Loader2,
   Users,
-  HelpCircle,
   Plus,
-  Minus,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { cn, formatDate, formatTime, formatPercentage, truncateText } from '@/lib/utils';
+import { cn, formatDate, formatTime } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
-import type { FocusGroup, Persona } from '@/types';
+import type { FocusGroup } from '@/types';
 
 function StatusBadge({ status }: { status: FocusGroup['status'] }) {
   const configs = {
-    pending: { icon: Clock, color: 'text-slate-600 bg-slate-100', label: 'Pending' },
+    pending: {
+      icon: Clock,
+      gradient: 'from-slate-500 to-slate-600',
+      bg: 'bg-slate-100',
+      text: 'text-slate-700',
+      label: 'Pending',
+    },
     running: {
       icon: Loader2,
-      color: 'text-blue-600 bg-blue-100 animate-pulse',
+      gradient: 'from-blue-500 to-indigo-600',
+      bg: 'bg-blue-100',
+      text: 'text-blue-700',
       label: 'Running',
+      animate: true,
     },
-    completed: { icon: CheckCircle2, color: 'text-green-600 bg-green-100', label: 'Completed' },
-    failed: { icon: AlertCircle, color: 'text-red-600 bg-red-100', label: 'Failed' },
+    completed: {
+      icon: CheckCircle2,
+      gradient: 'from-green-500 to-emerald-600',
+      bg: 'bg-green-100',
+      text: 'text-green-700',
+      label: 'Completed',
+    },
+    failed: {
+      icon: AlertCircle,
+      gradient: 'from-red-500 to-rose-600',
+      bg: 'bg-red-100',
+      text: 'text-red-700',
+      label: 'Failed',
+    },
   } as const;
 
   const config = configs[status];
   const Icon = config.icon;
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium',
-        config.color,
-      )}
-    >
-      <Icon className="w-3 h-3" />
-      {config.label}
-    </span>
+    <div className={cn('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full', config.bg)}>
+      <Icon className={cn('w-3.5 h-3.5', config.text, config.animate && 'animate-spin')} />
+      <span className={cn('text-xs font-semibold', config.text)}>{config.label}</span>
+    </div>
   );
 }
 
 function FocusGroupCard({
   focusGroup,
   isSelected,
+  index,
 }: {
   focusGroup: FocusGroup;
   isSelected: boolean;
+  index: number;
 }) {
   const { setSelectedFocusGroup } = useAppStore();
   const queryClient = useQueryClient();
@@ -74,109 +93,96 @@ function FocusGroupCard({
     runMutation.mutate();
   };
 
-  const meetsRequirements = useMemo(() => {
-    if (focusGroup.status !== 'completed') {
-      return null;
-    }
-
-    const avgResponse = focusGroup.avg_response_time_ms ?? Infinity;
-    const totalTime = focusGroup.total_execution_time_ms ?? Infinity;
-    const errorRate = focusGroup.consistency_error_rate ?? 1;
-
-    return avgResponse <= 3000 && totalTime <= 30000 && errorRate <= 0.05;
-  }, [focusGroup]);
+  const canRun = focusGroup.status === 'pending';
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
       onClick={() => setSelectedFocusGroup(focusGroup)}
       className={cn(
-        'node-card cursor-pointer group border-2 transition-colors',
+        'relative p-5 rounded-2xl cursor-pointer transition-all duration-300',
+        'border-2 bg-white',
         isSelected
-          ? 'border-primary-200 shadow-lg bg-white'
-          : 'border-transparent hover:border-primary-100',
+          ? 'border-primary-400 shadow-xl shadow-primary-100 scale-[1.02]'
+          : 'border-slate-200 hover:border-primary-200 hover:shadow-lg'
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* Selection indicator */}
+      {isSelected && (
+        <motion.div
+          layoutId="selected-focus-group"
+          className="absolute inset-0 bg-gradient-to-br from-primary-50 to-accent-50 rounded-2xl -z-10"
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        />
+      )}
+
+      <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 rounded-lg bg-accent-50 text-accent-600">
-              <MessageSquare className="w-4 h-4" />
+          {/* Header */}
+          <div className="flex items-start gap-3 mb-3">
+            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center shadow-lg">
+              <MessageSquare className="w-6 h-6 text-white" />
             </div>
-            <h4 className="font-semibold text-slate-900 group-hover:text-primary-600 transition-colors">
-              {focusGroup.name}
-            </h4>
-            <StatusBadge status={focusGroup.status} />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-slate-900 text-lg mb-1 truncate">
+                {focusGroup.name}
+              </h3>
+              <StatusBadge status={focusGroup.status} />
+            </div>
           </div>
 
+          {/* Description */}
           {focusGroup.description && (
-            <p className="text-sm text-slate-600 mb-3">{focusGroup.description}</p>
+            <p className="text-sm text-slate-600 mb-3 line-clamp-2">
+              {focusGroup.description}
+            </p>
           )}
 
-          <div className="flex flex-wrap gap-3 text-xs text-slate-600 mb-3">
-            <span>👥 {focusGroup.persona_ids.length} personas</span>
-            <span>❓ {focusGroup.questions.length} questions</span>
-            <span>📅 {formatDate(focusGroup.created_at)}</span>
+          {/* Metadata */}
+          <div className="flex flex-wrap gap-3 text-xs text-slate-500 mb-3">
+            <span className="flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" />
+              {focusGroup.persona_ids.length} personas
+            </span>
+            <span className="flex items-center gap-1">
+              <MessageSquare className="w-3.5 h-3.5" />
+              {focusGroup.questions.length} questions
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              {formatDate(focusGroup.created_at)}
+            </span>
           </div>
 
+          {/* Performance metrics */}
           {focusGroup.status === 'completed' && (
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <div className="px-3 py-2 rounded-lg bg-slate-50">
-                <div className="text-xs text-slate-500">Avg Response</div>
-                <div className="text-sm font-semibold text-slate-900">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
+                <div className="text-xs text-slate-500 mb-1">Avg Response</div>
+                <div className="text-sm font-bold text-slate-900">
                   {formatTime(focusGroup.avg_response_time_ms)}
                 </div>
               </div>
-              <div className="px-3 py-2 rounded-lg bg-slate-50">
-                <div className="text-xs text-slate-500">Total Time</div>
-                <div className="text-sm font-semibold text-slate-900">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
+                <div className="text-xs text-slate-500 mb-1">Total Time</div>
+                <div className="text-sm font-bold text-slate-900">
                   {formatTime(focusGroup.total_execution_time_ms)}
                 </div>
               </div>
-              <div className="px-3 py-2 rounded-lg bg-slate-50">
-                <div className="text-xs text-slate-500">Consistency</div>
-                <div className="text-sm font-semibold text-slate-900">
-                  {formatPercentage(1 - (focusGroup.consistency_error_rate ?? 0))}
-                </div>
-              </div>
-              <div className="px-3 py-2 rounded-lg bg-slate-50">
-                <div className="text-xs text-slate-500">Idea Score</div>
-                <div className="text-sm font-semibold text-slate-900">
-                  {focusGroup.polarization_score !== null && focusGroup.polarization_score !== undefined
-                    ? `${(focusGroup.polarization_score * 100).toFixed(1)}`
-                    : 'N/A'}
-                </div>
-              </div>
             </div>
           )}
 
-          {meetsRequirements !== null && (
-            <div className={cn('px-3 py-2 rounded-lg text-xs font-medium', meetsRequirements
-              ? 'bg-green-50 text-green-700'
-              : 'bg-yellow-50 text-yellow-700')}
-            >
-              <div className="flex items-center gap-2">
-                {meetsRequirements ? (
-                  <CheckCircle2 className="w-4 h-4" />
-                ) : (
-                  <AlertCircle className="w-4 h-4" />
-                )}
-                <span>
-                  {meetsRequirements
-                    ? 'Meets all performance requirements'
-                    : 'Some requirements need attention'}
-                </span>
-              </div>
-            </div>
-          )}
-
+          {/* Failed status message */}
           {focusGroup.status === 'failed' && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-xs">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                <div>
-                  <div className="font-semibold">Execution Failed</div>
-                  <div className="text-xs opacity-80 mt-1">
-                    Check backend logs for details. Common causes: API quota exceeded, network issues, or invalid personas.
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-red-700">
+                  <div className="font-semibold mb-1">Execution Failed</div>
+                  <div className="text-red-600">
+                    Check logs. Common: API quota, network issues, invalid personas.
                   </div>
                 </div>
               </div>
@@ -184,302 +190,206 @@ function FocusGroupCard({
           )}
         </div>
 
-        {focusGroup.status === 'pending' && (
-          <Button
+        {/* Action button */}
+        {canRun && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleRun}
             disabled={runMutation.isPending}
-            variant="secondary"
-            className="p-3"
-            aria-label="Run focus group"
+            className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {runMutation.isPending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <Play className="w-5 h-5" />
             )}
-          </Button>
+          </motion.button>
         )}
       </div>
-    </div>
+
+      {/* Selected indicator arrow */}
+      {isSelected && (
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="absolute right-4 top-1/2 -translate-y-1/2"
+        >
+          <ArrowRight className="w-5 h-5 text-primary-500" />
+        </motion.div>
+      )}
+    </motion.div>
   );
 }
 
-function PersonaQuickPreview({ persona }: { persona: Persona | null }) {
-  if (!persona) {
-    return (
-      <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-        Select personas on the left to preview their profiles here.
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white/80 backdrop-blur-sm shadow-sm p-4 space-y-3">
-      <div>
-        <h4 className="text-base font-semibold text-slate-900">
-          {persona.gender}, {persona.age}
-        </h4>
-        {persona.location && (
-          <p className="text-sm text-slate-500">{persona.location}</p>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded-lg bg-slate-50 p-2">
-          <span className="text-slate-500 block">Education</span>
-          <span className="text-slate-800 font-medium">
-            {persona.education_level ?? 'N/A'}
-          </span>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-2">
-          <span className="text-slate-500 block">Income</span>
-          <span className="text-slate-800 font-medium">
-            {persona.income_bracket ?? 'N/A'}
-          </span>
-        </div>
-      </div>
-      {persona.values && persona.values.length > 0 && (
-        <div>
-          <span className="text-xs font-semibold text-slate-700">Values</span>
-          <div className="mt-1 flex flex-wrap gap-2">
-            {persona.values.slice(0, 4).map((value) => (
-              <span
-                key={value}
-                className="px-2 py-0.5 text-xs rounded-full bg-primary-50 text-primary-700"
-              >
-                {value}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-      {persona.background_story && (
-        <p className="text-xs text-slate-600 leading-relaxed">
-          {truncateText(persona.background_story, 180)}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function CreateFocusGroupForm({ onCancel }: { onCancel: () => void }) {
-  const queryClient = useQueryClient();
-  const {
-    selectedProject,
-    personas,
-    setSelectedFocusGroup,
-    setSelectedPersona,
-    selectedPersona,
-  } = useAppStore();
+function CreateFocusGroupForm({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { selectedProject, personas } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [projectContext, setProjectContext] = useState('');
-  const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
-  const [questions, setQuestions] = useState<string[]>(['']);
-  const [mode, setMode] = useState<'normal' | 'adversarial'>('normal');
+  const [questions, setQuestions] = useState(['']);
+  const [selectedPersonas, setSelectedPersonas] = useState<string[]>([]);
+
+  const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      focusGroupsApi.create(selectedProject!.id, {
-        name: name.trim(),
-        description: description.trim() || null,
-        project_context: projectContext.trim() || null,
-        persona_ids: selectedPersonaIds,
-        questions: questions.map((question) => question.trim()).filter(Boolean),
-        mode,
-      }),
-    onSuccess: (createdFocusGroup) => {
-      queryClient.invalidateQueries({ queryKey: ['focus-groups', selectedProject?.id] });
-      setSelectedFocusGroup(createdFocusGroup);
-      onCancel();
-      toast.success('Focus group created!', `"${createdFocusGroup.name}" is ready to run`);
+    mutationFn: (data: { name: string; description?: string; questions: string[]; persona_ids: string[] }) =>
+      focusGroupsApi.create(selectedProject!.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-groups'] });
+      toast.success('Focus group created', 'Successfully created new focus group');
+      onSuccess();
+      onClose();
     },
     onError: (error: Error) => {
       toast.error('Failed to create focus group', error.message);
     },
   });
 
-  const availablePersonas = personas ?? [];
-  const canSubmit =
-    name.trim().length > 0 &&
-    selectedPersonaIds.length >= 2 &&
-    questions.some((question) => question.trim().length > 0);
-
-  const togglePersona = (personaId: string) => {
-    const persona = availablePersonas.find((p) => p.id === personaId) ?? null;
-    setSelectedPersonaIds((prev) => {
-      const alreadySelected = prev.includes(personaId);
-      if (alreadySelected) {
-        if (selectedPersona?.id === personaId) {
-          setSelectedPersona(null);
-        }
-        return prev.filter((id) => id !== personaId);
-      }
-      setSelectedPersona(persona);
-      return [...prev, personaId];
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const validQuestions = questions.filter((q) => q.trim().length > 0);
+    createMutation.mutate({
+      name,
+      description: description || undefined,
+      questions: validQuestions,
+      persona_ids: selectedPersonas,
     });
   };
 
-  const updateQuestion = (index: number, value: string) => {
-    setQuestions((prev) => prev.map((question, idx) => (idx === index ? value : question)));
-  };
-
-  const addQuestion = () => setQuestions((prev) => [...prev, '']);
-  const removeQuestion = (index: number) => {
-    setQuestions((prev) => prev.filter((_, idx) => idx !== index));
-  };
-
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!selectedProject || !canSubmit) {
-      return;
-    }
-
-    createMutation.mutate();
-  };
-
-  if (!selectedProject) {
-    return null;
-  }
+  const canSubmit = name.trim() && questions.some((q) => q.trim()) && selectedPersonas.length >= 2;
 
   return (
-    <div className="mt-4 space-y-4 border-t border-slate-200/60 pt-4">
-      <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-700">Name</label>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Name */}
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          Focus Group Name *
+        </label>
         <input
           type="text"
           value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Competitive positioning test"
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          required
+          onChange={(e) => setName(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-primary-400 focus:ring-4 focus:ring-primary-100 transition-all outline-none"
+          placeholder="e.g., Product Feedback Session"
         />
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-700">Description</label>
-        <textarea
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="Understanding reactions to new feature pricing"
-          rows={2}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-700">
-          Project Context
-          <span className="text-xs font-normal text-slate-500 ml-2">(Optional - provides additional context for AI responses)</span>
+      {/* Description */}
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          Description (optional)
         </label>
         <textarea
-          value={projectContext}
-          onChange={(event) => setProjectContext(event.target.value)}
-          placeholder="e.g., We're launching a new SaaS product targeting small businesses. Our goal is to understand pricing sensitivity and feature preferences..."
-          rows={4}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-primary-400 focus:ring-4 focus:ring-primary-100 transition-all outline-none resize-none"
+          placeholder="Brief description of this focus group..."
         />
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <Users className="w-4 h-4" /> Select personas (min. 2)
-        </div>
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr),minmax(0,1fr)]">
-          <div className="max-h-56 overflow-y-auto rounded-lg border border-slate-200/60 divide-y divide-slate-200/60 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
-            {availablePersonas.length === 0 ? (
-              <div className="p-4 text-sm text-slate-500">
-                No personas available yet. Generate personas for this project first.
-              </div>
-            ) : (
-              availablePersonas.map((persona) => {
-                const label = `${persona.gender}, ${persona.age} • ${persona.location ?? 'Unknown location'}`;
-                const checked = selectedPersonaIds.includes(persona.id);
-                return (
-                  <label
-                    key={persona.id}
-                    className="flex items-start gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => togglePersona(persona.id)}
-                      className="mt-0.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-slate-700">{label}</span>
-                      {persona.background_story && (
-                        <span className="text-xs text-slate-500">
-                          {truncateText(persona.background_story, 90)}
-                        </span>
-                      )}
-                    </div>
-                  </label>
-                );
-              })
-            )}
-          </div>
-          <PersonaQuickPreview persona={selectedPersona ?? null} />
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <HelpCircle className="w-4 h-4" /> Discussion questions
-        </div>
+      {/* Questions */}
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          Questions *
+        </label>
         <div className="space-y-2">
-          {questions.map((question, index) => (
-            <div key={index} className="flex gap-2">
+          {questions.map((q, idx) => (
+            <div key={idx} className="flex gap-2">
               <input
                 type="text"
-                value={question}
-                onChange={(event) => updateQuestion(index, event.target.value)}
-                placeholder={`Question ${index + 1}`}
-                className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                required
+                value={q}
+                onChange={(e) => {
+                  const newQuestions = [...questions];
+                  newQuestions[idx] = e.target.value;
+                  setQuestions(newQuestions);
+                }}
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-primary-400 focus:ring-4 focus:ring-primary-100 transition-all outline-none"
+                placeholder={`Question ${idx + 1}`}
               />
               {questions.length > 1 && (
                 <Button
                   type="button"
-                  variant="ghost"
-                  className="px-3"
-                  onClick={() => removeQuestion(index)}
-                  aria-label="Remove question"
+                  variant="secondary"
+                  onClick={() => setQuestions(questions.filter((_, i) => i !== idx))}
                 >
-                  <Minus className="w-4 h-4" />
+                  Remove
                 </Button>
               )}
             </div>
           ))}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setQuestions([...questions, ''])}
+            className="w-full"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Question
+          </Button>
         </div>
-        <Button type="button" variant="secondary" size="sm" onClick={addQuestion} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add question
+      </div>
+
+      {/* Persona Selection */}
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          Select Personas * (min. 2)
+        </label>
+        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 rounded-xl border-2 border-slate-200">
+          {personas.map((persona) => (
+            <label
+              key={persona.id}
+              className={cn(
+                'flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all',
+                selectedPersonas.includes(persona.id)
+                  ? 'bg-primary-100 border-2 border-primary-400'
+                  : 'bg-slate-50 border-2 border-transparent hover:border-slate-300'
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={selectedPersonas.includes(persona.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedPersonas([...selectedPersonas, persona.id]);
+                  } else {
+                    setSelectedPersonas(selectedPersonas.filter((id) => id !== persona.id));
+                  }
+                }}
+                className="w-4 h-4 text-primary-600 rounded"
+              />
+              <span className="text-sm text-slate-700 truncate">
+                {persona.full_name || `${persona.age}y ${persona.gender}`}
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-slate-500 mt-2">
+          Selected: {selectedPersonas.length} / {personas.length}
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3 pt-4">
+        <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={!canSubmit || createMutation.isPending}
+          isLoading={createMutation.isPending}
+          className="flex-1"
+        >
+          Create Focus Group
         </Button>
       </div>
-
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-700">Mode</label>
-        <select
-          value={mode}
-          onChange={(event) => setMode(event.target.value as 'normal' | 'adversarial')}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="normal">Normal</option>
-          <option value="adversarial">Adversarial</option>
-        </select>
-      </div>
-
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={!canSubmit || createMutation.isPending} isLoading={createMutation.isPending}>
-            Create focus group
-          </Button>
-        </div>
-      </form>
-    </div>
+    </form>
   );
 }
 
@@ -495,32 +405,16 @@ export function FocusGroupPanel() {
   } = useAppStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const {
-    isLoading,
-    isError,
-    error,
-  } = useQuery<FocusGroup[]>({
+  const { isLoading, isError, error } = useQuery<FocusGroup[]>({
     queryKey: ['focus-groups', selectedProject?.id],
     queryFn: async () => {
       const data = await focusGroupsApi.getByProject(selectedProject!.id);
-      setFocusGroups(data); // Update store immediately
+      setFocusGroups(data);
       return data;
     },
     enabled: !!selectedProject,
     refetchInterval: (query) =>
       query.state.data?.some((group) => group.status === 'running') ? 2000 : false,
-    onSuccess: (data) => {
-      // Show toast when focus groups complete
-      const previousRunning = focusGroups.filter(fg => fg.status === 'running');
-      const nowCompleted = data.filter(fg =>
-        fg.status === 'completed' &&
-        previousRunning.some(prev => prev.id === fg.id)
-      );
-
-      nowCompleted.forEach(fg => {
-        toast.success('Focus group completed!', `"${fg.name}" has finished`);
-      });
-    },
   });
 
   useEffect(() => {
@@ -539,78 +433,73 @@ export function FocusGroupPanel() {
       panelKey="focus-groups"
       size="lg"
     >
-      <div className="p-4 space-y-4">
-        {!selectedProject ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <MessageSquare className="w-12 h-12 text-slate-300 mb-3" />
-            <p className="text-slate-600">Select a project first</p>
+      {!selectedProject ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-6">
+            <MessageSquare className="w-10 h-10 text-slate-400" />
           </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-600">
-                Manage AI-simulated focus group sessions for the selected project.
-              </div>
-              <Button
-                variant="secondary"
-                onClick={() => setShowCreateForm((prev) => !prev)}
-                disabled={!hasEnoughPersonas}
-                className="gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                {showCreateForm ? 'Hide form' : 'New focus group'}
-              </Button>
-            </div>
-
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">No Project Selected</h3>
+          <p className="text-sm text-slate-500">Select a project to view focus groups</p>
+        </div>
+      ) : showCreateForm ? (
+        <CreateFocusGroupForm
+          onClose={() => setShowCreateForm(false)}
+          onSuccess={() => setShowCreateForm(false)}
+        />
+      ) : (
+        <>
+          {/* Header */}
+          <div className="mb-6">
+            <Button
+              onClick={() => setShowCreateForm(true)}
+              disabled={!hasEnoughPersonas}
+              className="w-full bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Create New Focus Group
+            </Button>
             {!hasEnoughPersonas && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                Add at least two personas before creating a focus group.
-              </div>
+              <p className="text-xs text-amber-600 mt-2">
+                Need at least 2 personas to create a focus group
+              </p>
             )}
+          </div>
 
-            {showCreateForm && hasEnoughPersonas && (
-              <CreateFocusGroupForm onCancel={() => setShowCreateForm(false)} />
-            )}
-
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+          {/* Focus Groups List */}
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-primary-500 animate-spin mb-4" />
+              <p className="text-sm text-slate-600">Loading focus groups...</p>
+            </div>
+          ) : isError ? (
+            <div className="text-center py-12">
+              <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+              <p className="text-sm text-red-600">{error?.message || 'Failed to load focus groups'}</p>
+            </div>
+          ) : focusGroups.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-100 to-accent-100 flex items-center justify-center mb-4">
+                <MessageSquare className="w-8 h-8 text-primary-600" />
               </div>
-            ) : isError ? (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-600">
-                {error instanceof Error ? error.message : 'Unable to load focus groups.'}
-              </div>
-            ) : focusGroups.length > 0 ? (
-              <div className="space-y-3">
-                {focusGroups.map((focusGroup) => (
+              <p className="text-sm text-slate-500">No focus groups yet</p>
+              <p className="text-xs text-slate-400 mt-1">Create your first one above</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <AnimatePresence>
+                {focusGroups.map((fg, idx) => (
                   <FocusGroupCard
-                    key={focusGroup.id}
-                    focusGroup={focusGroup}
-                    isSelected={selectedFocusGroup?.id === focusGroup.id}
+                    key={fg.id}
+                    focusGroup={fg}
+                    isSelected={selectedFocusGroup?.id === fg.id}
+                    index={idx}
                   />
                 ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-                <MessageSquare className="w-12 h-12 text-slate-300" />
-                <div>
-                  <p className="text-slate-600">No focus groups yet.</p>
-                  <p className="text-sm text-slate-500">
-                    Create a simulation to gather qualitative insights from your personas.
-                  </p>
-                </div>
-                <Button
-                  onClick={() => setShowCreateForm(true)}
-                  disabled={!hasEnoughPersonas}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Create focus group
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              </AnimatePresence>
+            </div>
+          )}
+        </>
+      )}
     </FloatingPanel>
   );
 }

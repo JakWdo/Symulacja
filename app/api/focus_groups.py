@@ -16,6 +16,9 @@ from app.services import FocusGroupService
 
 router = APIRouter()
 
+# Keep track of running tasks to prevent garbage collection
+_running_tasks = set()
+
 
 @router.post("/projects/{project_id}/focus-groups", response_model=FocusGroupResponse, status_code=201)
 async def create_focus_group(
@@ -57,6 +60,8 @@ async def run_focus_group(
     db: AsyncSession = Depends(get_db),
 ):
     """Execute a focus group simulation"""
+    import logging
+    logger = logging.getLogger(__name__)
 
     # Verify focus group exists
     result = await db.execute(
@@ -70,8 +75,15 @@ async def run_focus_group(
     if focus_group.status == "running":
         raise HTTPException(status_code=400, detail="Focus group is already running")
 
-    # Schedule background task - use asyncio.create_task directly
-    asyncio.create_task(_run_focus_group_task(focus_group_id))
+    # Schedule background task and keep reference
+    logger.info(f"🎬 Scheduling focus group task: {focus_group_id}")
+    task = asyncio.create_task(_run_focus_group_task(focus_group_id))
+
+    # Keep task reference to prevent garbage collection
+    _running_tasks.add(task)
+    task.add_done_callback(_running_tasks.discard)
+
+    logger.info(f"📝 Task created and added to running tasks")
 
     return {
         "message": "Focus group execution started",
@@ -81,9 +93,19 @@ async def run_focus_group(
 
 async def _run_focus_group_task(focus_group_id: UUID):
     """Background task to run focus group"""
-    async with AsyncSessionLocal() as db:
-        service = FocusGroupService()
-        await service.run_focus_group(db, str(focus_group_id))
+    import logging
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"🎯 Background task started for focus group {focus_group_id}")
+
+    try:
+        async with AsyncSessionLocal() as db:
+            service = FocusGroupService()
+            logger.info(f"📦 Service created, calling run_focus_group...")
+            result = await service.run_focus_group(db, str(focus_group_id))
+            logger.info(f"✅ Focus group completed: {result.get('status')}")
+    except Exception as e:
+        logger.error(f"❌ Error in background task: {e}", exc_info=True)
 
 
 @router.get("/focus-groups/{focus_group_id}", response_model=FocusGroupResultResponse)
@@ -100,12 +122,6 @@ async def get_focus_group(
     if not focus_group:
         raise HTTPException(status_code=404, detail="Focus group not found")
 
-    idea_score = (
-        round(float(focus_group.polarization_score) * 100, 2)
-        if focus_group.polarization_score is not None
-        else None
-    )
-
     return {
         "id": focus_group.id,
         "project_id": focus_group.project_id,
@@ -119,14 +135,8 @@ async def get_focus_group(
         "metrics": {
             "total_execution_time_ms": focus_group.total_execution_time_ms,
             "avg_response_time_ms": focus_group.avg_response_time_ms,
-            "max_response_time_ms": focus_group.max_response_time_ms,
-            "consistency_errors_count": focus_group.consistency_errors_count,
-            "consistency_error_rate": focus_group.consistency_error_rate,
-            "overall_consistency_score": focus_group.overall_consistency_score,
-            "idea_score": idea_score,
             "meets_requirements": focus_group.meets_performance_requirements(),
         },
-        "insights": focus_group.polarization_clusters,
         "created_at": focus_group.created_at,
         "started_at": focus_group.started_at,
         "completed_at": focus_group.completed_at,

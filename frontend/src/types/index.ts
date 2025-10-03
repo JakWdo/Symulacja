@@ -56,25 +56,15 @@ export interface FocusGroup {
   status: 'pending' | 'running' | 'completed' | 'failed';
   total_execution_time_ms: number | null;
   avg_response_time_ms: number | null;
-  max_response_time_ms: number | null;
-  overall_consistency_score: number | null;
-  consistency_errors_count: number | null;
-  consistency_error_rate: number | null;
-  polarization_score: number | null;
-  polarization_clusters?: Record<string, unknown> | null;
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
-  idea_score?: number | null;
 }
 
 export interface PersonaResponse {
   persona_id: string;
   response: string;
-  response_time_ms: number;
-  consistency_score: number;
-  contradictions: any[];
-  context_used: number;
+  created_at: string;
 }
 
 export interface FocusGroupResponses {
@@ -85,11 +75,7 @@ export interface FocusGroupResponses {
     responses: Array<{
       persona_id: string;
       response: string;
-      response_time_ms: number | null;
-      consistency_score: number | null;
-      contradicts_events: unknown;
       created_at: string;
-      sentiment: number;
     }>;
   }>;
 }

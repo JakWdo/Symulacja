@@ -26,15 +26,15 @@ const positionClasses = {
 const sizeClasses = {
   sm: 'w-80 h-96',
   md: 'w-96 h-[32rem]',
-  lg: 'w-[32rem] h-[40rem]',
-  xl: 'w-[48rem] h-[48rem]',
+  lg: 'w-[56rem] h-[48rem]',
+  xl: 'w-[64rem] h-[52rem]',
 };
 
 const sizeDimensions: Record<NonNullable<FloatingPanelProps['size']>, { width: number; height: number }> = {
   sm: { width: 320, height: 384 },
   md: { width: 384, height: 512 },
-  lg: { width: 512, height: 640 },
-  xl: { width: 768, height: 768 },
+  lg: { width: 896, height: 768 },
+  xl: { width: 1024, height: 832 },
 };
 
 export function FloatingPanel({

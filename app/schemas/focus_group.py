@@ -25,11 +25,6 @@ class FocusGroupResponse(BaseModel):
     status: str
     total_execution_time_ms: Optional[int]
     avg_response_time_ms: Optional[float]
-    max_response_time_ms: Optional[int]
-    overall_consistency_score: Optional[float]
-    consistency_errors_count: Optional[int]
-    consistency_error_rate: Optional[float]
-    polarization_score: Optional[float]
     created_at: datetime
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
@@ -49,7 +44,6 @@ class FocusGroupResultResponse(BaseModel):
     mode: str
     status: str
     metrics: Dict[str, Any]
-    insights: Optional[Dict[str, Any]]
     created_at: datetime
     started_at: Optional[datetime]
     completed_at: Optional[datetime]

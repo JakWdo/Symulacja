@@ -36,12 +36,6 @@ class FocusGroup(Base):
     status = Column(String(50), nullable=False, default="pending")
     total_execution_time_ms = Column(Integer, nullable=True)
     avg_response_time_ms = Column(Float, nullable=True)
-    max_response_time_ms = Column(Integer, nullable=True)
-    overall_consistency_score = Column(Float, nullable=True)
-    consistency_errors_count = Column(Integer, nullable=True)
-    consistency_error_rate = Column(Float, nullable=True)
-    polarization_score = Column(Float, nullable=True)
-    polarization_clusters = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
@@ -59,7 +53,6 @@ class FocusGroup(Base):
         thresholds = {
             "total_execution_time_ms": 30_000,
             "avg_response_time_ms": 3_000.0,
-            "consistency_error_rate": 0.1,
         }
 
         total_time = self.total_execution_time_ms
@@ -68,10 +61,6 @@ class FocusGroup(Base):
 
         avg_time = self.avg_response_time_ms
         if avg_time is not None and avg_time > thresholds["avg_response_time_ms"]:
-            return False
-
-        error_rate = self.consistency_error_rate
-        if error_rate is not None and error_rate > thresholds["consistency_error_rate"]:
             return False
 
         return True

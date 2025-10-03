@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FloatingControls } from '@/components/layout/FloatingControls';
-import { ImprovedDashboard } from '@/components/layout/ImprovedDashboard';
+import Dashboard from '@/components/layout/Dashboard';
 import { ProjectPanel } from '@/components/panels/ProjectPanel';
 import { PersonaPanel } from '@/components/panels/PersonaPanel';
 import { FocusGroupPanel } from '@/components/panels/FocusGroupPanel';
@@ -40,7 +40,7 @@ export default function App() {
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100">
       {/* Main Dashboard */}
-      <ImprovedDashboard />
+      <Dashboard />
 
       {/* Floating UI Elements */}
       <FloatingControls />

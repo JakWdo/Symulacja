@@ -40,7 +40,7 @@ class PersonaEvent(Base):
 
 
 class PersonaResponse(Base):
-    """Persona responses to questions with consistency tracking."""
+    """Persona responses to questions - simplified version."""
     __tablename__ = "persona_responses"
 
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -52,13 +52,6 @@ class PersonaResponse(Base):
     )
     question = Column(Text, nullable=False)
     response = Column(Text, nullable=False)
-    retrieved_context = Column(JSON, nullable=True)
-    response_time_ms = Column(Integer, nullable=True)
-    llm_provider = Column(String(50), nullable=True)
-    llm_model = Column(String(255), nullable=True)
-    temperature = Column(Float, nullable=True)
-    consistency_score = Column(Float, nullable=True)
-    contradicts_events = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     persona = relationship("Persona", back_populates="responses")
