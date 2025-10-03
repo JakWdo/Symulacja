@@ -1,6 +1,13 @@
 """
-AI-powered Discussion Summarizer using Gemini 2.5 Flash (default) or Gemini 2.5 Pro
-Generates executive summaries, key insights, and actionable recommendations
+Serwis Podsumowań Dyskusji oparty na AI
+
+Generuje automatyczne podsumowania grup fokusowych przy użyciu Google Gemini.
+Analizuje wszystkie odpowiedzi i tworzy executive summary, key insights,
+rekomendacje biznesowe oraz segmentację demograficzną.
+
+Obsługuje dwa modele:
+- Gemini 2.5 Flash: szybsze podsumowania (domyślne)
+- Gemini 2.5 Pro: bardziej szczegółowa analiza
 """
 
 import json
@@ -15,24 +22,51 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models import FocusGroup, PersonaResponse, Persona
-from app.services.insight_service import InsightService
 
 settings = get_settings()
+
+# Słowa kluczowe do analizy sentymentu
+_POSITIVE_WORDS = {
+    "good", "great", "excellent", "love", "like", "enjoy", "positive",
+    "amazing", "wonderful", "fantastic", "best", "happy", "yes", "agree",
+    "excited", "helpful", "valuable", "useful"
+}
+_NEGATIVE_WORDS = {
+    "bad", "terrible", "hate", "dislike", "awful", "worst", "negative",
+    "horrible", "poor", "no", "disagree", "concern", "worried", "against",
+    "confusing", "hard", "difficult"
+}
+
+
+def _simple_sentiment_score(text: str) -> float:
+    """
+    Prosta analiza sentymentu na podstawie słów kluczowych
+    Zwraca wartość od -1.0 (negatywny) do 1.0 (pozytywny)
+    """
+    lowered = text.lower()
+    pos = sum(1 for token in _POSITIVE_WORDS if token in lowered)
+    neg = sum(1 for token in _NEGATIVE_WORDS if token in lowered)
+    total = pos + neg
+    if total == 0:
+        return 0.0
+    return float((pos - neg) / total)
 
 
 class DiscussionSummarizerService:
     """
-    Generate AI-powered summaries of focus group discussions
-    Uses advanced LLM for nuanced analysis and strategic recommendations
+    Generuje AI-powered podsumowania dyskusji grup fokusowych
+
+    Wykorzystuje Google Gemini do analizy wszystkich odpowiedzi
+    i tworzenia strukturalnych insightów biznesowych.
     """
 
     def __init__(self, use_pro_model: bool = False):
         """
-        Initialize summarizer with choice of model
+        Inicjalizuj summarizer z wyborem modelu
 
         Args:
-            use_pro_model: If True, use gemini-2.5-pro (slower, higher quality)
-                          If False, use gemini-2.5-flash (szybszy, zbalansowana jakość)
+            use_pro_model: True = gemini-2.5-pro (wolniejszy, lepsza jakość)
+                          False = gemini-2.5-flash (szybszy, zbalansowana jakość)
         """
         self.settings = settings
 
@@ -45,11 +79,10 @@ class DiscussionSummarizerService:
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.3,  # Lower temperature for more factual summaries
-            max_tokens=4096,  # Long-form output
+            temperature=0.3,  # Niższa temperatura dla bardziej faktycznych podsumowań
+            max_tokens=4096,  # Długie odpowiedzi
         )
 
-        self.insight_service = InsightService()
         self.str_parser = StrOutputParser()
 
         # Create summarization prompt
@@ -78,7 +111,13 @@ IMPORTANT GUIDELINES:
         include_recommendations: bool = True,
     ) -> Dict[str, Any]:
         """
-        Generate comprehensive AI summary of focus group discussion
+        Generuje kompleksowe AI-powered podsumowanie dyskusji grupy fokusowej
+
+        Args:
+            db: Sesja bazy danych
+            focus_group_id: ID grupy fokusowej
+            include_demographics: Czy uwzględnić dane demograficzne
+            include_recommendations: Czy zawrzeć rekomendacje strategiczne
 
         Returns:
             {
@@ -156,7 +195,10 @@ IMPORTANT GUIDELINES:
         personas: Dict[str, Persona],
         include_demographics: bool,
     ) -> Dict[str, Any]:
-        """Prepare structured discussion data for AI analysis"""
+        """
+        Przygotowuje ustrukturyzowane dane dyskusji do analizy AI
+        Grupuje odpowiedzi po pytaniach i dodaje sentiment + demografia
+        """
 
         # Group responses by question
         responses_by_question = {}
@@ -167,8 +209,7 @@ IMPORTANT GUIDELINES:
             persona = personas.get(str(response.persona_id))
             response_data = {
                 "response": response.response,
-                "sentiment": self.insight_service.sentiment_score(response.response),
-                "consistency_score": response.consistency_score,
+                "sentiment": _simple_sentiment_score(response.response),
             }
 
             if include_demographics and persona:
@@ -206,7 +247,10 @@ IMPORTANT GUIDELINES:
     def _create_summary_prompt(
         self, discussion_data: Dict[str, Any], include_recommendations: bool
     ) -> str:
-        """Create detailed prompt for AI summarization"""
+        """
+        Tworzy szczegółowy prompt do podsumowania AI
+        Formatuje pytania, odpowiedzi, sentiment i demografię
+        """
 
         topic = discussion_data["topic"]
         description = discussion_data["description"] or "No description provided"

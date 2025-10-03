@@ -1,6 +1,8 @@
 """
-LangChain-based Memory Service with Event Sourcing
-Uses LangChain for embeddings and consistency checking
+Serwis Pamięci oparty na LangChain z Event Sourcingiem
+
+Zarządza historią zdarzeń person i umożliwia wyszukiwanie kontekstu
+dla kolejnych odpowiedzi w grupach fokusowych przy użyciu embeddingów.
 """
 
 import logging
@@ -21,11 +23,14 @@ logger = logging.getLogger(__name__)
 
 class MemoryServiceLangChain:
     """
-    Event sourcing and memory retrieval using LangChain
-    Maintains temporal consistency through immutable event log
+    Event sourcing i wyszukiwanie kontekstu
+
+    Utrzymuje spójność czasową poprzez niemodyfikowalny log zdarzeń.
+    Używa embeddingów Google Gemini do wyszukiwania semantycznego.
     """
 
     def __init__(self):
+        """Inicjalizuj serwis pamięci z embeddings"""
         self.settings = settings
 
         # Initialize LangChain Gemini embeddings

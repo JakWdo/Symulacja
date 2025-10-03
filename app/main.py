@@ -1,3 +1,16 @@
+"""
+Główna aplikacja FastAPI - Market Research SaaS
+
+System do przeprowadzania wirtualnych grup fokusowych z wykorzystaniem AI.
+Wykorzystuje Google Gemini do generowania person i symulacji dyskusji.
+
+Kluczowe endpointy:
+- /projects - zarządzanie projektami badawczymi
+- /personas - generowanie i zarządzanie personami
+- /focus-groups - tworzenie i uruchamianie grup fokusowych
+- /analysis - analiza wyników i podsumowania AI
+"""
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-# Validate critical settings in production
+# Walidacja krytycznych ustawień w produkcji
 if settings.ENVIRONMENT == "production":
     if settings.SECRET_KEY == "change-me":
         raise ValueError(

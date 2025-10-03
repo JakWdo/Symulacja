@@ -1,6 +1,14 @@
 """
-LangChain-based Persona Generator using Gemini models
-Replaces the original OpenAI/Anthropic implementation with LangChain abstractions
+Generator Person oparty na LangChain i Google Gemini
+
+Ten moduł generuje realistyczne, statystycznie reprezentatywne persony
+dla badań rynkowych przy użyciu Google Gemini przez framework LangChain.
+
+Kluczowe funkcjonalności:
+- Generowanie person zgodnie z zadanymi rozkładami demograficznymi
+- Walidacja statystyczna przy użyciu testu chi-kwadrat
+- Sampling cech osobowości (Big Five) i wymiarów kulturowych (Hofstede)
+- Integracja z LangChain dla łatwej zmiany modelu LLM
 """
 
 import numpy as np
@@ -28,18 +36,29 @@ settings = get_settings()
 
 @dataclass
 class DemographicDistribution:
-    """Target population distribution"""
-    age_groups: Dict[str, float]
-    genders: Dict[str, float]
-    education_levels: Dict[str, float]
-    income_brackets: Dict[str, float]
-    locations: Dict[str, float]
+    """
+    Rozkład demograficzny populacji docelowej
+
+    Każde pole to słownik mapujący kategorie na prawdopodobieństwa (sumujące się do 1.0)
+    Przykład: {"18-24": 0.3, "25-34": 0.5, "35-44": 0.2}
+    """
+    age_groups: Dict[str, float]        # Grupy wiekowe
+    genders: Dict[str, float]           # Płeć
+    education_levels: Dict[str, float]  # Poziomy edukacji
+    income_brackets: Dict[str, float]   # Przedziały dochodowe
+    locations: Dict[str, float]         # Lokalizacje geograficzne
 
 
 class PersonaGeneratorLangChain:
-    """Generate statistically representative personas using LangChain + Gemini"""
+    """
+    Generator statystycznie reprezentatywnych person przy użyciu LangChain + Gemini
+
+    Używa Google Gemini do generowania realistycznych profili person na podstawie
+    zadanych rozkładów demograficznych i psychologicznych.
+    """
 
     def __init__(self):
+        """Inicjalizuj generator z konfiguracją LangChain i Gemini"""
         self.settings = settings
         self._rng = np.random.default_rng(self.settings.RANDOM_SEED)
 

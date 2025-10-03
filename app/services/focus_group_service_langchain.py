@@ -1,6 +1,11 @@
 """
-LangChain-based Focus Group Service
-Uses LangChain with Gemini for concurrent persona responses
+Serwis Grup Fokusowych oparty na LangChain
+
+Zarządza symulacjami grup fokusowych przy użyciu Google Gemini.
+Osoby (persony) odpowiadają na pytania równolegle z wykorzystaniem
+kontekstu rozmowy przechowywanego w MemoryService.
+
+Wydajność: <3s na odpowiedź persony, <30s całkowity czas wykonania
 """
 
 from typing import List, Dict, Any, Optional
@@ -24,11 +29,14 @@ settings = get_settings()
 
 class FocusGroupServiceLangChain:
     """
-    Manage focus group simulations using LangChain + Gemini
-    Ensures <3s per persona and <30s total response time
+    Zarządzanie symulacjami grup fokusowych
+
+    Orkiestruje dyskusje między personami, zarządza kontekstem rozmowy
+    i przetwarza odpowiedzi równolegle dla maksymalnej wydajności.
     """
 
     def __init__(self):
+        """Inicjalizuj serwis z LangChain LLM i serwisem pamięci"""
         self.settings = settings
         self.memory_service = MemoryServiceLangChain()
 
