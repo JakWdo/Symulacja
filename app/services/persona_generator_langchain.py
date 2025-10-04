@@ -93,10 +93,25 @@ class PersonaGeneratorLangChain:
     def sample_demographic_profile(
         self, distribution: DemographicDistribution, n_samples: int = 1
     ) -> List[Dict[str, Any]]:
-        """Sample demographic profiles based on target distribution"""
+        """
+        Próbkuj profile demograficzne zgodnie z zadanym rozkładem
+
+        Metoda ta tworzy losowe profile demograficzne na podstawie prawdopodobieństw
+        w obiekcie DemographicDistribution. Jeśli jakiś rozkład jest pusty lub niepoprawny,
+        używa domyślnych wartości z constants.py.
+
+        Args:
+            distribution: Obiekt zawierający rozkłady prawdopodobieństw dla każdej kategorii
+            n_samples: Liczba profili do wygenerowania (domyślnie 1)
+
+        Returns:
+            Lista słowników, każdy zawiera klucze: age_group, gender, education_level,
+            income_bracket, location
+        """
         profiles = []
 
         for _ in range(n_samples):
+            # Normalizuj każdy rozkład lub użyj wartości domyślnych
             age_groups = self._prepare_distribution(
                 distribution.age_groups, DEFAULT_AGE_GROUPS
             )
@@ -110,6 +125,8 @@ class PersonaGeneratorLangChain:
             locations = self._prepare_distribution(
                 distribution.locations, DEFAULT_LOCATIONS
             )
+
+            # Losuj wartość z każdej kategorii zgodnie z wagami
             profile = {
                 "age_group": self._weighted_sample(age_groups),
                 "gender": self._weighted_sample(genders),
@@ -122,7 +139,18 @@ class PersonaGeneratorLangChain:
         return profiles
 
     def _weighted_sample(self, distribution: Dict[str, float]) -> str:
-        """Sample from weighted distribution"""
+        """
+        Losuj element z rozkładu ważonego (weighted sampling)
+
+        Args:
+            distribution: Słownik kategoria -> prawdopodobieństwo (suma = 1.0)
+
+        Returns:
+            Wylosowana kategoria jako string
+
+        Raises:
+            ValueError: Jeśli rozkład jest pusty
+        """
         if not distribution:
             raise ValueError("Distribution cannot be empty")
         categories = list(distribution.keys())
@@ -132,13 +160,28 @@ class PersonaGeneratorLangChain:
     def _prepare_distribution(
         self, distribution: Dict[str, float], fallback: Dict[str, float]
     ) -> Dict[str, float]:
+        """
+        Przygotuj i znormalizuj rozkład prawdopodobieństw
+
+        Sprawdza czy rozkład jest poprawny, normalizuje go do sumy 1.0,
+        lub zwraca fallback jeśli rozkład jest niepoprawny.
+
+        Args:
+            distribution: Rozkład do znormalizowania
+            fallback: Rozkład domyślny używany gdy distribution jest pusty/błędny
+
+        Returns:
+            Znormalizowany rozkład (suma = 1.0) lub fallback
+        """
         if not distribution:
             return fallback
         total = sum(distribution.values())
         if total <= 0:
             return fallback
+        # Pierwsza normalizacja - dziel przez sumę
         normalized = {key: value / total for key, value in distribution.items()}
         normalized_total = sum(normalized.values())
+        # Druga normalizacja jeśli są błędy zaokrągleń numerycznych
         if not np.isclose(normalized_total, 1.0):
             normalized = {
                 key: value / normalized_total for key, value in normalized.items()
@@ -147,29 +190,53 @@ class PersonaGeneratorLangChain:
 
     def sample_big_five_traits(self, personality_skew: Dict[str, float] = None) -> Dict[str, float]:
         """
-        Sample Big Five personality traits from normal distributions.
+        Próbkuj cechy osobowości Big Five z rozkładów normalnych
+
+        Model Big Five (OCEAN) mierzy pięć głównych wymiarów osobowości:
+        - Openness (otwartość): ciekawość, kreatywność
+        - Conscientiousness (sumienność): organizacja, dyscyplina
+        - Extraversion (ekstrawersja): towarzyskość, energia
+        - Agreeableness (ugodowość): empatia, współpraca
+        - Neuroticism (neurotyzm): emocjonalność, podatność na stres
 
         Args:
-            personality_skew: Optional dict to skew distributions.
-                              Keys: 'openness', 'conscientiousness', etc.
-                              Values: 0.0-1.0 (mean shift: 0=low, 0.5=balanced, 1.0=high)
+            personality_skew: Opcjonalny słownik do przesunięcia rozkładów.
+                              Klucze: 'openness', 'conscientiousness', etc.
+                              Wartości: 0.0-1.0 (0=niskie, 0.5=zbalansowane, 1.0=wysokie)
+
+        Returns:
+            Słownik z wartościami cech w przedziale [0, 1]
         """
         skew = personality_skew or {}
 
         traits = {}
         for trait in ['openness', 'conscientiousness', 'extraversion', 'agreeableness', 'neuroticism']:
-            # Default mean = 0.5, std = 0.15
+            # Domyślnie: średnia = 0.5, odchylenie standardowe = 0.15
             mean = skew.get(trait, 0.5)
-            # Ensure mean is valid
+            # Upewnij się że średnia jest w przedziale [0, 1]
             mean = np.clip(mean, 0.0, 1.0)
 
+            # Losuj z rozkładu normalnego i przytnij do [0, 1]
             value = np.clip(self._rng.normal(mean, 0.15), 0, 1)
             traits[trait] = value
 
         return traits
 
     def sample_cultural_dimensions(self) -> Dict[str, float]:
-        """Sample Hofstede cultural dimensions"""
+        """
+        Próbkuj wymiary kulturowe Hofstede
+
+        Model Hofstede opisuje różnice kulturowe w 6 wymiarach:
+        - power_distance: akceptacja nierówności władzy
+        - individualism: indywidualizm vs kolektywizm
+        - masculinity: asertywność vs troska o innych
+        - uncertainty_avoidance: unikanie niepewności
+        - long_term_orientation: orientacja długo- vs krótkoterminowa
+        - indulgence: pobłażliwość vs powściągliwość
+
+        Returns:
+            Słownik z wartościami wymiarów w przedziale [0, 1]
+        """
         return {
             "power_distance": np.clip(self._rng.normal(0.5, 0.2), 0, 1),
             "individualism": np.clip(self._rng.normal(0.5, 0.2), 0, 1),
@@ -182,7 +249,25 @@ class PersonaGeneratorLangChain:
     async def generate_persona_personality(
         self, demographic_profile: Dict[str, Any], psychological_profile: Dict[str, Any], advanced_options: Optional[Dict[str, Any]] = None
     ) -> Tuple[str, Dict[str, Any]]:
-        """Generate persona personality using LangChain + Gemini"""
+        """
+        Generuj osobowość persony przy użyciu LangChain + Gemini
+
+        Tworzy szczegółowy prompt oparty na profilach demograficznym i psychologicznym,
+        wysyła go do Gemini przez LangChain i zwraca sparsowaną odpowiedź JSON.
+
+        Args:
+            demographic_profile: Słownik z danymi demograficznymi (wiek, płeć, lokalizacja, etc.)
+            psychological_profile: Słownik z cechami Big Five i wymiarami Hofstede
+            advanced_options: Opcjonalne zaawansowane opcje generowania (nieużywane obecnie)
+
+        Returns:
+            Krotka (prompt_text, response_dict) gdzie:
+            - prompt_text: Pełny tekst wysłany do LLM (do logowania/debugowania)
+            - response_dict: Sparsowana odpowiedź JSON z polami persony
+
+        Raises:
+            ValueError: Jeśli generowanie się nie powiedzie lub odpowiedź jest niepoprawna
+        """
 
         prompt_text = self._create_persona_prompt(demographic_profile, psychological_profile)
 
@@ -195,12 +280,13 @@ class PersonaGeneratorLangChain:
                 f"Generating persona with demographics: {demographic_profile.get('age_group')}, "
                 f"{demographic_profile.get('gender')}, {demographic_profile.get('location')}"
             )
+            # Wywołaj łańcuch LangChain (prompt -> LLM -> parser JSON)
             response = await self.persona_chain.ainvoke({"prompt": prompt_text})
 
-            # Log response for debugging
+            # Loguj odpowiedź do debugowania
             logger.info(f"LLM response type: {type(response)}, keys: {response.keys() if isinstance(response, dict) else 'N/A'}")
 
-            # Validate required fields
+            # Waliduj wymagane pola
             required_fields = ["full_name", "persona_title", "headline", "background_story", "values", "interests"]
             missing_fields = [field for field in required_fields if not response.get(field)]
             if missing_fields:
@@ -212,15 +298,30 @@ class PersonaGeneratorLangChain:
             return prompt_text, response
         except Exception as e:
             logger.error(f"Failed to generate persona: {str(e)[:500]}", exc_info=True)
-            # Fallback for parsing errors
+            # Fallback dla błędów parsowania
             raise ValueError(f"Failed to generate persona: {str(e)}")
 
     def _create_persona_prompt(
         self, demographic: Dict[str, Any], psychological: Dict[str, Any]
     ) -> str:
-        """Create prompt for LLM persona generation with few-shot examples and trait guidance"""
+        """
+        Utwórz prompt dla LLM do generowania persony z przykładami few-shot
 
-        # Generate unique seed for this persona
+        Tworzy szczegółowy prompt zawierający:
+        - Dane demograficzne i psychologiczne
+        - Interpretację cech Big Five i Hofstede
+        - 3 przykłady few-shot pokazujące różnorodność
+        - Instrukcje jak stworzyć unikalną personę
+
+        Args:
+            demographic: Profil demograficzny (wiek, płeć, edukacja, etc.)
+            psychological: Profil psychologiczny (Big Five + Hofstede)
+
+        Returns:
+            Pełny tekst prompta gotowy do wysłania do LLM
+        """
+
+        # Generuj unikalny seed dla tej persony (do różnicowania)
         persona_seed = self._rng.integers(1000, 9999)
 
         # Trait interpretation guidance
@@ -333,42 +434,57 @@ Generate JSON ONLY (no markdown, no extra text):
         target_distribution: DemographicDistribution,
     ) -> Dict[str, Any]:
         """
-        Validate that generated personas match target distribution using chi-square test
-        Returns p-values for each demographic variable (should be > 0.05)
+        Waliduj czy wygenerowane persony pasują do docelowego rozkładu (test chi-kwadrat)
+
+        Sprawdza statystycznie czy rzeczywisty rozkład cech demograficznych w wygenerowanych
+        personach odpowiada zadanemu rozkładowi docelowemu. Używa testu chi-kwadrat dla
+        każdej kategorii (wiek, płeć, edukacja, dochód, lokalizacja).
+
+        Args:
+            generated_personas: Lista wygenerowanych person (jako słowniki)
+            target_distribution: Oczekiwany rozkład demograficzny
+
+        Returns:
+            Słownik z wynikami testów dla każdej kategorii oraz ogólną oceną:
+            {
+                "age": {"p_value": float, "chi_square_statistic": float, ...},
+                "gender": {...},
+                "overall_valid": bool  # True jeśli wszystkie p > 0.05
+            }
         """
         results = {}
 
-        # Test age distribution (only if provided)
+        # Testuj rozkład wieku (tylko jeśli podany)
         if target_distribution.age_groups:
             results["age"] = self._chi_square_test(
                 generated_personas, "age_group", target_distribution.age_groups
             )
 
-        # Test gender distribution (only if provided)
+        # Testuj rozkład płci (tylko jeśli podany)
         if target_distribution.genders:
             results["gender"] = self._chi_square_test(
                 generated_personas, "gender", target_distribution.genders
             )
 
-        # Test education distribution (only if provided)
+        # Testuj rozkład edukacji (tylko jeśli podany)
         if target_distribution.education_levels:
             results["education"] = self._chi_square_test(
                 generated_personas, "education_level", target_distribution.education_levels
             )
 
-        # Test income distribution (only if provided)
+        # Testuj rozkład dochodów (tylko jeśli podany)
         if target_distribution.income_brackets:
             results["income"] = self._chi_square_test(
                 generated_personas, "income_bracket", target_distribution.income_brackets
             )
 
-        # Test location distribution (only if provided)
+        # Testuj rozkład lokalizacji (tylko jeśli podany)
         if target_distribution.locations:
             results["location"] = self._chi_square_test(
                 generated_personas, "location", target_distribution.locations
             )
 
-        # Overall validation
+        # Ogólna walidacja - wszystkie p-wartości powinny być > 0.05
         all_p_values = [r["p_value"] for r in results.values() if "p_value" in r]
         results["overall_valid"] = all(
             p > settings.STATISTICAL_SIGNIFICANCE_THRESHOLD for p in all_p_values
@@ -379,8 +495,27 @@ Generate JSON ONLY (no markdown, no extra text):
     def _chi_square_test(
         self, personas: List[Dict[str, Any]], field: str, expected_dist: Dict[str, float]
     ) -> Dict[str, float]:
-        """Perform chi-square test for a specific demographic field"""
-        # Filter categories with non-positive expected probabilities
+        """
+        Wykonaj test chi-kwadrat dla konkretnego pola demograficznego
+
+        Test chi-kwadrat sprawdza czy obserwowany rozkład kategorii (np. grup wiekowych)
+        statystycznie różni się od rozkładu oczekiwanego. Im wyższe p-value, tym lepiej
+        (p > 0.05 oznacza że rozkłady są zgodne).
+
+        Args:
+            personas: Lista person do sprawdzenia
+            field: Nazwa pola do przetestowania (np. "age_group", "gender")
+            expected_dist: Oczekiwany rozkład prawdopodobieństw
+
+        Returns:
+            Słownik z wynikami testu:
+            - chi_square_statistic: wartość statystyki chi-kwadrat
+            - p_value: p-wartość (>0.05 = dobre dopasowanie)
+            - degrees_of_freedom: liczba stopni swobody
+            - observed: obserwowane liczności
+            - expected: oczekiwane liczności
+        """
+        # Filtruj kategorie z niepoprawnymi prawdopodobieństwami
         valid_categories = [
             (category, probability)
             for category, probability in expected_dist.items()
@@ -396,11 +531,13 @@ Generate JSON ONLY (no markdown, no extra text):
                 "expected": {},
             }
 
+        # Normalizuj prawdopodobieństwa do sumy = 1.0
         total_prob = sum(probability for _, probability in valid_categories)
         normalized_probs = {
             category: probability / total_prob for category, probability in valid_categories
         }
 
+        # Policz obserwowane wystąpienia każdej kategorii
         observed_counts = {category: 0 for category in normalized_probs}
         valid_samples = 0
         for persona in personas:
@@ -418,14 +555,17 @@ Generate JSON ONLY (no markdown, no extra text):
                 "expected": {category: 0.0 for category in observed_counts},
             }
 
+        # Oblicz oczekiwane liczności (probability * total_count)
         expected_counts = {
             category: normalized_probs[category] * valid_samples
             for category in normalized_probs
         }
 
+        # Przygotuj listy do testu chi-kwadrat (scipy wymaga list w tej samej kolejności)
         observed = [observed_counts[category] for category in normalized_probs]
         expected = [expected_counts[category] for category in normalized_probs]
 
+        # Wykonaj test chi-kwadrat
         chi2_stat, p_value = stats.chisquare(f_obs=observed, f_exp=expected)
 
         return {

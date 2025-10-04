@@ -257,12 +257,37 @@ async def generate_personas(
     project_id: UUID,
     request: PersonaGenerateRequest,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db), # Ten argument jest potrzebny do weryfikacji projektu
+    db: AsyncSession = Depends(get_db),  # Potrzebne do weryfikacji projektu przed uruchomieniem zadania
 ):
     """
-    Schedules a background task to generate synthetic personas for a project.
+    Rozpocznij generowanie syntetycznych person dla projektu (w tle)
+
+    Endpoint ten:
+    1. Weryfikuje czy projekt istnieje
+    2. Loguje request
+    3. Dodaje zadanie do kolejki background tasks (nie blokuje HTTP response)
+    4. Zwraca natychmiast potwierdzenie
+
+    Faktyczne generowanie odbywa się asynchronicznie w _generate_personas_task().
+
+    Args:
+        project_id: UUID projektu
+        request: Parametry generowania (num_personas, adversarial_mode, advanced_options)
+        background_tasks: FastAPI BackgroundTasks do uruchomienia zadania w tle
+        db: Sesja bazy (tylko do weryfikacji projektu)
+
+    Returns:
+        {
+            "message": "Persona generation started in background",
+            "project_id": str,
+            "num_personas": int,
+            "adversarial_mode": bool
+        }
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje
     """
-    # Weryfikacja, czy projekt istnieje
+    # Weryfikacja czy projekt istnieje (przed dodaniem do kolejki)
     project = await db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -276,13 +301,15 @@ async def generate_personas(
         },
     )
 
+    # Przygotuj advanced options (konwertuj None fields)
     advanced_payload = (
         request.advanced_options.model_dump(exclude_none=True)
         if request.advanced_options
         else None
     )
-    
-    # POPRAWKA: Usunięto argument 'db' z wywołania zadania w tle
+
+    # Dodaj zadanie do kolejki background tasks
+    # WAŻNE: Zadanie dostanie własną sesję DB (nie dzielimy sesji między requesty!)
     background_tasks.add_task(
         _generate_personas_task,
         project_id,
@@ -291,6 +318,7 @@ async def generate_personas(
         advanced_payload,
     )
 
+    # Zwróć natychmiast (nie czekaj na zakończenie generowania)
     return {
         "message": "Persona generation started in background",
         "project_id": str(project_id),
@@ -305,10 +333,29 @@ async def _generate_personas_task(
     adversarial_mode: bool,
     advanced_options: Optional[Dict[str, Any]] = None,
 ):
-    """Asynchroniczne zadanie w tle do generowania person z kontrolą współbieżności."""
-    # POPRAWKA: Zadanie w tle tworzy własną, niezależną sesję z bazą danych
+    """
+    Asynchroniczne zadanie w tle do generowania person
+
+    To zadanie wykonuje się poza cyklem request-response HTTP:
+    1. Tworzy własną sesję DB (AsyncSessionLocal)
+    2. Ładuje projekt i jego target_demographics
+    3. Generuje persony używając PersonaGeneratorLangChain
+    4. Waliduje różnorodność person
+    5. Zapisuje w bazie danych
+    6. Aktualizuje statystyki projektu
+
+    WAŻNE: To zadanie NIE może używać sesji DB z HTTP requesta!
+    Musi stworzyć własną sesję przez AsyncSessionLocal().
+
+    Args:
+        project_id: UUID projektu
+        num_personas: Liczba person do wygenerowania
+        adversarial_mode: Czy użyć adversarial prompting (dla edge cases)
+        advanced_options: Opcjonalne zaawansowane opcje (custom distributions, etc.)
+    """
+    # Utwórz własną sesję DB (niezależną od HTTP requesta)
     async with AsyncSessionLocal() as db:
-        # Użyj PersonaGeneratorLangChain (główny generator)
+        # Użyj PersonaGeneratorLangChain (główny generator z Gemini)
         generator = PreferredPersonaGenerator()
         generator_name = "langchain"
         logger.info("Using %s persona generator", generator_name, extra={"project_id": str(project_id)})

@@ -1,3 +1,14 @@
+"""
+Testy jednostkowe dla generatora person (PersonaGenerator)
+
+Ten moduł testuje kluczowe funkcjonalności generatora person:
+- Losowanie z wagami (weighted sampling) - czy rozkłady demograficzne są respektowane
+- Generowanie profili demograficznych - wiek, płeć, wykształcenie, dochód, lokalizacja
+- Losowanie cech osobowości Big Five (OCEAN) - openness, conscientiousness, extraversion, etc.
+- Losowanie wymiarów kulturowych Hofstede - power distance, individualism, etc.
+- Walidacja statystyczna chi-kwadrat - czy wygenerowane persony odpowiadają założonym rozkładom
+"""
+
 import pytest
 import numpy as np
 from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PersonaGenerator, DemographicDistribution
@@ -5,7 +16,18 @@ from app.services.persona_generator_langchain import PersonaGeneratorLangChain a
 
 @pytest.fixture
 def sample_distribution():
-    """Sample demographic distribution for testing"""
+    """
+    Fixture - przykładowy rozkład demograficzny dla testów
+
+    Zwraca obiekt DemographicDistribution z rozkładami prawdopodobieństw dla:
+    - Grup wiekowych (age_groups): 18-24, 25-34, 35-44, 45-54, 55+
+    - Płci (genders): male, female
+    - Poziomów wykształcenia (education_levels): high_school, bachelors, masters, phd
+    - Przedziałów dochodowych (income_brackets): <30k, 30k-60k, 60k-100k, 100k+
+    - Lokalizacji (locations): urban, suburban, rural
+
+    Wszystkie rozkłady sumują się do 1.0 (100%)
+    """
     return DemographicDistribution(
         age_groups={"18-24": 0.15, "25-34": 0.25, "35-44": 0.25, "45-54": 0.20, "55+": 0.15},
         genders={"male": 0.49, "female": 0.51},
@@ -27,12 +49,25 @@ def sample_distribution():
 
 @pytest.fixture
 def generator():
-    """PersonaGenerator instance"""
+    """
+    Fixture - instancja generatora person
+
+    Tworzy i zwraca obiekt PersonaGenerator używany we wszystkich testach.
+    """
     return PersonaGenerator()
 
 
 def test_weighted_sampling(generator, sample_distribution):
-    """Test that weighted sampling respects distributions"""
+    """
+    Test losowania z wagami (weighted sampling)
+
+    Sprawdza czy metoda _weighted_sample respektuje zadane rozkłady prawdopodobieństw:
+    1. Generuje 1000 próbek z rozkładu grup wiekowych
+    2. Weryfikuje że wszystkie kategorie są reprezentowane
+    3. Sprawdza czy obserwowane proporcje są bliskie oczekiwanym (tolerancja ±5%)
+
+    Np. jeśli grupa "25-34" ma wagę 0.25, to ~250/1000 próbek powinno należeć do tej grupy
+    """
     samples = []
     for _ in range(1000):
         sample = generator._weighted_sample(sample_distribution.age_groups)
@@ -49,7 +84,19 @@ def test_weighted_sampling(generator, sample_distribution):
 
 
 def test_sample_demographic_profile(generator, sample_distribution):
-    """Test demographic profile sampling"""
+    """
+    Test generowania profili demograficznych
+
+    Sprawdza czy metoda sample_demographic_profile generuje kompletne profile osoby:
+    1. Generuje 10 profili demograficznych
+    2. Weryfikuje że każdy profil zawiera wszystkie wymagane pola:
+       - age_group (grupa wiekowa)
+       - gender (płeć)
+       - education_level (poziom wykształcenia)
+       - income_bracket (przedział dochodowy)
+       - location (lokalizacja)
+    3. Sprawdza czy wartości należą do zdefiniowanych kategorii w rozkładzie
+    """
     profiles = generator.sample_demographic_profile(sample_distribution, n_samples=10)
 
     assert len(profiles) == 10
@@ -69,7 +116,20 @@ def test_sample_demographic_profile(generator, sample_distribution):
 
 
 def test_big_five_traits_sampling(generator):
-    """Test Big Five personality trait sampling"""
+    """
+    Test losowania cech osobowości Big Five (OCEAN)
+
+    Model Big Five to pięć głównych wymiarów osobowości:
+    - Openness (otwartość na doświadczenia) - kreatywność, ciekawość
+    - Conscientiousness (sumienność) - organizacja, odpowiedzialność
+    - Extraversion (ekstrawersja) - towarzyskość, energia
+    - Agreeableness (ugodowość) - empatia, współpraca
+    - Neuroticism (neurotyczność) - stabilność emocjonalna
+
+    Test sprawdza czy:
+    1. Wszystkie 5 cech są generowane
+    2. Wartości są w zakresie 0-1 (0=niska cecha, 1=wysoka cecha)
+    """
     traits = generator.sample_big_five_traits()
 
     assert "openness" in traits
@@ -84,7 +144,21 @@ def test_big_five_traits_sampling(generator):
 
 
 def test_cultural_dimensions_sampling(generator):
-    """Test Hofstede cultural dimensions sampling"""
+    """
+    Test losowania wymiarów kulturowych Hofstede
+
+    Model Hofstede opisuje różnice kulturowe między społeczeństwami:
+    - Power Distance (dystans władzy) - akceptacja nierówności w hierarchii
+    - Individualism (indywidualizm) - niezależność vs. kolektywizm
+    - Masculinity (męskość) - asertywność vs. troska o innych
+    - Uncertainty Avoidance (unikanie niepewności) - tolerancja na nieznane
+    - Long-term Orientation (orientacja długoterminowa) - pragmatyzm vs. tradycja
+    - Indulgence (pobłażliwość) - gratyfikacja vs. powściągliwość
+
+    Test sprawdza czy:
+    1. Wszystkie 6 wymiarów są generowane
+    2. Wartości są w zakresie 0-1
+    """
     dimensions = generator.sample_cultural_dimensions()
 
     expected_dimensions = [
@@ -102,7 +176,24 @@ def test_cultural_dimensions_sampling(generator):
 
 
 def test_chi_square_validation(generator, sample_distribution):
-    """Test chi-square statistical validation"""
+    """
+    Test walidacji statystycznej chi-kwadrat
+
+    Test chi-kwadrat (χ²) sprawdza czy obserwowany rozkład pasuje do oczekiwanego.
+    Jest to kluczowa walidacja dla generatora person - musi tworzyć populacje zgodne
+    z założonymi rozkładami demograficznymi.
+
+    Proces testu:
+    1. Generuje 200 person z zadanym rozkładem demograficznym
+    2. Przeprowadza testy χ² dla każdej kategorii (wiek, płeć, wykształcenie, dochód, lokalizacja)
+    3. Sprawdza strukturę wyniku - każdy test zwraca:
+       - p_value - prawdopodobieństwo (p > 0.05 oznacza zgodność)
+       - chi_square_statistic - wartość statystyki χ²
+       - degrees_of_freedom - stopnie swobody
+    4. Weryfikuje overall_valid=True (wszystkie rozkłady są poprawne)
+
+    Z 200 próbkami rozkład powinien być statystycznie zgodny z oczekiwanym
+    """
     # Generate personas that match distribution
     personas = []
     for _ in range(200):
@@ -131,7 +222,19 @@ def test_chi_square_validation(generator, sample_distribution):
 
 
 def test_chi_square_validation_small_sample(generator, sample_distribution):
-    """Test chi-square with insufficient sample size"""
+    """
+    Test walidacji chi-kwadrat z małą próbką
+
+    Sprawdza zachowanie testu χ² przy niewystarczającej liczbie próbek.
+
+    Z zaledwie 20 personami:
+    - Test może wykazać rozbieżność od oczekiwanego rozkładu (to normalne)
+    - Struktura wyników powinna być prawidłowa (zawierać overall_valid)
+    - Test powinien zakończyć się bez błędów (nawet jeśli validacja = False)
+
+    Ten test pokazuje że generator działa poprawnie nawet z małymi próbkami,
+    ale ostrzega że walidacja statystyczna wymaga większej liczby person.
+    """
     # Generate only 20 personas (too small for good statistical validation)
     personas = []
     for _ in range(20):

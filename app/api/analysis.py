@@ -1,3 +1,17 @@
+"""
+API Endpoints dla Analiz i Podsumowań AI
+
+Ten moduł zawiera endpoints do zaawansowanej analizy grup fokusowych:
+- POST /focus-groups/{id}/ai-summary - AI-powered podsumowanie dyskusji (Gemini)
+- GET /focus-groups/{id}/sentiment-analysis - Analiza sentymentu odpowiedzi
+
+Podsumowania używają Google Gemini (2.5 Pro lub Flash) do:
+- Executive summary
+- Key insights i surprising findings
+- Segment analysis (różnice demograficzne)
+- Strategic recommendations
+- Sentiment narrative
+"""
 from collections import defaultdict
 from typing import Any, Dict
 from uuid import UUID

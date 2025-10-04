@@ -43,20 +43,23 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS middleware - restrict origins based on environment
+# CORS middleware - ograniczenie origin w zależności od środowiska
+# Development: wszystkie originy dozwolone (*)
+# Production: tylko originy z ALLOWED_ORIGINS (np. https://app.example.com)
 allowed_origins = (
     ["*"] if settings.ENVIRONMENT == "development"
     else settings.ALLOWED_ORIGINS.split(",")
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed_origins,  # Lista dozwolonych origin
+    allow_credentials=True,  # Zezwól na cookies/auth headers
+    allow_methods=["*"],  # Wszystkie metody HTTP (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Wszystkie headery
 )
 
-# Include routers
+# Podłącz routery z poszczególnych modułów
+# Prefix: /api/v1 (z settings.API_V1_PREFIX)
 app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["Projects"])
 app.include_router(personas.router, prefix=settings.API_V1_PREFIX, tags=["Personas"])
 app.include_router(focus_groups.router, prefix=settings.API_V1_PREFIX, tags=["Focus Groups"])
@@ -65,30 +68,53 @@ app.include_router(analysis.router, prefix=settings.API_V1_PREFIX, tags=["Analys
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """
+    Root endpoint - informacje o API
+
+    Returns:
+        Podstawowe informacje o systemie i link do dokumentacji
+    """
     return {
         "name": settings.PROJECT_NAME,
         "version": "1.0.0",
         "status": "operational",
-        "docs": "/docs",
+        "docs": "/docs",  # Swagger UI
     }
 
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """
+    Health check endpoint - do monitorowania (Kubernetes, Docker, etc.)
+
+    Returns:
+        Status zdrowia aplikacji i środowisko
+    """
     return {"status": "healthy", "environment": settings.ENVIRONMENT}
 
 
-# Global exception handlers
+# Globalny handler wyjątków - łapie wszystkie nieobsłużone błędy
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Handle all unhandled exceptions"""
+    """
+    Obsłuż wszystkie nieobsłużone wyjątki
+
+    Zapobiega wyciekom szczegółów błędów w produkcji.
+    W development zwraca pełny stack trace, w production tylko ogólny komunikat.
+
+    Args:
+        request: FastAPI Request
+        exc: Wyjątek który nie został obsłużony
+
+    Returns:
+        JSONResponse z kodem 500 i bezpiecznym komunikatem błędu
+    """
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "detail": "Internal server error",
+            # W DEBUG pokazuj szczegóły, w produkcji ukryj
             "error": str(exc) if settings.DEBUG else "An unexpected error occurred",
         },
     )

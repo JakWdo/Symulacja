@@ -1,3 +1,14 @@
+"""
+Schematy Pydantic dla person (wersja v1)
+
+Definiuje struktury danych dla:
+- PersonaGenerateRequest - żądanie generowania person
+- PersonaGenerationAdvancedOptions - zaawansowane opcje targetowania
+- PersonaResponse - odpowiedź API z danymi persony
+
+Uwaga: To jest wersja v1. Nowsze projekty powinny używać persona_v2.py
+"""
+
 from typing import List, Optional, Literal, Dict
 from datetime import datetime
 from uuid import UUID
@@ -6,6 +17,37 @@ from pydantic import BaseModel, Field
 
 
 class PersonaGenerationAdvancedOptions(BaseModel):
+    """
+    Zaawansowane opcje targetowania person
+
+    Pozwala precyzyjnie kontrolować demografię i psychografię generowanych person:
+
+    Demograficzne:
+    - age_focus: Preferowany zakres wiekowy ('balanced', 'young_adults', 'experienced_leaders')
+    - gender_balance: Rozkład płci ('balanced', 'female_skew', 'male_skew')
+    - urbanicity: Typ lokalizacji ('any', 'urban', 'suburban', 'rural')
+    - target_cities: Lista konkretnych miast
+    - target_countries: Lista krajów
+    - age_min, age_max: Dokładny zakres wieku (18-90)
+
+    Zawodowe:
+    - industries: Lista branż (np. ['tech', 'healthcare'])
+    - required_values: Wymagane wartości życiowe
+    - excluded_values: Wykluczone wartości
+    - required_interests: Wymagane zainteresowania
+    - excluded_interests: Wykluczone zainteresowania
+
+    Niestandardowe rozkłady (custom weights):
+    - custom_age_groups: {'18-22': 0.3, '23-29': 0.4, '30-40': 0.3}
+    - gender_weights: {'male': 0.6, 'female': 0.4}
+    - location_weights: {'urban': 0.7, 'rural': 0.3}
+    - education_weights: {'bachelors': 0.5, 'masters': 0.3}
+    - income_weights: {'60k-100k': 0.4, '100k+': 0.6}
+
+    Psychologiczne:
+    - personality_skew: Przesunięcie cech Big Five (0.0-1.0)
+      Przykład: {'extraversion': 0.7} - więcej ekstrawertycznych person
+    """
     age_focus: Optional[Literal['balanced', 'young_adults', 'experienced_leaders']] = None
     gender_balance: Optional[Literal['balanced', 'female_skew', 'male_skew']] = None
     urbanicity: Optional[Literal['any', 'urban', 'suburban', 'rural']] = None
@@ -45,6 +87,26 @@ class PersonaGenerationAdvancedOptions(BaseModel):
 
 
 class PersonaGenerateRequest(BaseModel):
+    """
+    Schema żądania generowania person
+
+    Podstawowe parametry:
+    - num_personas: Ile person wygenerować (2-100, domyślnie 10)
+    - adversarial_mode: Czy generować persony "przeciwne" dla stress testingu kampanii
+      (domyślnie False - normalne persony reprezentujące target audience)
+    - advanced_options: Opcjonalne zaawansowane targetowanie (PersonaGenerationAdvancedOptions)
+
+    Przykład użycia:
+    {
+      "num_personas": 50,
+      "adversarial_mode": false,
+      "advanced_options": {
+        "age_focus": "young_adults",
+        "urbanicity": "urban",
+        "industries": ["tech", "finance"]
+      }
+    }
+    """
     num_personas: int = Field(
         default=10,
         ge=2,
@@ -62,6 +124,53 @@ class PersonaGenerateRequest(BaseModel):
 
 
 class PersonaResponse(BaseModel):
+    """
+    Schema odpowiedzi API z danymi persony
+
+    Zwraca kompletny profil wygenerowanej persony:
+
+    Podstawowe dane:
+    - id: UUID persony
+    - project_id: UUID projektu do którego należy
+    - full_name: Pełne imię i nazwisko
+    - persona_title: Tytuł/rola (np. "Tech-savvy Millennial")
+    - headline: Krótki opis (1-2 zdania)
+
+    Demografia:
+    - age: Wiek (liczba)
+    - gender: Płeć
+    - location: Lokalizacja (miasto, stan)
+    - education_level: Poziom wykształcenia
+    - income_bracket: Przedział dochodowy
+    - occupation: Zawód
+
+    Cechy Big Five (0-1, gdzie 1=wysoka cecha):
+    - openness: Otwartość na doświadczenia
+    - conscientiousness: Sumienność
+    - extraversion: Ekstrawersja
+    - agreeableness: Ugodowość
+    - neuroticism: Neurotyczność
+
+    Wymiary kulturowe Hofstede (0-1):
+    - power_distance: Dystans władzy
+    - individualism: Indywidualizm
+    - masculinity: Męskość
+    - uncertainty_avoidance: Unikanie niepewności
+    - long_term_orientation: Orientacja długoterminowa
+    - indulgence: Pobłażliwość
+
+    Profile psychograficzny:
+    - values: Lista wartości życiowych
+    - interests: Lista zainteresowań
+    - background_story: Historia osobista persony (narrracja AI)
+
+    Metadata:
+    - created_at: Data utworzenia
+    - is_active: Czy persona jest aktywna
+
+    Konfiguracja:
+    - from_attributes = True: Konwersja z modeli SQLAlchemy
+    """
     id: UUID
     project_id: UUID
     age: int

@@ -8,59 +8,84 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
 
 
 class Settings(BaseSettings):
-    """Application settings with environment variable support"""
+    """
+    Ustawienia aplikacji z wsparciem dla zmiennych środowiskowych
 
-    # Database
+    Wszystkie wartości mogą być nadpisane przez zmienne środowiskowe z pliku .env
+    lub zmienne systemowe. Nazwy zmiennych są case-sensitive.
+    """
+
+    # === BAZA DANYCH ===
+    # PostgreSQL z asyncpg driver (wymagane dla SQLAlchemy async)
     DATABASE_URL: str = "postgresql+asyncpg://market_research:password@localhost:5432/market_research_db"
     POSTGRES_USER: str = "market_research"
     POSTGRES_PASSWORD: str = "password"
     POSTGRES_DB: str = "market_research_db"
 
-    # Redis
+    # === CACHE I KOLEJKI ===
+    # Redis do cache'owania i Celery
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Neo4j
+    # === GRAF WIEDZY (nieużywany obecnie) ===
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
     NEO4J_PASSWORD: str = "password"
 
-    # LLM APIs
+    # === KLUCZE API LLM ===
+    # Klucze do modeli językowych (jeden musi być ustawiony)
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
-    GOOGLE_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None  # Używany domyślnie (Gemini)
 
-    # Application
+    # === BEZPIECZEŃSTWO ===
+    # SECRET_KEY: Używany do podpisywania tokenów JWT (ZMIEŃ W PRODUKCJI!)
     SECRET_KEY: str = "change-me"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ALGORITHM: str = "HS256"  # Algorytm podpisywania JWT
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Czas wygaśnięcia tokenów
 
-    # Persona Generation
-    DEFAULT_LLM_PROVIDER: str = "google"  # google, openai, anthropic
+    # === MODELE LLM ===
+    # DEFAULT_LLM_PROVIDER: Domyślny provider (google, openai, anthropic)
+    DEFAULT_LLM_PROVIDER: str = "google"
+    # PERSONA_GENERATION_MODEL: Model do generowania person (szybki)
     PERSONA_GENERATION_MODEL: str = "gemini-2.5-flash"
+    # ANALYSIS_MODEL: Model do analizy i podsumowań (dokładny)
     ANALYSIS_MODEL: str = "gemini-2.5-pro"
-    DEFAULT_MODEL: str = "gemini-2.5-flash"  # Backwards compatibility
+    # DEFAULT_MODEL: Backward compatibility
+    DEFAULT_MODEL: str = "gemini-2.5-flash"
+    # TEMPERATURE: Kreatywność modelu (0.0-1.0, wyższe = bardziej kreatywne)
     TEMPERATURE: float = 0.7
+    # MAX_TOKENS: Maksymalna długość odpowiedzi
     MAX_TOKENS: int = 8000
 
-    # Performance Targets
+    # === CELE WYDAJNOŚCIOWE ===
+    # Maksymalny czas odpowiedzi pojedynczej persony (sekundy)
     MAX_RESPONSE_TIME_PER_PERSONA: int = 3
+    # Maksymalny całkowity czas wykonania grupy fokusowej (sekundy)
     MAX_FOCUS_GROUP_TIME: int = 30
+    # Próg błędu spójności (0.0-1.0)
     CONSISTENCY_ERROR_THRESHOLD: float = 0.05
+    # Próg istotności statystycznej (p-value, domyślnie 0.05)
     STATISTICAL_SIGNIFICANCE_THRESHOLD: float = 0.05
+    # Seed dla reproducibility (ten sam seed = te same wyniki)
     RANDOM_SEED: int = 42
 
-    # Celery
+    # === CELERY (zadania asynchroniczne) ===
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
 
-    # Environment
+    # === ŚRODOWISKO ===
+    # ENVIRONMENT: development, staging, production
     ENVIRONMENT: str = "development"
+    # DEBUG: Włącz szczegółowe logi błędów
     DEBUG: bool = True
 
-    # API
+    # === API ===
+    # Prefix dla wszystkich endpointów API v1
     API_V1_PREFIX: str = "/api/v1"
+    # Nazwa projektu (wyświetlana w docs)
     PROJECT_NAME: str = "Market Research SaaS"
-    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"  # Comma-separated list
+    # ALLOWED_ORIGINS: Lista origin dozwolonych dla CORS (rozdzielone przecinkami)
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
     class Config:
         env_file = ".env"
@@ -69,5 +94,14 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Cached settings instance"""
+    """
+    Pobierz instancję ustawień (cache'owana)
+
+    Używa @lru_cache() żeby stworzyć tylko jedną instancję Settings
+    dla całej aplikacji (singleton pattern). To zapewnia że wszystkie
+    części aplikacji używają tych samych ustawień.
+
+    Returns:
+        Settings: Obiekt z wszystkimi ustawieniami aplikacji
+    """
     return Settings()

@@ -1,3 +1,16 @@
+"""
+API Endpoints dla Grup Fokusowych
+
+Ten moduł zawiera endpoints do zarządzania symulowanymi grupami fokusowymi:
+- POST /projects/{id}/focus-groups - Utworzenie grupy fokusowej
+- POST /focus-groups/{id}/run - Uruchomienie symulacji (background task)
+- GET /focus-groups - Lista grup
+- GET /focus-groups/{id} - Szczegóły grupy
+- GET /focus-groups/{id}/results - Wyniki dyskusji z metrykami
+
+Grupy fokusowe działają asynchronicznie - tworzenie jest natychmiastowe,
+ale wykonanie symulacji (run) działa w tle i może trwać kilkadziesiąt sekund.
+"""
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,7 +29,8 @@ from app.services import FocusGroupService
 
 router = APIRouter()
 
-# Keep track of running tasks to prevent garbage collection
+# Śledź uruchomione zadania aby zapobiec garbage collection
+# (Python może usunąć Task z pamięci jeśli nie ma do niego referencji)
 _running_tasks = set()
 
 

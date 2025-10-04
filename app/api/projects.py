@@ -1,3 +1,13 @@
+"""
+API Endpoints dla Projektów Badawczych
+
+Ten moduł zawiera CRUD endpoints dla zarządzania projektami:
+- POST /projects - Tworzenie nowego projektu
+- GET /projects - Lista wszystkich projektów
+- GET /projects/{id} - Szczegóły konkretnego projektu
+- PUT /projects/{id} - Aktualizacja projektu
+- DELETE /projects/{id} - Usunięcie projektu (soft delete)
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,11 +26,28 @@ async def create_project(
     project: ProjectCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new research project"""
+    """
+    Utwórz nowy projekt badawczy
+
+    Projekt to kontener na:
+    - Persony (generowane zgodnie z target_demographics)
+    - Grupy fokusowe (dyskusje z personami)
+    - Wyniki walidacji statystycznej
+
+    Args:
+        project: Dane nowego projektu (name, description, target_demographics, target_sample_size)
+        db: Sesja bazy danych
+
+    Returns:
+        Utworzony projekt z ID i timestampami
+
+    Raises:
+        HTTPException 422: Jeśli dane są niepoprawne (walidacja Pydantic)
+    """
     db_project = Project(
         name=project.name,
         description=project.description,
-        target_demographics=project.target_demographics,
+        target_demographics=project.target_demographics,  # JSON z rozkładami
         target_sample_size=project.target_sample_size,
     )
 
@@ -37,10 +64,24 @@ async def list_projects(
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
 ):
-    """List all projects"""
+    """
+    Pobierz listę wszystkich aktywnych projektów
+
+    Paginacja:
+    - skip: Ile projektów pominąć (dla paginacji)
+    - limit: Maksymalna liczba projektów do zwrócenia
+
+    Args:
+        skip: Offset dla paginacji (domyślnie 0)
+        limit: Limit wyników (domyślnie 100, max 100)
+        db: Sesja bazy danych
+
+    Returns:
+        Lista projektów (tylko is_active=True)
+    """
     result = await db.execute(
         select(Project)
-        .where(Project.is_active.is_(True))
+        .where(Project.is_active.is_(True))  # Tylko aktywne projekty
         .offset(skip)
         .limit(limit)
     )
@@ -53,7 +94,19 @@ async def get_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a specific project"""
+    """
+    Pobierz szczegóły konkretnego projektu
+
+    Args:
+        project_id: UUID projektu
+        db: Sesja bazy danych
+
+    Returns:
+        Szczegóły projektu
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje
+    """
     result = await db.execute(
         select(Project).where(Project.id == project_id)
     )
@@ -71,7 +124,23 @@ async def update_project(
     project_update: ProjectUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Update a project"""
+    """
+    Zaktualizuj istniejący projekt
+
+    Wszystkie pola są opcjonalne - tylko podane pola zostaną zaktualizowane.
+    Pola null w ProjectUpdate są ignorowane.
+
+    Args:
+        project_id: UUID projektu do aktualizacji
+        project_update: Nowe wartości pól (wszystkie opcjonalne)
+        db: Sesja bazy danych
+
+    Returns:
+        Zaktualizowany projekt
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje
+    """
     result = await db.execute(
         select(Project).where(Project.id == project_id)
     )
@@ -80,7 +149,7 @@ async def update_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Update fields
+    # Zaktualizuj tylko podane pola (partial update)
     if project_update.name is not None:
         project.name = project_update.name
     if project_update.description is not None:
@@ -91,7 +160,7 @@ async def update_project(
         project.target_sample_size = project_update.target_sample_size
 
     await db.commit()
-    await db.refresh(project)
+    await db.refresh(db_project)
 
     return project
 
@@ -101,7 +170,26 @@ async def delete_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Soft delete a project"""
+    """
+    Usuń projekt (soft delete)
+
+    Soft delete oznacza że projekt nie jest faktycznie usuwany z bazy,
+    tylko oznaczany jako nieaktywny (is_active=False). Dane pozostają
+    w bazie dla celów audytu.
+
+    Cascade delete: Wszystkie persony i grupy fokusowe powiązane z projektem
+    zostaną również usunięte (ON DELETE CASCADE w SQL).
+
+    Args:
+        project_id: UUID projektu do usunięcia
+        db: Sesja bazy danych
+
+    Returns:
+        None (204 No Content)
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje
+    """
     result = await db.execute(
         select(Project).where(Project.id == project_id)
     )
@@ -110,6 +198,7 @@ async def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # Soft delete - ustaw is_active na False zamiast usuwać z bazy
     project.is_active = False
     await db.commit()
 

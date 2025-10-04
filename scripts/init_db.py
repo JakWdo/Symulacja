@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """
-Initialize database with tables and pgvector extension
+Skrypt inicjalizacji bazy danych
+
+Ten skrypt konfiguruje bazę danych PostgreSQL dla aplikacji:
+1. Włącza rozszerzenie pgvector (wektory do embeddings AI)
+2. Tworzy wszystkie tabele z modeli SQLAlchemy
+
+Użycie:
+    python -m scripts.init_db
+
+Uwaga: Wymaga działającej bazy PostgreSQL i poprawnych danych w .env
 """
 import asyncio
 from sqlalchemy import text
@@ -9,15 +18,30 @@ from app.models import Project, Persona, PersonaEvent, PersonaResponse, FocusGro
 
 
 async def init_db():
-    """Initialize database"""
+    """
+    Inicjalizuje bazę danych
+
+    Proces:
+    1. Tworzy connection do PostgreSQL (używając engine z app.db)
+    2. Włącza rozszerzenie pgvector (jeśli nie istnieje)
+       - pgvector umożliwia przechowywanie wektorów embeddings dla AI
+    3. Tworzy tabele zdefiniowane w Base.metadata (wszystkie modele SQLAlchemy)
+       - Project - projekty badawcze
+       - Persona - wygenerowane persony
+       - PersonaEvent - historia działań person
+       - PersonaResponse - odpowiedzi person w dyskusjach
+       - FocusGroup - grupy fokusowe
+
+    Bezpiecznie: CREATE IF NOT EXISTS - nie nadpisuje istniejących danych
+    """
     print("Creating database tables...")
 
     async with engine.begin() as conn:
-        # Enable pgvector extension
+        # Włącz rozszerzenie pgvector (potrzebne do przechowywania wektorów embeddings)
         print("Enabling pgvector extension...")
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
-        # Create all tables
+        # Utwórz wszystkie tabele z modeli (Project, Persona, PersonaEvent, etc.)
         print("Creating tables...")
         await conn.run_sync(Base.metadata.create_all)
 
@@ -25,4 +49,5 @@ async def init_db():
 
 
 if __name__ == "__main__":
+    # Uruchom funkcję asynchroniczną init_db()
     asyncio.run(init_db())

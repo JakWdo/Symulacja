@@ -41,7 +41,18 @@ _NEGATIVE_WORDS = {
 def _simple_sentiment_score(text: str) -> float:
     """
     Prosta analiza sentymentu na podstawie słów kluczowych
-    Zwraca wartość od -1.0 (negatywny) do 1.0 (pozytywny)
+
+    Algorytm:
+    1. Liczy wystąpienia słów pozytywnych (POSITIVE_WORDS)
+    2. Liczy wystąpienia słów negatywnych (NEGATIVE_WORDS)
+    3. Oblicza score = (pozytywne - negatywne) / wszystkie
+
+    Args:
+        text: Tekst do analizy
+
+    Returns:
+        Wartość od -1.0 (czysto negatywny) do 1.0 (czysto pozytywny)
+        0.0 = neutralny lub brak słów kluczowych
     """
     lowered = text.lower()
     pos = sum(1 for token in _POSITIVE_WORDS if token in lowered)
@@ -197,10 +208,41 @@ IMPORTANT GUIDELINES:
     ) -> Dict[str, Any]:
         """
         Przygotowuje ustrukturyzowane dane dyskusji do analizy AI
-        Grupuje odpowiedzi po pytaniach i dodaje sentiment + demografia
+
+        Proces:
+        1. Grupuje odpowiedzi po pytaniach (każde pytanie ma listę odpowiedzi)
+        2. Dla każdej odpowiedzi oblicza sentiment score
+        3. Dodaje dane demograficzne persony (jeśli include_demographics=True)
+        4. Agreguje statystyki demograficzne całej grupy
+
+        Args:
+            focus_group: Obiekt grupy fokusowej
+            responses: Lista wszystkich odpowiedzi person
+            personas: Słownik {persona_id: Persona}
+            include_demographics: Czy dodać dane demograficzne
+
+        Returns:
+            Słownik z danymi:
+            {
+                "topic": str,
+                "description": str,
+                "responses_by_question": {
+                    "Question 1?": [
+                        {"response": str, "sentiment": float, "demographics": {...}},
+                        ...
+                    ]
+                },
+                "demographic_summary": {
+                    "age_range": "25-65",
+                    "gender_distribution": {"male": 5, "female": 5},
+                    "education_levels": ["Bachelor's", "Master's"],
+                    "sample_size": 10
+                },
+                "total_responses": int
+            }
         """
 
-        # Group responses by question
+        # Grupuj odpowiedzi po pytaniach
         responses_by_question = {}
         for response in responses:
             if response.question not in responses_by_question:
@@ -209,9 +251,10 @@ IMPORTANT GUIDELINES:
             persona = personas.get(str(response.persona_id))
             response_data = {
                 "response": response.response,
-                "sentiment": _simple_sentiment_score(response.response),
+                "sentiment": _simple_sentiment_score(response.response),  # -1.0 do 1.0
             }
 
+            # Dodaj demografię jeśli włączona
             if include_demographics and persona:
                 response_data["demographics"] = {
                     "age": persona.age,
@@ -222,7 +265,7 @@ IMPORTANT GUIDELINES:
 
             responses_by_question[response.question].append(response_data)
 
-        # Aggregate demographic info
+        # Agreguj statystyki demograficzne całej grupy
         demographic_summary = None
         if include_demographics:
             ages = [p.age for p in personas.values()]

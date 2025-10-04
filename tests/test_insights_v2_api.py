@@ -1,39 +1,74 @@
 """
-Integration tests for Enhanced Insights API (Phase 4)
-Tests the new API endpoints for AI summaries, metric explanations, and enhanced reports
+Testy integracyjne dla Enhanced Insights API (Faza 4)
+
+Ten moduł testuje nowe endpointy API dla zaawansowanych funkcji:
+- Podsumowania AI dyskusji z grup fokusowych (AI summaries)
+- Wyjaśnienia metryk w języku naturalnym (metric explanations)
+- Generowanie ulepszonych raportów PDF (enhanced reports)
+
+Testy sprawdzają:
+1. Poprawną inicjalizację serwisów AI (MetricsExplainerService, DiscussionSummarizerService)
+2. Działanie endpointów API (health check, status)
+3. Generowanie wyjaśnień dla metryk (idea score, consensus, sentiment)
+4. Tworzenie raportów z AI insights
+5. Ocenę ogólnego "zdrowia" projektu na podstawie metryk
 """
 
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
+# Klient testowy FastAPI - umożliwia testowanie endpointów bez uruchamiania serwera
 client = TestClient(app)
 
 
 class TestInsightsV2API:
-    """Test suite for insights v2 API endpoints"""
+    """Zestaw testów dla endpointów insights v2 API"""
 
     def test_api_root(self):
-        """Test that API is running"""
+        """
+        Test głównego endpointu API
+
+        Sprawdza czy API odpowiada na endpoint główny (/) i zwraca status
+        """
         response = client.get("/")
         assert response.status_code == 200
         assert "status" in response.json()
 
     def test_health_endpoint(self):
-        """Test health check endpoint"""
+        """
+        Test endpointu health check
+
+        Weryfikuje czy endpoint /health działa i zwraca status "healthy"
+        """
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
 
     def test_metrics_explainer_service_initialization(self):
-        """Test MetricsExplainerService can be instantiated"""
+        """
+        Test inicjalizacji MetricsExplainerService
+
+        MetricsExplainerService tłumaczy surowe metryki na zrozumiałe wyjaśnienia.
+        Sprawdza czy serwis można utworzyć bez błędów.
+        """
         from app.services.metrics_explainer import MetricsExplainerService
 
         service = MetricsExplainerService()
         assert service is not None
 
     def test_metrics_explainer_idea_score(self):
-        """Test idea score explanation"""
+        """
+        Test wyjaśniania metryki Idea Score
+
+        Idea Score (0-100) ocenia potencjał pomysłu na podstawie odpowiedzi person.
+        Test sprawdza czy serwis generuje wyjaśnienie zawierające:
+        - Nazwę metryki
+        - Wartość (np. "85.0")
+        - Interpretację (co oznacza wynik)
+        - Kontekst (dlaczego to ważne)
+        - Akcję (co zrobić dalej)
+        """
         from app.services.metrics_explainer import MetricsExplainerService
 
         service = MetricsExplainerService()
@@ -46,7 +81,13 @@ class TestInsightsV2API:
         assert explanation.action
 
     def test_metrics_explainer_consensus(self):
-        """Test consensus explanation"""
+        """
+        Test wyjaśniania metryki Consensus
+
+        Consensus (0-1) mierzy poziom zgody między personami.
+        0.75 oznacza że 75% person ma podobne opinie.
+        Test weryfikuje strukturę wyjaśnienia i obecność wartości.
+        """
         from app.services.metrics_explainer import MetricsExplainerService
 
         service = MetricsExplainerService()
@@ -58,28 +99,51 @@ class TestInsightsV2API:
         assert explanation.action
 
     def test_advanced_insights_service_initialization(self):
-        """Test AdvancedInsightsService can be instantiated"""
+        """
+        Test inicjalizacji AdvancedInsightsService
+
+        AdvancedInsightsService oblicza zaawansowane metryki analityczne.
+        Sprawdza czy można utworzyć instancję serwisu.
+        """
         from app.services.advanced_insights_service import AdvancedInsightsService
 
         service = AdvancedInsightsService()
         assert service is not None
 
     def test_discussion_summarizer_initialization_flash(self):
-        """Test DiscussionSummarizerService with Flash model"""
+        """
+        Test inicjalizacji DiscussionSummarizerService z modelem Flash
+
+        DiscussionSummarizerService używa AI (Gemini) do podsumowywania dyskusji.
+        Model Flash (gemini-2.5-flash) jest szybszy i tańszy.
+        Test sprawdza inicjalizację z use_pro_model=False.
+        """
         from app.services.discussion_summarizer import DiscussionSummarizerService
 
         service = DiscussionSummarizerService(use_pro_model=False)
         assert service is not None
 
     def test_discussion_summarizer_initialization_pro(self):
-        """Test DiscussionSummarizerService with Pro model"""
+        """
+        Test inicjalizacji DiscussionSummarizerService z modelem Pro
+
+        Model Pro (gemini-2.0-flash-exp) jest dokładniejszy dla złożonych analiz.
+        Test sprawdza inicjalizację z use_pro_model=True.
+        """
         from app.services.discussion_summarizer import DiscussionSummarizerService
 
         service = DiscussionSummarizerService(use_pro_model=True)
         assert service is not None
 
     def test_enhanced_report_generator_initialization(self):
-        """Test EnhancedReportGenerator can be instantiated"""
+        """
+        Test inicjalizacji EnhancedReportGenerator
+
+        EnhancedReportGenerator tworzy raporty PDF z AI insights.
+        Test sprawdza czy:
+        1. Generator można utworzyć
+        2. Ma zainicjalizowane serwisy insight_service i metrics_explainer
+        """
         from app.services.enhanced_report_generator import EnhancedReportGenerator
 
         generator = EnhancedReportGenerator()
@@ -88,7 +152,16 @@ class TestInsightsV2API:
         assert generator.metrics_explainer is not None
 
     def test_report_generator_has_create_styles(self):
-        """Test that report generator has _create_styles method"""
+        """
+        Test metody _create_styles w generatorze raportów
+
+        Raporty PDF używają stylów do formatowania (czcionki, kolory, rozmiary).
+        Test sprawdza czy generator ma zdefiniowane style:
+        - ReportTitle - tytuł raportu
+        - SectionHeading - nagłówki sekcji
+        - AIInsight - bloki z AI insights
+        - Recommendation - rekomendacje
+        """
         from app.services.enhanced_report_generator import EnhancedReportGenerator
 
         generator = EnhancedReportGenerator()
@@ -100,7 +173,17 @@ class TestInsightsV2API:
         assert 'Recommendation' in styles
 
     def test_overall_health_assessment(self):
-        """Test overall health assessment calculation"""
+        """
+        Test oceny ogólnego "zdrowia" projektu
+
+        MetricsExplainerService analizuje wszystkie metryki i wystawia ocenę:
+        - health_score (0-100) - ogólny wynik zdrowia
+        - status - kategoria (healthy/good/fair/poor)
+        - status_label - opis słowny
+
+        Test sprawdza czy dla dobrych metryk (idea_score=85, consensus=0.75)
+        generowana jest poprawna ocena zdrowia.
+        """
         from app.services.metrics_explainer import MetricsExplainerService
 
         service = MetricsExplainerService()
@@ -118,7 +201,15 @@ class TestInsightsV2API:
         assert health["status"] in ["healthy", "good", "fair", "poor"]
 
     def test_explain_all_metrics(self):
-        """Test explaining all metrics at once"""
+        """
+        Test wyjaśniania wszystkich metryk jednocześnie
+
+        Zamiast wyjaśniać każdą metrykę osobno, można wysłać wszystkie naraz.
+        Test sprawdza czy explain_all_metrics:
+        1. Przyjmuje słownik z wieloma metrykami (idea_score, consensus, sentiment)
+        2. Zwraca słownik z wyjaśnieniami
+        3. Zawiera wyjaśnienie dla idea_score (główna metryka)
+        """
         from app.services.metrics_explainer import MetricsExplainerService
 
         service = MetricsExplainerService()
@@ -141,15 +232,28 @@ class TestInsightsV2API:
 
 
 class TestDocumentation:
-    """Test that consolidated documentation is complete"""
+    """Testy kompletności dokumentacji projektu"""
 
     def test_complete_guide_exists(self):
-        """Complete implementation guide should be the single source of truth"""
+        """
+        Test istnienia głównego przewodnika
+
+        COMPLETE_GUIDE.md powinien być jedynym źródłem prawdy o implementacji.
+        Sprawdza czy plik istnieje w głównym katalogu projektu.
+        """
         import os
         assert os.path.exists("COMPLETE_GUIDE.md")
 
     def test_complete_guide_content(self):
-        """Guide should mention the latest phases and key services"""
+        """
+        Test zawartości przewodnika
+
+        COMPLETE_GUIDE.md powinien dokumentować najnowsze fazy i kluczowe serwisy.
+        Sprawdza obecność:
+        - "Phase 4" - najnowsza faza rozwoju
+        - "EnhancedReportGenerator" - generator raportów
+        - "Gemini 2.5 Flash" - wykorzystany model AI
+        """
         with open("COMPLETE_GUIDE.md", "r", encoding="utf-8") as f:
             content = f.read()
 
@@ -159,30 +263,55 @@ class TestDocumentation:
 
 
 class TestNewFiles:
-    """Test that all new files exist"""
+    """Testy istnienia nowych plików (Faza 4)"""
 
     def test_enhanced_report_generator_exists(self):
-        """Test enhanced report generator file exists"""
+        """
+        Test istnienia pliku enhanced_report_generator.py
+
+        EnhancedReportGenerator generuje raporty PDF z AI insights.
+        Sprawdza czy plik znajduje się w app/services/
+        """
         import os
         assert os.path.exists("app/services/enhanced_report_generator.py")
 
     def test_metrics_explainer_exists(self):
-        """Test metrics explainer file exists"""
+        """
+        Test istnienia pliku metrics_explainer.py
+
+        MetricsExplainerService tłumaczy metryki na język naturalny.
+        Sprawdza czy plik znajduje się w app/services/
+        """
         import os
         assert os.path.exists("app/services/metrics_explainer.py")
 
     def test_discussion_summarizer_exists(self):
-        """Test discussion summarizer file exists"""
+        """
+        Test istnienia pliku discussion_summarizer.py
+
+        DiscussionSummarizerService podsumowuje dyskusje z grup fokusowych przy użyciu AI.
+        Sprawdza czy plik znajduje się w app/services/
+        """
         import os
         assert os.path.exists("app/services/discussion_summarizer.py")
 
     def test_advanced_insights_exists(self):
-        """Test advanced insights file exists"""
+        """
+        Test istnienia pliku advanced_insights_service.py
+
+        AdvancedInsightsService oblicza zaawansowane metryki analityczne.
+        Sprawdza czy plik znajduje się w app/services/
+        """
         import os
         assert os.path.exists("app/services/advanced_insights_service.py")
 
     def test_insights_v2_api_exists(self):
-        """Test insights v2 API file exists"""
+        """
+        Test istnienia pliku insights_v2.py
+
+        API insights v2 udostępnia endpointy dla zaawansowanych analiz.
+        Sprawdza czy plik znajduje się w app/api/
+        """
         import os
         assert os.path.exists("app/api/insights_v2.py")
 

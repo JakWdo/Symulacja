@@ -47,9 +47,29 @@ class MemoryServiceLangChain:
         event_data: Dict[str, Any],
         focus_group_id: Optional[str] = None,
     ) -> PersonaEvent:
-        """Create immutable event in event store"""
+        """
+        Utwórz niemodyfikowalny event w event store (event sourcing)
 
-        # Get sequence number
+        Event sourcing to wzorzec gdzie każda zmiana stanu jest zapisywana jako
+        niemodyfikowalny event. To pozwala na odtworzenie pełnej historii i kontekstu.
+
+        Proces:
+        1. Pobiera ostatni numer sekwencyjny dla tej persony
+        2. Konwertuje dane eventu na tekst i generuje embedding (Google Gemini)
+        3. Zapisuje event w bazie z embeddingiem (do późniejszego semantic search)
+
+        Args:
+            db: Sesja bazy danych
+            persona_id: UUID persony
+            event_type: Typ eventu (np. "response_given", "question_asked")
+            event_data: Dane eventu (słownik, np. {"question": "...", "response": "..."})
+            focus_group_id: Opcjonalnie UUID grupy fokusowej
+
+        Returns:
+            Utworzony obiekt PersonaEvent
+        """
+
+        # Pobierz numer sekwencyjny (każda persona ma swoją sekwencję 1, 2, 3...)
         result = await db.execute(
             select(PersonaEvent)
             .where(PersonaEvent.persona_id == persona_id)
@@ -59,10 +79,11 @@ class MemoryServiceLangChain:
         last_event = result.scalar_one_or_none()
         sequence_number = (last_event.sequence_number + 1) if last_event else 1
 
-        # Generate embedding using LangChain
+        # Wygeneruj embedding używając Google Gemini (do semantic search później)
         event_text = self._event_to_text(event_type, event_data)
         embedding = await self._generate_embedding(event_text)
 
+        # Utwórz event (niemodyfikowalny - append-only log)
         event = PersonaEvent(
             persona_id=persona_id,
             focus_group_id=focus_group_id,
@@ -88,14 +109,44 @@ class MemoryServiceLangChain:
         time_decay: bool = True,
     ) -> List[Dict[str, Any]]:
         """
-        Retrieve relevant context from persona's event history
-        Uses LangChain embeddings + temporal weighting
+        Pobierz relevantny kontekst z historii eventów persony (semantic search)
+
+        Używa embeddingów (wektorów semantycznych) do znalezienia najbardziej
+        relevantnych poprzednich interakcji persony dla danego zapytania.
+
+        Algorytm:
+        1. Generuje embedding dla query (pytania)
+        2. Dla każdego eventu w historii, oblicza cosine similarity
+        3. Opcjonalnie stosuje temporal decay (starsze eventy mają niższy score)
+        4. Zwraca top-k najrelevantniejszych eventów
+
+        Args:
+            db: Sesja bazy danych
+            persona_id: UUID persony
+            query: Tekst zapytania (np. aktualne pytanie do persony)
+            top_k: Ile eventów zwrócić (domyślnie 5)
+            time_decay: Czy stosować temporal decay (starsze = niższy score)
+
+        Returns:
+            Lista słowników z eventami posortowana po relevance_score:
+            [
+                {
+                    "event_id": str,
+                    "event_type": str,
+                    "event_data": dict,
+                    "timestamp": str,
+                    "relevance_score": float,  # similarity * decay_factor
+                    "similarity": float,       # czysty cosine similarity
+                    "age_days": float          # wiek eventu w dniach
+                },
+                ...
+            ]
         """
 
-        # Generate query embedding using LangChain
+        # Wygeneruj embedding dla zapytania
         query_embedding = await self._generate_embedding(query)
 
-        # Get all events for persona
+        # Pobierz wszystkie eventy persony
         result = await db.execute(
             select(PersonaEvent)
             .where(PersonaEvent.persona_id == persona_id)
@@ -106,7 +157,7 @@ class MemoryServiceLangChain:
         if not events:
             return []
 
-        # Calculate similarity scores
+        # Oblicz score dla każdego eventu
         scored_events = []
         current_time = datetime.now(timezone.utc)
 
@@ -114,13 +165,14 @@ class MemoryServiceLangChain:
             if event.embedding is None:
                 continue
 
-            # Cosine similarity
+            # Cosine similarity (miara podobieństwa semantycznego)
             similarity = self._cosine_similarity(query_embedding, event.embedding)
 
-            # Apply temporal decay if enabled
+            # Zastosuj temporal decay jeśli włączony
             if time_decay:
                 time_diff = (current_time - event.timestamp).total_seconds()
-                decay_factor = np.exp(-time_diff / (30 * 24 * 3600))  # 30-day half-life
+                # Decay factor: exp(-t/30dni) - po 30 dniach score spada do ~37%
+                decay_factor = np.exp(-time_diff / (30 * 24 * 3600))
                 score = similarity * decay_factor
             else:
                 score = similarity
@@ -134,7 +186,7 @@ class MemoryServiceLangChain:
                 }
             )
 
-        # Sort by score and return top-k
+        # Sortuj po score i weź top-k
         scored_events.sort(key=lambda x: x["score"], reverse=True)
         top_events = scored_events[:top_k]
 
@@ -155,7 +207,17 @@ class MemoryServiceLangChain:
     async def get_persona_history(
         self, db: AsyncSession, persona_id: str, limit: int = 50
     ) -> List[PersonaEvent]:
-        """Get full event history for a persona"""
+        """
+        Pobierz pełną historię eventów persony
+
+        Args:
+            db: Sesja bazy danych
+            persona_id: UUID persony
+            limit: Maksymalna liczba eventów do pobrania
+
+        Returns:
+            Lista obiektów PersonaEvent posortowana po sequence_number (malejąco)
+        """
         result = await db.execute(
             select(PersonaEvent)
             .where(PersonaEvent.persona_id == persona_id)
@@ -165,12 +227,34 @@ class MemoryServiceLangChain:
         return result.scalars().all()
 
     async def _generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding vector using LangChain Gemini embeddings"""
+        """
+        Wygeneruj wektor embeddingu używając Google Gemini
+
+        Args:
+            text: Tekst do zaembeddowania
+
+        Returns:
+            Lista floatów reprezentująca wektor embedding (768 wymiarów dla Gemini)
+        """
         embedding = await self.embeddings.aembed_query(text)
         return embedding
 
     def _event_to_text(self, event_type: str, event_data: Dict[str, Any]) -> str:
-        """Convert event to text for embedding"""
+        """
+        Konwertuj event na tekst do embeddingu
+
+        Różne typy eventów mają różne formatowanie tekstowe:
+        - response_given: "Question: ... Response: ..."
+        - question_asked: "Question: ..."
+        - inne: str(event_data)
+
+        Args:
+            event_type: Typ eventu
+            event_data: Dane eventu (słownik)
+
+        Returns:
+            Sformatowany tekst reprezentujący event
+        """
         if event_type == "response_given":
             return f"Question: {event_data.get('question', '')}\nResponse: {event_data.get('response', '')}"
         elif event_type == "question_asked":
@@ -179,7 +263,17 @@ class MemoryServiceLangChain:
             return str(event_data)
 
     def _format_context(self, context: List[Dict[str, Any]]) -> str:
-        """Format context for LLM consumption"""
+        """
+        Sformatuj kontekst do konsumpcji przez LLM
+
+        Tworzy czytelny tekst z listy eventów do wstawienia w prompt.
+
+        Args:
+            context: Lista eventów (słowniki z retrieve_relevant_context)
+
+        Returns:
+            Sformatowany tekst kontekstu
+        """
         formatted = []
         for i, ctx in enumerate(context, 1):
             event_type = ctx["event_type"]
@@ -196,7 +290,19 @@ class MemoryServiceLangChain:
         return "\n".join(formatted)
 
     def _cosine_similarity(self, a: List[float], b: List[float]) -> float:
-        """Calculate cosine similarity between two vectors"""
+        """
+        Oblicz cosine similarity między dwoma wektorami
+
+        Cosine similarity to miara podobieństwa wektorów w przestrzeni n-wymiarowej.
+        Wartość 1.0 = identyczne, 0.0 = ortogonalne, -1.0 = przeciwne.
+
+        Args:
+            a: Pierwszy wektor (lista floatów)
+            b: Drugi wektor (lista floatów)
+
+        Returns:
+            Cosine similarity w przedziale [-1, 1]
+        """
         a_arr = np.array(a)
         b_arr = np.array(b)
         return float(np.dot(a_arr, b_arr) / (np.linalg.norm(a_arr) * np.linalg.norm(b_arr)))
