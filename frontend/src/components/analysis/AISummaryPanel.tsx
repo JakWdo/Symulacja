@@ -13,7 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toastStore';
 import axios from 'axios';
 import { analysisApi } from '@/lib/api';
@@ -220,6 +220,10 @@ export function AISummaryPanel({
         </div>
       </div>
     );
+  }
+
+  if (!summary) {
+    return null;
   }
 
   return (

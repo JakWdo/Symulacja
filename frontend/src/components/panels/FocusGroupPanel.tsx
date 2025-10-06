@@ -16,7 +16,7 @@ import {
   Sparkles,
   ArrowRight,
 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import type { FocusGroup } from '@/types';

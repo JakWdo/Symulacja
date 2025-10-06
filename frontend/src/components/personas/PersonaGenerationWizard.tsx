@@ -1,705 +1,1016 @@
-/**
- * PersonaGenerationWizard
- * 5-step wizard for creating personas with custom distributions
- */
-
-import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles, Users, MapPin, Brain, Briefcase, Check } from 'lucide-react';
-import { DistributionBuilder } from './DistributionBuilder';
-import { DEMOGRAPHIC_PRESETS } from '@/lib/demographicPresets';
-import type { PersonaAdvancedOptions } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import { ArrowRight, ArrowLeft, Users, Target, MapPin, Brain, Settings, ChevronRight, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface PersonaGenerationWizardProps {
-  onSubmit: (config: {
-    num_personas: number;
-    adversarial_mode: boolean;
-    advanced_options?: PersonaAdvancedOptions;
-  }) => void;
-  onCancel: () => void;
-  isGenerating: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onGenerate: (config: PersonaConfig) => void;
 }
 
-type WizardStep = 1 | 2 | 3 | 4 | 5;
+interface PersonaConfig {
+  // Basic Setup
+  personaCount: number;
+  adversarialMode: boolean;
+  demographicPreset: string;
+  
+  // Demographics
+  ageGroups: Record<string, [number]>;
+  genderDistribution: Record<string, [number]>;
+  educationLevels: Record<string, [number]>;
+  incomeBrackets: Record<string, [number]>;
+  
+  // Geography
+  locationDistribution: { city: string; weight: number }[];
+  targetCities: string;
+  urbanicity: string;
+  
+  // Psychographics
+  requiredValues: string[];
+  excludedValues: string[];
+  requiredInterests: string[];
+  excludedInterests: string[];
+  
+  // Advanced
+  targetIndustries: string[];
+  personalitySkew: Record<string, [number]>;
+}
 
-export function PersonaGenerationWizard({
-  onSubmit,
-  onCancel,
-  isGenerating,
-}: PersonaGenerationWizardProps) {
-  const [currentStep, setCurrentStep] = useState<WizardStep>(1);
+const demographicPresets = [
+  { id: 'gen-z', name: 'Gen Z Consumers', description: 'Ages 18-27, digital natives, value-conscious' },
+  { id: 'millennials', name: 'Millennials', description: 'Ages 28-43, tech-savvy professionals' },
+  { id: 'gen-x', name: 'Gen X', description: 'Ages 44-59, established careers, family-focused' },
+  { id: 'boomers', name: 'Baby Boomers', description: 'Ages 60+, traditional values, stability-focused' },
+  { id: 'tech-pros', name: 'Tech Professionals', description: 'Software engineers, designers, product managers' },
+  { id: 'budget-shoppers', name: 'Budget Shoppers', description: 'Price-sensitive, deal-seeking consumers' },
+  { id: 'luxury-buyers', name: 'Luxury Buyers', description: 'High-income, quality-focused consumers' },
+  { id: 'entrepreneurs', name: 'Entrepreneurs', description: 'Business owners, risk-takers, innovation-focused' },
+  { id: 'parents', name: 'Parents', description: 'Families with children, safety and value-conscious' },
+  { id: 'students', name: 'Students', description: 'University students, budget-conscious, future-oriented' },
+  { id: 'retirees', name: 'Retirees', description: 'Retired individuals, leisure-focused, established' },
+  { id: 'urban-prof', name: 'Urban Professionals', description: 'City dwellers, career-focused, convenience-oriented' },
+  { id: 'custom', name: 'Custom Configuration', description: 'Create your own demographic distribution' }
+];
 
-  // Step 1: Basic config
-  const [numPersonas, setNumPersonas] = useState(10);
-  const [adversarialMode, setAdversarialMode] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState<string>('balanced');
+const personalityTraits = [
+  { key: 'openness', name: 'Openness', description: 'Openness to new experiences and ideas' },
+  { key: 'conscientiousness', name: 'Conscientiousness', description: 'Organization, discipline, and responsibility' },
+  { key: 'extraversion', name: 'Extraversion', description: 'Sociability and outgoing nature' },
+  { key: 'agreeableness', name: 'Agreeableness', description: 'Cooperation and trust in others' },
+  { key: 'neuroticism', name: 'Neuroticism', description: 'Emotional sensitivity and stress response' }
+];
 
-  // Step 2: Demographics
-  const [ageGroups, setAgeGroups] = useState<Record<string, number>>({});
-  const [genderWeights, setGenderWeights] = useState<Record<string, number>>({});
-  const [educationWeights, setEducationWeights] = useState<Record<string, number>>({});
-  const [incomeWeights, setIncomeWeights] = useState<Record<string, number>>({});
-
-  // Step 3: Geography
-  const [locationWeights, setLocationWeights] = useState<Record<string, number>>({});
-  const [targetCities, setTargetCities] = useState<string>('');
-  const [urbanicity, setUrbanicity] = useState<'any' | 'urban' | 'suburban' | 'rural'>('any');
-
-  // Step 4: Psychographics
-  const [requiredValues, setRequiredValues] = useState<string>('');
-  const [excludedValues, setExcludedValues] = useState<string>('');
-  const [requiredInterests, setRequiredInterests] = useState<string>('');
-  const [excludedInterests, setExcludedInterests] = useState<string>('');
-
-  // Step 5: Advanced (occupation, personality)
-  const [industries, setIndustries] = useState<string>('');
-  const [personalitySkew, setPersonalitySkew] = useState<Record<string, number>>({
-    openness: 0.5,
-    conscientiousness: 0.5,
-    extraversion: 0.5,
-    agreeableness: 0.5,
-    neuroticism: 0.5,
+export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: PersonaGenerationWizardProps) {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  
+  const [config, setConfig] = useState<PersonaConfig>({
+    // Basic Setup
+    personaCount: 20,
+    adversarialMode: false,
+    demographicPreset: '',
+    
+    // Demographics
+    ageGroups: {
+      '18-24': [20],
+      '25-34': [30],
+      '35-44': [25],
+      '45-54': [15],
+      '55-64': [7],
+      '65+': [3]
+    },
+    genderDistribution: {
+      'male': [45],
+      'female': [50],
+      'non-binary': [5]
+    },
+    educationLevels: {
+      'high-school': [20],
+      'some-college': [25],
+      'bachelors': [35],
+      'masters': [15],
+      'doctorate': [5]
+    },
+    incomeBrackets: {
+      'under-30k': [15],
+      '30k-50k': [25],
+      '50k-75k': [25],
+      '75k-100k': [20],
+      '100k-150k': [10],
+      'over-150k': [5]
+    },
+    
+    // Geography
+    locationDistribution: [
+      { city: 'New York City', weight: 30 },
+      { city: 'Los Angeles', weight: 25 },
+      { city: 'Chicago', weight: 20 },
+      { city: 'Houston', weight: 15 },
+      { city: 'Phoenix', weight: 10 }
+    ],
+    targetCities: '',
+    urbanicity: 'any',
+    
+    // Psychographics
+    requiredValues: [],
+    excludedValues: [],
+    requiredInterests: [],
+    excludedInterests: [],
+    
+    // Advanced
+    targetIndustries: [],
+    personalitySkew: {
+      'openness': [50],
+      'conscientiousness': [50],
+      'extraversion': [50],
+      'agreeableness': [50],
+      'neuroticism': [50]
+    }
   });
 
-  // Load preset when selected
-  const handlePresetChange = (presetId: string) => {
-    setSelectedPreset(presetId);
-    const preset = DEMOGRAPHIC_PRESETS.find((p) => p.id === presetId);
-    if (!preset) return;
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [newValue, setNewValue] = useState('');
+  const [newInterest, setNewInterest] = useState('');
+  const [newIndustry, setNewIndustry] = useState('');
+  const [newCity, setNewCity] = useState('');
+  const [newCityWeight, setNewCityWeight] = useState(10);
 
-    // Apply preset distributions
-    if (preset.distributions.custom_age_groups) {
-      setAgeGroups(preset.distributions.custom_age_groups);
-    }
-    if (preset.distributions.gender_weights) {
-      setGenderWeights(preset.distributions.gender_weights);
-    }
-    if (preset.distributions.education_weights) {
-      setEducationWeights(preset.distributions.education_weights);
-    }
-    if (preset.distributions.income_weights) {
-      setIncomeWeights(preset.distributions.income_weights);
-    }
-    if (preset.distributions.location_weights) {
-      setLocationWeights(preset.distributions.location_weights);
-    }
-
-    // Apply advanced options
-    if (preset.advanced_options?.urbanicity) {
-      setUrbanicity(preset.advanced_options.urbanicity);
-    }
+  // Calculate distribution totals for validation
+  const calculateTotal = (distribution: Record<string, [number]>) => {
+    return Object.values(distribution).reduce((sum, [value]) => sum + value, 0);
   };
 
-  // Build advanced options object
-  const buildAdvancedOptions = useMemo((): PersonaAdvancedOptions | undefined => {
-    const options: PersonaAdvancedOptions = {};
-
-    // Demographics
-    if (Object.keys(ageGroups).length > 0) {
-      options.custom_age_groups = ageGroups;
+  const validateStep = (step: number): string[] => {
+    const errors: string[] = [];
+    
+    switch (step) {
+      case 1:
+        if (config.personaCount < 2 || config.personaCount > 100) {
+          errors.push('Number of personas must be between 2 and 100');
+        }
+        break;
+      case 2:
+        const ageTotal = calculateTotal(config.ageGroups);
+        const genderTotal = calculateTotal(config.genderDistribution);
+        const educationTotal = calculateTotal(config.educationLevels);
+        const incomeTotal = calculateTotal(config.incomeBrackets);
+        
+        if (Math.abs(ageTotal - 100) > 1) errors.push('Age groups must sum to 100%');
+        if (Math.abs(genderTotal - 100) > 1) errors.push('Gender distribution must sum to 100%');
+        if (Math.abs(educationTotal - 100) > 1) errors.push('Education levels must sum to 100%');
+        if (Math.abs(incomeTotal - 100) > 1) errors.push('Income brackets must sum to 100%');
+        break;
+      case 3:
+        const locationTotal = config.locationDistribution.reduce((sum, loc) => sum + loc.weight, 0);
+        if (config.locationDistribution.length > 0 && Math.abs(locationTotal - 100) > 1) {
+          errors.push('Location distribution must sum to 100%');
+        }
+        break;
     }
-    if (Object.keys(genderWeights).length > 0) {
-      options.gender_weights = genderWeights;
-    }
-    if (Object.keys(educationWeights).length > 0) {
-      options.education_weights = educationWeights;
-    }
-    if (Object.keys(incomeWeights).length > 0) {
-      options.income_weights = incomeWeights;
-    }
-    if (Object.keys(locationWeights).length > 0) {
-      options.location_weights = locationWeights;
-    }
-
-    // Geography
-    if (targetCities.trim()) {
-      options.target_cities = targetCities.split(',').map((c) => c.trim()).filter(Boolean);
-    }
-    if (urbanicity !== 'any') {
-      options.urbanicity = urbanicity;
-    }
-
-    // Psychographics
-    if (requiredValues.trim()) {
-      options.required_values = requiredValues.split(',').map((v) => v.trim()).filter(Boolean);
-    }
-    if (excludedValues.trim()) {
-      options.excluded_values = excludedValues.split(',').map((v) => v.trim()).filter(Boolean);
-    }
-    if (requiredInterests.trim()) {
-      options.required_interests = requiredInterests.split(',').map((i) => i.trim()).filter(Boolean);
-    }
-    if (excludedInterests.trim()) {
-      options.excluded_interests = excludedInterests.split(',').map((i) => i.trim()).filter(Boolean);
-    }
-
-    // Advanced
-    if (industries.trim()) {
-      options.industries = industries.split(',').map((i) => i.trim()).filter(Boolean);
-    }
-
-    // Personality skew (only if not all 0.5)
-    const hasSkew = Object.values(personalitySkew).some((v) => Math.abs(v - 0.5) > 0.01);
-    if (hasSkew) {
-      options.personality_skew = personalitySkew;
-    }
-
-    return Object.keys(options).length > 0 ? options : undefined;
-  }, [
-    ageGroups,
-    genderWeights,
-    educationWeights,
-    incomeWeights,
-    locationWeights,
-    targetCities,
-    urbanicity,
-    requiredValues,
-    excludedValues,
-    requiredInterests,
-    excludedInterests,
-    industries,
-    personalitySkew,
-  ]);
+    
+    return errors;
+  };
 
   const handleNext = () => {
-    if (currentStep < 5) {
-      setCurrentStep((currentStep + 1) as WizardStep);
+    const errors = validateStep(currentStep);
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    setValidationErrors([]);
+    setCurrentStep(prev => Math.min(prev + 1, 5));
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+    setValidationErrors([]);
+  };
+
+  const handleGenerate = async () => {
+    const allErrors = validateStep(1).concat(validateStep(2), validateStep(3));
+    if (allErrors.length > 0) {
+      setValidationErrors(allErrors);
+      return;
+    }
+    
+    setIsGenerating(true);
+    setGenerationProgress(0);
+    
+    // Simulate generation progress
+    const interval = setInterval(() => {
+      setGenerationProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsGenerating(false);
+          onGenerate(config);
+          onOpenChange(false);
+          // Reset wizard state
+          setCurrentStep(1);
+          setGenerationProgress(0);
+          setValidationErrors([]);
+          return 100;
+        }
+        return prev + 8;
+      });
+    }, 200);
+  };
+
+  const applyPreset = (presetId: string) => {
+    switch (presetId) {
+      case 'gen-z':
+        setConfig(prev => ({
+          ...prev,
+          ageGroups: {
+            '18-24': [70],
+            '25-34': [30],
+            '35-44': [0],
+            '45-54': [0],
+            '55-64': [0],
+            '65+': [0]
+          }
+        }));
+        break;
+      case 'millennials':
+        setConfig(prev => ({
+          ...prev,
+          ageGroups: {
+            '18-24': [0],
+            '25-34': [60],
+            '35-44': [40],
+            '45-54': [0],
+            '55-64': [0],
+            '65+': [0]
+          }
+        }));
+        break;
+      case 'tech-pros':
+        setConfig(prev => ({
+          ...prev,
+          ageGroups: {
+            '18-24': [10],
+            '25-34': [50],
+            '35-44': [30],
+            '45-54': [10],
+            '55-64': [0],
+            '65+': [0]
+          },
+          educationLevels: {
+            'high-school': [5],
+            'some-college': [15],
+            'bachelors': [60],
+            'masters': [18],
+            'doctorate': [2]
+          },
+          incomeBrackets: {
+            'under-30k': [5],
+            '30k-50k': [10],
+            '50k-75k': [25],
+            '75k-100k': [35],
+            '100k-150k': [20],
+            'over-150k': [5]
+          }
+        }));
+        break;
     }
   };
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep((currentStep - 1) as WizardStep);
+  const addToList = (list: string[], value: string, setter: (fn: (prev: PersonaConfig) => PersonaConfig) => void, key: keyof PersonaConfig) => {
+    if (value.trim() && !list.includes(value.trim())) {
+      setter(prev => ({
+        ...prev,
+        [key]: [...(prev[key] as string[]), value.trim()]
+      }));
     }
   };
 
-  const handleSubmit = () => {
-    onSubmit({
-      num_personas: numPersonas,
-      adversarial_mode: adversarialMode,
-      advanced_options: buildAdvancedOptions,
-    });
+  const removeFromList = (list: string[], value: string, setter: (fn: (prev: PersonaConfig) => PersonaConfig) => void, key: keyof PersonaConfig) => {
+    setter(prev => ({
+      ...prev,
+      [key]: (prev[key] as string[]).filter(item => item !== value)
+    }));
+  };
+
+  const addLocation = () => {
+    if (newCity.trim() && newCityWeight > 0) {
+      const newLocation = { city: newCity.trim(), weight: newCityWeight };
+      setConfig(prev => ({
+        ...prev,
+        locationDistribution: [...prev.locationDistribution, newLocation]
+      }));
+      setNewCity('');
+      setNewCityWeight(10);
+    }
+  };
+
+  const removeLocation = (index: number) => {
+    setConfig(prev => ({
+      ...prev,
+      locationDistribution: prev.locationDistribution.filter((_, i) => i !== index)
+    }));
   };
 
   const steps = [
-    { number: 1, title: 'Basic Setup', icon: Users },
-    { number: 2, title: 'Demographics', icon: Users },
-    { number: 3, title: 'Geography', icon: MapPin },
-    { number: 4, title: 'Psychographics', icon: Brain },
-    { number: 5, title: 'Advanced', icon: Briefcase },
+    { id: 1, name: 'Basic Setup', icon: Settings },
+    { id: 2, name: 'Demographics', icon: Users },
+    { id: 3, name: 'Geography', icon: MapPin },
+    { id: 4, name: 'Psychographics', icon: Brain },
+    { id: 5, name: 'Advanced', icon: Target }
   ];
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            Persona Generation Wizard
-          </h2>
-          <p className="text-purple-100 text-xs mt-1">
-            Create custom personas with precise demographic control
-          </p>
-        </div>
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <div>
+              <Label htmlFor="persona-count" className="text-base font-medium">Number of Personas</Label>
+              <p className="text-sm text-muted-foreground mb-3">How many AI personas should be generated? (2-100)</p>
+              <Input
+                id="persona-count"
+                type="number"
+                value={config.personaCount}
+                onChange={(e) => setConfig(prev => ({ ...prev, personaCount: parseInt(e.target.value) || 20 }))}
+                className="bg-input-background border-border"
+                min="2"
+                max="100"
+              />
+            </div>
 
-        {/* Progress Steps */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-slate-50">
-          {steps.map((step, idx) => {
-            const Icon = step.icon;
-            const isActive = currentStep === step.number;
-            const isCompleted = currentStep > step.number;
 
-            return (
-              <div key={step.number} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                      isActive
-                        ? 'bg-purple-600 text-white shadow-lg scale-110'
-                        : isCompleted
-                        ? 'bg-green-500 text-white'
-                        : 'bg-slate-200 text-slate-400'
+
+            <Separator />
+
+            <div>
+              <Label className="text-base font-medium">Demographic Presets</Label>
+              <p className="text-sm text-muted-foreground mb-4">Choose a preset to auto-configure demographics, or select custom</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {demographicPresets.map((preset) => (
+                  <Card 
+                    key={preset.id}
+                    className={`cursor-pointer transition-all hover:shadow-elevated ${
+                      config.demographicPreset === preset.id 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-primary/50'
                     }`}
+                    onClick={() => {
+                      setConfig(prev => ({ ...prev, demographicPreset: preset.id }));
+                      if (preset.id !== 'custom') {
+                        applyPreset(preset.id);
+                      }
+                    }}
                   >
-                    {isCompleted ? (
-                      <Check className="w-4 h-4" />
-                    ) : (
-                      <Icon className="w-4 h-4" />
-                    )}
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm">{preset.name}</h4>
+                          <p className="text-xs text-muted-foreground mt-1">{preset.description}</p>
+                        </div>
+                        {config.demographicPreset === preset.id && (
+                          <Check className="w-4 h-4 text-primary mt-0.5" />
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium mb-4">Age Groups Distribution</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {Object.entries(config.ageGroups).map(([group, [value]]) => (
+                  <div key={group} className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-sm">{group} years</Label>
+                      <span className="text-sm text-muted-foreground">{value}%</span>
+                    </div>
+                    <Slider
+                      value={[value]}
+                      onValueChange={([newValue]) => setConfig(prev => ({
+                        ...prev,
+                        ageGroups: { ...prev.ageGroups, [group]: [newValue] }
+                      }))}
+                      max={100}
+                      step={1}
+                      className="w-full"
+                    />
                   </div>
-                  <span
-                    className={`text-[10px] mt-1 font-medium ${
-                      isActive ? 'text-purple-600' : isCompleted ? 'text-green-600' : 'text-slate-400'
-                    }`}
-                  >
-                    {step.title}
-                  </span>
-                </div>
-                {idx < steps.length - 1 && (
-                  <div
-                    className={`h-0.5 flex-1 mx-2 transition-all ${
-                      isCompleted ? 'bg-green-500' : 'bg-slate-200'
-                    }`}
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Total: {calculateTotal(config.ageGroups)}% (should equal 100%)
+              </p>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Gender Distribution</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {Object.entries(config.genderDistribution).map(([gender, [value]]) => (
+                  <div key={gender} className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-sm capitalize">{gender}</Label>
+                      <span className="text-sm text-muted-foreground">{value}%</span>
+                    </div>
+                    <Slider
+                      value={[value]}
+                      onValueChange={([newValue]) => setConfig(prev => ({
+                        ...prev,
+                        genderDistribution: { ...prev.genderDistribution, [gender]: [newValue] }
+                      }))}
+                      max={100}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Total: {calculateTotal(config.genderDistribution)}% (should equal 100%)
+              </p>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Education Levels</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {Object.entries(config.educationLevels).map(([level, [value]]) => (
+                  <div key={level} className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-sm">{level.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</Label>
+                      <span className="text-sm text-muted-foreground">{value}%</span>
+                    </div>
+                    <Slider
+                      value={[value]}
+                      onValueChange={([newValue]) => setConfig(prev => ({
+                        ...prev,
+                        educationLevels: { ...prev.educationLevels, [level]: [newValue] }
+                      }))}
+                      max={100}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Total: {calculateTotal(config.educationLevels)}% (should equal 100%)
+              </p>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Income Brackets</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {Object.entries(config.incomeBrackets).map(([bracket, [value]]) => (
+                  <div key={bracket} className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-sm">{bracket.replace('-', ' - $').replace('k', ',000').replace('under', 'Under $').replace('over', 'Over $')}</Label>
+                      <span className="text-sm text-muted-foreground">{value}%</span>
+                    </div>
+                    <Slider
+                      value={[value]}
+                      onValueChange={([newValue]) => setConfig(prev => ({
+                        ...prev,
+                        incomeBrackets: { ...prev.incomeBrackets, [bracket]: [newValue] }
+                      }))}
+                      max={100}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Total: {calculateTotal(config.incomeBrackets)}% (should equal 100%)
+              </p>
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium mb-4">Location Distribution</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Configure geographic distribution of your personas by city or region.
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    placeholder="City name (e.g., San Francisco)"
+                    value={newCity}
+                    onChange={(e) => setNewCity(e.target.value)}
+                    className="bg-input-background border-border flex-1"
                   />
+                  <Input
+                    type="number"
+                    placeholder="Weight %"
+                    value={newCityWeight}
+                    onChange={(e) => setNewCityWeight(parseInt(e.target.value) || 0)}
+                    className="bg-input-background border-border w-full sm:w-24"
+                    min="1"
+                    max="100"
+                  />
+                  <Button onClick={addLocation} variant="outline" className="border-border w-full sm:w-auto">
+                    Add
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  {config.locationDistribution.map((location, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">{location.city}</span>
+                        <Badge variant="secondary">{location.weight}%</Badge>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeLocation(index)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                {config.locationDistribution.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Total: {config.locationDistribution.reduce((sum, loc) => sum + loc.weight, 0)}% (should equal 100%)
+                  </p>
                 )}
               </div>
-            );
-          })}
-        </div>
+            </div>
 
-        {/* Step Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {currentStep === 1 && (
-            <Step1BasicSetup
-              numPersonas={numPersonas}
-              setNumPersonas={setNumPersonas}
-              adversarialMode={adversarialMode}
-              setAdversarialMode={setAdversarialMode}
-              selectedPreset={selectedPreset}
-              onPresetChange={handlePresetChange}
-            />
-          )}
-          {currentStep === 2 && (
-            <Step2Demographics
-              ageGroups={ageGroups}
-              setAgeGroups={setAgeGroups}
-              genderWeights={genderWeights}
-              setGenderWeights={setGenderWeights}
-              educationWeights={educationWeights}
-              setEducationWeights={setEducationWeights}
-              incomeWeights={incomeWeights}
-              setIncomeWeights={setIncomeWeights}
-            />
-          )}
-          {currentStep === 3 && (
-            <Step3Geography
-              locationWeights={locationWeights}
-              setLocationWeights={setLocationWeights}
-              targetCities={targetCities}
-              setTargetCities={setTargetCities}
-              urbanicity={urbanicity}
-              setUrbanicity={setUrbanicity}
-            />
-          )}
-          {currentStep === 4 && (
-            <Step4Psychographics
-              requiredValues={requiredValues}
-              setRequiredValues={setRequiredValues}
-              excludedValues={excludedValues}
-              setExcludedValues={setExcludedValues}
-              requiredInterests={requiredInterests}
-              setRequiredInterests={setRequiredInterests}
-              excludedInterests={excludedInterests}
-              setExcludedInterests={setExcludedInterests}
-            />
-          )}
-          {currentStep === 5 && (
-            <Step5Advanced
-              industries={industries}
-              setIndustries={setIndustries}
-              personalitySkew={personalitySkew}
-              setPersonalitySkew={setPersonalitySkew}
-            />
-          )}
-        </div>
+            <Separator />
 
-        {/* Footer */}
-        <div className="border-t border-slate-200 px-4 py-2.5 bg-slate-50 flex items-center justify-between">
-          <button
-            onClick={onCancel}
-            disabled={isGenerating}
-            className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 font-medium disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <div className="flex gap-2">
-            {currentStep > 1 && (
-              <button
-                onClick={handleBack}
-                disabled={isGenerating}
-                className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 disabled:opacity-50"
+            <div>
+              <Label htmlFor="target-cities" className="text-base font-medium">Target Cities (Optional)</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Specific cities to focus on, separated by commas (e.g., "San Francisco, Seattle, Austin")
+              </p>
+              <Textarea
+                id="target-cities"
+                value={config.targetCities}
+                onChange={(e) => setConfig(prev => ({ ...prev, targetCities: e.target.value }))}
+                className="bg-input-background border-border"
+                placeholder="San Francisco, Seattle, Austin, Denver"
+                rows={2}
+              />
+            </div>
+
+            <div>
+              <Label className="text-base font-medium">Urbanicity Preference</Label>
+              <p className="text-sm text-muted-foreground mb-3">Geographic setting preference for personas</p>
+              <Select
+                value={config.urbanicity}
+                onValueChange={(value) => setConfig(prev => ({ ...prev, urbanicity: value }))}
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                Back
-              </button>
-            )}
+                <SelectTrigger className="bg-input-background border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any Setting</SelectItem>
+                  <SelectItem value="urban">Urban Only</SelectItem>
+                  <SelectItem value="suburban">Suburban Only</SelectItem>
+                  <SelectItem value="rural">Rural Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium mb-4">Required Values</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Values that personas MUST have (e.g., "Innovation, Sustainability")
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                <Input
+                  placeholder="Add a required value..."
+                  value={newValue}
+                  onChange={(e) => setNewValue(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      addToList(config.requiredValues, newValue, setConfig, 'requiredValues');
+                      setNewValue('');
+                    }
+                  }}
+                  className="bg-input-background border-border flex-1"
+                />
+                <Button 
+                  onClick={() => {
+                    addToList(config.requiredValues, newValue, setConfig, 'requiredValues');
+                    setNewValue('');
+                  }}
+                  variant="outline"
+                  className="border-border w-full sm:w-auto"
+                >
+                  Add
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {config.requiredValues.map((value) => (
+                  <Badge
+                    key={value}
+                    variant="default"
+                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => removeFromList(config.requiredValues, value, setConfig, 'requiredValues')}
+                  >
+                    {value} ×
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Excluded Values</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Values to exclude from personas (e.g., "Materialism, Risk-taking")
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                <Input
+                  placeholder="Add an excluded value..."
+                  value={newValue}
+                  onChange={(e) => setNewValue(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      addToList(config.excludedValues, newValue, setConfig, 'excludedValues');
+                      setNewValue('');
+                    }
+                  }}
+                  className="bg-input-background border-border flex-1"
+                />
+                <Button 
+                  onClick={() => {
+                    addToList(config.excludedValues, newValue, setConfig, 'excludedValues');
+                    setNewValue('');
+                  }}
+                  variant="outline"
+                  className="border-border w-full sm:w-auto"
+                >
+                  Add
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {config.excludedValues.map((value) => (
+                  <Badge
+                    key={value}
+                    variant="secondary"
+                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => removeFromList(config.excludedValues, value, setConfig, 'excludedValues')}
+                  >
+                    {value} ×
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Required Interests</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Interests personas must have (e.g., "Technology, Travel")
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                <Input
+                  placeholder="Add a required interest..."
+                  value={newInterest}
+                  onChange={(e) => setNewInterest(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      addToList(config.requiredInterests, newInterest, setConfig, 'requiredInterests');
+                      setNewInterest('');
+                    }
+                  }}
+                  className="bg-input-background border-border flex-1"
+                />
+                <Button 
+                  onClick={() => {
+                    addToList(config.requiredInterests, newInterest, setConfig, 'requiredInterests');
+                    setNewInterest('');
+                  }}
+                  variant="outline"
+                  className="border-border w-full sm:w-auto"
+                >
+                  Add
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {config.requiredInterests.map((interest) => (
+                  <Badge
+                    key={interest}
+                    variant="default"
+                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => removeFromList(config.requiredInterests, interest, setConfig, 'requiredInterests')}
+                  >
+                    {interest} ×
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Excluded Interests</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Interests to exclude (e.g., "Gambling, Smoking")
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                <Input
+                  placeholder="Add an excluded interest..."
+                  value={newInterest}
+                  onChange={(e) => setNewInterest(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      addToList(config.excludedInterests, newInterest, setConfig, 'excludedInterests');
+                      setNewInterest('');
+                    }
+                  }}
+                  className="bg-input-background border-border flex-1"
+                />
+                <Button 
+                  onClick={() => {
+                    addToList(config.excludedInterests, newInterest, setConfig, 'excludedInterests');
+                    setNewInterest('');
+                  }}
+                  variant="outline"
+                  className="border-border w-full sm:w-auto"
+                >
+                  Add
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {config.excludedInterests.map((interest) => (
+                  <Badge
+                    key={interest}
+                    variant="secondary"
+                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => removeFromList(config.excludedInterests, interest, setConfig, 'excludedInterests')}
+                  >
+                    {interest} ×
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 5:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium mb-4">Target Industries</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Professional industries to focus on (e.g., "Technology, Healthcare, Finance")
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                <Input
+                  placeholder="Add an industry..."
+                  value={newIndustry}
+                  onChange={(e) => setNewIndustry(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      addToList(config.targetIndustries, newIndustry, setConfig, 'targetIndustries');
+                      setNewIndustry('');
+                    }
+                  }}
+                  className="bg-input-background border-border flex-1"
+                />
+                <Button 
+                  onClick={() => {
+                    addToList(config.targetIndustries, newIndustry, setConfig, 'targetIndustries');
+                    setNewIndustry('');
+                  }}
+                  variant="outline"
+                  className="border-border w-full sm:w-auto"
+                >
+                  Add
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {config.targetIndustries.map((industry) => (
+                  <Badge
+                    key={industry}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground border-border"
+                    onClick={() => removeFromList(config.targetIndustries, industry, setConfig, 'targetIndustries')}
+                  >
+                    {industry} ×
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Personality Skew (Big Five)</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Adjust personality trait distributions. 50% = balanced, &lt;50% = low trait, &gt;50% = high trait
+              </p>
+
+              <div className="space-y-6">
+                {personalityTraits.map(({ key, name, description }) => (
+                  <div key={key} className="space-y-3">
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <Label className="font-medium">{name}</Label>
+                        <span className="text-sm text-muted-foreground">{config.personalitySkew[key][0]}%</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">{description}</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Slider
+                        value={config.personalitySkew[key]}
+                        onValueChange={(value) => setConfig(prev => ({
+                          ...prev,
+                          personalitySkew: { ...prev.personalitySkew, [key]: value }
+                        }))}
+                        max={100}
+                        step={1}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Low {name.toLowerCase()}</span>
+                        <span>Balanced</span>
+                        <span>High {name.toLowerCase()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl w-full h-[90vh] max-h-[90vh] bg-background border-border text-foreground flex flex-col p-0">
+        <div className="p-6 pb-0">
+          <DialogHeader>
+            <DialogTitle className="text-xl">AI Persona Generation Wizard</DialogTitle>
+            <DialogDescription>
+              Create advanced AI personas with precise demographic, geographic, and psychographic control.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Progress Steps */}
+          <div className="flex items-center justify-between mb-6 mt-6 overflow-x-auto pb-2">
+            {steps.map((step, index) => {
+              const Icon = step.icon;
+              const isActive = currentStep === step.id;
+              const isCompleted = currentStep > step.id;
+              
+              return (
+                <div key={step.id} className="flex items-center flex-shrink-0">
+                  <div className={`flex items-center justify-center w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 transition-colors ${
+                    isActive 
+                      ? 'border-primary bg-primary text-primary-foreground' 
+                      : isCompleted 
+                      ? 'border-primary bg-primary/10 text-primary' 
+                      : 'border-muted-foreground/30 text-muted-foreground'
+                  }`}>
+                    {isCompleted ? <Check className="w-4 h-4 lg:w-5 lg:h-5" /> : <Icon className="w-4 h-4 lg:w-5 lg:h-5" />}
+                  </div>
+                  <div className="ml-2 lg:ml-3 flex-1 min-w-0">
+                    <p className={`text-xs lg:text-sm font-medium truncate ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {step.name}
+                    </p>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <ChevronRight className="w-3 h-3 lg:w-4 lg:h-4 text-muted-foreground mx-2 lg:mx-4 flex-shrink-0" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <Alert className="mb-4 border-destructive/50 bg-destructive/10">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-destructive">
+                <ul className="list-disc list-inside space-y-1">
+                  {validationErrors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        {/* Step Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto px-6">
+          {renderStepContent()}
+        </div>
+
+        {/* Generation Progress */}
+        {isGenerating && (
+          <div className="px-6 py-4 space-y-2 border-t border-border">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Generating {config.personaCount} AI personas...</span>
+            </div>
+            <Progress value={generationProgress} className="w-full" />
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 p-6 pt-4 border-t border-border">
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            disabled={currentStep === 1 || isGenerating}
+            className="border-border w-full sm:w-auto"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Previous
+          </Button>
+
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isGenerating}
+              className="border-border w-full sm:w-auto order-2 sm:order-1"
+            >
+              Cancel
+            </Button>
+            
             {currentStep < 5 ? (
-              <button
+              <Button
                 onClick={handleNext}
-                className="px-4 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-1.5"
+                disabled={isGenerating}
+                className="bg-primary hover:bg-primary/90 w-full sm:w-auto order-1 sm:order-2"
               >
                 Next
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
             ) : (
-              <button
-                onClick={handleSubmit}
+              <Button
+                onClick={handleGenerate}
                 disabled={isGenerating}
-                className="px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1.5 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white w-full sm:w-auto order-1 sm:order-2"
               >
                 {isGenerating ? (
-                  <>
-                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" />
-                    Generating...
-                  </>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
-                  <>
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Generate Personas
-                  </>
+                  <Users className="w-4 h-4 mr-2" />
                 )}
-              </button>
+                Generate {config.personaCount} Personas
+              </Button>
             )}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// Step 1: Basic Setup
-function Step1BasicSetup({
-  numPersonas,
-  setNumPersonas,
-  adversarialMode,
-  setAdversarialMode,
-  selectedPreset,
-  onPresetChange,
-}: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-base font-semibold text-slate-900 mb-3">Basic Configuration</h3>
-
-        {/* Number of personas */}
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-slate-700">
-            Number of Personas
-          </label>
-          <input
-            type="number"
-            min="2"
-            max="100"
-            value={numPersonas}
-            onChange={(e) => setNumPersonas(parseInt(e.target.value, 10))}
-            className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <p className="text-xs text-slate-500">
-            Generate between 2-100 personas (more = slower but more diverse)
-          </p>
-        </div>
-
-        {/* Adversarial mode */}
-        <div className="mt-3 flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-          <input
-            type="checkbox"
-            id="adversarial"
-            checked={adversarialMode}
-            onChange={(e) => setAdversarialMode(e.target.checked)}
-            className="w-5 h-5 text-purple-600 border-slate-300 rounded focus:ring-purple-500"
-          />
-          <label htmlFor="adversarial" className="flex-1">
-            <div className="font-medium text-slate-900">Adversarial Mode</div>
-            <div className="text-xs text-slate-600">
-              Generate challenging personas to stress-test your idea
-            </div>
-          </label>
-        </div>
-      </div>
-
-      {/* Preset Templates */}
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Demographic Preset
-        </label>
-        <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-2">
-          {DEMOGRAPHIC_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              onClick={() => onPresetChange(preset.id)}
-              className={`p-2.5 rounded-lg border-2 text-left transition-all ${
-                selectedPreset === preset.id
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-slate-200 bg-white hover:border-purple-300'
-              }`}
-            >
-              <div className="text-xl mb-0.5">{preset.icon}</div>
-              <div className="font-semibold text-xs text-slate-900">{preset.name}</div>
-              <div className="text-[10px] text-slate-600 mt-0.5 line-clamp-2">{preset.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Step 2: Demographics
-function Step2Demographics({
-  ageGroups,
-  setAgeGroups,
-  genderWeights,
-  setGenderWeights,
-  educationWeights,
-  setEducationWeights,
-  incomeWeights,
-  setIncomeWeights,
-}: any) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-base font-semibold text-slate-900">Demographic Distributions</h3>
-        <p className="text-xs text-slate-600 mt-1">
-          Customize how your personas are distributed across age, gender, education, and income. Sliders must sum to 100%.
-        </p>
-      </div>
-
-      <DistributionBuilder
-        title="Age Groups"
-        distribution={ageGroups}
-        onChange={setAgeGroups}
-        allowCustomCategories
-        suggestedCategories={['18-24', '25-34', '35-44', '45-54', '55-64', '65+']}
-        colorScheme="#8b5cf6"
-      />
-
-      <DistributionBuilder
-        title="Gender"
-        distribution={genderWeights}
-        onChange={setGenderWeights}
-        allowCustomCategories
-        suggestedCategories={['male', 'female', 'non-binary']}
-        colorScheme="#ec4899"
-      />
-
-      <DistributionBuilder
-        title="Education Level"
-        distribution={educationWeights}
-        onChange={setEducationWeights}
-        allowCustomCategories
-        suggestedCategories={['High school', 'Some college', "Bachelor's degree", "Master's degree", 'Doctorate']}
-        colorScheme="#3b82f6"
-      />
-
-      <DistributionBuilder
-        title="Income Bracket"
-        distribution={incomeWeights}
-        onChange={setIncomeWeights}
-        allowCustomCategories
-        suggestedCategories={['< $25k', '$25k-$50k', '$50k-$75k', '$75k-$100k', '$100k-$150k', '> $150k']}
-        colorScheme="#10b981"
-      />
-    </div>
-  );
-}
-
-// Step 3: Geography
-function Step3Geography({
-  locationWeights,
-  setLocationWeights,
-  targetCities,
-  setTargetCities,
-  urbanicity,
-  setUrbanicity,
-}: any) {
-  return (
-    <div className="space-y-3">
-      <h3 className="text-base font-semibold text-slate-900">Geographic Targeting</h3>
-
-      <DistributionBuilder
-        title="Location Distribution"
-        distribution={locationWeights}
-        onChange={setLocationWeights}
-        allowCustomCategories
-        suggestedCategories={['New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Houston, TX', 'Phoenix, AZ']}
-        colorScheme="#f59e0b"
-      />
-
-      <div>
-        <label className="block text-xs font-medium text-slate-700 mb-1">
-          Target Cities (comma-separated)
-        </label>
-        <input
-          type="text"
-          value={targetCities}
-          onChange={(e) => setTargetCities(e.target.value)}
-          placeholder="e.g., San Francisco, Seattle, Austin"
-          className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-slate-700 mb-1">
-          Urbanicity Preference
-        </label>
-        <div className="grid grid-cols-4 gap-1.5">
-          {(['any', 'urban', 'suburban', 'rural'] as const).map((option) => (
-            <button
-              key={option}
-              onClick={() => setUrbanicity(option)}
-              className={`px-3 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
-                urbanicity === option
-                  ? 'border-purple-500 bg-purple-50 text-purple-700'
-                  : 'border-slate-200 text-slate-700 hover:border-purple-300'
-              }`}
-            >
-              {option.charAt(0).toUpperCase() + option.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Step 4: Psychographics
-function Step4Psychographics({
-  requiredValues,
-  setRequiredValues,
-  excludedValues,
-  setExcludedValues,
-  requiredInterests,
-  setRequiredInterests,
-  excludedInterests,
-  setExcludedInterests,
-}: any) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-base font-semibold text-slate-900">Psychographic Filters</h3>
-        <p className="text-xs text-slate-600 mt-1">
-          Target specific values and interests. Leave blank for no restrictions.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">
-            Required Values
-          </label>
-          <textarea
-            value={requiredValues}
-            onChange={(e) => setRequiredValues(e.target.value)}
-            placeholder="e.g., Innovation, Sustainability"
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-16 resize-none"
-          />
-          <p className="text-[10px] text-slate-500 mt-0.5">Comma-separated</p>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">
-            Excluded Values
-          </label>
-          <textarea
-            value={excludedValues}
-            onChange={(e) => setExcludedValues(e.target.value)}
-            placeholder="e.g., Materialism, Risk-taking"
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-16 resize-none"
-          />
-          <p className="text-[10px] text-slate-500 mt-0.5">Comma-separated</p>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">
-            Required Interests
-          </label>
-          <textarea
-            value={requiredInterests}
-            onChange={(e) => setRequiredInterests(e.target.value)}
-            placeholder="e.g., Technology, Travel"
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-16 resize-none"
-          />
-          <p className="text-[10px] text-slate-500 mt-0.5">Comma-separated</p>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">
-            Excluded Interests
-          </label>
-          <textarea
-            value={excludedInterests}
-            onChange={(e) => setExcludedInterests(e.target.value)}
-            placeholder="e.g., Gambling, Smoking"
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-16 resize-none"
-          />
-          <p className="text-[10px] text-slate-500 mt-0.5">Comma-separated</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Step 5: Advanced
-function Step5Advanced({
-  industries,
-  setIndustries,
-  personalitySkew,
-  setPersonalitySkew,
-}: any) {
-  return (
-    <div className="space-y-3">
-      <h3 className="text-base font-semibold text-slate-900">Advanced Options</h3>
-
-      <div>
-        <label className="block text-xs font-medium text-slate-700 mb-1">
-          Target Industries (comma-separated)
-        </label>
-        <input
-          type="text"
-          value={industries}
-          onChange={(e) => setIndustries(e.target.value)}
-          placeholder="e.g., Technology, Healthcare, Finance"
-          className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-      </div>
-
-      <div>
-        <h4 className="text-xs font-semibold text-slate-700 mb-1">
-          Personality Trait Skew (Big Five)
-        </h4>
-        <p className="text-[10px] text-slate-600 mb-2">
-          Adjust sliders to bias personality traits. 50% = balanced, &lt;50% = low trait, &gt;50% = high trait.
-        </p>
-        <div className="space-y-2">
-          {Object.entries(personalitySkew).map(([trait, value]) => {
-            const numValue = typeof value === 'number' ? value : 0.5;
-            return (
-              <div key={trait} className="space-y-0.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-medium text-slate-600 capitalize">
-                    {trait}
-                  </label>
-                  <span className="text-[10px] font-semibold text-slate-700">
-                    {(numValue * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={numValue * 100}
-                  onChange={(e) =>
-                    setPersonalitySkew({
-                      ...personalitySkew,
-                      [trait]: parseFloat(e.target.value) / 100,
-                    })
-                  }
-                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5">
-        <h4 className="text-xs font-semibold text-purple-900 mb-1">Summary</h4>
-        <ul className="text-[10px] text-purple-700 space-y-0.5">
-          <li>• All distributions will be validated before generation</li>
-          <li>• Custom options override preset templates</li>
-          <li>• Generation may take 30-60 seconds for large batches</li>
-        </ul>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

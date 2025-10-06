@@ -1,7 +1,15 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FloatingControls } from '@/components/layout/FloatingControls';
-import Dashboard from '@/components/layout/Dashboard';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/layout/AppSidebar';
+import { NewDashboard } from '@/components/layout/NewDashboard';
+import { Projects } from '@/components/layout/Projects';
+import { ProjectDetail } from '@/components/layout/ProjectDetail';
+import { FocusGroups } from '@/components/layout/FocusGroups';
+import { FocusGroupBuilder } from '@/components/layout/FocusGroupBuilder';
+import { FocusGroupView } from '@/components/layout/FocusGroupView';
+import { Personas } from '@/components/layout/Personas';
+import { Settings } from '@/components/Settings';
 import { ProjectPanel } from '@/components/panels/ProjectPanel';
 import { PersonaPanel } from '@/components/panels/PersonaPanel';
 import { FocusGroupPanel } from '@/components/panels/FocusGroupPanel';
@@ -9,13 +17,21 @@ import { AnalysisPanel } from '@/components/panels/AnalysisPanel';
 import { ToastContainer } from '@/components/ui/Toast';
 import { useAppStore } from '@/store/appStore';
 import { personasApi } from '@/lib/api';
+import { useTheme } from '@/hooks/use-theme';
+import type { Project, FocusGroup } from '@/types';
 
 export default function App() {
+  // Initialize theme
+  useTheme();
   const {
     selectedProject,
     setPersonas,
     setSelectedPersona,
   } = useAppStore();
+
+  const [currentView, setCurrentView] = useState('dashboard');
+  const [viewProject, setViewProject] = useState<Project | null>(null);
+  const [viewFocusGroup, setViewFocusGroup] = useState<FocusGroup | null>(null);
 
   // Fetch personas for selected project
   useQuery({
@@ -37,16 +53,92 @@ export default function App() {
     }
   }, [selectedProject, setPersonas, setSelectedPersona]);
 
+  const renderContent = () => {
+    switch (currentView) {
+      case 'dashboard':
+        return <NewDashboard onNavigate={setCurrentView} />;
+      case 'projects':
+        return (
+          <Projects
+            onSelectProject={(project) => {
+              setViewProject(project);
+              setCurrentView('project-detail');
+            }}
+          />
+        );
+      case 'project-detail':
+        return viewProject ? (
+          <ProjectDetail
+            project={viewProject}
+            onBack={() => setCurrentView('projects')}
+            onSelectFocusGroup={(focusGroup) => {
+              setViewFocusGroup(focusGroup);
+              setCurrentView('focus-group-detail');
+            }}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">No project selected</p>
+          </div>
+        );
+      case 'focus-groups':
+        return (
+          <FocusGroups
+            onCreateFocusGroup={() => setCurrentView('focus-group-builder')}
+            onSelectFocusGroup={(focusGroup) => {
+              setViewFocusGroup(focusGroup);
+              setCurrentView('focus-group-detail');
+            }}
+            showCreateDialog={false}
+            onCreateDialogChange={() => {}}
+          />
+        );
+      case 'focus-group-builder':
+        return (
+          <FocusGroupBuilder
+            onBack={() => setCurrentView('focus-groups')}
+            onSave={() => setCurrentView('focus-groups')}
+          />
+        );
+      case 'focus-group-detail':
+        return viewFocusGroup ? (
+          <FocusGroupView
+            focusGroup={viewFocusGroup}
+            onBack={() => setCurrentView('focus-groups')}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">No focus group selected</p>
+          </div>
+        );
+      case 'personas':
+        return <Personas />;
+      case 'settings':
+        return (
+          <div className="h-full overflow-y-auto">
+            <div className="p-6">
+              <Settings />
+            </div>
+          </div>
+        );
+      default:
+        return <NewDashboard onNavigate={setCurrentView} />;
+    }
+  };
+
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Main Dashboard */}
-      <Dashboard />
+    <div className="min-h-screen bg-background text-foreground">
+      <SidebarProvider>
+        <div className="flex w-full">
+          <AppSidebar currentView={currentView} onNavigate={setCurrentView} />
+          <main className="flex-1 bg-[rgba(232,233,236,0.3)] overflow-auto">
+            {renderContent()}
+          </main>
+        </div>
+      </SidebarProvider>
 
-      {/* Floating UI Elements */}
-      <FloatingControls />
+      {/* Preserve existing panels for workflows */}
       <ToastContainer />
-
-      {/* Panels */}
       <ProjectPanel />
       <PersonaPanel />
       <FocusGroupPanel />

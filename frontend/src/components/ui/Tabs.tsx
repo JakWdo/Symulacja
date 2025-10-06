@@ -1,77 +1,66 @@
-/**
- * Tabs Component
- * Simple tabbed interface for organizing content
- */
+"use client";
 
-import { useState, type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import * as React from "react";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
 
-export interface TabItem {
-  id: string;
-  label: string;
-  icon?: ReactNode;
-  content: ReactNode;
-  badge?: string | number;
-}
+import { cn } from "./utils";
 
-interface TabsProps {
-  tabs: TabItem[];
-  defaultTab?: string;
-  className?: string;
-  onChange?: (tabId: string) => void;
-}
-
-export function Tabs({ tabs, defaultTab, className, onChange }: TabsProps) {
-  const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id);
-
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
-    onChange?.(tabId);
-  };
-
-  const activeTabContent = tabs.find((tab) => tab.id === activeTab)?.content;
-
+function Tabs({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Root>) {
   return (
-    <div className={cn('space-y-4', className)}>
-      {/* Tab Navigation */}
-      <div className="border-b border-slate-200">
-        <nav className="flex gap-1 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300" aria-label="Tabs">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all border-b-2 whitespace-nowrap',
-                  isActive
-                    ? 'border-purple-600 text-purple-600'
-                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                )}
-              >
-                {tab.icon && <span className="flex-shrink-0">{tab.icon}</span>}
-                <span>{tab.label}</span>
-                {tab.badge !== undefined && (
-                  <span
-                    className={cn(
-                      'px-2 py-0.5 text-xs rounded-full',
-                      isActive
-                        ? 'bg-purple-100 text-purple-700'
-                        : 'bg-slate-100 text-slate-600'
-                    )}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Tab Content */}
-      <div className="py-2">{activeTabContent}</div>
-    </div>
+    <TabsPrimitive.Root
+      data-slot="tabs"
+      className={cn("flex flex-col gap-2", className)}
+      {...props}
+    />
   );
 }
+
+function TabsList({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.List>) {
+  return (
+    <TabsPrimitive.List
+      data-slot="tabs-list"
+      className={cn(
+        "bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-xl p-[3px] flex",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function TabsTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+  return (
+    <TabsPrimitive.Trigger
+      data-slot="tabs-trigger"
+      className={cn(
+        "data-[state=active]:bg-card dark:data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 text-foreground dark:text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-xl border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function TabsContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Content>) {
+  return (
+    <TabsPrimitive.Content
+      data-slot="tabs-content"
+      className={cn("flex-1 outline-none", className)}
+      {...props}
+    />
+  );
+}
+
+export { Tabs, TabsList, TabsTrigger, TabsContent };

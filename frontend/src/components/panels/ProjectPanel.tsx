@@ -5,7 +5,7 @@ import { projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { Plus, FolderOpen, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
-import { Button } from '@/components/ui/Button'; // Import Button
+import { Button } from '@/components/ui/button'; // Import Button
 import type { Project } from '@/types';
 
 // Komponent formularza do tworzenia projektu

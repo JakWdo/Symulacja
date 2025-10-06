@@ -18,7 +18,7 @@ import {
   Sparkles,
   MapPin,
 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { cn, getPersonalityColor } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import type { Persona } from '@/types';
