@@ -283,7 +283,7 @@ export const surveysApi = {
   },
 
   getResults: async (surveyId: string): Promise<SurveyResults> => {
-    const { data } = await api.get<SurveyResults>(
+    const { data} = await api.get<SurveyResults>(
       `/surveys/${surveyId}/results`
     );
     return data;
@@ -291,5 +291,30 @@ export const surveysApi = {
 
   delete: async (surveyId: string): Promise<void> => {
     await api.delete(`/surveys/${surveyId}`);
+  },
+};
+
+// Graph Analysis API
+export const graphApi = {
+  buildGraph: async (focusGroupId: string): Promise<any> => {
+    const { data } = await api.post(`/graph/build/${focusGroupId}`);
+    return data;
+  },
+
+  getGraph: async (focusGroupId: string, filterType?: string): Promise<any> => {
+    const { data } = await api.get(`/graph/${focusGroupId}`, {
+      params: { filter_type: filterType }
+    });
+    return data;
+  },
+
+  getInfluentialPersonas: async (focusGroupId: string): Promise<any[]> => {
+    const { data } = await api.get(`/graph/${focusGroupId}/influential`);
+    return data.personas || [];
+  },
+
+  getKeyConcepts: async (focusGroupId: string): Promise<any[]> => {
+    const { data } = await api.get(`/graph/${focusGroupId}/concepts`);
+    return data.concepts || [];
   },
 };

@@ -111,7 +111,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
 
             <div className="grid grid-cols-1 gap-4">
               {focusGroups.map((focusGroup) => (
-            <Card key={focusGroup.id} className="bg-card border border-border hover:shadow-md transition-shadow">
+            <Card key={focusGroup.id} className="bg-card border border-border hover:shadow-md transition-shadow shadow-sm">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 space-y-4">
@@ -119,23 +119,14 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="mb-2">
-                          <h3 className="text-lg text-card-foreground">{focusGroup.name}</h3>
+                          <h3 className="text-lg font-semibold text-card-foreground">{focusGroup.name}</h3>
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">
                           {focusGroup.description || 'No description'}
                         </p>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={focusGroup.mode === 'adversarial' ? 'destructive' : 'default'}>
-                            {focusGroup.mode}
-                          </Badge>
-                          <Badge variant={
-                            focusGroup.status === 'completed' ? 'default' :
-                            focusGroup.status === 'running' ? 'secondary' :
-                            focusGroup.status === 'failed' ? 'destructive' : 'outline'
-                          }>
-                            {focusGroup.status}
-                          </Badge>
-                        </div>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {focusGroup.questions?.length || 0} questions • {focusGroup.persona_ids?.length || 0} participants
+                        </p>
                       </div>
 
                       <DropdownMenu>
@@ -155,22 +146,39 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
 
                     {/* Progress and Details */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Participants</p>
-                        <p className="text-lg text-card-foreground">{focusGroup.persona_ids?.length || 0}</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Participants</span>
+                          <span className="text-card-foreground">
+                            {focusGroup.persona_ids?.length || 0} / {focusGroup.persona_ids?.length || 0}
+                          </span>
+                        </div>
+                        <Progress value={100} className="h-2" />
+                        <p className="text-xs text-muted-foreground">100% Full</p>
                       </div>
 
                       <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Questions</p>
-                        <p className="text-lg text-card-foreground">{focusGroup.questions?.length || 0}</p>
+                        <p className="text-sm text-muted-foreground">Discussion Topics</p>
+                        <div className="flex flex-wrap gap-1">
+                          {focusGroup.questions?.slice(0, 2).map((question, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              Q{index + 1}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
 
                       <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Execution Time</p>
-                        <p className="text-lg text-card-foreground">
-                          {focusGroup.total_execution_time_ms
-                            ? `${(focusGroup.total_execution_time_ms / 1000).toFixed(1)}s`
-                            : 'N/A'}
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <p className="text-xs text-card-foreground">
+                          {focusGroup.status === 'completed'
+                            ? 'Completed'
+                            : focusGroup.status === 'running'
+                            ? `In progress (${focusGroup.persona_ids?.length || 0} participants)`
+                            : focusGroup.status === 'pending'
+                            ? 'Ready to start'
+                            : 'Failed'
+                          }
                         </p>
                       </div>
                     </div>
@@ -195,7 +203,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                           className="border-border text-muted-foreground hover:text-foreground"
                         >
                           <Settings className="w-4 h-4 mr-2" />
-                          Configure
+                          Setup Focus Group
                         </Button>
                       )}
                       {focusGroup.status === 'running' && (

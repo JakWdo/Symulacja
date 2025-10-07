@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -132,6 +132,15 @@ export function Personas() {
 
     return personas;
   }, [apiPersonas, selectedGenders, ageRange, selectedOccupations]);
+
+  // Reset carousel index when filtered personas change
+  const prevFilteredLength = React.useRef(filteredPersonas.length);
+  React.useEffect(() => {
+    if (filteredPersonas.length !== prevFilteredLength.current) {
+      setCurrentPersonaIndex(0);
+      prevFilteredLength.current = filteredPersonas.length;
+    }
+  }, [filteredPersonas.length]);
 
   // Calculate population statistics based on filtered personas
   const ageGroups = filteredPersonas.reduce((acc, persona) => {
@@ -290,7 +299,45 @@ export function Personas() {
       <div className="space-y-4">
         <h2 className="text-xl text-foreground">Design Your Personas</h2>
 
-        {filteredPersonas.length > 0 ? (
+        {apiPersonas.length === 0 ? (
+          <Card className="bg-card border border-border">
+            <CardContent className="p-12 text-center">
+              <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg text-card-foreground mb-2">No personas yet</h3>
+              <p className="text-muted-foreground mb-4">
+                Generate your first AI personas to start understanding your target audience
+              </p>
+              <Button
+                onClick={() => setShowPersonaWizard(true)}
+                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Generate First Personas
+              </Button>
+            </CardContent>
+          </Card>
+        ) : filteredPersonas.length === 0 ? (
+          <Card className="bg-card border border-border">
+            <CardContent className="p-12 text-center">
+              <Filter className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg text-card-foreground mb-2">No personas match the selected filters</h3>
+              <p className="text-muted-foreground mb-4">
+                Try adjusting your filters to see more results
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedGenders([]);
+                  setAgeRange([18, 65]);
+                  setSelectedOccupations([]);
+                }}
+                className="border-border"
+              >
+                Clear All Filters
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
           <div className="grid grid-cols-12 gap-6 max-h-[600px]">
             {/* Filters Sidebar */}
             <div className="col-span-12 lg:col-span-4">
@@ -562,23 +609,6 @@ export function Personas() {
               </Card>
             </div>
           </div>
-        ) : (
-          <Card className="bg-card border border-border">
-            <CardContent className="p-12 text-center">
-              <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg text-card-foreground mb-2">No personas yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Generate your first AI personas to start understanding your target audience
-              </p>
-              <Button
-                onClick={() => setShowPersonaWizard(true)}
-                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Generate First Personas
-              </Button>
-            </CardContent>
-          </Card>
         )}
       </div>
 

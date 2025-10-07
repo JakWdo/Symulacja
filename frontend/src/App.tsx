@@ -12,6 +12,7 @@ import { Personas } from '@/components/layout/Personas';
 import { Surveys } from '@/components/layout/Surveys';
 import { SurveyBuilder } from '@/components/layout/SurveyBuilder';
 import { SurveyResults } from '@/components/layout/SurveyResults';
+import { GraphAnalysis } from '@/components/layout/GraphAnalysis';
 import { Settings } from '@/components/Settings';
 import { ProjectPanel } from '@/components/panels/ProjectPanel';
 import { PersonaPanel } from '@/components/panels/PersonaPanel';
@@ -117,6 +118,8 @@ export default function App() {
         );
       case 'personas':
         return <Personas />;
+      case 'graph-analysis':
+        return <GraphAnalysis />;
       case 'surveys':
         return (
           <Surveys

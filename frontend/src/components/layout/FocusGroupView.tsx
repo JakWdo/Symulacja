@@ -5,10 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Loader2, Clock, CheckCircle, User, ChevronDown, ChevronUp } from 'lucide-react';
-import { focusGroupsApi } from '@/lib/api';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Loader2, Clock, CheckCircle, Plus, Trash2, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { focusGroupsApi, personasApi } from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
-import { AISummaryPanel } from '@/components/analysis/AISummaryPanel';
+import { Logo } from '@/components/ui/Logo';
+import { ScoreChart } from '@/components/ui/ScoreChart';
 import type { FocusGroup, FocusGroupResponses } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,13 +22,34 @@ interface FocusGroupViewProps {
   onBack: () => void;
 }
 
+const sentimentData = [
+  { name: 'Very Positive', value: 35, color: '#10B981' },
+  { name: 'Positive', value: 28, color: '#34D399' },
+  { name: 'Neutral', value: 22, color: '#6B7280' },
+  { name: 'Negative', value: 12, color: '#F59E0B' },
+  { name: 'Very Negative', value: 3, color: '#EF4444' }
+];
+
 export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [discussionProgress, setDiscussionProgress] = useState(0);
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set([0]));
   const [activeView, setActiveView] = useState<'responses' | 'ai-summary'>('responses');
+  const [activeTab, setActiveTab] = useState('setup');
+  const [aiSummaryGenerated, setAiSummaryGenerated] = useState(false);
+  const [generatingAiSummary, setGeneratingAiSummary] = useState(false);
+  const [newQuestion, setNewQuestion] = useState('');
+  const [questions, setQuestions] = useState<string[]>(focusGroup.questions || []);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
+
+  // Fetch personas for this project
+  const { data: personas = [] } = useQuery({
+    queryKey: ['personas', focusGroup.project_id],
+    queryFn: () => personasApi.getByProject(focusGroup.project_id),
+    enabled: !!focusGroup.project_id,
+  });
 
   const { data: responses, isLoading: responsesLoading } = useQuery<FocusGroupResponses>({
     queryKey: ['focus-group-responses', focusGroup.id],
@@ -67,12 +93,33 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
     setExpandedQuestions(newExpanded);
   };
 
+  const addQuestion = () => {
+    if (newQuestion.trim()) {
+      setQuestions([...questions, newQuestion.trim()]);
+      setNewQuestion('');
+    }
+  };
+
+  const removeQuestion = (index: number) => {
+    setQuestions(questions.filter((_, i) => i !== index));
+  };
+
+  const handleGenerateAiSummary = () => {
+    setGeneratingAiSummary(true);
+
+    setTimeout(() => {
+      setGeneratingAiSummary(false);
+      setAiSummaryGenerated(true);
+      setActiveTab('results');
+    }, 3000);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-chart-1/20 text-chart-1 border-chart-1/30';
+        return 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30';
       case 'running':
-        return 'bg-chart-2/20 text-chart-2 border-chart-2/30';
+        return 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30';
       case 'pending':
         return 'bg-muted text-muted-foreground border-border';
       case 'failed':
@@ -87,35 +134,33 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">{focusGroup.name}</h1>
-            <div className="flex items-center gap-3">
-              <Badge className={getStatusColor(focusGroup.status)}>
-                {focusGroup.status}
-              </Badge>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground">{focusGroup.questions.length} questions</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground">{focusGroup.persona_ids.length} participants</span>
-            </div>
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Focus Groups
+        </Button>
+        <div>
+          <h1 className="text-4xl font-bold text-foreground mb-2">{focusGroup.name}</h1>
+          <div className="flex items-center gap-3">
+            <Badge className={getStatusColor(focusGroup.status)}>
+              {focusGroup.status}
+            </Badge>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground">{focusGroup.questions.length} questions</span>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground">{focusGroup.persona_ids.length} participants</span>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="configuration" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-muted border border-border shadow-sm">
-          <TabsTrigger value="configuration" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
+          <TabsTrigger value="setup" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
             <SettingsIcon className="w-4 h-4 mr-2" />
             Configuration
           </TabsTrigger>
@@ -130,44 +175,89 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
         </TabsList>
 
         {/* Configuration Tab */}
-        <TabsContent value="configuration" className="space-y-6">
-          <Card className="bg-card border border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-card-foreground">Discussion Questions</CardTitle>
-              <p className="text-muted-foreground">Questions that will be asked during the focus group session</p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {focusGroup.questions.map((question, index) => (
-                  <div key={index} className="p-3 bg-muted rounded-lg border border-border">
-                    <div className="flex items-start gap-3">
-                      <span className="text-sm font-medium text-chart-2 bg-chart-2/10 px-2 py-1 rounded">
-                        Q{index + 1}
-                      </span>
-                      <p className="text-foreground flex-1">{question}</p>
+        <TabsContent value="setup" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Questions */}
+            <Card className="bg-card border border-border shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-card-foreground">Discussion Questions</CardTitle>
+                <p className="text-muted-foreground">Questions that will be asked during the focus group session</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {questions.map((question: string, index: number) => (
+                    <div key={index} className="p-3 bg-muted rounded-lg border border-border">
+                      <div className="flex items-start gap-3">
+                        <span className="text-sm font-medium text-[#F27405] bg-[#F27405]/10 px-2 py-1 rounded">
+                          Q{index + 1}
+                        </span>
+                        <p className="text-foreground flex-1">{question}</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeQuestion(index)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                  {questions.length === 0 && (
+                    <p className="text-muted-foreground text-center py-4">No questions configured</p>
+                  )}
+                </div>
 
-          <Card className="bg-card border border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-card-foreground">Participants</CardTitle>
-              <p className="text-muted-foreground">{focusGroup.persona_ids.length} personas selected for this session</p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                {focusGroup.persona_ids.map((personaId, index) => (
-                  <div key={personaId} className="flex items-center gap-2 p-2 bg-muted rounded border border-border">
-                    <User className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-foreground">Persona {index + 1}</span>
+                <div className="mt-4 pt-4 border-t border-border">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Label htmlFor="new-question" className="sr-only">Add Question</Label>
+                      <Input
+                        id="new-question"
+                        placeholder="Enter a new discussion question..."
+                        value={newQuestion}
+                        onChange={(e) => setNewQuestion(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && addQuestion()}
+                      />
+                    </div>
+                    <Button
+                      onClick={addQuestion}
+                      disabled={!newQuestion.trim()}
+                      className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Participants */}
+            <Card className="bg-card border border-border shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-card-foreground">Participants</CardTitle>
+                <p className="text-muted-foreground">{focusGroup.persona_ids.length} personas selected for this session</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {personas
+                    .filter(p => focusGroup.persona_ids.includes(p.id))
+                    .map((persona, index) => (
+                      <div key={persona.id} className="flex items-center space-x-3 p-3 bg-muted rounded-lg border border-border">
+                        <Checkbox
+                          checked={true}
+                          disabled
+                        />
+                        <div className="flex-1">
+                          <p className="text-card-foreground font-medium">{persona.full_name || `Persona ${index + 1}`}</p>
+                          <p className="text-sm text-muted-foreground">{persona.age} years old • {persona.occupation || 'No occupation'}</p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Discussion Tab */}
@@ -183,7 +273,7 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                 {!discussionComplete && !isRunning && focusGroup.status === 'pending' && (
                   <Button
                     onClick={handleRunDiscussion}
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
                     disabled={runMutation.isPending}
                   >
                     <Play className="w-4 h-4 mr-2" />
@@ -206,7 +296,7 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
               {(isRunning || focusGroup.status === 'running') && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <Logo className="w-5 h-5" spinning />
                     <span className="text-card-foreground">Simulation in progress...</span>
                   </div>
 
@@ -235,20 +325,44 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                 </div>
               )}
 
-              {discussionComplete && (
+              {discussionComplete && !aiSummaryGenerated && (
                 <div className="text-center py-8">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-green-600 mb-2">Discussion Complete</h3>
+                  <CheckCircle className="w-12 h-12 text-[#F27405] mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-[#F27405] mb-2">Discussion Complete</h3>
                   <p className="text-muted-foreground mb-4">
-                    The focus group simulation has finished. View the results in the "Results & Analysis" tab.
+                    The focus group simulation has finished. Generate AI insights to analyze the results.
+                  </p>
+                  <Button
+                    onClick={handleGenerateAiSummary}
+                    disabled={generatingAiSummary}
+                    className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                  >
+                    {generatingAiSummary ? (
+                      <>
+                        <Logo className="w-4 h-4 mr-2" spinning />
+                        Generating AI Summary...
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="w-4 h-4 mr-2" />
+                        Generate AI Summary
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {discussionComplete && aiSummaryGenerated && (
+                <div className="text-center py-8">
+                  <CheckCircle className="w-12 h-12 text-[#F27405] mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-[#F27405] mb-2">AI Summary Generated</h3>
+                  <p className="text-muted-foreground mb-4">
+                    AI insights have been generated. View the complete analysis in the "Results & Analysis" tab.
                   </p>
                   <Button
                     variant="outline"
+                    onClick={() => setActiveTab('results')}
                     className="border-border text-card-foreground hover:text-card-foreground"
-                    onClick={() => {
-                      const tabTrigger = document.querySelector('[value="results"]') as HTMLElement;
-                      tabTrigger?.click();
-                    }}
                   >
                     View Results
                   </Button>
@@ -269,7 +383,7 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                   className={cn(
                     'flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all',
                     activeView === 'responses'
-                      ? 'bg-gradient-to-br from-primary-500 to-accent-500 text-white shadow-lg'
+                      ? 'bg-gradient-to-br from-[#F27405] to-[#F29F05] text-white shadow-lg'
                       : 'bg-muted text-muted-foreground hover:bg-muted/70'
                   )}
                 >
@@ -281,7 +395,7 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                   className={cn(
                     'flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all',
                     activeView === 'ai-summary'
-                      ? 'bg-gradient-to-br from-primary-500 to-accent-500 text-white shadow-lg'
+                      ? 'bg-gradient-to-br from-[#F27405] to-[#F29F05] text-white shadow-lg'
                       : 'bg-muted text-muted-foreground hover:bg-muted/70'
                   )}
                 >
@@ -331,7 +445,7 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                                 className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-muted/50 to-card hover:from-muted hover:to-muted/50 transition-colors"
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                                  <div className="w-8 h-8 rounded-full bg-[#F27405]/10 text-[#F27405] flex items-center justify-center font-bold text-sm">
                                     Q{qIdx + 1}
                                   </div>
                                   <div className="text-left">
@@ -367,7 +481,7 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                                         >
                                           <div className="flex items-start gap-3">
                                             <div className="flex-shrink-0">
-                                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F27405] to-[#F29F05] flex items-center justify-center text-white font-bold text-sm shadow-md">
                                                 {rIdx + 1}
                                               </div>
                                             </div>
@@ -407,7 +521,133 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <AISummaryPanel focusGroupId={focusGroup.id} focusGroupName={focusGroup.name} />
+                    {/* AI Summary */}
+                    <Card className="bg-card border border-border shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-card-foreground flex items-center gap-2">
+                          <Logo className="w-5 h-5" />
+                          AI Summary
+                        </CardTitle>
+                        <p className="text-muted-foreground">Key insights generated by AI analysis</p>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="bg-muted p-4 rounded-lg border border-border">
+                            <h4 className="text-card-foreground font-medium mb-2">Executive Summary</h4>
+                            <p className="text-muted-foreground text-sm">
+                              Participants showed strong interest in ease-of-use features and integration capabilities.
+                              Pricing concerns were raised by 60% of participants, suggesting value proposition optimization.
+                            </p>
+                          </div>
+
+                          <div className="bg-muted p-4 rounded-lg border border-border">
+                            <h4 className="text-card-foreground font-medium mb-2">Key Insights</h4>
+                            <ul className="text-muted-foreground text-sm space-y-1">
+                              <li>• Usability is the primary concern</li>
+                              <li>• Mobile access is highly valued</li>
+                              <li>• Integration needs vary by role</li>
+                              <li>• Price sensitivity across segments</li>
+                            </ul>
+                          </div>
+
+                          <div className="bg-muted p-4 rounded-lg border border-border">
+                            <h4 className="text-card-foreground font-medium mb-2">Recommendations</h4>
+                            <ul className="text-muted-foreground text-sm space-y-1">
+                              <li>• Prioritize UX improvements</li>
+                              <li>• Develop mobile-first approach</li>
+                              <li>• Create tiered pricing model</li>
+                              <li>• Focus on integration features</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Statistics */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <Card className="bg-card border border-border shadow-sm">
+                        <CardHeader>
+                          <CardTitle className="text-card-foreground">Sentiment Analysis</CardTitle>
+                          <p className="text-muted-foreground">Overall sentiment distribution</p>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex flex-col items-center space-y-6">
+                            {/* Doughnut Chart */}
+                            <div className="relative w-64 h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={sentimentData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={100}
+                                    dataKey="value"
+                                    startAngle={0}
+                                    endAngle={360}
+                                  >
+                                    {sentimentData.map((entry, index) => (
+                                      <Cell
+                                        key={`cell-${index}`}
+                                        fill={entry.color}
+                                        stroke={hoveredIndex === index ? "#333333" : entry.color}
+                                        strokeWidth={hoveredIndex === index ? 3 : 0}
+                                        style={{
+                                          cursor: 'pointer',
+                                          filter: hoveredIndex === index ? 'drop-shadow(0px 4px 8px rgba(0,0,0,0.15))' : 'none',
+                                          transition: 'all 0.2s ease'
+                                        }}
+                                        onMouseEnter={() => setHoveredIndex(index)}
+                                        onMouseLeave={() => setHoveredIndex(null)}
+                                      />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip
+                                    content={({ active, payload }) => {
+                                      if (active && payload && payload.length) {
+                                        const data = payload[0].payload;
+                                        return (
+                                          <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                                            <p className="text-popover-foreground font-medium">{data.name}</p>
+                                            <p className="text-popover-foreground text-sm">{data.value}%</p>
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    }}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+
+                            {/* Legend */}
+                            <div className="flex flex-wrap gap-4 justify-center">
+                              {sentimentData.map((entry, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                  <div
+                                    className="w-4 h-4 rounded-full"
+                                    style={{ backgroundColor: entry.color }}
+                                  />
+                                  <span className="text-sm text-card-foreground">{entry.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-card border border-border shadow-sm">
+                        <CardHeader>
+                          <CardTitle className="text-card-foreground">Score Analysis</CardTitle>
+                          <p className="text-muted-foreground">Overall participant satisfaction score</p>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-64 flex items-start justify-center pt-4">
+                            <ScoreChart score={70} maxScore={100} />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>

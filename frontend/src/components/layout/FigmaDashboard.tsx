@@ -132,8 +132,8 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">Active Projects</CardTitle>
             <FolderOpen className="h-4 w-4 text-[#F27405]" />
           </CardHeader>
@@ -143,8 +143,8 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">Total Personas</CardTitle>
             <Users className="h-4 w-4 text-[#F27405]" />
           </CardHeader>
@@ -154,8 +154,8 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">Running Surveys</CardTitle>
             <BarChart3 className="h-4 w-4 text-[#F27405]" />
           </CardHeader>
@@ -165,8 +165,8 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">Focus Groups</CardTitle>
             <MessageSquare className="h-4 w-4 text-[#F27405]" />
           </CardHeader>
@@ -180,58 +180,75 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Research Activity Chart */}
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl lg:col-span-2">
+        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl lg:col-span-2 shadow-sm">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-foreground">Research Activity</CardTitle>
             <p className="text-muted-foreground">Monthly breakdown of personas, surveys, and focus groups</p>
           </CardHeader>
           <CardContent>
-            <div className="flex items-end justify-between h-[200px] px-4">
-              {monthlyActivity.map((month, index) => (
-                <div key={index} className="flex flex-col items-center gap-3 flex-1">
-                  <div className="bg-[#f3f3f3] flex flex-col items-center justify-end overflow-hidden rounded-[5px] w-[38px] h-[200px]">
-                    <div className="flex-1 bg-[#f2f2f2] w-full" />
-                    {month.personas > 0 && (
+            <div className="flex gap-[12px] items-end justify-between h-[240px] px-4">
+              {monthlyActivity.map((month, index) => {
+                const totalHeight = 200;
+                const maxPersonas = Math.max(...monthlyActivity.map((m) => m.personas));
+                const maxSurveys = Math.max(...monthlyActivity.map((m) => m.surveys));
+                const maxFocusGroups = Math.max(...monthlyActivity.map((m) => m.focusGroups));
+
+                const personasHeight = Math.max(
+                  20,
+                  (month.personas / maxPersonas) * (totalHeight * 0.7),
+                );
+                const surveysHeight = Math.max(
+                  12,
+                  (month.surveys / maxSurveys) * (totalHeight * 0.4),
+                );
+                const focusGroupsHeight = Math.max(
+                  8,
+                  (month.focusGroups / maxFocusGroups) * (totalHeight * 0.3),
+                );
+
+                return (
+                  <div key={index} className="flex flex-col items-center gap-3">
+                    <div
+                      className="bg-[#f3f3f3] flex flex-col items-center justify-end overflow-hidden rounded-[5px] w-[38px]"
+                      style={{ height: `${totalHeight}px` }}
+                    >
+                      <div className="flex-1 bg-[#f2f2f2] w-full" />
                       <div
                         className="bg-[#F27405] w-full"
-                        style={{ height: `${Math.max(20, (month.personas / Math.max(...monthlyActivity.map(m => m.personas), 1)) * 100)}px` }}
+                        style={{ height: `${personasHeight}px` }}
                       />
-                    )}
-                    {month.surveys > 0 && (
                       <div
                         className="bg-[#F29F05] w-full"
-                        style={{ height: `${Math.max(12, (month.surveys / Math.max(...monthlyActivity.map(m => m.surveys), 1)) * 60)}px` }}
+                        style={{ height: `${surveysHeight}px` }}
                       />
-                    )}
-                    {month.focusGroups > 0 && (
                       <div
                         className="bg-[#28a745] w-full"
-                        style={{ height: `${Math.max(8, (month.focusGroups / Math.max(...monthlyActivity.map(m => m.focusGroups), 1)) * 40)}px` }}
+                        style={{ height: `${focusGroupsHeight}px` }}
                       />
-                    )}
+                    </div>
+                    <span className="text-sm text-muted-foreground">{month.name}</span>
                   </div>
-                  <span className="text-sm text-muted-foreground">{month.name}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
 
         {/* Project Distribution */}
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl">
+        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-foreground">Project Distribution</CardTitle>
             <p className="text-muted-foreground">Resource allocation by project</p>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Pie Chart Placeholder */}
+            {/* Pie Chart */}
             <div className="flex items-center justify-center">
               <div className="relative w-[140px] h-[140px] rounded-full border-[20px] border-[#F5F5F5]" style={{
                 background: `conic-gradient(
-                  #F27405 0% ${projectDistribution[0]?.percentage || 25}%,
-                  #F29F05 ${projectDistribution[0]?.percentage || 25}% ${(projectDistribution[0]?.percentage || 25) + (projectDistribution[1]?.percentage || 25)}%,
-                  #28a745 ${(projectDistribution[0]?.percentage || 25) + (projectDistribution[1]?.percentage || 25)}% ${(projectDistribution[0]?.percentage || 25) + (projectDistribution[1]?.percentage || 25) + (projectDistribution[2]?.percentage || 25)}%,
-                  #17a2b8 ${(projectDistribution[0]?.percentage || 25) + (projectDistribution[1]?.percentage || 25) + (projectDistribution[2]?.percentage || 25)}% 100%
+                  #F27405 0% ${projectDistribution[0]?.percentage || 35}%,
+                  #F29F05 ${projectDistribution[0]?.percentage || 35}% ${(projectDistribution[0]?.percentage || 35) + (projectDistribution[1]?.percentage || 28)}%,
+                  #28a745 ${(projectDistribution[0]?.percentage || 35) + (projectDistribution[1]?.percentage || 28)}% ${(projectDistribution[0]?.percentage || 35) + (projectDistribution[1]?.percentage || 28) + (projectDistribution[2]?.percentage || 22)}%,
+                  #17a2b8 ${(projectDistribution[0]?.percentage || 35) + (projectDistribution[1]?.percentage || 28) + (projectDistribution[2]?.percentage || 22)}% 100%
                 )`
               }}>
                 <div className="absolute inset-[20px] bg-white rounded-full flex items-center justify-center">
@@ -255,7 +272,7 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Recent Projects */}
-      <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl">
+      <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-2xl font-bold text-foreground">Recent Projects</CardTitle>
@@ -264,6 +281,7 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
           <Button
             variant="outline"
             size="sm"
+            className="border-border"
             onClick={() => onNavigate?.('projects')}
           >
             <Eye className="w-4 h-4 mr-2" />

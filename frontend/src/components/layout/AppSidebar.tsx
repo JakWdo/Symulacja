@@ -1,4 +1,4 @@
-import { Search, LayoutDashboard, FolderOpen, Settings, Plus, Command, Users, MessageSquare, BarChart3 } from 'lucide-react';
+import { Search, LayoutDashboard, FolderOpen, Settings, Plus, Command, Users, MessageSquare, BarChart3, Network } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -117,6 +117,19 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                 >
                   <MessageSquare className="w-4 h-4" />
                   <span className="text-[14px]">Focus Groups</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onNavigate('graph-analysis')}
+                  className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
+                    currentView === 'graph-analysis'
+                      ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                  }`}
+                >
+                  <Network className="w-4 h-4" />
+                  <span className="text-[14px]">Graph Analysis</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
