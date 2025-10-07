@@ -1,288 +1,372 @@
-import { useAppStore } from '@/store/appStore';
-import { Users, MessageSquare, BarChart3, Clock, Zap, Plus, Gauge } from 'lucide-react';
-import { motion } from 'framer-motion';
+/**
+ * Improved Dashboard with Charts
+ * Migrated from sight/src/components/Dashboard.tsx
+ * 
+ * Shows overview of ALL projects with:
+ * - Stats cards
+ * - Monthly activity chart (bar chart)
+ * - Project distribution (pie chart)
+ * - Recent projects list
+ */
 
-function MiniStatCard({
-  icon: Icon,
-  label,
-  value,
-  color = "blue"
-}: {
-  icon: any;
-  label: string;
-  value: string | number;
-  color?: string;
-}) {
-  const colorClasses = {
-    blue: "text-blue-600 bg-blue-50",
-    green: "text-green-600 bg-green-50",
-    purple: "text-purple-600 bg-purple-50",
-    orange: "text-orange-600 bg-orange-50",
-  }[color];
+import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  Users,
+  FolderOpen,
+  MessageSquare,
+  BarChart3,
+  Plus,
+  Eye,
+  Clock,
+} from 'lucide-react';
+import { projectsApi, personasApi, focusGroupsApi, surveysApi } from '@/lib/api';
+import {
+  CustomBarChart,
+  CustomPieChart,
+  ChartLegend,
+} from '@/components/charts/CustomCharts';
 
-  return (
-    <div className="flex items-center gap-3 p-4 rounded-xl bg-white border border-slate-200 hover:shadow-md transition-shadow">
-      <div className={`p-3 rounded-lg ${colorClasses}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-slate-900">{value}</p>
-        <p className="text-xs text-slate-600">{label}</p>
-      </div>
-    </div>
-  );
+interface ImprovedDashboardProps {
+  onNavigate?: (view: string) => void;
 }
 
+export function ImprovedDashboard({ onNavigate }: ImprovedDashboardProps) {
+  // Fetch all data
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsApi.getAll,
+  });
 
-function FocusGroupPreviewCard({
-  focusGroup,
-  onOpenAnalysis,
-}: {
-  focusGroup: any;
-  onOpenAnalysis: (focusGroupId: string) => void;
-}) {
-  const statusColors = {
-    completed: "text-green-700 bg-green-100",
-    running: "text-blue-700 bg-blue-100",
-    pending: "text-slate-700 bg-slate-100",
-    failed: "text-red-700 bg-red-100",
-  };
+  const { data: allPersonas = [] } = useQuery({
+    queryKey: ['all-personas'],
+    queryFn: async () => {
+      const allPersonaArrays = await Promise.all(
+        projects.map(p => personasApi.getByProject(p.id))
+      );
+      return allPersonaArrays.flat();
+    },
+    enabled: projects.length > 0,
+  });
 
-  const ideaScore = focusGroup.polarization_score != null
-    ? (focusGroup.polarization_score * 100).toFixed(1)
-    : null;
+  const { data: allFocusGroups = [] } = useQuery({
+    queryKey: ['all-focus-groups'],
+    queryFn: async () => {
+      const allFocusGroupArrays = await Promise.all(
+        projects.map(p => focusGroupsApi.getByProject(p.id))
+      );
+      return allFocusGroupArrays.flat();
+    },
+    enabled: projects.length > 0,
+  });
+
+  const { data: allSurveys = [] } = useQuery({
+    queryKey: ['all-surveys'],
+    queryFn: async () => {
+      const allSurveyArrays = await Promise.all(
+        projects.map(p => surveysApi.getByProject(p.id))
+      );
+      return allSurveyArrays.flat();
+    },
+    enabled: projects.length > 0,
+  });
+
+  // Calculate real stats from data
+  const stats = useMemo(() => ({
+    activeProjects: projects.length,
+    totalPersonas: allPersonas.length,
+    runningSurveys: allSurveys.length,
+    focusGroups: allFocusGroups.length,
+  }), [projects, allPersonas, allSurveys, allFocusGroups]);
+
+  // Calculate monthly activity from created_at dates
+  const monthlyActivity = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentYear = new Date().getFullYear();
+
+    return months.map((name, idx) => {
+      const personasCount = allPersonas.filter(p => {
+        const date = new Date(p.created_at);
+        return date.getMonth() === idx && date.getFullYear() === currentYear;
+      }).length;
+
+      const surveysCount = allSurveys.filter(s => {
+        const date = new Date(s.created_at);
+        return date.getMonth() === idx && date.getFullYear() === currentYear;
+      }).length;
+
+      const focusGroupsCount = allFocusGroups.filter(fg => {
+        const date = new Date(fg.created_at);
+        return date.getMonth() === idx && date.getFullYear() === currentYear;
+      }).length;
+
+      return {
+        name,
+        personas: personasCount,
+        surveys: surveysCount,
+        focusGroups: focusGroupsCount,
+      };
+    }).slice(0, new Date().getMonth() + 1); // Only show months up to current month
+  }, [allPersonas, allSurveys, allFocusGroups]);
+
+  // Calculate project distribution based on persona count
+  const projectDistribution = useMemo(() => {
+    if (projects.length === 0) return [];
+
+    const colors = ['#F27405', '#F29F05', '#28a745', '#17a2b8'];
+    const total = allPersonas.length || 1;
+
+    return projects
+      .slice(0, 4) // Top 4 projects
+      .map((project, idx) => {
+        const projectPersonas = allPersonas.filter(p => p.project_id === project.id).length;
+        return {
+          name: project.name,
+          value: Math.round((projectPersonas / total) * 100),
+          color: colors[idx] || '#6f42c1',
+        };
+      })
+      .filter(p => p.value > 0);
+  }, [projects, allPersonas]);
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      onClick={() => onOpenAnalysis(focusGroup.id)}
-      className="p-4 rounded-xl bg-white border border-slate-200 hover:border-accent-300 transition-all cursor-pointer"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-accent-100 text-accent-700">
-            <MessageSquare className="w-4 h-4" />
-          </div>
-          <div>
-            <h4 className="font-semibold text-slate-900 text-sm">
-              {focusGroup.name}
-            </h4>
-            <p className="text-xs text-slate-600 mt-1">
-              {focusGroup.persona_ids.length} participants • {focusGroup.questions.length} questions
-            </p>
-            {ideaScore && (
-              <p className="text-xs text-primary-600 mt-1 font-medium">Idea Score: {ideaScore}</p>
-            )}
-          </div>
-        </div>
-        <span className={`text-xs px-2 py-1 rounded-md font-medium ${statusColors[focusGroup.status]}`}>
-          {focusGroup.status}
-        </span>
-      </div>
-    </motion.div>
-  );
-}
-
-export function ImprovedDashboard() {
-  const { selectedProject, setActivePanel, personas, focusGroups, setSelectedFocusGroup } = useAppStore();
-
-  if (!selectedProject) {
-    return (
-      <div className="flex items-center justify-center h-full px-8">
-        <div className="text-center space-y-6 max-w-2xl">
-          <div className="text-7xl mb-6 animate-float">🧠</div>
-          <h1 className="text-4xl font-bold text-slate-900">
-            Market Research Platform
+    <div className="max-w-7xl mx-auto space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-foreground mb-2">
+            Dashboard
           </h1>
-          <p className="text-lg text-slate-600">
-            AI-powered persona simulation and behavioral analytics
+          <p className="text-muted-foreground">
+            Overview of your market research activities across all projects
           </p>
-          <button
-            onClick={() => setActivePanel('projects')}
-            className="mt-8 floating-button px-8 py-4 text-base font-semibold"
+        </div>
+        <div className="flex gap-2">
+          <Button
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            onClick={() => onNavigate?.('projects')}
           >
-            Get Started - Select a Project
-          </button>
+            <Plus className="w-4 h-4 mr-2" />
+            New Project
+          </Button>
         </div>
       </div>
-    );
-  }
 
-  const completedFocusGroups = focusGroups.filter(fg => fg.status === 'completed').length;
-  const runningFocusGroups = focusGroups.filter(fg => fg.status === 'running').length;
-  const ideaScores = focusGroups
-    .filter(fg => fg.status === 'completed' && fg.polarization_score != null)
-    .map(fg => (fg.polarization_score as number) * 100);
-  const averageIdeaScore = ideaScores.length > 0
-    ? (ideaScores.reduce((acc, value) => acc + value, 0) / ideaScores.length).toFixed(1)
-    : '—';
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="bg-card border border-border shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm text-muted-foreground">
+              Active Projects
+            </CardTitle>
+            <FolderOpen className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl brand-orange">{stats.activeProjects}</div>
+            <p className="text-xs text-muted-foreground">
+              +2 from last month
+            </p>
+          </CardContent>
+        </Card>
 
-  const handleOpenAnalysis = (focusGroupId: string) => {
-    const focusGroup = focusGroups.find(fg => fg.id === focusGroupId) ?? null;
-    if (focusGroup) {
-      setSelectedFocusGroup(focusGroup);
-      setActivePanel('analysis');
-    }
-  };
+        <Card className="bg-card border border-border shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm text-muted-foreground">
+              Total Personas
+            </CardTitle>
+            <Users className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl brand-orange">{stats.totalPersonas}</div>
+            <p className="text-xs text-muted-foreground">
+              +18% from last month
+            </p>
+          </CardContent>
+        </Card>
 
-  return (
-    <div className="w-full h-full overflow-auto">
-      {/* Header Bar */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-8 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              {selectedProject.name}
-            </h1>
-            {selectedProject.description && (
-              <p className="text-sm text-slate-600 mt-1">{selectedProject.description}</p>
+        <Card className="bg-card border border-border shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm text-muted-foreground">
+              Running Surveys
+            </CardTitle>
+            <BarChart3 className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl brand-orange">{stats.runningSurveys}</div>
+            <p className="text-xs text-muted-foreground">
+              +5 this week
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border border-border shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm text-muted-foreground">
+              Focus Groups
+            </CardTitle>
+            <MessageSquare className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl brand-orange">{stats.focusGroups}</div>
+            <p className="text-xs text-muted-foreground">
+              +3 completed today
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content Grid - Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Monthly Activity Chart */}
+        <div className="lg:col-span-2">
+          <Card className="bg-card border border-border">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-foreground">
+                Research Activity
+              </CardTitle>
+              <p className="text-muted-foreground">
+                Monthly breakdown of personas, surveys, and focus groups
+              </p>
+            </CardHeader>
+            <CardContent>
+              <CustomBarChart data={monthlyActivity} />
+
+              {/* Chart Legend */}
+              <div className="mt-6 flex items-center justify-center gap-6 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#F27405]" />
+                  <span className="text-sm text-card-foreground">Personas</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#F29F05]" />
+                  <span className="text-sm text-card-foreground">Surveys</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#28a745]" />
+                  <span className="text-sm text-card-foreground">Focus Groups</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Project Distribution Pie Chart */}
+        <Card className="bg-card border border-border">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-foreground">
+              Project Distribution
+            </CardTitle>
+            <p className="text-muted-foreground">
+              Resource allocation by project
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <CustomPieChart data={projectDistribution} />
+
+            {/* Legend */}
+            {projectDistribution.length > 0 && (
+              <ChartLegend
+                items={projectDistribution.map(item => ({
+                  name: item.name,
+                  color: item.color,
+                  percentage: item.value,
+                }))}
+              />
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Projects */}
+      <Card className="bg-card border border-border">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-2xl font-bold text-foreground">
+              Recent Projects
+            </CardTitle>
+            <p className="text-muted-foreground">
+              Your latest research projects with detailed insights
+            </p>
           </div>
-          {selectedProject.is_statistically_valid && (
-            <div className="px-4 py-2 rounded-lg bg-green-50 text-green-700 font-medium text-sm border border-green-200">
-              ✓ Statistically Valid
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-border"
+            onClick={() => onNavigate?.('projects')}
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            View All
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {projects.length === 0 ? (
+            <div className="text-center py-12">
+              <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">No projects yet</p>
+              <Button
+                className="mt-4 bg-primary hover:bg-primary/90"
+                onClick={() => onNavigate?.('projects')}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create First Project
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {projects.slice(0, 3).map((project: any) => (
+                <div
+                  key={project.id}
+                  className="p-4 rounded-lg bg-muted/30 border border-border hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => onNavigate?.('projects')}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h4 className="text-foreground font-medium">{project.name}</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {project.description}
+                      </p>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
+                        <Clock className="w-3 h-3" />
+                        Created {new Date(project.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigate?.('projects');
+                      }}
+                    >
+                      <Eye className="w-3 h-3 mr-1" />
+                      View
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Personas</p>
+                      <p className="text-lg text-card-foreground">
+                        {project.target_sample_size || 0}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Surveys</p>
+                      <p className="text-lg text-card-foreground">0</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Focus Groups</p>
+                      <p className="text-lg text-card-foreground">0</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-        </div>
-      </div>
-
-      <div className="p-8 space-y-8">
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-          <MiniStatCard
-            icon={Users}
-            label="Total Personas"
-            value={personas.length}
-            color="blue"
-          />
-          <MiniStatCard
-            icon={MessageSquare}
-            label="Focus Groups"
-            value={focusGroups.length}
-            color="purple"
-          />
-          <MiniStatCard
-            icon={BarChart3}
-            label="Completed Analyses"
-            value={completedFocusGroups}
-            color="green"
-          />
-          <MiniStatCard
-            icon={Clock}
-            label="In Progress"
-            value={runningFocusGroups}
-            color="orange"
-          />
-          <MiniStatCard
-            icon={Gauge}
-            label="Avg Idea Score"
-            value={averageIdeaScore}
-            color="green"
-          />
-        </div>
-
-        {/* Main Content - Two Columns */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column - Actions & Personas */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Quick Actions */}
-            <div className="floating-panel p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <button
-                  onClick={() => setActivePanel('personas')}
-                  className="p-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-primary-400 hover:bg-primary-50 transition-all text-left group"
-                >
-                  <Users className="w-6 h-6 text-primary-600 mb-2" />
-                  <h4 className="font-semibold text-slate-900 text-sm">Generate Personas</h4>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Create synthetic personas for research
-                  </p>
-                </button>
-
-                <button
-                  onClick={() => setActivePanel('focus-groups')}
-                  className="p-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-accent-400 hover:bg-accent-50 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={personas.length < 2}
-                >
-                  <MessageSquare className="w-6 h-6 text-accent-600 mb-2" />
-                  <h4 className="font-semibold text-slate-900 text-sm">New Focus Group</h4>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Start AI-simulated discussion
-                  </p>
-                </button>
-
-                <button
-                  onClick={() => setActivePanel('analysis')}
-                  className="p-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-green-400 hover:bg-green-50 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={completedFocusGroups === 0}
-                >
-                  <BarChart3 className="w-6 h-6 text-green-600 mb-2" />
-                  <h4 className="font-semibold text-slate-900 text-sm">View Analysis</h4>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Analyze completed sessions
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            {/* Empty State for Personas */}
-            {personas.length === 0 && (
-              <div className="floating-panel p-12 text-center">
-                <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Personas Yet</h3>
-                <p className="text-slate-600 mb-6">
-                  Start by generating synthetic personas for your market research
-                </p>
-                <button
-                  onClick={() => setActivePanel('personas')}
-                  className="floating-button px-6 py-3"
-                >
-                  <Plus className="w-5 h-5 inline mr-2" />
-                  Generate Personas
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column - Focus Groups & Insights */}
-          <div className="space-y-6">
-            {/* Active Focus Groups */}
-            {focusGroups.length > 0 && (
-              <div className="floating-panel p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">Focus Groups</h3>
-                  <button
-                    onClick={() => setActivePanel('focus-groups')}
-                    className="text-sm text-accent-600 hover:text-accent-700 font-medium"
-                  >
-                    View All →
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {focusGroups.slice(0, 3).map((fg) => (
-                    <FocusGroupPreviewCard key={fg.id} focusGroup={fg} onOpenAnalysis={handleOpenAnalysis} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Getting Started Tips */}
-            <div className="floating-panel p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-              <div className="flex items-start gap-3">
-                <Zap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-blue-900 text-sm mb-2">Quick Tip</h4>
-                  <p className="text-xs text-blue-800 leading-relaxed">
-                    Generate at least 10 personas for statistically valid results.
-                    More personas = better insights from focus group simulations.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

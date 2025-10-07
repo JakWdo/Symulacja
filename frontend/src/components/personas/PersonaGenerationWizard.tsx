@@ -162,23 +162,25 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
           errors.push('Number of personas must be between 2 and 100');
         }
         break;
-      case 2:
+      case 2: {
         const ageTotal = calculateTotal(config.ageGroups);
         const genderTotal = calculateTotal(config.genderDistribution);
         const educationTotal = calculateTotal(config.educationLevels);
         const incomeTotal = calculateTotal(config.incomeBrackets);
-        
+
         if (Math.abs(ageTotal - 100) > 1) errors.push('Age groups must sum to 100%');
         if (Math.abs(genderTotal - 100) > 1) errors.push('Gender distribution must sum to 100%');
         if (Math.abs(educationTotal - 100) > 1) errors.push('Education levels must sum to 100%');
         if (Math.abs(incomeTotal - 100) > 1) errors.push('Income brackets must sum to 100%');
         break;
-      case 3:
+      }
+      case 3: {
         const locationTotal = config.locationDistribution.reduce((sum, loc) => sum + loc.weight, 0);
         if (config.locationDistribution.length > 0 && Math.abs(locationTotal - 100) > 1) {
           errors.push('Location distribution must sum to 100%');
         }
         break;
+      }
     }
     
     return errors;

@@ -10,9 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Users, MessageSquare, Settings as SettingsIcon, Plus, Loader2, Eye } from 'lucide-react';
 import { PersonaGenerationWizard } from '@/components/personas/PersonaGenerationWizard';
-import { personasApi, focusGroupsApi, projectsApi, type GeneratePersonasPayload, type CreateFocusGroupPayload } from '@/lib/api';
+import { personasApi, focusGroupsApi, type GeneratePersonasPayload, type CreateFocusGroupPayload } from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
-import { useAppStore } from '@/store/appStore';
 import type { Project, Persona, FocusGroup } from '@/types';
 
 interface ProjectDetailProps {
@@ -32,7 +31,6 @@ export function ProjectDetail({ project, onBack, onSelectFocusGroup }: ProjectDe
   });
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
 
-  const { setSelectedProject } = useAppStore();
 
   // Fetch personas for this project
   const { data: personas = [], isLoading: personasLoading, refetch: refetchPersonas } = useQuery({
@@ -123,19 +121,19 @@ export function ProjectDetail({ project, onBack, onSelectFocusGroup }: ProjectDe
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div>
         <Button
           variant="ghost"
           onClick={onBack}
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Projects
         </Button>
         <div>
-          <h1 className="text-3xl font-semibold text-foreground">{project.name}</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">{project.name}</h1>
           <p className="text-muted-foreground">{project.description}</p>
         </div>
       </div>
@@ -209,7 +207,7 @@ export function ProjectDetail({ project, onBack, onSelectFocusGroup }: ProjectDe
             </div>
 
             <Button
-              className="bg-gradient-to-r from-chart-1 to-chart-4 hover:opacity-90 bg-primary"
+              className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
               onClick={() => setShowPersonaWizard(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -229,7 +227,7 @@ export function ProjectDetail({ project, onBack, onSelectFocusGroup }: ProjectDe
                 <p className="text-muted-foreground mb-4">
                   Generate your first cohort to start building focus groups
                 </p>
-                <Button onClick={() => setShowPersonaWizard(true)} className="bg-primary">
+                <Button onClick={() => setShowPersonaWizard(true)} className="bg-[#F27405] hover:bg-[#F27405]/90 text-white">
                   <Plus className="w-4 h-4 mr-2" />
                   Generate Personas
                 </Button>
@@ -362,7 +360,7 @@ export function ProjectDetail({ project, onBack, onSelectFocusGroup }: ProjectDe
 
             <Dialog open={showCreateFocusGroup} onOpenChange={setShowCreateFocusGroup}>
               <DialogTrigger asChild>
-                <Button className="bg-primary hover:bg-primary/90" disabled={personas.length < 2}>
+                <Button className="bg-[#F27405] hover:bg-[#F27405]/90 text-white" disabled={personas.length < 2}>
                   <Plus className="w-4 h-4 mr-2" />
                   Create Focus Group
                 </Button>
@@ -471,7 +469,7 @@ export function ProjectDetail({ project, onBack, onSelectFocusGroup }: ProjectDe
                     </Button>
                     <Button
                       onClick={handleCreateFocusGroup}
-                      className="bg-primary hover:bg-primary/90"
+                      className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
                       disabled={!newFocusGroup.name || selectedPersonaIds.length < 2}
                     >
                       Create Group

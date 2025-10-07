@@ -1,27 +1,25 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { MoreVertical, Plus, Users, Eye, TrendingUp, BarChart3, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { MoreVertical, Plus, Users, Eye, TrendingUp, BarChart3, ChevronLeft, ChevronRight, Filter, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard } from '@/components/personas/PersonaGenerationWizard';
+import { projectsApi, personasApi } from '@/lib/api';
+import { useAppStore } from '@/store/appStore';
+import { Persona as APIPersona } from '@/types';
 
-interface PersonasProps {}
 
-interface Project {
-  id: number;
-  name: string;
-  description: string;
-}
-
-interface Persona {
-  id: number;
+// Display-friendly Persona interface
+interface DisplayPersona {
+  id: string;
   name: string;
   age: number;
   occupation: string;
@@ -39,125 +37,101 @@ interface Persona {
     lifestyle: string;
   };
   createdAt: string;
-  projectId: number;
+  projectId: string;
 }
 
-const mockProjects: Project[] = [
-  {
-    id: 1,
-    name: "Mobile App Launch Research",
-    description: "Research for new mobile application targeting millennials"
-  },
-  {
-    id: 2,
-    name: "Product Development Study",
-    description: "Understanding user needs for next product iteration"
-  },
-  {
-    id: 3,
-    name: "Marketing Research",
-    description: "Brand perception and market positioning analysis"
+/**
+ * Transform API Persona to display-friendly format
+ */
+function transformPersona(apiPersona: APIPersona): DisplayPersona {
+  // Derive personality traits from Big Five scores
+  const personality: string[] = [];
+  if (apiPersona.openness && apiPersona.openness > 0.6) personality.push('Open-minded');
+  if (apiPersona.conscientiousness && apiPersona.conscientiousness > 0.6) personality.push('Organized');
+  if (apiPersona.extraversion && apiPersona.extraversion > 0.6) personality.push('Outgoing');
+  if (apiPersona.agreeableness && apiPersona.agreeableness > 0.6) personality.push('Agreeable');
+  if (apiPersona.neuroticism && apiPersona.neuroticism < 0.4) personality.push('Calm');
+
+  // Derive lifestyle from Hofstede scores
+  let lifestyle = 'Balanced lifestyle';
+  if (apiPersona.individualism && apiPersona.individualism > 0.7) {
+    lifestyle = 'Independent and self-directed';
+  } else if (apiPersona.individualism && apiPersona.individualism < 0.3) {
+    lifestyle = 'Community-focused and collaborative';
   }
-];
 
-const mockPersonas: Persona[] = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    age: 28,
-    occupation: "Marketing Manager",
-    interests: ["Technology", "Travel", "Fitness", "Sustainability"],
-    background: "Tech-savvy professional who values work-life balance and sustainable living. Early adopter of new technologies with strong influence in her professional network.",
+  return {
+    id: apiPersona.id,
+    name: apiPersona.full_name || apiPersona.persona_title || 'Unknown',
+    age: apiPersona.age,
+    occupation: apiPersona.occupation || 'Not specified',
+    interests: apiPersona.interests || [],
+    background: apiPersona.background_story || apiPersona.headline || 'No background available',
     demographics: {
-      gender: "Female",
-      location: "San Francisco, CA",
-      income: "$75,000 - $100,000",
-      education: "Bachelor's Degree"
+      gender: apiPersona.gender,
+      location: apiPersona.location || 'Not specified',
+      income: apiPersona.income_bracket || 'Not specified',
+      education: apiPersona.education_level || 'Not specified',
     },
     psychographics: {
-      personality: ["Ambitious", "Creative", "Analytical"],
-      values: ["Innovation", "Environment", "Work-life balance"],
-      lifestyle: "Urban professional with active social life"
+      personality,
+      values: apiPersona.values || [],
+      lifestyle,
     },
-    createdAt: "2024-01-10",
-    projectId: 1
-  },
-  {
-    id: 2,
-    name: "Michael Chen",
-    age: 34,
-    occupation: "Software Engineer",
-    interests: ["Gaming", "Cooking", "Music", "Open Source"],
-    background: "Early adopter and tech influencer who values quality and performance. Makes purchasing decisions based on detailed research and peer recommendations.",
-    demographics: {
-      gender: "Male",
-      location: "Austin, TX",
-      income: "$100,000 - $150,000",
-      education: "Master's Degree"
-    },
-    psychographics: {
-      personality: ["Logical", "Detail-oriented", "Collaborative"],
-      values: ["Quality", "Innovation", "Community"],
-      lifestyle: "Tech enthusiast with work-from-home flexibility"
-    },
-    createdAt: "2024-01-12",
-    projectId: 2
-  },
-  {
-    id: 3,
-    name: "Emily Rodriguez",
-    age: 42,
-    occupation: "Small Business Owner",
-    interests: ["Family", "Community", "Business Development", "Networking"],
-    background: "Practical decision-maker focused on value and reliability. Prioritizes solutions that help her business grow while maintaining family time.",
-    demographics: {
-      gender: "Female",
-      location: "Denver, CO",
-      income: "$50,000 - $75,000",
-      education: "Associate Degree"
-    },
-    psychographics: {
-      personality: ["Practical", "Caring", "Determined"],
-      values: ["Family", "Reliability", "Growth"],
-      lifestyle: "Busy entrepreneur balancing business and family"
-    },
-    createdAt: "2024-01-15",
-    projectId: 3
-  },
-  {
-    id: 4,
-    name: "David Kim",
-    age: 26,
-    occupation: "UX Designer",
-    interests: ["Design", "Art", "Technology", "Mental Health"],
-    background: "Creative professional passionate about user experience and accessibility. Values inclusive design and mental health awareness in the workplace.",
-    demographics: {
-      gender: "Male",
-      location: "Seattle, WA",
-      income: "$65,000 - $85,000",
-      education: "Bachelor's Degree"
-    },
-    psychographics: {
-      personality: ["Creative", "Empathetic", "Perfectionist"],
-      values: ["Accessibility", "Creativity", "Wellness"],
-      lifestyle: "Creative professional with strong social consciousness"
-    },
-    createdAt: "2024-01-18",
-    projectId: 1
-  }
-];
+    createdAt: apiPersona.created_at,
+    projectId: apiPersona.project_id,
+  };
+}
 
 
 
-export function Personas({}: PersonasProps) {
-  const [personas, setPersonas] = useState(mockPersonas);
-  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+
+export function Personas() {
+  const { selectedProject, setSelectedProject: setGlobalProject } = useAppStore();
+  const [selectedPersona, setSelectedPersona] = useState<DisplayPersona | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<string>("1");
   const [currentPersonaIndex, setCurrentPersonaIndex] = useState(0);
-  
-  // Filter personas by selected project
-  const filteredPersonas = personas.filter(p => p.projectId === parseInt(selectedProject));
+
+  // Filter states
+  const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
+  const [ageRange, setAgeRange] = useState<[number, number]>([18, 65]);
+  const [selectedOccupations, setSelectedOccupations] = useState<string[]>([]);
+
+  // Fetch all projects
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsApi.getAll,
+  });
+
+  // Fetch personas for selected project and transform to display format
+  const { data: apiPersonas = [] } = useQuery({
+    queryKey: ['personas', selectedProject?.id],
+    queryFn: async () => {
+      if (!selectedProject) return [];
+      return await personasApi.getByProject(selectedProject.id);
+    },
+    enabled: !!selectedProject,
+  });
+
+  // Transform API personas to display format and apply filters
+  const filteredPersonas = useMemo(() => {
+    let personas = apiPersonas.map(transformPersona);
+
+    // Apply gender filter
+    if (selectedGenders.length > 0) {
+      personas = personas.filter(p => selectedGenders.includes(p.demographics.gender));
+    }
+
+    // Apply age range filter
+    personas = personas.filter(p => p.age >= ageRange[0] && p.age <= ageRange[1]);
+
+    // Apply occupation filter
+    if (selectedOccupations.length > 0) {
+      personas = personas.filter(p => selectedOccupations.some(occ => p.occupation.toLowerCase().includes(occ.toLowerCase())));
+    }
+
+    return personas;
+  }, [apiPersonas, selectedGenders, ageRange, selectedOccupations]);
 
   // Calculate population statistics based on filtered personas
   const ageGroups = filteredPersonas.reduce((acc, persona) => {
@@ -169,11 +143,6 @@ export function Personas({}: PersonasProps) {
     return acc;
   }, {} as Record<string, number>);
 
-  const genderDistribution = filteredPersonas.reduce((acc, persona) => {
-    const gender = persona.demographics.gender;
-    acc[gender] = (acc[gender] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
 
   const topInterests = filteredPersonas.flatMap(p => p.interests)
     .reduce((acc, interest) => {
@@ -191,7 +160,7 @@ export function Personas({}: PersonasProps) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -201,21 +170,35 @@ export function Personas({}: PersonasProps) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={selectedProject} onValueChange={setSelectedProject}>
+          <Select
+            value={selectedProject?.id || ''}
+            onValueChange={(value) => {
+              const project = projects.find(p => p.id === value);
+              if (project) setGlobalProject(project);
+            }}
+          >
             <SelectTrigger className="w-64">
               <SelectValue placeholder="Select project" />
             </SelectTrigger>
             <SelectContent>
-              {mockProjects.map((project) => (
-                <SelectItem key={project.id} value={project.id.toString()}>
-                  {project.name}
-                </SelectItem>
-              ))}
+              {projectsLoading ? (
+                <div className="flex items-center justify-center p-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground">No projects found</div>
+              ) : (
+                projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
-          <Button 
+          <Button
             onClick={() => setShowPersonaWizard(true)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
             Generate Personas
@@ -306,12 +289,12 @@ export function Personas({}: PersonasProps) {
       {/* Persona Carousel */}
       <div className="space-y-4">
         <h2 className="text-xl text-foreground">Design Your Personas</h2>
-        
+
         {filteredPersonas.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-12 gap-6 max-h-[600px]">
             {/* Filters Sidebar */}
-            <div className="lg:col-span-1">
-              <Card className="bg-card border border-border sticky top-6">
+            <div className="col-span-12 lg:col-span-4">
+              <Card className="bg-card border border-border overflow-y-auto" style={{ maxHeight: '600px' }}>
                 <CardHeader>
                   <CardTitle className="text-card-foreground flex items-center gap-2">
                     <Filter className="w-5 h-5" />
@@ -324,21 +307,48 @@ export function Personas({}: PersonasProps) {
                     <Label className="text-sm">Gender</Label>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="gender-female" />
+                        <Checkbox
+                          id="gender-female"
+                          checked={selectedGenders.includes('Female')}
+                          onCheckedChange={(checked) => {
+                            setSelectedGenders(checked
+                              ? [...selectedGenders, 'Female']
+                              : selectedGenders.filter(g => g !== 'Female')
+                            );
+                          }}
+                        />
                         <label htmlFor="gender-female" className="text-sm text-card-foreground">
-                          Female (45%)
+                          Female
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="gender-male" />
+                        <Checkbox
+                          id="gender-male"
+                          checked={selectedGenders.includes('Male')}
+                          onCheckedChange={(checked) => {
+                            setSelectedGenders(checked
+                              ? [...selectedGenders, 'Male']
+                              : selectedGenders.filter(g => g !== 'Male')
+                            );
+                          }}
+                        />
                         <label htmlFor="gender-male" className="text-sm text-card-foreground">
-                          Male (40%)
+                          Male
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="gender-other" />
+                        <Checkbox
+                          id="gender-other"
+                          checked={selectedGenders.includes('Non-binary')}
+                          onCheckedChange={(checked) => {
+                            setSelectedGenders(checked
+                              ? [...selectedGenders, 'Non-binary']
+                              : selectedGenders.filter(g => g !== 'Non-binary')
+                            );
+                          }}
+                        />
                         <label htmlFor="gender-other" className="text-sm text-card-foreground">
-                          Non-binary (15%)
+                          Non-binary
                         </label>
                       </div>
                     </div>
@@ -349,15 +359,16 @@ export function Personas({}: PersonasProps) {
                     <Label className="text-sm">Age Range</Label>
                     <div className="px-2">
                       <Slider
-                        value={[18, 65]}
+                        value={ageRange}
+                        onValueChange={(value) => setAgeRange(value as [number, number])}
                         min={18}
                         max={65}
                         step={1}
                         className="w-full"
                       />
                       <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>18</span>
-                        <span>65</span>
+                        <span>{ageRange[0]}</span>
+                        <span>{ageRange[1]}</span>
                       </div>
                     </div>
                   </div>
@@ -393,10 +404,15 @@ export function Personas({}: PersonasProps) {
                     </div>
                   </div>
 
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full"
+                    onClick={() => {
+                      setSelectedGenders([]);
+                      setAgeRange([18, 65]);
+                      setSelectedOccupations([]);
+                    }}
                   >
                     Clear Filters
                   </Button>
@@ -405,8 +421,8 @@ export function Personas({}: PersonasProps) {
             </div>
 
             {/* Persona Carousel */}
-            <div className="lg:col-span-1">
-              <Card className="bg-card border border-border">
+            <div className="col-span-12 lg:col-span-8">
+              <Card className="bg-card border border-border overflow-y-auto" style={{ maxHeight: '600px' }}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
@@ -448,11 +464,11 @@ export function Personas({}: PersonasProps) {
 
                   {/* Current Persona Card */}
                   {filteredPersonas[currentPersonaIndex] && (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="text-2xl text-card-foreground mb-2">{filteredPersonas[currentPersonaIndex].name}</h3>
-                          <p className="text-lg text-muted-foreground">
+                          <h3 className="text-xl text-card-foreground mb-1">{filteredPersonas[currentPersonaIndex].name}</h3>
+                          <p className="text-sm text-muted-foreground">
                             {filteredPersonas[currentPersonaIndex].age} years old • {filteredPersonas[currentPersonaIndex].occupation}
                           </p>
                           <p className="text-muted-foreground">
@@ -480,52 +496,52 @@ export function Personas({}: PersonasProps) {
                       </div>
 
                       {/* Background */}
-                      <div className="space-y-3">
-                        <h4 className="text-lg text-card-foreground">Background</h4>
-                        <p className="text-muted-foreground leading-relaxed">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-card-foreground">Background</h4>
+                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
                           {filteredPersonas[currentPersonaIndex].background}
                         </p>
                       </div>
 
                       {/* Demographics Grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Gender</p>
-                          <p className="text-card-foreground">{filteredPersonas[currentPersonaIndex].demographics.gender}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-0.5">
+                          <p className="text-xs text-muted-foreground">Gender</p>
+                          <p className="text-sm text-card-foreground">{filteredPersonas[currentPersonaIndex].demographics.gender}</p>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Education</p>
-                          <p className="text-card-foreground">{filteredPersonas[currentPersonaIndex].demographics.education}</p>
+                        <div className="space-y-0.5">
+                          <p className="text-xs text-muted-foreground">Education</p>
+                          <p className="text-sm text-card-foreground">{filteredPersonas[currentPersonaIndex].demographics.education}</p>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Income</p>
-                          <p className="text-card-foreground">{filteredPersonas[currentPersonaIndex].demographics.income}</p>
+                        <div className="space-y-0.5">
+                          <p className="text-xs text-muted-foreground">Income</p>
+                          <p className="text-sm text-card-foreground">{filteredPersonas[currentPersonaIndex].demographics.income}</p>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Lifestyle</p>
-                          <p className="text-card-foreground">{filteredPersonas[currentPersonaIndex].psychographics.lifestyle}</p>
+                        <div className="space-y-0.5">
+                          <p className="text-xs text-muted-foreground">Lifestyle</p>
+                          <p className="text-sm text-card-foreground line-clamp-1">{filteredPersonas[currentPersonaIndex].psychographics.lifestyle}</p>
                         </div>
                       </div>
 
                       {/* Interests */}
-                      <div className="space-y-3">
-                        <h4 className="text-lg text-card-foreground">Interests & Values</h4>
-                        <div className="space-y-2">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-card-foreground">Interests & Values</h4>
+                        <div className="space-y-1.5">
                           <div>
-                            <p className="text-sm text-muted-foreground mb-2">Interests</p>
-                            <div className="flex flex-wrap gap-2">
-                              {filteredPersonas[currentPersonaIndex].interests.map((interest, index) => (
-                                <Badge key={index} variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                            <p className="text-xs text-muted-foreground mb-1">Interests</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {filteredPersonas[currentPersonaIndex].interests.slice(0, 5).map((interest, index) => (
+                                <Badge key={index} variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs py-0">
                                   {interest}
                                 </Badge>
                               ))}
                             </div>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground mb-2">Values</p>
-                            <div className="flex flex-wrap gap-2">
-                              {filteredPersonas[currentPersonaIndex].psychographics.values.map((value, index) => (
-                                <Badge key={index} variant="outline" className="border-secondary text-secondary">
+                            <p className="text-xs text-muted-foreground mb-1">Values</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {filteredPersonas[currentPersonaIndex].psychographics.values.slice(0, 5).map((value, index) => (
+                                <Badge key={index} variant="outline" className="border-secondary text-secondary text-xs py-0">
                                   {value}
                                 </Badge>
                               ))}
@@ -535,7 +551,7 @@ export function Personas({}: PersonasProps) {
                       </div>
 
                       {/* Creation Date */}
-                      <div className="pt-4">
+                      <div className="pt-2">
                         <p className="text-xs text-muted-foreground text-right">
                           Created {new Date(filteredPersonas[currentPersonaIndex].createdAt).toLocaleDateString()}
                         </p>
@@ -554,9 +570,9 @@ export function Personas({}: PersonasProps) {
               <p className="text-muted-foreground mb-4">
                 Generate your first AI personas to start understanding your target audience
               </p>
-              <Button 
+              <Button
                 onClick={() => setShowPersonaWizard(true)}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Generate First Personas

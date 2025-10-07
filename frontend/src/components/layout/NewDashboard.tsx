@@ -21,15 +21,15 @@ export function NewDashboard() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 size-full">
+    <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h1 className="text-[30px] font-semibold leading-9 text-foreground">Dashboard</h1>
-        <p className="text-[16px] leading-6 text-muted-foreground">Overview of your market research activities</p>
+      <div>
+        <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
+        <p className="text-muted-foreground">Overview of your market research activities</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[146px]">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-card border border-border rounded-[14px] flex flex-col gap-6 p-px">
           <CardHeader className="flex flex-row items-center justify-between h-12 px-6 py-0">
             <CardTitle className="text-[16px] leading-4 tracking-[-0.4px] text-card-foreground/80">
@@ -103,7 +103,7 @@ export function NewDashboard() {
       </div>
 
       {/* Charts and Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[376px]">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Stats Chart */}
         <Card className="bg-card border border-border rounded-[14px] relative">
           <CardHeader className="pt-6 px-6 pb-0">

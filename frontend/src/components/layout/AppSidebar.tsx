@@ -1,4 +1,4 @@
-import { Search, LayoutDashboard, FolderOpen, Settings, Plus, Command } from 'lucide-react';
+import { Search, LayoutDashboard, FolderOpen, Settings, Plus, Command, Users, MessageSquare, BarChart3 } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -71,7 +71,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                 <SidebarMenuButton
                   onClick={() => onNavigate('projects')}
                   className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
-                    currentView === 'projects'
+                    currentView === 'projects' || currentView === 'project-detail'
                       ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
                       : 'text-sidebar-foreground hover:bg-sidebar-accent'
                   }`}
@@ -80,23 +80,43 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                   <span className="text-[14px]">Projects</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="px-2 py-2">
-          <SidebarGroupLabel className="h-8 px-2 text-muted-foreground text-[12px] font-medium uppercase tracking-[0.3px]">
-            Workflows
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => onNavigate('projects')}
-                  className="h-8 gap-2 pl-2 pr-0 rounded-[8px] text-sidebar-foreground hover:bg-sidebar-accent"
+                  onClick={() => onNavigate('personas')}
+                  className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
+                    currentView === 'personas'
+                      ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                  }`}
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="text-[14px]">New Project</span>
+                  <Users className="w-4 h-4" />
+                  <span className="text-[14px]">Personas</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onNavigate('surveys')}
+                  className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
+                    currentView === 'surveys' || currentView === 'survey-builder' || currentView === 'survey-results'
+                      ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="text-[14px]">Surveys</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onNavigate('focus-groups')}
+                  className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
+                    currentView === 'focus-groups' || currentView === 'focus-group-builder' || currentView === 'focus-group-detail'
+                      ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="text-[14px]">Focus Groups</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

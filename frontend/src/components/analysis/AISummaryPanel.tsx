@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -62,7 +62,7 @@ export function AISummaryPanel({
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes
   });
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     try {
       onGenerateStart?.();
       await refetch({ throwOnError: true });
@@ -78,7 +78,7 @@ export function AISummaryPanel({
       toast.error('Błąd generowania', message);
       onGenerateComplete?.();
     }
-  };
+  }, [refetch, onGenerateStart, onGenerateComplete, useProModel]);
 
   // Trigger generation when triggerGenerate prop changes
   useEffect(() => {
@@ -86,7 +86,7 @@ export function AISummaryPanel({
       setHasTriggered(true);
       handleGenerate();
     }
-  }, [triggerGenerate, hasTriggered, summary, isLoading]);
+  }, [triggerGenerate, hasTriggered, summary, isLoading, handleGenerate]);
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {

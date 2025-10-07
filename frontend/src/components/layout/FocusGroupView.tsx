@@ -85,27 +85,29 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
   const discussionComplete = focusGroup.status === 'completed';
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Project
-        </Button>
-        <div>
-          <h1 className="text-3xl font-semibold text-foreground">{focusGroup.name}</h1>
-          <div className="flex items-center gap-3 mt-1">
-            <Badge className={getStatusColor(focusGroup.status)}>
-              {focusGroup.status}
-            </Badge>
-            <span className="text-muted-foreground">•</span>
-            <span className="text-muted-foreground">{focusGroup.questions.length} questions</span>
-            <span className="text-muted-foreground">•</span>
-            <span className="text-muted-foreground">{focusGroup.persona_ids.length} participants</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={onBack}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">{focusGroup.name}</h1>
+            <div className="flex items-center gap-3">
+              <Badge className={getStatusColor(focusGroup.status)}>
+                {focusGroup.status}
+              </Badge>
+              <span className="text-muted-foreground">•</span>
+              <span className="text-muted-foreground">{focusGroup.questions.length} questions</span>
+              <span className="text-muted-foreground">•</span>
+              <span className="text-muted-foreground">{focusGroup.persona_ids.length} participants</span>
+            </div>
           </div>
         </div>
       </div>
@@ -181,7 +183,7 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                 {!discussionComplete && !isRunning && focusGroup.status === 'pending' && (
                   <Button
                     onClick={handleRunDiscussion}
-                    className="bg-primary hover:bg-primary/90"
+                    className="bg-green-600 hover:bg-green-700 text-white"
                     disabled={runMutation.isPending}
                   >
                     <Play className="w-4 h-4 mr-2" />

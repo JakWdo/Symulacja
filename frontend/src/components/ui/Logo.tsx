@@ -1,8 +1,8 @@
 export function Logo({ className = '' }: { className?: string }) {
   return (
     <img
-      src="/logo.svg"
-      alt="Logo"
+      src="/sight-logo.png"
+      alt="Sight Logo"
       className={className}
     />
   );

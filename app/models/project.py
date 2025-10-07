@@ -65,6 +65,12 @@ class Project(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    surveys = relationship(
+        "Survey",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Project id={self.id} name={self.name!r}>"

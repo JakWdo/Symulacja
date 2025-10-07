@@ -460,3 +460,63 @@ export interface BusinessInsights {
   generated_at: string;
   model_used: string;
 }
+
+// Survey Types
+export interface Question {
+  id: string;
+  type: 'single-choice' | 'multiple-choice' | 'rating-scale' | 'open-text';
+  title: string;
+  description?: string;
+  options?: string[];
+  required: boolean;
+  scaleMin?: number;
+  scaleMax?: number;
+}
+
+export interface Survey {
+  id: string;
+  project_id: string;
+  title: string;
+  description?: string;
+  questions: Question[];
+  status: 'draft' | 'running' | 'completed' | 'failed';
+  target_responses: number;
+  actual_responses: number;
+  total_execution_time_ms?: number;
+  avg_response_time_ms?: number;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  is_active: boolean;
+}
+
+export interface QuestionAnalytics {
+  question_id: string;
+  question_type: string;
+  question_title: string;
+  responses_count: number;
+  statistics: Record<string, any>;
+}
+
+export interface SurveyResults {
+  // Base Survey fields
+  id: string;
+  project_id: string;
+  title: string;
+  description?: string;
+  questions: Question[];
+  status: string;
+  target_responses: number;
+  actual_responses: number;
+  total_execution_time_ms?: number;
+  avg_response_time_ms?: number;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+
+  // Analytics fields
+  question_analytics: QuestionAnalytics[];
+  demographic_breakdown: Record<string, Record<string, any>>;
+  completion_rate: number;
+  average_response_time_ms?: number;
+}

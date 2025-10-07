@@ -97,17 +97,17 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-foreground mb-2">Projects</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Projects</h1>
           <p className="text-muted-foreground">Manage your market research projects</p>
         </div>
         
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
+            <Button className="bg-[#F27405] hover:bg-[#F27405]/90 text-white">
               <Plus className="w-4 h-4 mr-2" />
               New Project
             </Button>
@@ -246,9 +246,9 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
             {searchTerm ? 'No projects match your search criteria.' : 'Get started by creating your first project.'}
           </p>
           {!searchTerm && (
-            <Button 
+            <Button
               onClick={() => setShowCreateDialog(true)}
-              className="bg-primary hover:bg-primary/90"
+              className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create Your First Project

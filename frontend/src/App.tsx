@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
-import { NewDashboard } from '@/components/layout/NewDashboard';
+import { FigmaDashboard } from '@/components/layout/FigmaDashboard';
 import { Projects } from '@/components/layout/Projects';
 import { ProjectDetail } from '@/components/layout/ProjectDetail';
 import { FocusGroups } from '@/components/layout/FocusGroups';
 import { FocusGroupBuilder } from '@/components/layout/FocusGroupBuilder';
 import { FocusGroupView } from '@/components/layout/FocusGroupView';
 import { Personas } from '@/components/layout/Personas';
+import { Surveys } from '@/components/layout/Surveys';
+import { SurveyBuilder } from '@/components/layout/SurveyBuilder';
+import { SurveyResults } from '@/components/layout/SurveyResults';
 import { Settings } from '@/components/Settings';
 import { ProjectPanel } from '@/components/panels/ProjectPanel';
 import { PersonaPanel } from '@/components/panels/PersonaPanel';
@@ -18,7 +21,7 @@ import { ToastContainer } from '@/components/ui/Toast';
 import { useAppStore } from '@/store/appStore';
 import { personasApi } from '@/lib/api';
 import { useTheme } from '@/hooks/use-theme';
-import type { Project, FocusGroup } from '@/types';
+import type { Project, FocusGroup, Survey } from '@/types';
 
 export default function App() {
   // Initialize theme
@@ -32,6 +35,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [viewProject, setViewProject] = useState<Project | null>(null);
   const [viewFocusGroup, setViewFocusGroup] = useState<FocusGroup | null>(null);
+  const [viewSurvey, setViewSurvey] = useState<Survey | null>(null);
 
   // Fetch personas for selected project
   useQuery({
@@ -56,7 +60,7 @@ export default function App() {
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
-        return <NewDashboard onNavigate={setCurrentView} />;
+        return <FigmaDashboard onNavigate={setCurrentView} />;
       case 'projects':
         return (
           <Projects
@@ -113,6 +117,34 @@ export default function App() {
         );
       case 'personas':
         return <Personas />;
+      case 'surveys':
+        return (
+          <Surveys
+            onCreateSurvey={() => setCurrentView('survey-builder')}
+            onSelectSurvey={(survey) => {
+              setViewSurvey(survey);
+              setCurrentView('survey-results');
+            }}
+          />
+        );
+      case 'survey-builder':
+        return (
+          <SurveyBuilder
+            onBack={() => setCurrentView('surveys')}
+            onSave={() => setCurrentView('surveys')}
+          />
+        );
+      case 'survey-results':
+        return viewSurvey ? (
+          <SurveyResults
+            survey={viewSurvey}
+            onBack={() => setCurrentView('surveys')}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">No survey selected</p>
+          </div>
+        );
       case 'settings':
         return (
           <div className="h-full overflow-y-auto">
@@ -122,7 +154,7 @@ export default function App() {
           </div>
         );
       default:
-        return <NewDashboard onNavigate={setCurrentView} />;
+        return <FigmaDashboard onNavigate={setCurrentView} />;
     }
   };
 

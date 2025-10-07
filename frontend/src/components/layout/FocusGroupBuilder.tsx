@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,20 +8,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Plus, Trash2, Calendar, Users, MessageSquare, Settings } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Calendar, Users, MessageSquare, Settings, Loader2 } from 'lucide-react';
+import { projectsApi } from '@/lib/api';
 
 interface FocusGroupBuilderProps {
   onBack: () => void;
   onSave: (focusGroup: any) => void;
 }
 
-const mockProjects = [
-  { id: 1, name: "Mobile App Launch Research" },
-  { id: 2, name: "Product Development Study" },
-  { id: 3, name: "Marketing Research" }
-];
-
 export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsApi.getAll,
+  });
   const [focusGroupTitle, setFocusGroupTitle] = useState('');
   const [focusGroupDescription, setFocusGroupDescription] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
@@ -137,11 +137,17 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                     <SelectValue placeholder="Select a project" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProjects.map((project) => (
-                      <SelectItem key={project.id} value={project.id.toString()}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
+                    {projectsLoading ? (
+                      <div className="flex items-center justify-center p-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      </div>
+                    ) : (
+                      projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

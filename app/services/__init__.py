@@ -10,6 +10,7 @@ from .persona_generator_langchain import (
 from .memory_service_langchain import MemoryServiceLangChain as MemoryService
 from .focus_group_service_langchain import FocusGroupServiceLangChain as FocusGroupService
 from .discussion_summarizer import DiscussionSummarizerService
+from .survey_response_generator import SurveyResponseGenerator
 
 __all__ = [
     "PersonaGenerator",
@@ -17,4 +18,5 @@ __all__ = [
     "MemoryService",
     "FocusGroupService",
     "DiscussionSummarizerService",
+    "SurveyResponseGenerator",
 ]

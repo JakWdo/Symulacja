@@ -1,13 +1,14 @@
 # Market Research SaaS - Wirtualne Grupy Fokusowe z AI
 
-**Minimalistyczna wersja** - system do przeprowadzania wirtualnych grup fokusowych z wykorzystaniem Google Gemini AI. Generuje realistyczne persony i symuluje dyskusje dla potrzeb badań rynkowych.
+**Minimalistyczna wersja** - system do przeprowadzania wirtualnych grup fokusowych i ankiet syntetycznych z wykorzystaniem Google Gemini AI. Generuje realistyczne persony i symuluje dyskusje oraz odpowiedzi ankietowe dla potrzeb badań rynkowych.
 
 ## 📋 Opis Projektu
 
 Market Research SaaS to platforma umożliwiająca:
 - **Generowanie realistycznych person** - AI tworzy szczegółowe profile uczestników badań
 - **Symulację grup fokusowych** - Persony odpowiadają na pytania jak prawdziwi ludzie
-- **Analizę wyników** - Automatyczne podsumowania AI przez Google Gemini
+- **Ankiety syntetyczne** ⭐ - Tworzenie i uruchamianie ankiet z 4 typami pytań (single/multiple choice, rating scale, open text)
+- **Analizę wyników** - Automatyczne podsumowania AI przez Google Gemini + statystyki ankiet
 
 ## 🏗️ Architektura
 
@@ -33,6 +34,7 @@ market-research-saas/
 │   │   ├── projects.py          # Zarządzanie projektami
 │   │   ├── personas.py          # Generowanie person
 │   │   ├── focus_groups.py      # Grupy fokusowe
+│   │   ├── surveys.py           # Ankiety syntetyczne ⭐ NEW
 │   │   └── analysis.py          # Analizy i podsumowania
 │   ├── core/                     # Konfiguracja
 │   │   ├── config.py
@@ -44,17 +46,20 @@ market-research-saas/
 │   │   ├── project.py
 │   │   ├── persona.py
 │   │   ├── focus_group.py
+│   │   ├── survey.py            # Model ankiet ⭐ NEW
 │   │   └── persona_events.py
 │   ├── schemas/                  # Pydantic schemas
 │   │   ├── project.py
 │   │   ├── persona.py
-│   │   └── focus_group.py
+│   │   ├── focus_group.py
+│   │   └── survey.py            # Schemas ankiet ⭐ NEW
 │   ├── services/                 # Logika biznesowa (minimalistyczna wersja)
-│   │   ├── persona_generator_langchain.py    # Generator person (Gemini)
-│   │   ├── focus_group_service_langchain.py  # Orkiestracja dyskusji
-│   │   ├── discussion_summarizer.py          # AI podsumowania
-│   │   ├── memory_service_langchain.py       # Kontekst rozmowy
-│   │   └── persona_validator.py              # Walidacja person
+│   │   ├── persona_generator_langchain.py       # Generator person (Gemini)
+│   │   ├── focus_group_service_langchain.py     # Orkiestracja dyskusji
+│   │   ├── survey_response_generator.py         # Generator odpowiedzi ankiet ⭐ NEW
+│   │   ├── discussion_summarizer.py             # AI podsumowania
+│   │   ├── memory_service_langchain.py          # Kontekst rozmowy
+│   │   └── persona_validator.py                 # Walidacja person
 │   └── main.py                   # Aplikacja FastAPI
 ├── frontend/                     # Frontend (React)
 │   ├── src/
@@ -231,10 +236,21 @@ python -m pytest tests/test_insights_v2_api.py tests/test_persona_generator.py -
 - Spójność odpowiedzi
 - ~2-5 min dla 20 person × 4 pytania
 
+### Ankiety Syntetyczne (Surveys) ⭐ NEW
+- **4 typy pytań**: Single choice, Multiple choice, Rating scale, Open text
+- **Drag & drop builder**: Intuicyjny interfejs do tworzenia ankiet
+- **AI-powered responses**: Odpowiedzi generowane przez Gemini bazując na profilach person
+- **Równoległe przetwarzanie**: Wszystkie persony odpowiadają jednocześnie
+- **Analiza statystyczna**: Automatyczne agregowanie wyników, wykresy, statystyki
+- **Analiza demograficzna**: Podział odpowiedzi według wieku, płci, wykształcenia, dochodu
+- **Wizualizacje**: Bar charts, pie charts dla wyników ankiet
+- **Wydajność**: ~1-3s na odpowiedź persony, pełna ankieta w <60s
+
 ### Analizy
 - **AI Summaries**: executive summary, key insights, recommendations (Gemini 2.5 Pro/Flash)
 - **Sentiment analysis**: prosta analiza sentymentu na podstawie słów kluczowych
 - **Response tracking**: grupowanie odpowiedzi po pytaniach
+- **Survey analytics**: statystyki dla każdego typu pytania (mean, median, distribution)
 
 ## 🛠️ Konfiguracja
 
