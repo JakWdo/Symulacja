@@ -94,7 +94,7 @@ export function Personas() {
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
   const [currentPersonaIndex, setCurrentPersonaIndex] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(0);
-  const [progressMeta, setProgressMeta] = useState<{ start: number; duration: number } | null>(null);
+  const [progressMeta, setProgressMeta] = useState<{ start: number; duration: number; targetCount: number } | null>(null);
   const [activeGenerationProjectId, setActiveGenerationProjectId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -117,6 +117,11 @@ export function Personas() {
       return await personasApi.getByProject(selectedProject.id);
     },
     enabled: !!selectedProject,
+    refetchInterval: (query) => {
+      // Poll every 2s during generation to track real progress
+      const isCurrentlyGenerating = activeGenerationProjectId === selectedProject?.id && generationProgress > 0 && generationProgress < 100;
+      return isCurrentlyGenerating ? 2000 : false;
+    },
   });
 
   // Transform API personas to display format and apply filters
@@ -226,20 +231,27 @@ export function Personas() {
       return;
     }
 
-    const interval = setInterval(() => {
-      setGenerationProgress((prev) => {
-        if (!progressMeta) {
-          return Math.min(prev + 8, 92);
-        }
-        const elapsed = Date.now() - progressMeta.start;
-        const ratio = Math.min(elapsed / progressMeta.duration, 0.97);
-        const target = 5 + ratio * 90;
-        return prev + (target - prev) * 0.35;
-      });
-    }, 200);
+    // Calculate progress based on actual persona count vs target
+    if (progressMeta?.targetCount && apiPersonas.length > 0) {
+      const actualProgress = Math.min((apiPersonas.length / progressMeta.targetCount) * 100, 99);
+      setGenerationProgress(actualProgress);
+    } else {
+      // Fallback to time-based estimation for the first few seconds
+      const interval = setInterval(() => {
+        setGenerationProgress((prev) => {
+          if (!progressMeta) {
+            return Math.min(prev + 8, 92);
+          }
+          const elapsed = Date.now() - progressMeta.start;
+          const ratio = Math.min(elapsed / progressMeta.duration, 0.97);
+          const target = 5 + ratio * 90;
+          return prev + (target - prev) * 0.35;
+        });
+      }, 200);
 
-    return () => clearInterval(interval);
-  }, [isGenerating, progressMeta, generationProgress, activeGenerationProjectId, selectedProject?.id]);
+      return () => clearInterval(interval);
+    }
+  }, [isGenerating, progressMeta, generationProgress, activeGenerationProjectId, selectedProject?.id, apiPersonas.length]);
 
   const handleGeneratePersonas = (config: PersonaGenerationConfig) => {
     if (!selectedProject) {
@@ -250,7 +262,11 @@ export function Personas() {
     const payload = transformWizardConfigToPayload(config);
     setActiveGenerationProjectId(selectedProject.id);
     setShowPersonaWizard(false);
-    setProgressMeta({ start: Date.now(), duration: estimateGenerationDuration(payload.num_personas) });
+    setProgressMeta({
+      start: Date.now(),
+      duration: estimateGenerationDuration(payload.num_personas),
+      targetCount: payload.num_personas
+    });
     setGenerationProgress(5);
     generateMutation.mutate(payload);
   };
@@ -321,7 +337,7 @@ export function Personas() {
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <SpinnerLogo className="w-4 h-4" />
-              <span>Generowanie person w toku…</span>
+              <span>Generating personas…</span>
             </div>
             <span>~{estimatedSeconds}s</span>
           </div>

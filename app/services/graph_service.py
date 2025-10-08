@@ -85,11 +85,19 @@ Emocje w języku angielskim."""),
     async def connect(self):
         """Nawiąż połączenie z Neo4j"""
         if not self.driver:
-            self.driver = AsyncGraphDatabase.driver(
-                self.settings.NEO4J_URI,
-                auth=(self.settings.NEO4J_USER, self.settings.NEO4J_PASSWORD)
-            )
-            logger.info(f"Connected to Neo4j at {self.settings.NEO4J_URI}")
+            try:
+                self.driver = AsyncGraphDatabase.driver(
+                    self.settings.NEO4J_URI,
+                    auth=(self.settings.NEO4J_USER, self.settings.NEO4J_PASSWORD)
+                )
+                # Verify connection works
+                async with self.driver.session() as session:
+                    await session.run("RETURN 1")
+                logger.info(f"Connected to Neo4j at {self.settings.NEO4J_URI}")
+            except Exception as e:
+                logger.error(f"Failed to connect to Neo4j at {self.settings.NEO4J_URI}: {e}")
+                self.driver = None
+                raise ConnectionError(f"Cannot connect to Neo4j: {e}")
 
     async def close(self):
         """Zamknij połączenie"""
@@ -306,7 +314,11 @@ Emocje w języku angielskim."""),
                 "links": [{"source": str, "target": str, "type": str, "strength": float}]
             }
         """
-        await self.connect()
+        try:
+            await self.connect()
+        except ConnectionError as e:
+            logger.error(f"Cannot connect to Neo4j: {e}")
+            return {"nodes": [], "links": [], "error": "Graph database unavailable"}
 
         nodes = []
         links = []
@@ -564,7 +576,10 @@ Emocje w języku angielskim."""),
         Znajduje najbardziej wpływowe persony w grafie
         Na podstawie liczby połączeń i siły relacji
         """
-        await self.connect()
+        try:
+            await self.connect()
+        except ConnectionError:
+            return []
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -597,7 +612,10 @@ Emocje w języku angielskim."""),
         focus_group_id: str
     ) -> List[Dict[str, Any]]:
         """Pobiera najczęściej wspominane koncepcje"""
-        await self.connect()
+        try:
+            await self.connect()
+        except ConnectionError:
+            return []
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -632,7 +650,10 @@ Emocje w języku angielskim."""),
 
         Zwraca koncepcje z dużym rozrzutem sentymentu (jedni kochają, inni nienawidzą)
         """
-        await self.connect()
+        try:
+            await self.connect()
+        except ConnectionError:
+            return []
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -684,7 +705,10 @@ Emocje w języku angielskim."""),
 
         Przykład: "Osoby młodsze (<30) są bardziej pozytywne wobec 'Innovation'"
         """
-        await self.connect()
+        try:
+            await self.connect()
+        except ConnectionError:
+            return []
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -733,7 +757,10 @@ Emocje w języku angielskim."""),
 
         Zwraca agregację: jakie emocje dominują, ilu uczestników je wyraża
         """
-        await self.connect()
+        try:
+            await self.connect()
+        except ConnectionError:
+            return []
 
         async with self.driver.session() as session:
             result = await session.run(

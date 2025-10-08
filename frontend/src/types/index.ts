@@ -57,6 +57,7 @@ export interface FocusGroup {
   questions: string[];
   mode: 'normal' | 'adversarial';
   status: 'pending' | 'running' | 'completed' | 'failed';
+  target_participants: number | null;
   total_execution_time_ms: number | null;
   avg_response_time_ms: number | null;
   created_at: string;

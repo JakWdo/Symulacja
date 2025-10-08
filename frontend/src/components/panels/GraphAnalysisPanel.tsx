@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Filter, TrendingUp, Brain, AlertCircle } from 'lucide-react';
 import { KnowledgeGraph3D } from '@/components/graph/KnowledgeGraph3D';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import {
   useGraphData,
   useKeyConcepts,
@@ -21,6 +22,19 @@ interface GraphAnalysisPanelProps {
 export function GraphAnalysisPanel({ focusGroupId }: GraphAnalysisPanelProps) {
   const [filterType, setFilterType] = useState<'positive' | 'negative' | 'influence' | undefined>();
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+
+  // Validate focusGroupId
+  if (!focusGroupId) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8">
+        <AlertCircle className="w-16 h-16 text-destructive mb-4" />
+        <h3 className="text-lg font-medium text-foreground mb-2">Invalid Focus Group</h3>
+        <p className="text-muted-foreground text-center max-w-md">
+          No focus group ID provided.
+        </p>
+      </div>
+    );
+  }
 
   // Fetch all graph data
   const { data: graphData, isLoading: graphLoading, error: graphError } = useGraphData(focusGroupId, filterType);
@@ -104,10 +118,39 @@ export function GraphAnalysisPanel({ focusGroupId }: GraphAnalysisPanelProps) {
         {/* 3D Graph */}
         <Card className="flex-1 bg-card border border-border overflow-hidden">
           <div className="h-full">
-            <KnowledgeGraph3D
-              graphData={graphData || null}
-              onNodeClick={(node) => setSelectedNode(node)}
-            />
+            <ErrorBoundary
+              fallback={
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-8">
+                    <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">Graph Rendering Error</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Failed to render the 3D graph. Try refreshing the page.
+                    </p>
+                    <Button onClick={() => window.location.reload()}>
+                      Refresh Page
+                    </Button>
+                  </div>
+                </div>
+              }
+            >
+              {graphData && graphData.nodes && graphData.nodes.length > 0 ? (
+                <KnowledgeGraph3D
+                  graphData={graphData}
+                  onNodeClick={(node) => setSelectedNode(node)}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-8">
+                    <Brain className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No Graph Data</h3>
+                    <p className="text-muted-foreground">
+                      The knowledge graph is empty. This may happen if the focus group has just completed.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </ErrorBoundary>
           </div>
         </Card>
 

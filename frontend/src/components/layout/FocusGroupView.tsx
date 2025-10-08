@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,16 +8,15 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Loader2, Clock, CheckCircle, Plus, Trash2, Brain, Network, GitGraph, Edit as EditIcon, CheckSquare } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Loader2, Clock, CheckCircle, Plus, Trash2, Brain, Network, GitGraph } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { focusGroupsApi, personasApi, graphApi, analysisApi } from '@/lib/api';
 import { Logo } from '@/components/ui/Logo';
 import { ScoreChart } from '@/components/ui/ScoreChart';
 import { GraphAnalysisPanel } from '@/components/panels/GraphAnalysisPanel';
-import { getTargetParticipants } from '@/lib/focusGroupUtils';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
 import { toast } from '@/components/ui/toastStore';
 import type { FocusGroup, FocusGroupResponses } from '@/types';
+import type { AISummaryResponse } from '@/types/ai-summary';
 import { motion } from 'framer-motion';
 
 interface FocusGroupViewProps {
@@ -39,6 +38,16 @@ const mockChatMessages: ChatMessage[] = [
   { id: 4, persona: 'David Kim', message: 'The user interface needs to be intuitive. I don\'t want to spend hours learning a new tool.', timestamp: '14:35' },
 ];
 
+const arraysEqual = (a: string[], b: string[]) => {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((value, index) => value === sortedB[index]);
+};
+
+const sanitizeQuestions = (list: string[]) =>
+  list.map((question) => question.trim()).filter((question) => question.length > 0);
+
 export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusGroupViewProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [discussionProgress, setDiscussionProgress] = useState(0);
@@ -51,18 +60,30 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   const [buildingGraph, setBuildingGraph] = useState(false);
   const [graphBuilt, setGraphBuilt] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [isEditMode, setIsEditMode] = useState(initialFocusGroup.status === 'pending');
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(initialFocusGroup.persona_ids || []);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({
-    mutationFn: (payload: { persona_ids?: string[]; questions?: string[] }) =>
-      focusGroupsApi.update(initialFocusGroup.id, payload as any),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['focus-groups'] });
+    mutationFn: (payload: {
+      name: string;
+      description: string | null;
+      project_context: string | null;
+      persona_ids: string[];
+      questions: string[];
+      mode: 'normal' | 'adversarial';
+    }) => focusGroupsApi.update(initialFocusGroup.id, payload as any),
+    onSuccess: (updated) => {
+      setQuestions(updated.questions || []);
+      setSelectedPersonaIds(updated.persona_ids || []);
+      queryClient.setQueryData(['focus-group', initialFocusGroup.id], updated);
+      queryClient.invalidateQueries({ queryKey: ['focus-groups', updated.project_id] });
       queryClient.invalidateQueries({ queryKey: ['focus-group', initialFocusGroup.id] });
-      setIsEditMode(false);
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to save changes', message);
     },
   });
 
@@ -84,6 +105,16 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     enabled: !!focusGroup.project_id,
   });
 
+  useEffect(() => {
+    if (updateMutation.isPending) {
+      return;
+    }
+    const nextQuestions = focusGroup.questions || [];
+    setQuestions((prev) => (arraysEqual(prev, nextQuestions) ? prev : nextQuestions));
+    const nextPersonaIds = focusGroup.persona_ids || [];
+    setSelectedPersonaIds((prev) => (arraysEqual(prev, nextPersonaIds) ? prev : nextPersonaIds));
+  }, [focusGroup.questions, focusGroup.persona_ids, updateMutation.isPending]);
+
   const { data: responses, isLoading: responsesLoading } = useQuery<FocusGroupResponses>({
     queryKey: ['focus-group-responses', focusGroup.id],
     queryFn: () => focusGroupsApi.getResponses(focusGroup.id),
@@ -91,13 +122,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     refetchInterval: focusGroup.status === 'running' ? 3000 : false, // Poll every 3s when running
   });
 
-  // Fetch AI insights
-  const { data: insights, isLoading: insightsLoading } = useQuery({
-    queryKey: ['focus-group-insights', focusGroup.id],
-    queryFn: () => analysisApi.getInsights(focusGroup.id),
-    enabled: focusGroup.status === 'completed' && aiSummaryGenerated,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  // Store insights in state after generation
+  const [insights, setInsights] = useState<AISummaryResponse | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
   const runMutation = useMutation({
     mutationFn: () => focusGroupsApi.run(focusGroup.id),
@@ -153,39 +180,110 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     }
   };
 
-  const addQuestion = () => {
-    if (newQuestion.trim()) {
-      setQuestions([...questions, newQuestion.trim()]);
-      setNewQuestion('');
+  const handlePersistQuestions = async (
+    nextQuestions: string[],
+    previousQuestions: string[],
+  ) => {
+    if (focusGroup.status !== 'pending') {
+      return;
+    }
+    if (updateMutation.isPending) {
+      return;
+    }
+    const sanitized = sanitizeQuestions(nextQuestions);
+    try {
+      await updateMutation.mutateAsync(buildUpdatePayload(selectedPersonaIds, sanitized));
+    } catch {
+      setQuestions(previousQuestions);
     }
   };
 
-  const removeQuestion = (index: number) => {
-    setQuestions(questions.filter((_, i) => i !== index));
+  const addQuestion = async () => {
+    const trimmed = newQuestion.trim();
+    if (!trimmed || focusGroup.status !== 'pending') {
+      return;
+    }
+    if (updateMutation.isPending) {
+      return;
+    }
+    const previous = questions;
+    const next = [...questions, trimmed];
+    setQuestions(next);
+    setNewQuestion('');
+    await handlePersistQuestions(next, previous);
+  };
+
+  const removeQuestion = async (index: number) => {
+    if (focusGroup.status !== 'pending') {
+      return;
+    }
+    if (updateMutation.isPending) {
+      return;
+    }
+    const previous = questions;
+    const next = questions.filter((_, i) => i !== index);
+    setQuestions(next);
+    await handlePersistQuestions(next, previous);
+  };
+
+  const handlePersonaToggle = (personaId: string, nextChecked: boolean) => {
+    if (focusGroup.status !== 'pending') {
+      return;
+    }
+    const wasSelected = selectedPersonaIds.includes(personaId);
+    if ((wasSelected && nextChecked) || (!wasSelected && !nextChecked)) {
+      return;
+    }
+
+    const next = nextChecked
+      ? [...selectedPersonaIds, personaId]
+      : selectedPersonaIds.filter((id) => id !== personaId);
+
+    setSelectedPersonaIds(next);
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout to save after 500ms
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const sanitizedQuestions = sanitizeQuestions(questions);
+        await updateMutation.mutateAsync(buildUpdatePayload(next, sanitizedQuestions));
+      } catch (error) {
+        console.error('Failed to save persona selection:', error);
+        // Optionally revert on error
+      }
+    }, 500);
   };
 
   const handleGenerateAiSummary = async () => {
     setGeneratingAiSummary(true);
+    setInsightsLoading(true);
 
     try {
-      await analysisApi.generateInsights(focusGroup.id);
+      const generatedInsights = await analysisApi.generateInsights(focusGroup.id);
+      setInsights(generatedInsights);
       setGeneratingAiSummary(false);
+      setInsightsLoading(false);
       setAiSummaryGenerated(true);
-      queryClient.invalidateQueries({ queryKey: ['focus-group-insights', focusGroup.id] });
       setActiveTab('results');
+      toast.success('AI Summary generated successfully');
     } catch (error) {
       console.error('Failed to generate AI summary:', error);
       setGeneratingAiSummary(false);
-      // TODO: Show error toast
+      setInsightsLoading(false);
+      toast.error('Failed to generate AI summary', error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30';
+        return 'bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405] border-[#F27405]/30';
       case 'running':
-        return 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30';
+        return 'bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/30';
       case 'pending':
         return 'bg-muted text-muted-foreground border-border';
       case 'failed':
@@ -195,18 +293,31 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     }
   };
 
-  const discussionComplete = focusGroup.status === 'completed';
-
-  // Sprawdź czy to draft (brak person lub pytań)
-  const isDraft = focusGroup.status === 'pending' &&
-    (focusGroup.persona_ids.length === 0 || focusGroup.questions.length === 0);
-
-  // Automatycznie włącz tryb edycji dla nowych draftów (pustych)
-  useEffect(() => {
-    if (isDraft && selectedPersonaIds.length === 0 && questions.length === 0) {
-      setIsEditMode(true);
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'running':
+        return 'In Progress';
+      case 'completed':
+        return 'Completed';
+      case 'pending':
+        return 'Pending';
+      case 'failed':
+        return 'Failed';
+      default:
+        return status;
     }
-  }, [isDraft]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
+
+  const discussionComplete = focusGroup.status === 'completed';
+  const canModifyConfig = focusGroup.status === 'pending';
+  const buildUpdatePayload = (personaIds: string[], questionList: string[]) => ({
+    name: focusGroup.name,
+    description: focusGroup.description ?? null,
+    project_context: focusGroup.project_context ?? null,
+    persona_ids: personaIds,
+    questions: questionList,
+    mode: focusGroup.mode,
+  });
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -225,7 +336,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
           <h1 className="text-4xl font-bold text-foreground mb-2">{focusGroup.name}</h1>
           <div className="flex items-center gap-3">
             <Badge className={getStatusColor(focusGroup.status)}>
-              {focusGroup.status}
+              {getStatusText(focusGroup.status)}
             </Badge>
             <span className="text-muted-foreground">•</span>
             <span className="text-muted-foreground">{focusGroup.questions.length} questions</span>
@@ -264,8 +375,21 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
             {/* Questions */}
             <Card className="bg-card border border-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-card-foreground">Discussion Questions</CardTitle>
-                <p className="text-muted-foreground">Questions that will be asked during the focus group session</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-card-foreground">Discussion Questions</CardTitle>
+                    <p className="text-muted-foreground">
+                      {canModifyConfig
+                        ? 'Adjust the prompts for your discussion. Changes save automatically.'
+                        : 'These are the prompts used during the session.'}
+                    </p>
+                  </div>
+                  {updateMutation.isPending && (
+                    <Badge variant="outline" className="text-xs">
+                      Saving...
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -276,12 +400,13 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                           Q{index + 1}
                         </span>
                         <p className="text-foreground flex-1">{question}</p>
-                        {isEditMode && (
+                        {canModifyConfig && (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => removeQuestion(index)}
                             className="text-muted-foreground hover:text-destructive"
+                            disabled={updateMutation.isPending}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -294,7 +419,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                   )}
                 </div>
 
-                {isEditMode && (
+                {canModifyConfig && (
                   <div className="mt-4 pt-4 border-t border-border">
                     <div className="flex gap-2">
                       <div className="flex-1">
@@ -304,12 +429,18 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                           placeholder="Enter a new discussion question..."
                           value={newQuestion}
                           onChange={(e) => setNewQuestion(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && addQuestion()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addQuestion();
+                            }
+                          }}
+                          disabled={updateMutation.isPending}
                         />
                       </div>
                       <Button
                         onClick={addQuestion}
-                        disabled={!newQuestion.trim()}
+                        disabled={!newQuestion.trim() || updateMutation.isPending}
                         className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
                       >
                         <Plus className="w-4 h-4" />
@@ -323,140 +454,55 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
             {/* Participants */}
             <Card className="bg-card border border-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-card-foreground">Participants</CardTitle>
-                <p className="text-muted-foreground">
-                  {isEditMode ? 'Select personas for this session' : `${selectedPersonaIds.length} personas selected for this session`}
-                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-card-foreground">Participants</CardTitle>
+                    <p className="text-muted-foreground">
+                      {canModifyConfig
+                        ? 'Select personas for this session. Changes save automatically.'
+                        : `${selectedPersonaIds.length} personas participated in this session.`}
+                    </p>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {isEditMode ? (
-                    // Tryb edycji - pokaż wszystkie persony z checkboxami
-                    personas.map((persona) => (
-                      <div key={persona.id} className="flex items-center space-x-3 p-3 bg-muted rounded-lg border border-border">
-                        <Checkbox
-                          checked={selectedPersonaIds.includes(persona.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedPersonaIds([...selectedPersonaIds, persona.id]);
-                            } else {
-                              setSelectedPersonaIds(selectedPersonaIds.filter(id => id !== persona.id));
-                            }
-                          }}
-                        />
-                        <div className="flex-1">
-                          <p className="text-card-foreground font-medium">{persona.full_name || `Persona ${persona.id.slice(0, 8)}`}</p>
-                          <p className="text-sm text-muted-foreground">{persona.age} years old • {persona.occupation || 'No occupation'}</p>
-                        </div>
-                      </div>
-                    ))
+                  {personas.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-4">No personas available</p>
                   ) : (
-                    // Tryb przeglądania - pokaż tylko wybrane persony
-                    selectedPersonaIds.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-4">No personas selected</p>
-                    ) : (
-                      personas
-                        .filter(p => selectedPersonaIds.includes(p.id))
-                        .map((persona, index) => (
-                          <div key={persona.id} className="flex items-center space-x-3 p-3 bg-muted rounded-lg border border-border">
-                            <Checkbox
-                              checked={true}
-                              disabled
-                            />
-                            <div className="flex-1">
-                              <p className="text-card-foreground font-medium">{persona.full_name || `Persona ${index + 1}`}</p>
-                              <p className="text-sm text-muted-foreground">{persona.age} years old • {persona.occupation || 'No occupation'}</p>
-                            </div>
+                    personas.map((persona) => {
+                      const isSelected = selectedPersonaIds.includes(persona.id);
+                      return (
+                        <div
+                          key={persona.id}
+                          className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
+                            isSelected
+                              ? 'bg-[#F27405]/10 border-[#F27405]/40'
+                              : 'bg-muted border-border'
+                          }`}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => handlePersonaToggle(persona.id, checked === true)}
+                            disabled={!canModifyConfig || updateMutation.isPending}
+                          />
+                          <div className="flex-1">
+                            <p className="text-card-foreground font-medium">
+                              {persona.full_name || `Persona ${persona.id.slice(0, 8)}`}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {persona.age} years old • {persona.occupation || 'No occupation'}
+                            </p>
                           </div>
-                        ))
-                    )
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Draft Actions */}
-          {isDraft && (
-            <Card className="bg-card border border-border shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-card-foreground mb-2">Draft Focus Group</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedPersonaIds.length === 0 && questions.length === 0
-                        ? 'Add questions and select personas to complete setup'
-                        : selectedPersonaIds.length === 0
-                        ? 'Select at least 2 personas to complete setup'
-                        : questions.length === 0
-                        ? 'Add at least 1 question to complete setup'
-                        : 'Ready to complete setup and run the focus group'}
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    {!isEditMode ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsEditMode(true)}
-                          className="border-border text-card-foreground"
-                        >
-                          <EditIcon className="w-4 h-4 mr-2" />
-                          Edit
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            updateMutation.mutate({
-                              persona_ids: selectedPersonaIds,
-                              questions: questions.filter(q => q.trim() !== ''),
-                            });
-                          }}
-                          disabled={selectedPersonaIds.length < 2 || questions.length === 0 || updateMutation.isPending}
-                          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-                        >
-                          {updateMutation.isPending ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <CheckSquare className="w-4 h-4 mr-2" />
-                          )}
-                          Complete Setup
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setIsEditMode(false);
-                            setSelectedPersonaIds(focusGroup.persona_ids);
-                            setQuestions(focusGroup.questions);
-                          }}
-                          className="border-border text-card-foreground"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            updateMutation.mutate({
-                              persona_ids: selectedPersonaIds,
-                              questions: questions.filter(q => q.trim() !== ''),
-                            });
-                          }}
-                          disabled={updateMutation.isPending}
-                          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-                        >
-                          {updateMutation.isPending ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : null}
-                          Save Changes
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
         {/* Discussion Tab */}
@@ -559,7 +605,11 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
               {discussionComplete && !aiSummaryGenerated && (
                 <div className="text-center py-8">
-                  <CheckCircle className="w-12 h-12 text-[#F27405] mx-auto mb-4" />
+                  <img
+                    src="/sight-logo-przezroczyste.png"
+                    alt="Sight Logo"
+                    className="w-16 h-16 mx-auto mb-4 object-contain"
+                  />
                   <h3 className="text-lg font-medium text-[#F27405] mb-2">Discussion Complete</h3>
                   <p className="text-muted-foreground mb-4">
                     The focus group simulation has finished. Generate AI insights to analyze the results.
@@ -586,7 +636,11 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
               {discussionComplete && aiSummaryGenerated && (
                 <div className="text-center py-8">
-                  <CheckCircle className="w-12 h-12 text-[#F27405] mx-auto mb-4" />
+                  <img
+                    src="/sight-logo-przezroczyste.png"
+                    alt="Sight Logo"
+                    className="w-16 h-16 mx-auto mb-4 object-contain"
+                  />
                   <h3 className="text-lg font-medium text-[#F27405] mb-2">AI Summary Generated</h3>
                   <p className="text-muted-foreground mb-4">
                     AI insights have been generated. View the complete analysis in the "Results & Analysis" tab.
@@ -642,8 +696,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               {insightsLoading ? (
                 <Card className="bg-card border border-border shadow-sm">
                   <CardContent className="py-12 flex flex-col items-center justify-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
-                    <p className="text-muted-foreground">Loading AI insights...</p>
+                    <Logo className="w-8 h-8 mb-4" spinning />
+                    <p className="text-muted-foreground">Generating AI insights with Gemini...</p>
+                    <p className="text-sm text-muted-foreground mt-2">This may take 30-60 seconds</p>
                   </CardContent>
                 </Card>
               ) : insights ? (
@@ -656,48 +711,79 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     <p className="text-muted-foreground">Key insights generated by AI analysis</p>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-6">
                       {/* Executive Summary */}
-                      <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
-                        <h4 className="font-semibold text-card-foreground">Executive Summary</h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {insights.llm_rationale || 'Participants showed strong interest in ease-of-use features and integration capabilities. Pricing concerns were raised by multiple participants, suggesting value proposition optimization.'}
-                        </p>
+                      {insights.executive_summary && (
+                        <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
+                          <h4 className="font-semibold text-card-foreground">Executive Summary</h4>
+                          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                            {insights.executive_summary}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Key Insights */}
+                        {insights.key_insights && insights.key_insights.length > 0 && (
+                          <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
+                            <h4 className="font-semibold text-card-foreground">Key Insights</h4>
+                            <ul className="space-y-2">
+                              {insights.key_insights.map((insight, idx) => (
+                                <li key={idx} className="text-sm text-muted-foreground">• {insight}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Surprising Findings */}
+                        {insights.surprising_findings && insights.surprising_findings.length > 0 && (
+                          <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
+                            <h4 className="font-semibold text-card-foreground">Surprising Findings</h4>
+                            <ul className="space-y-2">
+                              {insights.surprising_findings.map((finding, idx) => (
+                                <li key={idx} className="text-sm text-muted-foreground">• {finding}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Recommendations */}
+                        {insights.recommendations && insights.recommendations.length > 0 && (
+                          <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
+                            <h4 className="font-semibold text-card-foreground">Strategic Recommendations</h4>
+                            <ul className="space-y-2">
+                              {insights.recommendations.map((rec, idx) => (
+                                <li key={idx} className="text-sm text-muted-foreground">• {rec}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Sentiment Narrative */}
+                        {insights.sentiment_narrative && (
+                          <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
+                            <h4 className="font-semibold text-card-foreground">Sentiment Narrative</h4>
+                            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                              {insights.sentiment_narrative}
+                            </p>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Key Insights */}
-                      <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
-                        <h4 className="font-semibold text-card-foreground">Key Insights</h4>
-                        <ul className="space-y-1">
-                          {insights.signal_breakdown?.strengths.slice(0, 4).map((item, idx) => (
-                            <li key={idx} className="text-sm text-muted-foreground">• {item.title}</li>
-                          )) || (
-                            <>
-                              <li className="text-sm text-muted-foreground">• Usability is the primary concern</li>
-                              <li className="text-sm text-muted-foreground">• Mobile access is highly valued</li>
-                              <li className="text-sm text-muted-foreground">• Integration needs vary by role</li>
-                              <li className="text-sm text-muted-foreground">• Price sensitivity across segments</li>
-                            </>
-                          )}
-                        </ul>
-                      </div>
-
-                      {/* Recommendations */}
-                      <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
-                        <h4 className="font-semibold text-card-foreground">Recommendations</h4>
-                        <ul className="space-y-1">
-                          {insights.signal_breakdown?.opportunities.slice(0, 4).map((item, idx) => (
-                            <li key={idx} className="text-sm text-muted-foreground">• {item.title}</li>
-                          )) || (
-                            <>
-                              <li className="text-sm text-muted-foreground">• Prioritize UX improvements</li>
-                              <li className="text-sm text-muted-foreground">• Develop mobile-first approach</li>
-                              <li className="text-sm text-muted-foreground">• Create tiered pricing model</li>
-                              <li className="text-sm text-muted-foreground">• Focus on integration features</li>
-                            </>
-                          )}
-                        </ul>
-                      </div>
+                      {/* Segment Analysis */}
+                      {insights.segment_analysis && Object.keys(insights.segment_analysis).length > 0 && (
+                        <div className="bg-muted border border-border rounded-lg p-4 space-y-3">
+                          <h4 className="font-semibold text-card-foreground">Segment Analysis</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries(insights.segment_analysis).map(([segment, analysis], idx) => (
+                              <div key={idx} className="space-y-1">
+                                <h5 className="font-medium text-card-foreground text-sm">{segment}</h5>
+                                <p className="text-sm text-muted-foreground">{analysis}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -708,114 +794,6 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     <p className="text-muted-foreground">No insights available. Generate AI summary first.</p>
                   </CardContent>
                 </Card>
-              )}
-
-              {/* Sentiment & Score Analysis */}
-              {insights && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Sentiment Analysis */}
-                  <Card className="bg-card border border-border shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-card-foreground">Sentiment Analysis</CardTitle>
-                      <p className="text-muted-foreground">Overall sentiment distribution</p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-col items-center space-y-6">
-                        {/* Doughnut Chart */}
-                        <div className="relative w-64 h-64">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={[
-                                  { name: 'Very Positive', value: Math.round(insights.metrics.sentiment_summary.positive_ratio * 35), color: '#10B981' },
-                                  { name: 'Positive', value: Math.round(insights.metrics.sentiment_summary.positive_ratio * 65), color: '#34D399' },
-                                  { name: 'Neutral', value: Math.round(insights.metrics.sentiment_summary.neutral_ratio * 100), color: '#6B7280' },
-                                  { name: 'Negative', value: Math.round(insights.metrics.sentiment_summary.negative_ratio * 100), color: '#F59E0B' },
-                                  { name: 'Very Negative', value: Math.round(insights.metrics.sentiment_summary.negative_ratio * 25), color: '#EF4444' }
-                                ]}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={100}
-                                dataKey="value"
-                                startAngle={90}
-                                endAngle={450}
-                              >
-                                {[
-                                  { name: 'Very Positive', value: Math.round(insights.metrics.sentiment_summary.positive_ratio * 35), color: '#10B981' },
-                                  { name: 'Positive', value: Math.round(insights.metrics.sentiment_summary.positive_ratio * 65), color: '#34D399' },
-                                  { name: 'Neutral', value: Math.round(insights.metrics.sentiment_summary.neutral_ratio * 100), color: '#6B7280' },
-                                  { name: 'Negative', value: Math.round(insights.metrics.sentiment_summary.negative_ratio * 100), color: '#F59E0B' },
-                                  { name: 'Very Negative', value: Math.round(insights.metrics.sentiment_summary.negative_ratio * 25), color: '#EF4444' }
-                                ].map((entry, index) => (
-                                  <Cell
-                                    key={`cell-${index}`}
-                                    fill={entry.color}
-                                    stroke={hoveredIndex === index ? "#333333" : entry.color}
-                                    strokeWidth={hoveredIndex === index ? 3 : 0}
-                                    style={{
-                                      cursor: 'pointer',
-                                      filter: hoveredIndex === index ? 'drop-shadow(0px 4px 8px rgba(0,0,0,0.15))' : 'none',
-                                      transition: 'all 0.2s ease'
-                                    }}
-                                    onMouseEnter={() => setHoveredIndex(index)}
-                                    onMouseLeave={() => setHoveredIndex(null)}
-                                  />
-                                ))}
-                              </Pie>
-                              <Tooltip
-                                content={({ active, payload }) => {
-                                  if (active && payload && payload.length) {
-                                    const data = payload[0].payload;
-                                    return (
-                                      <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-                                        <p className="text-popover-foreground font-medium">{data.name}</p>
-                                        <p className="text-popover-foreground text-sm">{data.value}%</p>
-                                      </div>
-                                    );
-                                  }
-                                  return null;
-                                }}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-
-                        {/* Legend */}
-                        <div className="flex flex-wrap gap-4 justify-center">
-                          {[
-                            { name: 'Very Positive', color: '#10B981' },
-                            { name: 'Positive', color: '#34D399' },
-                            { name: 'Neutral', color: '#6B7280' },
-                            { name: 'Negative', color: '#F59E0B' },
-                            { name: 'Very Negative', color: '#EF4444' }
-                          ].map((entry, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: entry.color }}
-                              />
-                              <span className="text-sm text-card-foreground">{entry.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Score Analysis */}
-                  <Card className="bg-card border border-border shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-card-foreground">Score Analysis</CardTitle>
-                      <p className="text-muted-foreground">Overall participant satisfaction score</p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-center py-8">
-                        <ScoreChart score={Math.round(insights.idea_score)} />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
               )}
 
               {/* Raw Responses */}

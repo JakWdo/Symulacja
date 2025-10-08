@@ -3,13 +3,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { MoreVertical, Plus, Users, Eye, BarChart3, Play, Trash2, Clock } from 'lucide-react';
+import { MoreVertical, Plus, Users, Eye, BarChart3, Play, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { surveysApi, projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import type { Survey } from '@/types';
 import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useState } from 'react';
 
 interface SurveysProps {
   onCreateSurvey: () => void;
@@ -19,6 +21,14 @@ interface SurveysProps {
 export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
   const { selectedProject, setSelectedProject } = useAppStore();
   const queryClient = useQueryClient();
+  const [launchDialog, setLaunchDialog] = useState<{ open: boolean; survey: Survey | null }>({
+    open: false,
+    survey: null,
+  });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; survey: Survey | null }>({
+    open: false,
+    survey: null,
+  });
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['projects'],
@@ -55,27 +65,37 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
   });
 
   const handleRunSurvey = (survey: Survey) => {
-    if (confirm(`Launch survey "${survey.title}"? This will generate responses from all personas in the project.`)) {
-      runMutation.mutate(survey.id);
+    setLaunchDialog({ open: true, survey });
+  };
+
+  const confirmLaunch = () => {
+    if (launchDialog.survey) {
+      runMutation.mutate(launchDialog.survey.id);
+      setLaunchDialog({ open: false, survey: null });
     }
   };
 
   const handleDeleteSurvey = (survey: Survey) => {
-    if (confirm(`Delete survey "${survey.title}"? This action cannot be undone.`)) {
-      deleteMutation.mutate(survey.id);
+    setDeleteDialog({ open: true, survey });
+  };
+
+  const confirmDelete = () => {
+    if (deleteDialog.survey) {
+      deleteMutation.mutate(deleteDialog.survey.id);
+      setDeleteDialog({ open: false, survey: null });
     }
   };
 
   const getStatusBadge = (status: Survey['status']) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-green-500/10 text-green-700 dark:text-green-400">Completed</Badge>;
+        return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">Completed</Badge>;
       case 'running':
-        return <Badge className="bg-blue-500/10 text-blue-700 dark:text-blue-400">Running</Badge>;
+        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">In Progress</Badge>;
       case 'draft':
         return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Draft</Badge>;
       case 'failed':
-        return <Badge className="bg-red-500/10 text-red-700 dark:text-red-400">Failed</Badge>;
+        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Failed</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -271,8 +291,8 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-2 pt-2">
-                          {survey.status === 'completed' && (
+                        {survey.status === 'completed' ? (
+                          <div className="flex items-center gap-2 pt-2">
                             <Button
                               size="sm"
                               onClick={() => onSelectSurvey(survey)}
@@ -281,28 +301,17 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                               <Eye className="w-4 h-4 mr-2" />
                               View Results
                             </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteSurvey(survey)}
-                            className="text-red-600 dark:text-red-400 border-red-200 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Meta */}
-                      <div className="flex flex-col items-end gap-2 text-right">
-                        <Badge variant="secondary" className="bg-primary/10 text-primary">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {survey.status === 'running' ? 'Active' : survey.status}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground">
-                          Created {new Date(survey.created_at).toLocaleDateString()}
-                        </p>
+                            <p className="text-xs text-muted-foreground ml-auto">
+                              Created {new Date(survey.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 pt-2">
+                            <p className="text-xs text-muted-foreground ml-auto">
+                              Created {new Date(survey.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -373,7 +382,26 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
 
         {bodyContent}
       </div>
+
+      <ConfirmDialog
+        open={launchDialog.open}
+        onOpenChange={(open) => setLaunchDialog({ open, survey: null })}
+        title={`Launch "${launchDialog.survey?.title}"?`}
+        description={`This will collect responses from all ${launchDialog.survey?.target_responses || 0} virtual participants in your project.`}
+        confirmText="Launch Survey"
+        cancelText="Not Yet"
+        onConfirm={confirmLaunch}
+      />
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, survey: null })}
+        title={`Remove "${deleteDialog.survey?.title}"?`}
+        description={`This will permanently delete all response data and cannot be reversed.`}
+        confirmText="Remove Survey"
+        cancelText="Keep It"
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
-

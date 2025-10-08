@@ -140,6 +140,9 @@ export const focusGroupsApi = {
     );
     return data;
   },
+  remove: async (focusGroupId: string): Promise<void> => {
+    await api.delete(`/focus-groups/${focusGroupId}`);
+  },
   run: async (focusGroupId: string): Promise<void> => {
     await api.post(`/focus-groups/${focusGroupId}/run`);
   },

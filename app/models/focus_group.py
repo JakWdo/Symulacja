@@ -64,6 +64,7 @@ class FocusGroup(Base):
     questions = Column(ARRAY(Text), nullable=False)  # ["Question 1?", "Question 2?", ...]
     mode = Column(String(50), nullable=False, default="normal")  # "normal" lub "adversarial"
     status = Column(String(50), nullable=False, default="pending")  # pending/running/completed/failed
+    target_participants = Column(Integer, nullable=True, default=10)  # Docelowa liczba uczestników
 
     # Metryki wydajności
     total_execution_time_ms = Column(Integer, nullable=True)  # Całkowity czas (cel: <30s)

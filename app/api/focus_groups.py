@@ -59,6 +59,7 @@ async def create_focus_group(
         persona_ids=focus_group.persona_ids,
         questions=focus_group.questions,
         mode=focus_group.mode,
+        target_participants=focus_group.target_participants,
     )
 
     db.add(db_focus_group)
@@ -98,6 +99,7 @@ async def update_focus_group(
     focus_group.persona_ids = focus_group_update.persona_ids
     focus_group.questions = focus_group_update.questions
     focus_group.mode = focus_group_update.mode
+    focus_group.target_participants = focus_group_update.target_participants
 
     await db.commit()
     await db.refresh(focus_group)
@@ -159,6 +161,7 @@ async def run_focus_group(
 async def _run_focus_group_task(focus_group_id: UUID):
     """Background task to run focus group"""
     import logging
+    from app.services.graph_service import GraphService
     logger = logging.getLogger(__name__)
 
     logger.info(f"🎯 Background task started for focus group {focus_group_id}")
@@ -169,6 +172,18 @@ async def _run_focus_group_task(focus_group_id: UUID):
             logger.info(f"📦 Service created, calling run_focus_group...")
             result = await service.run_focus_group(db, str(focus_group_id))
             logger.info(f"✅ Focus group completed: {result.get('status')}")
+
+            # Automatically build knowledge graph after completion
+            if result.get('status') == 'completed':
+                logger.info(f"🔨 Building knowledge graph for focus group {focus_group_id}...")
+                graph_service = GraphService()
+                try:
+                    graph_stats = await graph_service.build_graph_from_focus_group(db, str(focus_group_id))
+                    logger.info(f"✅ Knowledge graph built successfully: {graph_stats}")
+                except Exception as graph_error:
+                    logger.error(f"⚠️  Failed to build knowledge graph (non-critical): {graph_error}", exc_info=True)
+                finally:
+                    await graph_service.close()
     except Exception as e:
         logger.error(f"❌ Error in background task: {e}", exc_info=True)
 

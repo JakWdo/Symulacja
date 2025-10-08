@@ -4,17 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Plus, FolderOpen, Users, BarChart3, MessageSquare, Eye, Clock } from 'lucide-react';
 import { projectsApi, personasApi, focusGroupsApi, surveysApi } from '@/lib/api';
 import { CustomLineChart, CustomDonutChart, LineChartSeries } from '@/components/charts/CustomCharts';
+import { useAppStore } from '@/store/appStore';
+import type { Project } from '@/types';
 
 interface DashboardProps {
   onNavigate?: (view: string) => void;
+  onSelectProject?: (project: Project) => void;
 }
 
-export function FigmaDashboard({ onNavigate }: DashboardProps) {
+export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) {
   // Fetch all projects
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
   });
+
+  const { setSelectedProject } = useAppStore();
 
   const projectIds = projects.map(p => p.id);
 
@@ -139,9 +144,9 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
   });
 
   // Recent projects
-  const recentProjects = projects
+  const recentProjects = [...projects]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 3)
+    .slice(0, 2)
     .map(project => {
       const projectPersonas = allPersonas.filter(p => p.project_id === project.id);
       const projectSurveys = allSurveys.filter(s => s.project_id === project.id);
@@ -162,14 +167,18 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
       }
 
       return {
-        id: project.id,
-        name: project.name,
+        project,
         personas: projectPersonas.length,
         surveys: projectSurveys.length,
         focusGroups: projectFocusGroups.length,
         timeAgo,
       };
     });
+
+  const handleViewProject = (project: Project) => {
+    setSelectedProject(project);
+    onSelectProject?.(project);
+  };
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -318,7 +327,7 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
         <CardContent>
           {recentProjects.length > 0 ? (
             <div className="space-y-4">
-              {recentProjects.map((project) => (
+              {recentProjects.map(({ project, personas, surveys, focusGroups, timeAgo }) => (
                 <div
                   key={project.id}
                   className="bg-muted/30 border border-border rounded-lg p-4"
@@ -328,13 +337,13 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
                       <h4 className="font-medium text-foreground">{project.name}</h4>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                         <Clock className="w-3 h-3" />
-                        {project.timeAgo}
+                        {timeAgo}
                       </div>
                     </div>
                     <Button
                       size="sm"
                       className="bg-[#F27405] hover:bg-[#F27405]/90 text-white text-xs"
-                      onClick={() => onNavigate?.('projects')}
+                      onClick={() => handleViewProject(project)}
                     >
                       <Eye className="w-3 h-3 mr-1" />
                       View
@@ -344,15 +353,15 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
                       <p className="text-xs text-muted-foreground">Personas</p>
-                      <p className="text-lg font-medium text-foreground">{project.personas}</p>
+                      <p className="text-lg font-medium text-foreground">{personas}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Surveys</p>
-                      <p className="text-lg font-medium text-foreground">{project.surveys}</p>
+                      <p className="text-lg font-medium text-foreground">{surveys}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Focus Groups</p>
-                      <p className="text-lg font-medium text-foreground">{project.focusGroups}</p>
+                      <p className="text-lg font-medium text-foreground">{focusGroups}</p>
                     </div>
                   </div>
                 </div>

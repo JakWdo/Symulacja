@@ -78,8 +78,11 @@ function Graph({
     // Create a copy to avoid mutating original data
     const nodesCopy = nodes.map(n => ({ ...n, x: 0, y: 0, z: 0 }));
 
+    // Ensure links is a valid array
+    const validLinks = Array.isArray(links) ? links : [];
+
     const simulation = forceSimulation(nodesCopy)
-      .force('link', forceLink(links).id((d: any) => d.id).distance(5).strength(0.3))
+      .force('link', forceLink(validLinks).id((d: any) => d.id).distance(5).strength(0.3))
       .force('charge', forceManyBody().strength(-30))
       .force('center', forceCenter(0, 0))
       .force('collision', forceCollide().radius(1.5))
@@ -100,6 +103,7 @@ function Graph({
 
   // Limit number of links for performance (only show strong connections)
   const visibleLinks = useMemo(() => {
+    if (!Array.isArray(links) || links.length === 0) return [];
     if (links.length <= 100) return links;
 
     // Sort by strength and take top 100 connections
@@ -163,17 +167,36 @@ export function KnowledgeGraph3D({
     );
   }
 
-  return (
-    <Canvas camera={{ position: [0, 0, 30], fov: 50 }}>
-      <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} />
-      <Graph graphData={graphData} onNodeClick={onNodeClick} />
-      <OrbitControls
-        enableDamping
-        dampingFactor={0.05}
-        maxDistance={100}
-        minDistance={10}
-      />
-    </Canvas>
-  );
+  try {
+    return (
+      <Canvas
+        camera={{ position: [0, 0, 30], fov: 50 }}
+        gl={{ antialias: true, alpha: false }}
+        dpr={[1, 2]}
+        onCreated={({ gl }) => {
+          gl.setClearColor('#0a0a0a', 1);
+        }}
+      >
+        <ambientLight intensity={0.5} />
+        <pointLight position={[10, 10, 10]} />
+        <Graph graphData={graphData} onNodeClick={onNodeClick} />
+        <OrbitControls
+          enableDamping
+          dampingFactor={0.05}
+          maxDistance={100}
+          minDistance={10}
+        />
+      </Canvas>
+    );
+  } catch (error) {
+    console.error('Failed to render Canvas:', error);
+    return (
+      <div className="flex items-center justify-center h-full text-slate-500">
+        <div className="text-center p-8">
+          <p className="text-red-500 mb-2">Failed to initialize 3D renderer</p>
+          <p className="text-sm">Your browser may not support WebGL.</p>
+        </div>
+      </div>
+    );
+  }
 }

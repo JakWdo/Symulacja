@@ -1,14 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/appStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { MoreVertical, Plus, Users, MessageSquare, Eye, Settings } from 'lucide-react';
+import { MoreVertical, Plus, Users, MessageSquare, Eye, Settings, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { focusGroupsApi, projectsApi } from '@/lib/api';
 import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { toast } from '@/components/ui/toastStore';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useState } from 'react';
 
 interface FocusGroupsProps {
   onCreateFocusGroup: () => void;
@@ -19,6 +22,11 @@ interface FocusGroupsProps {
 
 export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGroupsProps) {
   const { selectedProject, setSelectedProject } = useAppStore();
+  const queryClient = useQueryClient();
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; focusGroup: any | null }>({
+    open: false,
+    focusGroup: null,
+  });
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['projects'],
@@ -39,6 +47,30 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
       return hasRunningFG ? 2000 : false;
     },
   });
+
+  const { mutateAsync: deleteFocusGroup, isPending: isDeleting } = useMutation({
+    mutationFn: (focusGroupId: string) => focusGroupsApi.remove(focusGroupId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['focus-groups', selectedProject?.id] });
+      toast.success('Session archived', 'Your focus group discussion has been removed from the workspace.');
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to delete focus group', message);
+    },
+  });
+
+  const handleDelete = (focusGroup: any) => {
+    if (isDeleting) return;
+    setDeleteDialog({ open: true, focusGroup });
+  };
+
+  const confirmDelete = async () => {
+    if (deleteDialog.focusGroup) {
+      await deleteFocusGroup(deleteDialog.focusGroup.id);
+      setDeleteDialog({ open: false, focusGroup: null });
+    }
+  };
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -169,11 +201,6 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                       <div className="flex-1">
                         <div className="mb-2 flex items-center gap-2">
                           <h3 className="text-lg font-semibold text-card-foreground">{focusGroup.name}</h3>
-                          {focusGroup.status === 'pending' && (focusGroup.persona_ids?.length === 0 || focusGroup.questions?.length === 0) && (
-                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                              Draft
-                            </Badge>
-                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">
                           {focusGroup.description || 'No description'}
@@ -194,6 +221,13 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(focusGroup)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -204,11 +238,18 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Participants</span>
                           <span className="text-card-foreground">
-                            {focusGroup.persona_ids?.length || 0} / {focusGroup.persona_ids?.length || 0}
+                            {focusGroup.persona_ids?.length || 0} / {focusGroup.target_participants || 10}
                           </span>
                         </div>
-                        <Progress value={100} className="h-2" />
-                        <p className="text-xs text-muted-foreground">100% Full</p>
+                        <Progress
+                          value={focusGroup.target_participants ? Math.min((focusGroup.persona_ids?.length || 0) / focusGroup.target_participants * 100, 100) : 0}
+                          className="h-2"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {focusGroup.target_participants
+                            ? `${Math.round(Math.min((focusGroup.persona_ids?.length || 0) / focusGroup.target_participants * 100, 100))}%`
+                            : '0%'}
+                        </p>
                       </div>
 
                       <div className="space-y-1">
@@ -250,12 +291,12 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                         Manage Session
                       </Button>
                       {focusGroup.status === 'running' && (
-                        <Badge className="bg-blue-100 text-blue-700">
+                        <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">
                           In Progress
                         </Badge>
                       )}
                       {focusGroup.status === 'completed' && (
-                        <Badge className="bg-green-100 text-green-700">
+                        <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">
                           Completed
                         </Badge>
                       )}
@@ -278,6 +319,16 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
         </>
       )}
       </div>
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, focusGroup: null })}
+        title={`Remove "${deleteDialog.focusGroup?.name}"?`}
+        description={`This will permanently delete all discussion data and cannot be reversed.`}
+        confirmText="Remove Session"
+        cancelText="Keep It"
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

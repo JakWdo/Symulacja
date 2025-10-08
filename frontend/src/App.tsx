@@ -61,7 +61,15 @@ export default function App() {
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
-        return <FigmaDashboard onNavigate={setCurrentView} />;
+        return (
+          <FigmaDashboard
+            onNavigate={setCurrentView}
+            onSelectProject={(project) => {
+              setViewProject(project);
+              setCurrentView('project-detail');
+            }}
+          />
+        );
       case 'projects':
         return (
           <Projects
@@ -114,6 +122,7 @@ export default function App() {
                   persona_ids: [], // Builder nie wybiera person - musimy to obsłużyć w FocusGroupView
                   questions: focusGroupData.researchQuestions || [],
                   mode: 'normal' as const,
+                  target_participants: focusGroupData.targetParticipants || 10,
                 };
 
                 const createdFocusGroup = await focusGroupsApi.create(selectedProject.id, payload);

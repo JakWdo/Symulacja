@@ -41,6 +41,7 @@ class FocusGroupCreate(BaseModel):
     persona_ids: List[UUID] = Field(default_factory=list, max_items=100)
     questions: List[str] = Field(default_factory=list, max_items=50)
     mode: str = Field(default="normal", pattern="^(normal|adversarial)$")
+    target_participants: Optional[int] = Field(default=10, ge=1, le=100)
 
 
 class FocusGroupResponse(BaseModel):
@@ -81,6 +82,7 @@ class FocusGroupResponse(BaseModel):
     questions: List[str]
     mode: str
     status: str
+    target_participants: Optional[int]
     total_execution_time_ms: Optional[int]
     avg_response_time_ms: Optional[float]
     created_at: datetime
