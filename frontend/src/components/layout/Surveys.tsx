@@ -12,6 +12,7 @@ import type { Survey } from '@/types';
 import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useState } from 'react';
+import { toast } from '@/components/ui/toastStore';
 
 interface SurveysProps {
   onCreateSurvey: () => void;
@@ -69,10 +70,22 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
   };
 
   const confirmLaunch = () => {
-    if (launchDialog.survey) {
-      runMutation.mutate(launchDialog.survey.id);
-      setLaunchDialog({ open: false, survey: null });
+    const surveyToLaunch = launchDialog.survey;
+    if (!surveyToLaunch) {
+      return;
     }
+
+    runMutation.mutate(surveyToLaunch.id, {
+      onSuccess: () => {
+        toast.success('Survey launched', `${surveyToLaunch.title} · ${selectedProject?.name || 'Unknown project'}`);
+      },
+      onError: (error) => {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        toast.error('Failed to launch survey', `${surveyToLaunch.title} · ${selectedProject?.name || 'Unknown project'} • ${message}`);
+      },
+    });
+
+    setLaunchDialog({ open: false, survey: null });
   };
 
   const handleDeleteSurvey = (survey: Survey) => {
@@ -80,10 +93,22 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
   };
 
   const confirmDelete = () => {
-    if (deleteDialog.survey) {
-      deleteMutation.mutate(deleteDialog.survey.id);
-      setDeleteDialog({ open: false, survey: null });
+    const surveyToDelete = deleteDialog.survey;
+    if (!surveyToDelete) {
+      return;
     }
+
+    deleteMutation.mutate(surveyToDelete.id, {
+      onSuccess: () => {
+        toast.success('Survey removed', `${surveyToDelete.title} · ${selectedProject?.name || 'Unknown project'}`);
+      },
+      onError: (error) => {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        toast.error('Failed to delete survey', `${surveyToDelete.title} · ${selectedProject?.name || 'Unknown project'} • ${message}`);
+      },
+    });
+
+    setDeleteDialog({ open: false, survey: null });
   };
 
   const getStatusBadge = (status: Survey['status']) => {
@@ -307,6 +332,17 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 pt-2">
+                            {survey.status === 'draft' && (
+                              <Button
+                                size="sm"
+                                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                                onClick={() => handleRunSurvey(survey)}
+                                disabled={runMutation.isPending}
+                              >
+                                <Play className="w-4 h-4 mr-2" />
+                                Launch Survey
+                              </Button>
+                            )}
                             <p className="text-xs text-muted-foreground ml-auto">
                               Created {new Date(survey.created_at).toLocaleDateString()}
                             </p>

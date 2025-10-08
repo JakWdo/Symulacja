@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Filter, TrendingUp, Brain, AlertCircle } from 'lucide-react';
+import { Filter, TrendingUp, Brain, AlertCircle } from 'lucide-react';
 import { KnowledgeGraph3D } from '@/components/graph/KnowledgeGraph3D';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import {
@@ -14,6 +14,7 @@ import {
   useTraitCorrelations
 } from '@/hooks/useGraphData';
 import type { GraphNode } from '@/types';
+import { Logo } from '@/components/ui/Logo';
 
 interface GraphAnalysisPanelProps {
   focusGroupId: string;
@@ -61,7 +62,7 @@ export function GraphAnalysisPanel({ focusGroupId }: GraphAnalysisPanelProps) {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+        <Logo className="w-12 h-12 mb-4" spinning />
         <p className="text-muted-foreground">Loading knowledge graph...</p>
       </div>
     );
@@ -226,7 +227,7 @@ export function GraphAnalysisPanel({ focusGroupId }: GraphAnalysisPanelProps) {
           <CardContent>
             {conceptsLoading ? (
               <div className="flex justify-center py-4">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                <Logo className="w-6 h-6" spinning />
               </div>
             ) : keyConcepts && keyConcepts.length > 0 ? (
               <div className="space-y-2">
@@ -265,7 +266,7 @@ export function GraphAnalysisPanel({ focusGroupId }: GraphAnalysisPanelProps) {
           <CardContent>
             {influencersLoading ? (
               <div className="flex justify-center py-4">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                <Logo className="w-6 h-6" spinning />
               </div>
             ) : influentialPersonas && influentialPersonas.length > 0 ? (
               <div className="space-y-2">

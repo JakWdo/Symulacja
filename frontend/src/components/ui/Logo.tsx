@@ -3,11 +3,13 @@ import { cn } from '@/lib/utils';
 interface LogoProps {
   className?: string;
   spinning?: boolean;
+  transparent?: boolean;
 }
 
-export function Logo({ className, spinning = false }: LogoProps) {
-  // Use transparent logo for spinning animation
-  const logoSrc = spinning ? '/sight-logo-przezroczyste.png' : '/logo.png';
+export function Logo({ className, spinning = false, transparent = false }: LogoProps) {
+  // Use transparent logo for spinning animation or when explicitly requested
+  const logoSrc =
+    spinning || transparent ? '/sight-logo-przezroczyste.png' : '/logo.png';
 
   return (
     <img

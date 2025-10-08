@@ -90,13 +90,20 @@ function transformPersona(apiPersona: APIPersona): DisplayPersona {
 
 export function Personas() {
   const { selectedProject, setSelectedProject: setGlobalProject } = useAppStore();
+  const projectLabel = selectedProject?.name || 'Unknown project';
   const [selectedPersona, setSelectedPersona] = useState<DisplayPersona | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
   const [currentPersonaIndex, setCurrentPersonaIndex] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(0);
-  const [progressMeta, setProgressMeta] = useState<{ start: number; duration: number; targetCount: number } | null>(null);
+  const [progressMeta, setProgressMeta] = useState<{
+    start: number;
+    duration: number;
+    targetCount: number;
+    baselineCount: number;
+  } | null>(null);
   const [activeGenerationProjectId, setActiveGenerationProjectId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const timeoutWarningIssued = React.useRef(false);
 
   // Filter states
   const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
@@ -110,7 +117,7 @@ export function Personas() {
   });
 
   // Fetch personas for selected project and transform to display format
-  const { data: apiPersonas = [], isFetching: isFetchingPersonas } = useQuery({
+  const { data: apiPersonas = [] } = useQuery({
     queryKey: ['personas', selectedProject?.id],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -118,9 +125,15 @@ export function Personas() {
     },
     enabled: !!selectedProject,
     refetchInterval: (query) => {
-      // Poll every 2s during generation to track real progress
-      const isCurrentlyGenerating = activeGenerationProjectId === selectedProject?.id && generationProgress > 0 && generationProgress < 100;
-      return isCurrentlyGenerating ? 2000 : false;
+      if (!selectedProject) return false;
+      if (!progressMeta) return false;
+      if (activeGenerationProjectId !== selectedProject.id) return false;
+      if (progressMeta.targetCount <= 0) return false;
+      const data = query.state.data as APIPersona[] | undefined;
+      const currentCount = Array.isArray(data) ? data.length : 0;
+      const baseline = progressMeta.baselineCount;
+      const expectedTotal = baseline + progressMeta.targetCount;
+      return currentCount >= expectedTotal ? false : 2000;
     },
   });
 
@@ -182,7 +195,10 @@ export function Personas() {
     .sort(([,a], [,b]) => b - a)
     .slice(0, 5);
 
-  const noPersonas = apiPersonas.length === 0;
+  const baselineCount = progressMeta?.baselineCount ?? 0;
+  const requestedCount = progressMeta?.targetCount ?? 0;
+  const newlyGeneratedCount = Math.max(0, apiPersonas.length - baselineCount);
+  const hasReachedTarget = Boolean(progressMeta && requestedCount > 0 && newlyGeneratedCount >= requestedCount);
   const isCurrentProjectGenerating =
     activeGenerationProjectId !== null && activeGenerationProjectId === selectedProject?.id;
 
@@ -192,10 +208,10 @@ export function Personas() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['personas', selectedProject?.id] });
       queryClient.invalidateQueries({ queryKey: ['personas', 'all'] });
-      const modeLabel = variables.adversarial_mode ? 'Adversarial' : 'Standard';
+      const modeCopy = variables.adversarial_mode ? 'Tryb Adversarial' : 'Tryb Standard';
       toast.info(
         'Generowanie uruchomione',
-        `${modeLabel} cohort: ${variables.num_personas} personas w tle.`,
+        `${projectLabel} • ${modeCopy}, ${variables.num_personas} personas w tle.`,
       );
     },
     onError: (error: Error) => {
@@ -203,55 +219,74 @@ export function Personas() {
       setProgressMeta(null);
       setShowPersonaWizard(true);
       setActiveGenerationProjectId(null);
-      toast.error('Generowanie nie powiodło się', error.message);
+      toast.error('Generowanie zatrzymane', `${projectLabel} • ${error.message}`);
     },
   });
 
-  const isGenerating =
-    isCurrentProjectGenerating &&
-    (generateMutation.isPending ||
-      (generateMutation.isSuccess && noPersonas) ||
-      ((isFetchingPersonas || generateMutation.isPending) && noPersonas));
+  const isGenerating = Boolean(isCurrentProjectGenerating && progressMeta && !hasReachedTarget);
 
   React.useEffect(() => {
-    if (!isGenerating) {
-      if (generationProgress > 0) {
-        setGenerationProgress(100);
-        const timeout = setTimeout(() => {
-          setGenerationProgress(0);
-          setProgressMeta(null);
-          setActiveGenerationProjectId(null);
-        }, 800);
-        return () => clearTimeout(timeout);
-      }
-      if (generationProgress === 0 && activeGenerationProjectId !== null) {
-        setActiveGenerationProjectId(null);
-      }
-      setProgressMeta(null);
+    if (!progressMeta || !isCurrentProjectGenerating) {
       return;
     }
 
-    // Calculate progress based on actual persona count vs target
-    if (progressMeta?.targetCount && apiPersonas.length > 0) {
-      const actualProgress = Math.min((apiPersonas.length / progressMeta.targetCount) * 100, 99);
-      setGenerationProgress(actualProgress);
-    } else {
-      // Fallback to time-based estimation for the first few seconds
-      const interval = setInterval(() => {
-        setGenerationProgress((prev) => {
-          if (!progressMeta) {
-            return Math.min(prev + 8, 92);
-          }
-          const elapsed = Date.now() - progressMeta.start;
-          const ratio = Math.min(elapsed / progressMeta.duration, 0.97);
-          const target = 5 + ratio * 90;
-          return prev + (target - prev) * 0.35;
-        });
-      }, 200);
-
-      return () => clearInterval(interval);
+    if (hasReachedTarget) {
+      setGenerationProgress(100);
+      const timeout = setTimeout(() => {
+        setGenerationProgress(0);
+        setProgressMeta(null);
+        setActiveGenerationProjectId(null);
+      }, 800);
+      return () => clearTimeout(timeout);
     }
-  }, [isGenerating, progressMeta, generationProgress, activeGenerationProjectId, selectedProject?.id, apiPersonas.length]);
+
+    if (!isGenerating) {
+      return;
+    }
+
+    if (progressMeta.targetCount > 0 && newlyGeneratedCount > 0) {
+      const ratio = Math.min(newlyGeneratedCount / progressMeta.targetCount, 0.99);
+      setGenerationProgress((prev) => Math.max(prev, Math.max(5, ratio * 100)));
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setGenerationProgress((prev) => {
+        const elapsed = Date.now() - progressMeta.start;
+        const ratio = Math.min(elapsed / progressMeta.duration, 0.97);
+        const target = 5 + ratio * 90;
+        return prev + (target - prev) * 0.35;
+      });
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [
+    isGenerating,
+    progressMeta,
+    newlyGeneratedCount,
+    hasReachedTarget,
+    isCurrentProjectGenerating,
+  ]);
+
+  React.useEffect(() => {
+    if (!isGenerating || !progressMeta) {
+      timeoutWarningIssued.current = false;
+      return;
+    }
+
+    const timeoutMs = Math.max(20000, progressMeta.duration * 2);
+    const timer = setTimeout(() => {
+      if (!hasReachedTarget && !timeoutWarningIssued.current) {
+        timeoutWarningIssued.current = true;
+        toast.info(
+          'Generowanie nadal trwa',
+          `${projectLabel} • Proces trwa dłużej niż zwykle — sprawdź logi serwera, jeśli nic się nie zmieni.`,
+        );
+      }
+    }, timeoutMs);
+
+    return () => clearTimeout(timer);
+  }, [isGenerating, progressMeta, hasReachedTarget]);
 
   const handleGeneratePersonas = (config: PersonaGenerationConfig) => {
     if (!selectedProject) {
@@ -260,22 +295,22 @@ export function Personas() {
     }
 
     const payload = transformWizardConfigToPayload(config);
+    const baselineCount = apiPersonas.length;
     setActiveGenerationProjectId(selectedProject.id);
     setShowPersonaWizard(false);
+    timeoutWarningIssued.current = false;
     setProgressMeta({
-      start: Date.now(),
-      duration: estimateGenerationDuration(payload.num_personas),
-      targetCount: payload.num_personas
-    });
+        start: Date.now(),
+        duration: estimateGenerationDuration(payload.num_personas),
+        targetCount: payload.num_personas,
+        baselineCount,
+      });
     setGenerationProgress(5);
     generateMutation.mutate(payload);
   };
 
   const showProgressBar =
     activeGenerationProjectId === selectedProject?.id && generationProgress > 0;
-  const estimatedSeconds = progressMeta
-    ? Math.max(1, Math.ceil((progressMeta.duration - (Date.now() - progressMeta.start)) / 1000))
-    : 10;
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -334,12 +369,9 @@ export function Personas() {
 
       {showProgressBar && (
         <div className="rounded-lg border border-border bg-card/80 p-4 space-y-2 shadow-sm">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <SpinnerLogo className="w-4 h-4" />
-              <span>Generating personas…</span>
-            </div>
-            <span>~{estimatedSeconds}s</span>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <SpinnerLogo className="w-4 h-4" />
+            <span className="font-medium text-card-foreground">Generating personas...</span>
           </div>
           <Progress value={Math.min(generationProgress, 100)} />
         </div>

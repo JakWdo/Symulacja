@@ -325,8 +325,15 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
         return (
           <div className="space-y-6">
             <div>
-              <Label htmlFor="persona-count" className="text-base font-medium">Number of Personas</Label>
-              <p className="text-sm text-muted-foreground mb-3">How many AI personas should be generated? (2-100)</p>
+              <Label
+                htmlFor="persona-count"
+                className="text-base font-medium text-slate-900 dark:text-slate-300"
+              >
+                Number of Personas
+              </Label>
+              <p className="text-sm text-muted-foreground mb-3 dark:text-slate-400">
+                How many AI personas should be generated? (2-100)
+              </p>
               <Input
                 id="persona-count"
                 type="number"
@@ -881,8 +888,8 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-full h-[90vh] max-h-[90vh] bg-background border-border text-foreground flex flex-col p-0">
-        <div className="p-6 pb-0">
+      <DialogContent className="max-w-4xl w-full h-[90vh] max-h-[90vh] bg-card dark:bg-[#11161d] border border-border text-foreground flex flex-col p-0 shadow-xl">
+        <div className="p-6 pb-0 bg-card dark:bg-transparent">
           <DialogHeader>
             <DialogTitle className="text-xl">AI Persona Generation Wizard</DialogTitle>
             <DialogDescription>
@@ -937,7 +944,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
         </div>
 
         {/* Step Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-6">
+        <div className="flex-1 overflow-y-auto px-6 pb-6 bg-card dark:bg-[#0d1218]">
           {renderStepContent()}
         </div>
 

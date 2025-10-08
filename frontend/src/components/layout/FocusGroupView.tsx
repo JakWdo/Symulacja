@@ -8,16 +8,18 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Loader2, Clock, CheckCircle, Plus, Trash2, Brain, Network, GitGraph } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Clock, CheckCircle, Plus, Trash2, Brain } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { focusGroupsApi, personasApi, graphApi, analysisApi } from '@/lib/api';
+import { focusGroupsApi, personasApi, analysisApi, projectsApi } from '@/lib/api';
 import { Logo } from '@/components/ui/Logo';
 import { ScoreChart } from '@/components/ui/ScoreChart';
-import { GraphAnalysisPanel } from '@/components/panels/GraphAnalysisPanel';
 import { toast } from '@/components/ui/toastStore';
 import type { FocusGroup, FocusGroupResponses } from '@/types';
 import type { AISummaryResponse } from '@/types/ai-summary';
 import { motion } from 'framer-motion';
+import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
+import { useAppStore } from '@/store/appStore';
 
 interface FocusGroupViewProps {
   focusGroup: FocusGroup;
@@ -49,6 +51,7 @@ const sanitizeQuestions = (list: string[]) =>
   list.map((question) => question.trim()).filter((question) => question.length > 0);
 
 export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusGroupViewProps) {
+  const { selectedProject } = useAppStore();
   const [isRunning, setIsRunning] = useState(false);
   const [discussionProgress, setDiscussionProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('setup');
@@ -57,10 +60,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   const [newQuestion, setNewQuestion] = useState('');
   const [questions, setQuestions] = useState<string[]>(initialFocusGroup.questions || []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [buildingGraph, setBuildingGraph] = useState(false);
-  const [graphBuilt, setGraphBuilt] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(initialFocusGroup.persona_ids || []);
+  const [insights, setInsights] = useState<AISummaryResponse | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const queryClient = useQueryClient();
@@ -122,9 +124,42 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     refetchInterval: focusGroup.status === 'running' ? 3000 : false, // Poll every 3s when running
   });
 
-  // Store insights in state after generation
-  const [insights, setInsights] = useState<AISummaryResponse | null>(null);
-  const [insightsLoading, setInsightsLoading] = useState(false);
+  const { data: cachedSummary, isLoading: cachedSummaryLoading } = useQuery<AISummaryResponse | null>({
+    queryKey: ['focus-group-ai-summary', focusGroup.id],
+    queryFn: async () => {
+      try {
+        return await analysisApi.getAISummary(focusGroup.id);
+      } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.status === 404) {
+          return null;
+        }
+        throw err;
+      }
+    },
+    enabled: focusGroup.status === 'completed',
+    staleTime: 1000 * 60 * 10,
+  });
+
+  useEffect(() => {
+    if (cachedSummary) {
+      setInsights(cachedSummary);
+      setAiSummaryGenerated(true);
+    } else if (!generatingAiSummary && focusGroup.status === 'completed') {
+      setInsights(null);
+      setAiSummaryGenerated(false);
+    }
+  }, [cachedSummary, generatingAiSummary, focusGroup.status]);
+
+  const { data: project } = useQuery({
+    queryKey: ['project', focusGroup.project_id],
+    queryFn: () => projectsApi.get(focusGroup.project_id),
+    enabled: !!focusGroup.project_id,
+  });
+
+  const projectName = project?.name || selectedProject?.name || 'Unknown project';
+  const contextLabel = `${focusGroup.name} · ${projectName}`;
+
+  const insightsLoading = generatingAiSummary || (cachedSummaryLoading && !insights);
 
   const runMutation = useMutation({
     mutationFn: () => focusGroupsApi.run(focusGroup.id),
@@ -160,24 +195,16 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
           return prev + 5;
         });
       }, 500);
+      toast.success('Focus group launched', contextLabel);
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to launch focus group', `${contextLabel} • ${message}`);
     },
   });
 
   const handleRunDiscussion = () => {
     runMutation.mutate();
-  };
-
-  const handleBuildGraph = async () => {
-    setBuildingGraph(true);
-    try {
-      await graphApi.buildGraph(focusGroup.id);
-      setGraphBuilt(true);
-      queryClient.invalidateQueries({ queryKey: ['graph-data', focusGroup.id] });
-    } catch (error) {
-      console.error('Failed to build graph:', error);
-    } finally {
-      setBuildingGraph(false);
-    }
   };
 
   const handlePersistQuestions = async (
@@ -260,21 +287,20 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
   const handleGenerateAiSummary = async () => {
     setGeneratingAiSummary(true);
-    setInsightsLoading(true);
 
     try {
-      const generatedInsights = await analysisApi.generateInsights(focusGroup.id);
+      const generatedInsights = await analysisApi.generateAISummary(focusGroup.id, true, true);
       setInsights(generatedInsights);
       setGeneratingAiSummary(false);
-      setInsightsLoading(false);
       setAiSummaryGenerated(true);
       setActiveTab('results');
-      toast.success('AI Summary generated successfully');
+      await queryClient.invalidateQueries({ queryKey: ['focus-group-ai-summary', focusGroup.id] });
+      toast.success('AI Summary generated successfully', contextLabel);
     } catch (error) {
       console.error('Failed to generate AI summary:', error);
       setGeneratingAiSummary(false);
-      setInsightsLoading(false);
-      toast.error('Failed to generate AI summary', error instanceof Error ? error.message : 'Unknown error');
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to generate AI summary', `${contextLabel} • ${message}`);
     }
   };
 
@@ -361,12 +387,6 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
             <BarChart3 className="w-4 h-4 mr-2" />
             Results & Analysis
           </TabsTrigger>
-          {discussionComplete && (
-            <TabsTrigger value="graph" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
-              <GitGraph className="w-4 h-4 mr-2" />
-              Graph Analysis
-            </TabsTrigger>
-          )}
         </TabsList>
 
         {/* Configuration Tab */}
@@ -653,34 +673,6 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     >
                       View Results
                     </Button>
-                    {!graphBuilt && (
-                      <Button
-                        onClick={handleBuildGraph}
-                        disabled={buildingGraph}
-                        className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-                      >
-                        {buildingGraph ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Building Graph...
-                          </>
-                        ) : (
-                          <>
-                            <Network className="w-4 h-4 mr-2" />
-                            Build Knowledge Graph
-                          </>
-                        )}
-                      </Button>
-                    )}
-                    {graphBuilt && (
-                      <Button
-                        onClick={() => window.location.hash = '#graph-analysis'}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <Network className="w-4 h-4 mr-2" />
-                        View Graph Analysis
-                      </Button>
-                    )}
                   </div>
                 </div>
               )}
@@ -697,7 +689,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                 <Card className="bg-card border border-border shadow-sm">
                   <CardContent className="py-12 flex flex-col items-center justify-center">
                     <Logo className="w-8 h-8 mb-4" spinning />
-                    <p className="text-muted-foreground">Generating AI insights with Gemini...</p>
+                    <p className="text-muted-foreground">Generating AI insights...</p>
                     <p className="text-sm text-muted-foreground mt-2">This may take 30-60 seconds</p>
                   </CardContent>
                 </Card>
@@ -705,7 +697,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                 <Card className="bg-card border border-border shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-card-foreground flex items-center gap-2">
-                      <Logo className="w-5 h-5" />
+                      <Logo className="w-5 h-5" transparent />
                       AI Summary
                     </CardTitle>
                     <p className="text-muted-foreground">Key insights generated by AI analysis</p>
@@ -716,9 +708,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                       {insights.executive_summary && (
                         <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
                           <h4 className="font-semibold text-card-foreground">Executive Summary</h4>
-                          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                            {insights.executive_summary}
-                          </p>
+                          <div className="prose prose-sm max-w-none text-muted-foreground">
+                            <ReactMarkdown>{insights.executive_summary}</ReactMarkdown>
+                          </div>
                         </div>
                       )}
 
@@ -727,9 +719,17 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                         {insights.key_insights && insights.key_insights.length > 0 && (
                           <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
                             <h4 className="font-semibold text-card-foreground">Key Insights</h4>
-                            <ul className="space-y-2">
+                            <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
                               {insights.key_insights.map((insight, idx) => (
-                                <li key={idx} className="text-sm text-muted-foreground">• {insight}</li>
+                                <li key={idx}>
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ children }) => <span className="leading-relaxed">{children}</span>,
+                                    }}
+                                  >
+                                    {insight}
+                                  </ReactMarkdown>
+                                </li>
                               ))}
                             </ul>
                           </div>
@@ -739,9 +739,17 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                         {insights.surprising_findings && insights.surprising_findings.length > 0 && (
                           <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
                             <h4 className="font-semibold text-card-foreground">Surprising Findings</h4>
-                            <ul className="space-y-2">
+                            <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
                               {insights.surprising_findings.map((finding, idx) => (
-                                <li key={idx} className="text-sm text-muted-foreground">• {finding}</li>
+                                <li key={idx}>
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ children }) => <span className="leading-relaxed">{children}</span>,
+                                    }}
+                                  >
+                                    {finding}
+                                  </ReactMarkdown>
+                                </li>
                               ))}
                             </ul>
                           </div>
@@ -751,9 +759,17 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                         {insights.recommendations && insights.recommendations.length > 0 && (
                           <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
                             <h4 className="font-semibold text-card-foreground">Strategic Recommendations</h4>
-                            <ul className="space-y-2">
+                            <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
                               {insights.recommendations.map((rec, idx) => (
-                                <li key={idx} className="text-sm text-muted-foreground">• {rec}</li>
+                                <li key={idx}>
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ children }) => <span className="leading-relaxed">{children}</span>,
+                                    }}
+                                  >
+                                    {rec}
+                                  </ReactMarkdown>
+                                </li>
                               ))}
                             </ul>
                           </div>
@@ -763,9 +779,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                         {insights.sentiment_narrative && (
                           <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
                             <h4 className="font-semibold text-card-foreground">Sentiment Narrative</h4>
-                            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                              {insights.sentiment_narrative}
-                            </p>
+                            <div className="prose prose-sm max-w-none text-muted-foreground">
+                              <ReactMarkdown>{insights.sentiment_narrative}</ReactMarkdown>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -778,7 +794,15 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                             {Object.entries(insights.segment_analysis).map(([segment, analysis], idx) => (
                               <div key={idx} className="space-y-1">
                                 <h5 className="font-medium text-card-foreground text-sm">{segment}</h5>
-                                <p className="text-sm text-muted-foreground">{analysis}</p>
+                                <div className="text-sm text-muted-foreground">
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ children }) => <span className="leading-relaxed">{children}</span>,
+                                    }}
+                                  >
+                                    {analysis}
+                                  </ReactMarkdown>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -800,7 +824,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               {responsesLoading ? (
                 <Card className="bg-card border border-border shadow-sm">
                   <CardContent className="py-12 flex flex-col items-center justify-center">
-                    <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+                    <Logo className="w-12 h-12 mb-4" spinning />
                     <p className="text-sm text-muted-foreground">Loading responses...</p>
                   </CardContent>
                 </Card>
@@ -824,7 +848,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
                           {/* Responses */}
                           <div className="ml-12 space-y-3">
-                            {q.responses.slice(0, 3).map((r, rIdx) => {
+                            {q.responses.map((r, rIdx) => {
                               const persona = personas.find(p => p.id === r.persona_id);
                               const initials = persona?.full_name?.split(' ').map(n => n[0]).join('') || 'P';
 
@@ -866,25 +890,6 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                 <h3 className="text-lg font-medium text-foreground mb-2">No Results Yet</h3>
                 <p className="text-muted-foreground">
                   Run the discussion simulation first to generate analysis and insights.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Graph Analysis Tab */}
-        <TabsContent value="graph" className="space-y-6">
-          {discussionComplete ? (
-            <div className="h-[calc(100vh-300px)]">
-              <GraphAnalysisPanel focusGroupId={focusGroup.id} />
-            </div>
-          ) : (
-            <Card className="bg-card border border-border shadow-sm">
-              <CardContent className="text-center py-12">
-                <Network className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">Graph Not Available</h3>
-                <p className="text-muted-foreground">
-                  Complete the discussion first to build the knowledge graph.
                 </p>
               </CardContent>
             </Card>

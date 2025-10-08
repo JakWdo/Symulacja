@@ -212,6 +212,7 @@ export function PersonaPanel() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [progressMeta, setProgressMeta] = useState<{ start: number; duration: number } | null>(null);
   const [activeGenerationProjectId, setActiveGenerationProjectId] = useState<string | null>(null);
+  const projectLabel = selectedProject?.name ?? 'Unknown project';
 
   const { data: personas, isLoading, isFetching } = useQuery({
     queryKey: ['personas', selectedProject?.id],
@@ -231,8 +232,8 @@ export function PersonaPanel() {
       // Show toast when personas generation completes
       if (data.length > 0 && personas && personas.length === 0) {
         toast.success(
-          'Personas generated!',
-          `Successfully created ${data.length} personas`
+          'Personas generated',
+          `${projectLabel} • ${data.length} personas ready`
         );
       }
     },
@@ -312,7 +313,7 @@ export function PersonaPanel() {
       const modeLabel = variables.adversarial_mode ? 'Adversarial' : 'Standard';
       toast.info(
         'Generation started',
-        `${modeLabel} cohort: ${variables.num_personas} personas queued. Generation runs in the background.`
+        `${projectLabel} • ${modeLabel} cohort queued (${variables.num_personas} personas).`
       );
     },
     onError: (error: Error) => {
@@ -320,7 +321,7 @@ export function PersonaPanel() {
       setProgressMeta(null);
       setShowWizard(true);
       setActiveGenerationProjectId(null);
-      toast.error('Generation failed', error.message);
+      toast.error('Generation failed', `${projectLabel} • ${error.message}`);
     },
   });
 

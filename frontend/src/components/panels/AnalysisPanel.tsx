@@ -8,6 +8,7 @@ import { useAppStore } from '@/store/appStore';
 import { AISummaryPanel } from '@/components/analysis/AISummaryPanel';
 import type { FocusGroupResponses } from '@/types';
 import { formatDate, cn } from '@/lib/utils';
+import { Logo } from '@/components/ui/Logo';
 
 export function AnalysisPanel() {
   const { selectedFocusGroup, activePanel, setActivePanel } = useAppStore();
@@ -161,7 +162,7 @@ function ResponsesView({
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-4" />
+        <Logo className="w-12 h-12 mb-4" spinning />
         <p className="text-sm text-slate-600">Loading responses...</p>
       </div>
     );

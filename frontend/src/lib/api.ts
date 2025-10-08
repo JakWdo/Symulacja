@@ -200,6 +200,14 @@ export const analysisApi = {
     return data;
   },
   // Enhanced Insights v2 API
+  getAISummary: async (
+    focusGroupId: string
+  ): Promise<AISummary> => {
+    const { data } = await api.get<AISummary>(
+      `/focus-groups/${focusGroupId}/ai-summary`
+    );
+    return data;
+  },
   generateAISummary: async (
     focusGroupId: string,
     useProModel = false,

@@ -7,8 +7,10 @@ Umożliwia analizę relacji między uczestnikami focus groups i ich opiniami.
 
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
+from collections import Counter
 import logging
 import json
+import re
 
 from neo4j import AsyncGraphDatabase, AsyncDriver
 from sqlalchemy import select
@@ -23,6 +25,25 @@ from app.models import PersonaResponse, Persona, FocusGroup
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+STOPWORDS = {
+    "the", "and", "for", "with", "that", "from", "this", "have", "will", "your",
+    "about", "there", "which", "their", "would", "could", "should", "much",
+    "very", "just", "when", "they", "them", "what", "like", "been", "were",
+    "being", "into", "than", "then", "because", "while", "after", "before",
+    "need", "more", "also", "really", "maybe", "even", "some", "make", "made",
+    "still", "does", "done", "cant", "don't", "cant", "can't", "didnt", "didn't",
+    "its", "it's", "im", "i'm", "but", "our", "ours", "your", "you're", "youre",
+    "has", "had", "those", "these", "get", "got", "onto", "per", "each", "most",
+    "such", "though", "over", "under", "across", "again", "ever", "seen", "many"
+}
+
+EMOTION_KEYWORDS = {
+    "Excited": {"excited", "thrilled", "love", "amazing", "awesome", "great"},
+    "Satisfied": {"happy", "satisfied", "pleased", "glad", "good", "enjoy"},
+    "Concerned": {"concerned", "worried", "uncertain", "hesitant", "doubt"},
+    "Frustrated": {"frustrated", "angry", "annoyed", "hate", "upset", "issue", "problem"},
+}
 
 
 # Pydantic models for LLM structured output
@@ -50,17 +71,22 @@ class GraphService:
         self.driver: Optional[AsyncDriver] = None
         self.settings = settings
 
-        # Initialize LLM for concept extraction
-        self.llm = ChatGoogleGenerativeAI(
-            model=settings.PERSONA_GENERATION_MODEL,  # Use Flash for speed
-            google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.3,  # Lower temperature for consistent extraction
-            max_tokens=500,
-        )
+        self.llm: Optional[ChatGoogleGenerativeAI] = None
+        self.extraction_prompt: Optional[ChatPromptTemplate] = None
 
-        # Create extraction prompt template
-        self.extraction_prompt = ChatPromptTemplate.from_messages([
-            ("system", """Jesteś ekspertem od analizy tekstu. Wyekstraktuj z podanej wypowiedzi:
+        if self.settings.GOOGLE_API_KEY:
+            try:
+                # Initialize LLM for concept extraction
+                self.llm = ChatGoogleGenerativeAI(
+                    model=settings.PERSONA_GENERATION_MODEL,  # Use Flash for speed
+                    google_api_key=settings.GOOGLE_API_KEY,
+                    temperature=0.3,  # Lower temperature for consistent extraction
+                    max_tokens=500,
+                )
+
+                # Create extraction prompt template
+                self.extraction_prompt = ChatPromptTemplate.from_messages([
+                    ("system", """Jesteś ekspertem od analizy tekstu. Wyekstraktuj z podanej wypowiedzi:
 1. Kluczowe koncepty/tematy (max 5) - rzeczowniki lub frazy opisujące główne zagadnienia
 2. Emocje wyrażone w tekście (np. 'Satisfied', 'Frustrated', 'Neutral', 'Excited', 'Concerned')
 3. Sentiment jako liczba od -1.0 (bardzo negatywny) do 1.0 (bardzo pozytywny)
@@ -76,8 +102,19 @@ Zwróć wynik jako JSON w formacie:
 
 Koncepty powinny być ogólne i wielokrotnego użytku (np. 'Price', 'Usability', 'Design').
 Emocje w języku angielskim."""),
-            ("human", "{text}")
-        ])
+                    ("human", "{text}")
+                ])
+            except Exception as exc:
+                logger.warning(
+                    "Gemini LLM initialisation failed (%s). Falling back to keyword-only extraction.",
+                    exc
+                )
+                self.llm = None
+                self.extraction_prompt = None
+        else:
+            logger.info(
+                "GOOGLE_API_KEY not configured. Graph analysis will use keyword-based extraction."
+            )
 
         # JSON output parser
         self.json_parser = JsonOutputParser(pydantic_object=ConceptExtraction)
@@ -480,6 +517,9 @@ Emocje w języku angielskim."""),
         Returns:
             ConceptExtraction object z wyekstraktowanymi danymi
         """
+        if not self.llm or not self.extraction_prompt:
+            return self._fallback_concept_extraction(text)
+
         try:
             # Create chain: prompt -> LLM -> JSON parser
             chain = self.extraction_prompt | self.llm | self.json_parser
@@ -489,24 +529,63 @@ Emocje w języku angielskim."""),
             return ConceptExtraction(**result)
 
         except Exception as e:
-            logger.warning(f"LLM concept extraction failed: {e}, falling back to defaults")
-            # Fallback to simple extraction
-            return ConceptExtraction(
-                concepts=self._simple_keyword_extraction(text),
-                emotions=["Neutral"],
-                sentiment=0.0,
-                key_phrases=[]
-            )
+            logger.warning("LLM concept extraction failed (%s). Switching to fallback.", e)
+            return self._fallback_concept_extraction(text)
 
-    def _simple_keyword_extraction(self, text: str) -> List[str]:
-        """Fallback: prosta ekstrakcja słów kluczowych bez LLM"""
-        keywords = [
-            "Price", "Cost", "Design", "Interface", "Usability",
-            "Features", "Performance", "Security", "Support", "Quality"
+    def _fallback_concept_extraction(self, text: str) -> ConceptExtraction:
+        """Fallback pipeline when LLM is unavailable."""
+        sentiment = self._analyze_sentiment(text)
+        concepts = self._simple_keyword_extraction(text)
+        key_phrases = self._extract_key_phrases(text, concepts)
+        emotions = self._infer_emotions(text, sentiment)
+
+        return ConceptExtraction(
+            concepts=concepts,
+            emotions=emotions,
+            sentiment=sentiment,
+            key_phrases=key_phrases
+        )
+
+    def _simple_keyword_extraction(self, text: str, max_keywords: int = 5) -> List[str]:
+        """Fallback: prosta ekstrakcja słów kluczowych bez LLM z użyciem częstotliwości wyrazów."""
+        tokens = [
+            token.strip("'").lower()
+            for token in re.findall(r"[A-Za-z][A-Za-z'\\-]+", text)
         ]
-        text_lower = text.lower()
-        found = [kw for kw in keywords if kw.lower() in text_lower]
-        return list(set(found))[:5]
+        filtered = [
+            token for token in tokens
+            if len(token) > 2 and token not in STOPWORDS and not any(char.isdigit() for char in token)
+        ]
+
+        if not filtered:
+            return []
+
+        word_counts = Counter(filtered)
+        bigrams = [
+            f"{filtered[idx]} {filtered[idx + 1]}"
+            for idx in range(len(filtered) - 1)
+            if filtered[idx] != filtered[idx + 1]
+        ]
+        bigram_counts = Counter(bigrams)
+
+        candidates: List[str] = []
+
+        for phrase, _ in bigram_counts.most_common(max_keywords * 2):
+            formatted = " ".join(part.capitalize() for part in phrase.split())
+            if formatted not in candidates:
+                candidates.append(formatted)
+            if len(candidates) >= max_keywords:
+                break
+
+        if len(candidates) < max_keywords:
+            for word, _ in word_counts.most_common(max_keywords * 3):
+                formatted = word.capitalize()
+                if formatted not in candidates:
+                    candidates.append(formatted)
+                if len(candidates) >= max_keywords:
+                    break
+
+        return candidates[:max_keywords]
 
     def _analyze_sentiment(self, text: str) -> float:
         """
@@ -525,6 +604,90 @@ Emocje w języku angielskim."""),
             return 0.0
 
         return (pos_count - neg_count) / total
+
+    def _extract_key_phrases(
+        self,
+        text: str,
+        concepts: Optional[List[str]] = None,
+        max_phrases: int = 3
+    ) -> List[str]:
+        """Próbuje wyłuskać najważniejsze frazy do kontekstu konceptów."""
+        phrases: List[str] = []
+        lowered = text.lower()
+
+        if concepts:
+            for concept in concepts:
+                if not concept:
+                    continue
+                idx = lowered.find(concept.lower())
+                if idx == -1:
+                    continue
+
+                start = lowered.rfind(".", 0, idx)
+                start = 0 if start == -1 else start + 1
+                end = lowered.find(".", idx)
+                end = len(text) if end == -1 else end
+
+                snippet = text[start:end].strip()
+                if snippet and snippet not in phrases:
+                    phrases.append(snippet)
+
+                if len(phrases) >= max_phrases:
+                    return phrases[:max_phrases]
+
+        tokens = [
+            token.strip("'").lower()
+            for token in re.findall(r"[A-Za-z][A-Za-z'\\-]+", text)
+        ]
+        filtered = [
+            token for token in tokens
+            if len(token) > 2 and token not in STOPWORDS and not any(char.isdigit() for char in token)
+        ]
+
+        if not filtered:
+            return phrases[:max_phrases]
+
+        ngrams = []
+        for idx in range(len(filtered) - 1):
+            bigram = f"{filtered[idx]} {filtered[idx + 1]}"
+            ngrams.append(bigram)
+            if idx < len(filtered) - 2:
+                trigram = f"{filtered[idx]} {filtered[idx + 1]} {filtered[idx + 2]}"
+                ngrams.append(trigram)
+
+        for phrase, _ in Counter(ngrams).most_common(max_phrases * 2):
+            formatted = " ".join(part.capitalize() for part in phrase.split())
+            if formatted not in phrases:
+                phrases.append(formatted)
+            if len(phrases) >= max_phrases:
+                break
+
+        return phrases[:max_phrases]
+
+    def _infer_emotions(self, text: str, sentiment: float) -> List[str]:
+        """Próbuje odgadnąć emocje na podstawie słów kluczowych i sentymentu."""
+        lowered = text.lower()
+        detected: List[str] = []
+
+        for emotion, keywords in EMOTION_KEYWORDS.items():
+            if any(keyword in lowered for keyword in keywords):
+                detected.append(emotion)
+
+        if detected:
+            # Zachowaj kolejność wykrycia i usuń duplikaty
+            seen = set()
+            unique = []
+            for emotion in detected:
+                if emotion not in seen:
+                    seen.add(emotion)
+                    unique.append(emotion)
+            return unique
+
+        mapped = self._sentiment_to_emotion(sentiment)
+        if mapped:
+            return [mapped]
+
+        return ["Neutral"]
 
     def _sentiment_to_emotion(self, sentiment: float) -> Optional[str]:
         """Mapuje sentiment score na emocję"""

@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { projectsApi } from '@/lib/api';
 import type { Project } from '@/types';
+import { Logo } from '@/components/ui/Logo';
 
 interface ProjectDetailProps {
   project: Project;
@@ -171,7 +172,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
                 >
                   {updateMutation.isPending ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Logo className="w-4 h-4 mr-2" spinning />
                       Saving...
                     </>
                   ) : (

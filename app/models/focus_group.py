@@ -75,6 +75,9 @@ class FocusGroup(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
+    # AI summary cache
+    ai_summary = Column(JSON, nullable=True)
+
     # Relacje
     project = relationship("Project", back_populates="focus_groups")
     responses = relationship(

@@ -11,6 +11,7 @@ Obsługuje dwa modele:
 """
 
 import json
+import re
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
@@ -36,6 +37,9 @@ _NEGATIVE_WORDS = {
     "horrible", "poor", "no", "disagree", "concern", "worried", "against",
     "confusing", "hard", "difficult"
 }
+
+_BULLET_PREFIX_RE = re.compile(r"^[-*•\d\.\)\s]+")
+_SEGMENT_LINE_RE = re.compile(r"\*\*(.+?)\*\*\s*[:\-–]\s*(.+)")
 
 
 def _simple_sentiment_score(text: str) -> float:
@@ -197,6 +201,9 @@ IMPORTANT GUIDELINES:
             "questions_asked": len(focus_group.questions),
         }
 
+        # Persist summary on the focus group for reuse (commit handled by caller)
+        focus_group.ai_summary = parsed_summary
+
         return parsed_summary
 
     def _prepare_discussion_data(
@@ -336,12 +343,11 @@ IMPORTANT GUIDELINES:
         recommendations_section = ""
         if include_recommendations:
             recommendations_section = """
-## 5. STRATEGIC RECOMMENDATIONS
-Provide 3-5 concrete, actionable recommendations for the product/marketing team based on findings.
-Each recommendation should:
-- Be specific and implementable
-- Reference evidence from the discussion
-- Consider potential impact and effort
+## 5. STRATEGIC RECOMMENDATIONS (2-3 bullet points, ≤25 words each)
+Give the most valuable next steps for the product/marketing team.
+Format every bullet as: **Actionable theme**: succinct action with expected impact.
+Use proper markdown bold syntax: **text** (two asterisks on both sides).
+Tie each recommendation to evidence from the discussion.
 """
 
         prompt = f"""Analyze this focus group discussion and generate a comprehensive strategic summary.
@@ -358,20 +364,19 @@ Each recommendation should:
 
 Please provide a detailed analysis in the following structure:
 
-## 1. EXECUTIVE SUMMARY (150-200 words)
+## 1. EXECUTIVE SUMMARY (90-120 words)
 Synthesize the core findings into a high-level overview that answers:
 - What was the overall reception to the concept/topic?
 - What are the most critical takeaways?
 - What is the strategic implication?
 
-## 2. KEY INSIGHTS (5-7 bullet points)
-Identify the most important patterns and themes from the discussion.
-Each insight should be:
-- Evidence-based (reference specific comments)
-- Actionable (implications for product/strategy)
-- Prioritized (most important first)
+## 2. KEY INSIGHTS (3-5 bullet points, ≤25 words each)
+Surface the most important patterns and themes from the discussion.
+Structure every bullet as: **Insight label**: implication grounded in evidence.
+Use proper markdown bold syntax: **text** (two asterisks on both sides).
+Prioritize by business impact.
 
-## 3. SURPRISING FINDINGS (2-4 bullet points)
+## 3. SURPRISING FINDINGS (1-2 bullet points, ≤20 words each)
 Highlight unexpected or counterintuitive discoveries that challenge assumptions.
 These could be:
 - Contradictions between what participants say vs. underlying sentiment
@@ -381,11 +386,12 @@ These could be:
 ## 4. SEGMENT ANALYSIS
 Break down how different demographic segments (age, gender, occupation) responded differently.
 Structure as:
-- **Segment name**: Key differentiator and quote/evidence
+**Segment name**: Key differentiator with quote/evidence (≤25 words)
+Use proper markdown bold syntax: **text** (two asterisks on both sides).
 
 {recommendations_section}
 
-## 6. SENTIMENT NARRATIVE (50-100 words)
+## 6. SENTIMENT NARRATIVE (40-60 words)
 Describe the emotional journey of the discussion:
 - How did sentiment evolve across questions?
 - Were there polarizing topics?
@@ -398,7 +404,7 @@ Describe the emotional journey of the discussion:
 - Avoid generic marketing jargon
 - Be honest about weaknesses or concerns raised
 - Consider both explicit feedback and implicit patterns
-- Format using Markdown for readability
+- Format using Markdown for readability (## headings, **bold** emphasis)
 """
 
         return prompt
@@ -479,8 +485,9 @@ Describe the emotional journey of the discussion:
             # Extract bullet points
             bullets = []
             for line in content:
-                if line.strip().startswith(("-", "*", "•")) or (line.strip() and line.strip()[0].isdigit()):
-                    bullet_text = line.strip().lstrip("-*•0123456789. ")
+                stripped = line.strip()
+                if stripped.startswith(("-", "*", "•")) or (stripped and stripped[0].isdigit()):
+                    bullet_text = _BULLET_PREFIX_RE.sub("", stripped)
                     if bullet_text:
                         bullets.append(bullet_text)
             sections[section_name] = bullets
@@ -489,12 +496,13 @@ Describe the emotional journey of the discussion:
             segments = {}
             current_segment = None
             for line in content:
-                if line.strip().startswith("**") and ":**" in line:
-                    parts = line.split(":**", 1)
-                    current_segment = parts[0].strip("*").strip()
-                    segments[current_segment] = parts[1].strip() if len(parts) > 1 else ""
-                elif current_segment and line.strip():
-                    segments[current_segment] += " " + line.strip()
+                stripped = line.strip()
+                match = _SEGMENT_LINE_RE.search(stripped)
+                if match:
+                    current_segment = match.group(1).strip()
+                    segments[current_segment] = match.group(2).strip()
+                elif current_segment and stripped:
+                    segments[current_segment] += " " + stripped
             sections[section_name] = segments
 
 

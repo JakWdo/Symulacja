@@ -60,16 +60,33 @@ async def generate_ai_summary(
             include_recommendations=include_recommendations,
         )
 
+        await db.commit()
+
         return summary
 
     except ValueError as e:
+        await db.rollback()
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        await db.rollback()
         logger.exception("Failed to generate AI summary", exc_info=e)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate AI summary: {str(e)}"
         )
+
+
+@router.get("/focus-groups/{focus_group_id}/ai-summary")
+async def get_ai_summary(
+    focus_group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retrieve cached AI summary for a focus group.
+
+    Alias for GET /focus-groups/{id}/insights to keep backwards compatibility.
+    """
+    return await get_insights(focus_group_id, db)
 
 
 @router.post("/focus-groups/{focus_group_id}/insights")
@@ -98,13 +115,17 @@ async def get_insights(
     """
     Get cached insights for a focus group
 
-    For now, this returns a 404 to indicate insights need to be generated.
-    In the future, this could be enhanced to cache and retrieve previously generated insights.
+    Returns the most recently generated AI summary cached on the focus group.
     """
-    raise HTTPException(
-        status_code=404,
-        detail="Insights not found. Generate them first using POST /focus-groups/{id}/insights"
-    )
+    focus_group = await _get_focus_group(db, focus_group_id)
+
+    if not focus_group.ai_summary:
+        raise HTTPException(
+            status_code=404,
+            detail="Insights not found. Generate them first using POST /focus-groups/{id}/insights"
+        )
+
+    return focus_group.ai_summary
 
 
 @router.get("/focus-groups/{focus_group_id}/responses")
@@ -164,5 +185,3 @@ async def _get_focus_group(db: AsyncSession, focus_group_id: UUID) -> FocusGroup
     if not focus_group:
         raise HTTPException(status_code=404, detail="Focus group not found")
     return focus_group
-
-

@@ -9,11 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Plus, GripVertical, Trash2, RadioIcon as RadioButton, CheckSquare, BarChart3, FileText, Play, Settings } from 'lucide-react';
+import { ArrowLeft, Plus, GripVertical, Trash2, RadioIcon as RadioButton, CheckSquare, BarChart3, FileText, Settings } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { surveysApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import type { Question } from '@/types';
+import { toast } from '@/components/ui/toastStore';
 
 interface SurveyBuilderProps {
   onBack: () => void;
@@ -66,12 +67,14 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
       };
       return surveysApi.create(selectedProject!.id, payload);
     },
-    onSuccess: async (survey, launch) => {
+    onSuccess: (createdSurvey) => {
       queryClient.invalidateQueries({ queryKey: ['surveys', selectedProject?.id] });
-      if (launch) {
-        await surveysApi.run(survey.id);
-      }
+      toast.success('Survey created', `${createdSurvey.title} · ${selectedProject?.name || 'Unknown project'}`);
       onSave();
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to create survey', `${surveyTitle || 'New survey'} · ${selectedProject?.name || 'Unknown project'} • ${message}`);
     },
   });
 
@@ -135,8 +138,8 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
     }
   };
 
-  const handleSave = (launch: boolean) => {
-    createMutation.mutate(launch);
+  const handleSave = () => {
+    createMutation.mutate();
   };
 
   const isValid = surveyTitle && selectedProject && questions.length > 0 &&
@@ -171,12 +174,12 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={() => handleSave(true)}
+              onClick={handleSave}
               disabled={!isValid || createMutation.isPending}
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
-              <Play className="w-4 h-4 mr-2" />
-              {createMutation.isPending ? 'Creating...' : 'Create & Launch'}
+              <Plus className="w-4 h-4 mr-2" />
+              {createMutation.isPending ? 'Creating...' : 'Create Survey'}
             </Button>
           </div>
         </div>

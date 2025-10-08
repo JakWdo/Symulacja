@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Users, MessageSquare, Calendar, FolderOpen, Loader2 } from 'lucide-react';
+import { Plus, Search, Users, MessageSquare, Calendar, FolderOpen } from 'lucide-react';
 import { projectsApi, personasApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { formatDate } from '@/lib/utils';
 import type { Project } from '@/types';
+import { Logo } from '@/components/ui/Logo';
 
 interface ProjectsProps {
   onSelectProject?: (project: Project) => void;
@@ -106,7 +107,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full p-6">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Logo className="w-8 h-8" spinning />
       </div>
     );
   }
@@ -180,7 +181,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                   onClick={handleCreateProject}
                   disabled={createMutation.isPending || !newProject.name || !newProject.description}
                 >
-                  {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {createMutation.isPending && <Logo className="w-4 h-4 mr-2" spinning />}
                   Create Project
                 </Button>
               </div>

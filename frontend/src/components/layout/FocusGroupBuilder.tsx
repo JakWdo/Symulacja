@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Plus, Trash2, Users, MessageSquare, Settings, Loader2, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Users, MessageSquare, Settings, Check } from 'lucide-react';
 import { projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
@@ -111,7 +111,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
             className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
           >
             {isSaving ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <SpinnerLogo className="w-4 h-4 mr-2" />
             ) : (
               <Check className="w-4 h-4 mr-2" />
             )}

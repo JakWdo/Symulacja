@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
-import { Plus, FolderOpen, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Plus, FolderOpen, CheckCircle2, XCircle } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button'; // Import Button
 import type { Project } from '@/types';
+import { Logo } from '@/components/ui/Logo';
 
 // Komponent formularza do tworzenia projektu
 function CreateProjectForm({ onClose }: { onClose: () => void }) {
@@ -167,7 +168,7 @@ export function ProjectPanel() {
         {/* Projects List */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+            <Logo className="w-8 h-8" spinning />
           </div>
         ) : isError ? (
           <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-600">
