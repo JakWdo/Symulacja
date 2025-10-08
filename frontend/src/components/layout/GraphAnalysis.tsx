@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,37 +12,36 @@ import {
   Users,
   MessageCircle,
   Brain,
-  TrendingUp,
-  Heart,
   Search,
   Filter,
-  BarChart3,
   Eye,
-  Target,
-  Lightbulb,
-  Zap,
-  Loader2,
 } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { NetworkGraph } from '@/components/analysis/NetworkGraph';
 import { projectsApi, graphApi } from '@/lib/api';
+import { useAppStore } from '@/store/appStore';
+import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
 
 export function GraphAnalysis() {
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const { selectedProject, setSelectedProject } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConcept, setSelectedConcept] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [graphFilter, setGraphFilter] = useState('all');
 
   // Fetch projects
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
   });
 
-  // Auto-select first project
-  const firstProject = projects[0];
-  const activeProjectId = selectedProjectId || firstProject?.id;
+  useEffect(() => {
+    if (!selectedProject && projects.length > 0) {
+      setSelectedProject(projects[0]);
+    }
+  }, [projects, selectedProject, setSelectedProject]);
+
+  const activeProjectId = selectedProject?.id ?? null;
 
   // Fetch graph data
   const { data: graphData, isLoading: graphLoading } = useQuery({
@@ -90,8 +89,9 @@ export function GraphAnalysis() {
   };
 
   return (
-    <TooltipProvider>
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="w-full h-full overflow-y-auto">
+      <TooltipProvider>
+        <div className="max-w-7xl mx-auto space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -101,16 +101,37 @@ export function GraphAnalysis() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Select value={activeProjectId || ''} onValueChange={setSelectedProjectId}>
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="Select project" />
+            <Select
+              value={selectedProject?.id || ''}
+              onValueChange={(value) => {
+                const project = projects.find((p) => p.id === value);
+                if (project) setSelectedProject(project);
+              }}
+            >
+              <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
+                <SelectValue
+                  placeholder="Select project"
+                  className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                />
               </SelectTrigger>
               <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
+                {projectsLoading ? (
+                  <div className="flex items-center justify-center p-2">
+                    <SpinnerLogo className="w-4 h-4" />
+                  </div>
+                ) : projects.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">No projects found</div>
+                ) : (
+                  projects.map((project) => (
+                    <SelectItem
+                      key={project.id}
+                      value={project.id}
+                      className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                    >
+                      {project.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -165,7 +186,7 @@ export function GraphAnalysis() {
                   <div className="h-[500px] bg-muted/30 rounded-lg border border-border relative overflow-hidden">
                     {graphLoading ? (
                       <div className="flex items-center justify-center h-full">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <SpinnerLogo className="w-8 h-8" />
                       </div>
                     ) : graphData ? (
                       <NetworkGraph
@@ -346,7 +367,8 @@ export function GraphAnalysis() {
             </div>
           </div>
         )}
-      </div>
-    </TooltipProvider>
+        </div>
+      </TooltipProvider>
+    </div>
   );
 }

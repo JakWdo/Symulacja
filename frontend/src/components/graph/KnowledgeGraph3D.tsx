@@ -1,33 +1,74 @@
-import { useRef, useMemo, memo } from 'react';
+import { useRef, useMemo, memo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force';
 import type { GraphData, GraphNode } from '@/types';
 
+// Color mapping for different node types
+const NODE_COLORS = {
+  persona: '#0ea5e9',    // Blue
+  concept: '#8b5cf6',    // Purple
+  emotion: '#f59e0b',    // Amber
+};
+
+// Sentiment-based coloring
+function getSentimentColor(sentiment?: number): string {
+  if (sentiment === undefined || sentiment === null) return NODE_COLORS.persona;
+  if (sentiment > 0.5) return '#10b981';  // Green - positive
+  if (sentiment < -0.3) return '#ef4444'; // Red - negative
+  return '#6b7280';  // Gray - neutral
+}
+
 // Memoized Node component for better performance
-const Node = memo(({ node }: { node: GraphNode }) => {
+const Node = memo(({ node, onClick }: { node: GraphNode; onClick?: (node: GraphNode) => void }) => {
   const ref = useRef<THREE.Mesh>(null);
+  const [hovered, setHovered] = useState(false);
+
+  const color = node.type === 'persona'
+    ? getSentimentColor(node.sentiment)
+    : NODE_COLORS[node.type] || '#0ea5e9';
+
   return (
-    <mesh ref={ref} position={[node.x || 0, node.y || 0, node.z || 0]}>
+    <mesh
+      ref={ref}
+      position={[node.x || 0, node.y || 0, node.z || 0]}
+      onClick={() => onClick?.(node)}
+      onPointerOver={() => setHovered(true)}
+      onPointerOut={() => setHovered(false)}
+    >
       <sphereGeometry args={[node.size || 0.5, 32, 32]} />
-      <meshStandardMaterial color={node.color || '#0ea5e9'} />
-      <Text
-        position={[0, (node.size || 0.5) + 0.3, 0]}
-        fontSize={0.3}
-        color="black"
-        anchorX="center"
-        anchorY="middle"
-      >
-        {node.label}
-      </Text>
+      <meshStandardMaterial
+        color={color}
+        emissive={hovered ? color : '#000000'}
+        emissiveIntensity={hovered ? 0.3 : 0}
+      />
+      {(hovered || node.size && node.size > 0.7) && (
+        <Text
+          position={[0, (node.size || 0.5) + 0.4, 0]}
+          fontSize={0.3}
+          color="white"
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.05}
+          outlineColor="#000000"
+        >
+          {node.name || node.label || node.id.slice(0, 8)}
+        </Text>
+      )}
     </mesh>
   );
 });
 
 Node.displayName = 'Node';
 
-function Graph({ graphData }: { graphData: GraphData }) {
+function Graph({
+  graphData,
+  onNodeClick
+}: {
+  graphData: GraphData;
+  onNodeClick?: (node: GraphNode) => void;
+}) {
   const { nodes, links } = graphData;
 
   // Memoize simulation to prevent re-running on every render
@@ -61,20 +102,32 @@ function Graph({ graphData }: { graphData: GraphData }) {
   const visibleLinks = useMemo(() => {
     if (links.length <= 100) return links;
 
-    // Sort by value and take top 100 connections
+    // Sort by strength and take top 100 connections
     return [...links]
-      .sort((a, b) => (b.value || 0) - (a.value || 0))
+      .sort((a, b) => (b.strength || b.value || 0) - (a.strength || a.value || 0))
       .slice(0, 100);
   }, [links]);
+
+  // Color links by sentiment or type
+  const getLinkColor = (link: typeof links[0]) => {
+    if (link.sentiment !== undefined) {
+      if (link.sentiment > 0.5) return '#10b981'; // Positive - green
+      if (link.sentiment < -0.3) return '#ef4444'; // Negative - red
+      return '#6b7280'; // Neutral - gray
+    }
+    if (link.type === 'disagrees') return '#ef4444';
+    if (link.type === 'agrees') return '#10b981';
+    return '#cbd5e1'; // Default
+  };
 
   return (
     <>
       {simulatedNodes.map((node) => (
-        <Node key={node.id} node={node} />
+        <Node key={node.id} node={node} onClick={onNodeClick} />
       ))}
       {visibleLinks.map((link, i) => {
-        const source = nodeMap.get(link.source as string);
-        const target = nodeMap.get(link.target as string);
+        const source = nodeMap.get(typeof link.source === 'string' ? link.source : link.source.id);
+        const target = nodeMap.get(typeof link.target === 'string' ? link.target : link.target.id);
         if (!source || !target) return null;
 
         return (
@@ -84,9 +137,9 @@ function Graph({ graphData }: { graphData: GraphData }) {
               [source.x || 0, source.y || 0, source.z || 0],
               [target.x || 0, target.y || 0, target.z || 0]
             ]}
-            color="#cbd5e1"
+            color={getLinkColor(link)}
             transparent
-            opacity={0.3}
+            opacity={0.4}
             lineWidth={1}
           />
         );
@@ -95,12 +148,17 @@ function Graph({ graphData }: { graphData: GraphData }) {
   );
 }
 
-
-export function KnowledgeGraph3D({ graphData }: { graphData: GraphData | null }) {
+export function KnowledgeGraph3D({
+  graphData,
+  onNodeClick
+}: {
+  graphData: GraphData | null;
+  onNodeClick?: (node: GraphNode) => void;
+}) {
   if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-slate-500">
-        <p>No personas to display. Generate personas to see the graph.</p>
+        <p>No graph data available. Build the knowledge graph first.</p>
       </div>
     );
   }
@@ -109,7 +167,7 @@ export function KnowledgeGraph3D({ graphData }: { graphData: GraphData | null })
     <Canvas camera={{ position: [0, 0, 30], fov: 50 }}>
       <ambientLight intensity={0.5} />
       <pointLight position={[10, 10, 10]} />
-      <Graph graphData={graphData} />
+      <Graph graphData={graphData} onNodeClick={onNodeClick} />
       <OrbitControls
         enableDamping
         dampingFactor={0.05}

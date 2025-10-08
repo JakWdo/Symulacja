@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Search, Users, MessageSquare, Calendar, FolderOpen, Loader2 } from 'lucide-react';
-import { projectsApi } from '@/lib/api';
+import { projectsApi, personasApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { formatDate } from '@/lib/utils';
 import type { Project } from '@/types';
@@ -65,28 +65,43 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
     }
   };
 
-  const getStatusColor = (project: Project) => {
-    // Determine status based on project state
-    const personaCount = 0; // Would come from API
-    const focusGroupCount = 0; // Would come from API
-    
-    if (personaCount > 0 && focusGroupCount > 0) {
-      return 'bg-chart-2/20 text-chart-2 border-chart-2/30'; // Active
-    } else if (personaCount > 0) {
-      return 'bg-chart-5/20 text-chart-5 border-chart-5/30'; // In Progress
-    } else {
-      return 'bg-muted text-muted-foreground border-border'; // Planning
-    }
+  const getStatusColor = () => {
+    return 'bg-muted text-muted-foreground border-border';
   };
 
   const getStatusLabel = (project: Project) => {
-    const personaCount = 0; // Would come from API
-    const focusGroupCount = 0; // Would come from API
-    
-    if (personaCount > 0 && focusGroupCount > 0) return 'Active';
-    if (personaCount > 0) return 'In Progress';
+    const projectPersonas = allPersonas.filter(p => p.project_id === project.id);
+    const projectFocusGroups = allFocusGroups.filter(fg => fg.project_id === project.id);
+
+    if (projectPersonas.length > 0 && projectFocusGroups.length > 0) return 'Active';
+    if (projectPersonas.length > 0) return 'In Progress';
     return 'Planning';
   };
+
+  // Fetch all personas and focus groups for project cards
+  const { data: allPersonas = [] } = useQuery({
+    queryKey: ['personas', 'all'],
+    queryFn: async () => {
+      if (projects.length === 0) return [];
+      const personaArrays = await Promise.all(
+        projects.map(p => personasApi.getByProject(p.id).catch(() => []))
+      );
+      return personaArrays.flat();
+    },
+    enabled: projects.length > 0,
+  });
+
+  const { data: allFocusGroups = [] } = useQuery({
+    queryKey: ['focusGroups', 'all'],
+    queryFn: async () => {
+      if (projects.length === 0) return [];
+      const fgArrays = await Promise.all(
+        projects.map(p => focusGroupsApi.getByProject(p.id).catch(() => []))
+      );
+      return fgArrays.flat();
+    },
+    enabled: projects.length > 0,
+  });
 
   if (isLoading) {
     return (
@@ -97,7 +112,8 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-6">
+    <div className="w-full h-full overflow-y-auto">
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -215,11 +231,15 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-chart-4" />
-                    <span className="text-sm text-card-foreground">0 personas</span>
+                    <span className="text-sm text-card-foreground">
+                      {allPersonas.filter(p => p.project_id === project.id).length} personas
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MessageSquare className="w-4 h-4 text-chart-1" />
-                    <span className="text-sm text-card-foreground">0 groups</span>
+                    <span className="text-sm text-card-foreground">
+                      {allFocusGroups.filter(fg => fg.project_id === project.id).length} groups
+                    </span>
                   </div>
                 </div>
                 
@@ -256,6 +276,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -10,15 +10,13 @@ import {
   Users,
   FolderOpen,
   MessageSquare,
-  TrendingUp,
   BarChart3,
   Eye,
   Plus,
   Clock,
 } from 'lucide-react';
 import { projectsApi, personasApi, focusGroupsApi } from '@/lib/api';
-import { useAppStore } from '@/store/appStore';
-import pieSvgPaths from '@/imports/svg-unlax8gz8c';
+import { pieSvgPaths } from '@/lib/svg-paths';
 
 interface DashboardProps {
   onNavigate?: (view: string) => void;
@@ -28,7 +26,7 @@ interface DashboardProps {
 function CustomBarChart({ data }: { data: any[] }) {
   return (
     <div className="flex gap-[12px] items-end justify-between relative w-full h-[240px] px-4">
-      {data.map((month, index) => {
+      {data.map((month) => {
         const totalHeight = 200;
         const maxPersonas = Math.max(...data.map((m) => m.personas));
         const maxSurveys = Math.max(...data.map((m) => m.surveys));
@@ -157,10 +155,8 @@ function CustomPieChart() {
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-  const { selectedProject } = useAppStore();
-
   // Fetch projects
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+  const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
   });

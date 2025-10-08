@@ -3,30 +3,22 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { personasApi } from '@/lib/api';
-import type { GeneratePersonasPayload, PersonaAdvancedOptions } from '@/lib/api';
+import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import {
   User,
-  Users,
-  Plus,
-  Loader2,
-  ShieldHalf,
-  SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
   Search,
   Sparkles,
-  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn, getPersonalityColor } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import type { Persona } from '@/types';
-import { PersonaGenerationWizard } from '@/components/personas/PersonaGenerationWizard';
+import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
+import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
+import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
 
 const NAME_FROM_STORY_REGEX = /^(?<name>[A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\s+is\s+(?:an|a)\s/;
-
-type DistributionRecord = Record<string, number>;
 
 function guessNameFromStory(story?: string | null) {
   if (!story) return null;
@@ -57,112 +49,6 @@ function extractStorySummary(story?: string | null) {
 function formatLocation(location?: string | null) {
   if (!location) return 'Lokalizacja nieznana';
   return location;
-}
-
-function parseDistributionInput(raw: string): DistributionRecord | null {
-  if (!raw.trim()) {
-    return null;
-  }
-
-  const entries = raw
-    .split(/[,\n]/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
-  const distribution: DistributionRecord = {};
-
-  entries.forEach((entry) => {
-    const [labelRaw, valueRaw] = entry.split(/[:=]/).map((part) => part.trim());
-    if (!labelRaw || !valueRaw) {
-      return;
-    }
-    const normalizedLabel = labelRaw.replace(/\s+/g, ' ');
-    const sanitized = valueRaw.replace(/%/g, '');
-    const numeric = Number.parseFloat(sanitized);
-    if (Number.isFinite(numeric) && numeric > 0) {
-      distribution[normalizedLabel] = numeric;
-    }
-  });
-
-  const total = Object.values(distribution).reduce((acc, value) => acc + value, 0);
-  if (total <= 0) {
-    return null;
-  }
-
-  const normalized: DistributionRecord = {};
-  Object.entries(distribution).forEach(([label, value]) => {
-    normalized[label] = value / total;
-  });
-  return normalized;
-}
-
-interface DistributionInputProps {
-  label: string;
-  placeholder?: string;
-  helper?: string;
-  value: string;
-  onChange: (value: string) => void;
-}
-
-function DistributionInput({ label, placeholder, helper, value, onChange }: DistributionInputProps) {
-  return (
-    <div className="space-y-1">
-      <label className="text-sm font-medium text-slate-700">{label}</label>
-      <textarea
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        rows={3}
-        placeholder={placeholder ?? 'np. 18-24:40, 25-34:35, 35-44:25'}
-        className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-      />
-      {helper && <p className="text-xs text-slate-500">{helper}</p>}
-    </div>
-  );
-}
-
-function StatBadge({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-        <p className="text-sm font-semibold text-slate-900">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function TagPill({ children, tone = 'primary' }: { children: React.ReactNode; tone?: 'primary' | 'accent' | 'slate' }) {
-  const palette = {
-    primary: 'border-primary-200 bg-primary-50 text-primary-700',
-    accent: 'border-accent-200 bg-accent-50 text-accent-700',
-    slate: 'border-slate-200 bg-slate-100 text-slate-600',
-  };
-
-  return (
-    <span className={cn('rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide', palette[tone])}>
-      {children}
-    </span>
-  );
-}
-
-function OptionChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
-        active
-          ? 'border-primary-500 bg-primary-100 text-primary-700 shadow-sm'
-          : 'border-slate-200 text-slate-600 hover:border-primary-200 hover:text-primary-600'
-      )}
-    >
-      {label}
-    </button>
-  );
 }
 
 function PersonaListItem({ persona, isSelected }: { persona: Persona; isSelected: boolean }) {
@@ -325,8 +211,9 @@ export function PersonaPanel() {
   const queryClient = useQueryClient();
   const [generationProgress, setGenerationProgress] = useState(0);
   const [progressMeta, setProgressMeta] = useState<{ start: number; duration: number } | null>(null);
+  const [activeGenerationProjectId, setActiveGenerationProjectId] = useState<string | null>(null);
 
-  const { data: personas, isLoading } = useQuery({
+  const { data: personas, isLoading, isFetching } = useQuery({
     queryKey: ['personas', selectedProject?.id],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -350,6 +237,10 @@ export function PersonaPanel() {
       }
     },
   });
+
+  const isAwaitingPersonas = !personas || personas.length === 0;
+  const isCurrentProjectGenerating =
+    activeGenerationProjectId !== null && activeGenerationProjectId === selectedProject?.id;
 
   const sortedPersonas = useMemo(() => {
     if (!personas) return [];
@@ -405,11 +296,18 @@ export function PersonaPanel() {
     }
   }, [personas, filteredPersonas, selectedPersona, setSelectedPersona]);
 
+  useEffect(() => {
+    if (!selectedProject) {
+      setActiveGenerationProjectId(null);
+      setGenerationProgress(0);
+      setProgressMeta(null);
+    }
+  }, [selectedProject]);
+
   const generateMutation = useMutation({
     mutationFn: (payload: GeneratePersonasPayload) =>
       personasApi.generate(selectedProject!.id, payload),
     onSuccess: (_, variables) => {
-      setShowGenerateForm(false);
       queryClient.invalidateQueries({ queryKey: ['personas', selectedProject?.id] });
       const modeLabel = variables.adversarial_mode ? 'Adversarial' : 'Standard';
       toast.info(
@@ -418,57 +316,32 @@ export function PersonaPanel() {
       );
     },
     onError: (error: Error) => {
+      setGenerationProgress(0);
+      setProgressMeta(null);
+      setShowWizard(true);
+      setActiveGenerationProjectId(null);
       toast.error('Generation failed', error.message);
     },
   });
 
-  const handleWizardSubmit = (config: GeneratePersonasPayload) => {
+  const handleWizardSubmit = (config: PersonaGenerationConfig) => {
     if (!selectedProject) {
       return;
     }
 
+    const payload = transformWizardConfigToPayload(config);
+    setActiveGenerationProjectId(selectedProject.id);
     setShowWizard(false);
-    setProgressMeta({ start: Date.now(), duration: Math.max(5000, config.num_personas * 2500) });
+    setProgressMeta({ start: Date.now(), duration: estimateGenerationDuration(payload.num_personas) });
     setGenerationProgress(5);
-    generateMutation.mutate(config);
+    generateMutation.mutate(payload);
   };
 
-  const isGenerating = generateMutation.isPending || (isLoading && sortedPersonas.length === 0);
-  const totalPersonas = personas?.length ?? 0;
-
-  const personaStats = useMemo(() => {
-    if (!personas || personas.length === 0) {
-      return null;
-    }
-
-    const avgAge = Math.round(
-      personas.reduce((acc, item) => acc + (item.age ?? 0), 0) / personas.length
-    );
-
-    const locationCounts = new Map<string, number>();
-    const valueCounts = new Map<string, number>();
-
-    personas.forEach((persona) => {
-      if (persona.location) {
-        locationCounts.set(
-          persona.location,
-          (locationCounts.get(persona.location) ?? 0) + 1,
-        );
-      }
-      persona.values?.forEach((value) => {
-        valueCounts.set(value, (valueCounts.get(value) ?? 0) + 1);
-      });
-    });
-
-    const topLocation = Array.from(locationCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Brak danych';
-    const dominantValue = Array.from(valueCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Różnorodne';
-
-    return {
-      avgAge,
-      topLocation,
-      dominantValue,
-    };
-  }, [personas]);
+  const isGenerating =
+    isCurrentProjectGenerating &&
+    (generateMutation.isPending ||
+      (generateMutation.isSuccess && isAwaitingPersonas) ||
+      ((isLoading || isFetching) && isAwaitingPersonas));
 
   useEffect(() => {
     if (!isGenerating) {
@@ -477,8 +350,12 @@ export function PersonaPanel() {
         const timeout = setTimeout(() => {
           setGenerationProgress(0);
           setProgressMeta(null);
+          setActiveGenerationProjectId(null);
         }, 800);
         return () => clearTimeout(timeout);
+      }
+      if (generationProgress === 0 && activeGenerationProjectId !== null) {
+        setActiveGenerationProjectId(null);
       }
       setProgressMeta(null);
       return;
@@ -497,7 +374,7 @@ export function PersonaPanel() {
     }, 200);
 
     return () => clearInterval(interval);
-  }, [isGenerating, progressMeta, generationProgress]);
+  }, [isGenerating, progressMeta, generationProgress, activeGenerationProjectId, selectedProject?.id]);
 
   let content: ReactNode;
 
@@ -511,7 +388,7 @@ export function PersonaPanel() {
   } else if (isLoading) {
     content = (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+        <SpinnerLogo className="w-8 h-8" />
       </div>
     );
   } else if (sortedPersonas.length > 0) {
@@ -558,10 +435,10 @@ export function PersonaPanel() {
         </div>
       </div>
     );
-  } else if (generateMutation.isPending) {
+  } else if (isGenerating) {
     content = (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Loader2 className="w-12 h-12 text-primary-500 mb-3 animate-spin" />
+        <SpinnerLogo className="w-12 h-12 mb-3" />
         <p className="text-slate-900 font-medium mb-1">Generating personas...</p>
         <p className="text-sm text-slate-600">
           This may take a few moments...
@@ -586,7 +463,8 @@ export function PersonaPanel() {
     );
   }
 
-  const showProgressBar = generationProgress > 0;
+  const showProgressBar =
+    activeGenerationProjectId === selectedProject?.id && generationProgress > 0;
   const estimatedSeconds = progressMeta
     ? Math.max(1, Math.ceil((progressMeta.duration - (Date.now() - progressMeta.start)) / 1000))
     : 10;
@@ -602,7 +480,7 @@ export function PersonaPanel() {
       {showProgressBar && (
         <div className="px-4 pt-3">
           <div className="text-xs text-slate-500 mb-2 flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
+            <SpinnerLogo className="w-4 h-4" />
             <span>
               Synthesizing personas…
               {progressMeta ? ` ~${estimatedSeconds}s remaining` : ''}
@@ -621,13 +499,11 @@ export function PersonaPanel() {
       {content}
 
       {/* Advanced Wizard Modal */}
-      {showWizard && (
-        <PersonaGenerationWizard
-          onSubmit={handleWizardSubmit}
-          onCancel={() => setShowWizard(false)}
-          isGenerating={generateMutation.isPending}
-        />
-      )}
+      <PersonaGenerationWizard
+        open={showWizard}
+        onOpenChange={setShowWizard}
+        onGenerate={handleWizardSubmit}
+      />
     </FloatingPanel>
   );
 }

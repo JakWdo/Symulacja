@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.db.session import get_db
 from app.services.graph_service import GraphService
 from app.schemas.graph import (
     GraphDataResponse,
@@ -120,6 +120,81 @@ async def get_key_concepts(
     try:
         concepts = await service.get_key_concepts(focus_group_id)
         return KeyConceptsResponse(concepts=concepts)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await service.close()
+
+
+@router.get("/{focus_group_id}/controversial")
+async def get_controversial_concepts(
+    focus_group_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Znajduje koncepcje polaryzujące - tematy wywołujące skrajne opinie
+
+    **Args:**
+    - focus_group_id: UUID grupy fokusowej
+
+    **Returns:**
+    - Lista konceptów z wysokim rozrzutem sentymentu, wraz z listą zwolenników i krytyków
+    """
+    service = GraphService()
+    try:
+        controversial = await service.get_controversial_concepts(focus_group_id)
+        return {"controversial_concepts": controversial}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await service.close()
+
+
+@router.get("/{focus_group_id}/correlations")
+async def get_trait_correlations(
+    focus_group_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Znajduje korelacje między cechami demograficznymi a opiniami
+
+    **Args:**
+    - focus_group_id: UUID grupy fokusowej
+
+    **Returns:**
+    - Lista konceptów z różnicami w postrzeganiu między grupami wiekowymi
+
+    **Example:**
+    - Młodsi ludzie (<30) są bardziej pozytywni wobec "Innovation" niż seniorzy
+    """
+    service = GraphService()
+    try:
+        correlations = await service.get_trait_opinion_correlations(focus_group_id)
+        return {"correlations": correlations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await service.close()
+
+
+@router.get("/{focus_group_id}/emotions")
+async def get_emotion_distribution(
+    focus_group_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Pobiera rozkład emocji w grupie fokusowej
+
+    **Args:**
+    - focus_group_id: UUID grupy fokusowej
+
+    **Returns:**
+    - Lista emocji z liczbą person je wyrażających i intensywnością
+    """
+    service = GraphService()
+    try:
+        emotions = await service.get_emotion_distribution(focus_group_id)
+        return {"emotions": emotions}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

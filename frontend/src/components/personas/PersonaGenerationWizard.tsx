@@ -1,26 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { ArrowRight, ArrowLeft, Users, Target, MapPin, Brain, Settings, ChevronRight, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Users, Target, MapPin, Brain, Settings, ChevronRight, AlertCircle, Check } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface PersonaGenerationWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onGenerate: (config: PersonaConfig) => void;
+  onGenerate: (config: PersonaGenerationConfig) => void;
 }
 
-interface PersonaConfig {
+export interface PersonaGenerationConfig {
   // Basic Setup
   personaCount: number;
   adversarialMode: boolean;
@@ -74,10 +72,9 @@ const personalityTraits = [
 
 export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: PersonaGenerationWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [config, setConfig] = useState<PersonaConfig>({
+  const [config, setConfig] = useState<PersonaGenerationConfig>({
     // Basic Setup
     personaCount: 20,
     adversarialMode: false,
@@ -208,26 +205,16 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
       return;
     }
     
-    setIsGenerating(true);
-    setGenerationProgress(0);
-    
-    // Simulate generation progress
-    const interval = setInterval(() => {
-      setGenerationProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsGenerating(false);
-          onGenerate(config);
-          onOpenChange(false);
-          // Reset wizard state
-          setCurrentStep(1);
-          setGenerationProgress(0);
-          setValidationErrors([]);
-          return 100;
-        }
-        return prev + 8;
-      });
-    }, 200);
+    setIsSubmitting(true);
+    try {
+      onGenerate(config);
+      onOpenChange(false);
+      // Reset wizard state
+      setCurrentStep(1);
+      setValidationErrors([]);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const applyPreset = (presetId: string) => {
@@ -289,7 +276,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
     }
   };
 
-  const addToList = (list: string[], value: string, setter: (fn: (prev: PersonaConfig) => PersonaConfig) => void, key: keyof PersonaConfig) => {
+  const addToList = (list: string[], value: string, setter: (fn: (prev: PersonaGenerationConfig) => PersonaGenerationConfig) => void, key: keyof PersonaGenerationConfig) => {
     if (value.trim() && !list.includes(value.trim())) {
       setter(prev => ({
         ...prev,
@@ -298,7 +285,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
     }
   };
 
-  const removeFromList = (list: string[], value: string, setter: (fn: (prev: PersonaConfig) => PersonaConfig) => void, key: keyof PersonaConfig) => {
+  const removeFromList = (list: string[], value: string, setter: (fn: (prev: PersonaGenerationConfig) => PersonaGenerationConfig) => void, key: keyof PersonaGenerationConfig) => {
     setter(prev => ({
       ...prev,
       [key]: (prev[key] as string[]).filter(item => item !== value)
@@ -954,23 +941,12 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
           {renderStepContent()}
         </div>
 
-        {/* Generation Progress */}
-        {isGenerating && (
-          <div className="px-6 py-4 space-y-2 border-t border-border">
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Generating {config.personaCount} AI personas...</span>
-            </div>
-            <Progress value={generationProgress} className="w-full" />
-          </div>
-        )}
-
         {/* Navigation */}
         <div className="flex flex-col sm:flex-row sm:justify-between gap-3 p-6 pt-4 border-t border-border">
           <Button
             variant="outline"
             onClick={handlePrevious}
-            disabled={currentStep === 1 || isGenerating}
+            disabled={currentStep === 1 || isSubmitting}
             className="border-border w-full sm:w-auto"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -981,7 +957,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={isGenerating}
+              disabled={isSubmitting}
               className="border-border w-full sm:w-auto order-2 sm:order-1"
             >
               Cancel
@@ -990,7 +966,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
             {currentStep < 5 ? (
               <Button
                 onClick={handleNext}
-                disabled={isGenerating}
+                disabled={isSubmitting}
                 className="bg-primary hover:bg-primary/90 w-full sm:w-auto order-1 sm:order-2"
               >
                 Next
@@ -999,14 +975,10 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
             ) : (
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={isSubmitting}
                 className="bg-brand-orange hover:bg-brand-orange/90 text-white w-full sm:w-auto order-1 sm:order-2"
               >
-                {isGenerating ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Users className="w-4 h-4 mr-2" />
-                )}
+                <Users className="w-4 h-4 mr-2" />
                 Generate {config.personaCount} Personas
               </Button>
             )}

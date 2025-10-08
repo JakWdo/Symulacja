@@ -1,4 +1,4 @@
-import { Search, LayoutDashboard, FolderOpen, Settings, Plus, Command, Users, MessageSquare, BarChart3, Network } from 'lucide-react';
+import { Search, LayoutDashboard, FolderOpen, Settings, Command, Users, MessageSquare, BarChart3, Network } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -25,8 +25,8 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
   const { theme } = useTheme();
 
   return (
-    <Sidebar className="bg-sidebar border-r border-sidebar-border w-64">
-      <SidebarHeader className="h-[164px] p-0">
+    <Sidebar className="bg-sidebar border-r border-sidebar-border w-64 h-screen">
+      <SidebarHeader className="h-[164px] p-0 flex-shrink-0">
         <div className="flex items-center justify-between h-12 px-6 pt-6">
           <div key={theme} className="w-12 h-12 rounded-[14px] shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] overflow-hidden">
             <Logo className="w-full h-full object-cover" />
@@ -137,7 +137,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="h-[166px] p-6 bg-sidebar">
+      <SidebarFooter className="h-[166px] p-6 bg-sidebar flex-shrink-0">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -154,15 +154,15 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
           </SidebarMenuItem>
         </SidebarMenu>
 
-        <div className="flex items-center gap-3 mt-6 p-3 rounded-[10px] bg-sidebar-accent border border-sidebar-border h-[62px]">
-          <Avatar className="w-8 h-8">
+        <div className="flex items-center gap-3 mt-6 p-3 rounded-[10px] bg-sidebar-accent border border-sidebar-border min-h-[62px]">
+          <Avatar className="w-8 h-8 flex-shrink-0">
             <AvatarFallback className="text-white text-[14px] bg-primary rounded-full shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]">
               JD
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 overflow-hidden">
             <p className="text-[14px] leading-5 text-foreground truncate">John Doe</p>
-            <p className="text-[12px] leading-4 text-muted-foreground">Researcher</p>
+            <p className="text-[12px] leading-4 text-muted-foreground truncate">Researcher</p>
           </div>
         </div>
       </SidebarFooter>

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 
 interface Node {
@@ -34,7 +34,7 @@ interface NetworkGraphProps {
   className?: string;
 }
 
-export function NetworkGraph({ data, filter = 'all', selectedConcept, onNodeClick, className }: NetworkGraphProps) {
+export function NetworkGraph({ data, onNodeClick, className }: NetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 400 });
   const [hoveredNode, setHoveredNode] = useState<Node | null>(null);

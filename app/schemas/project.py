@@ -27,10 +27,16 @@ class ProjectCreate(BaseModel):
 
     Pola opcjonalne:
     - description: Opis projektu (max 1000 znaków)
+    - target_audience: Opis docelowej grupy odbiorców
+    - research_objectives: Cele badawcze projektu
+    - additional_notes: Dodatkowe uwagi
     - target_sample_size: Docelowa liczba person (domyślnie 100, zakres 10-1000)
     """
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
+    target_audience: Optional[str] = None
+    research_objectives: Optional[str] = None
+    additional_notes: Optional[str] = None
     target_demographics: Dict[str, Dict[str, float]] = Field(
         ...,
         description="Target population distribution. Example: {'age': {'18-24': 0.15, '25-34': 0.20}, 'gender': {'male': 0.49, 'female': 0.51}}",
@@ -45,6 +51,9 @@ class ProjectUpdate(BaseModel):
     Wszystkie pola opcjonalne - aktualizuj tylko to, co chcesz zmienić:
     - name: Nowa nazwa projektu (1-255 znaków)
     - description: Nowy opis (max 1000 znaków)
+    - target_audience: Nowy opis docelowej grupy odbiorców
+    - research_objectives: Nowe cele badawcze
+    - additional_notes: Nowe dodatkowe uwagi
     - target_demographics: Nowe rozkłady demograficzne
     - target_sample_size: Nowa docelowa liczba person (10-1000)
 
@@ -52,6 +61,9 @@ class ProjectUpdate(BaseModel):
     """
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
+    target_audience: Optional[str] = None
+    research_objectives: Optional[str] = None
+    additional_notes: Optional[str] = None
     target_demographics: Optional[Dict[str, Dict[str, float]]] = None
     target_sample_size: Optional[int] = Field(None, ge=10, le=1000)
 
@@ -66,6 +78,9 @@ class ProjectResponse(BaseModel):
     - id: UUID projektu
     - name: Nazwa
     - description: Opis
+    - target_audience: Opis docelowej grupy odbiorców
+    - research_objectives: Cele badawcze
+    - additional_notes: Dodatkowe uwagi
     - target_demographics: Docelowe rozkłady demograficzne
     - target_sample_size: Docelowa liczba person
 
@@ -86,6 +101,9 @@ class ProjectResponse(BaseModel):
     id: UUID
     name: str
     description: Optional[str]
+    target_audience: Optional[str]
+    research_objectives: Optional[str]
+    additional_notes: Optional[str]
     target_demographics: Dict[str, Dict[str, float]]
     target_sample_size: int
     chi_square_statistic: Optional[Dict[str, Any]]

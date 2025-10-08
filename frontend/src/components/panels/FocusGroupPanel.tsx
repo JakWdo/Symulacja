@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
-import { focusGroupsApi } from '@/lib/api';
+import { focusGroupsApi, personasApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import {
   MessageSquare,
@@ -10,16 +10,24 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Loader2,
   Users,
   Plus,
   Sparkles,
   ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import type { FocusGroup } from '@/types';
+import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import { CreateFocusGroupPayload } from '@/lib/api';
+import { composeTargetContext, parseTargetContext } from '@/lib/focusGroupUtils';
 
 function StatusBadge({ status }: { status: FocusGroup['status'] }) {
   const configs = {
@@ -31,7 +39,7 @@ function StatusBadge({ status }: { status: FocusGroup['status'] }) {
       label: 'Pending',
     },
     running: {
-      icon: Loader2,
+      icon: SpinnerLogo,
       gradient: 'from-blue-500 to-indigo-600',
       bg: 'bg-blue-100',
       text: 'text-blue-700',
@@ -59,7 +67,11 @@ function StatusBadge({ status }: { status: FocusGroup['status'] }) {
 
   return (
     <div className={cn('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full', config.bg)}>
-      <Icon className={cn('w-3.5 h-3.5', config.text, config.animate && 'animate-spin')} />
+      {status === 'running' ? (
+        <SpinnerLogo className="w-3.5 h-3.5" />
+      ) : (
+        <Icon className={cn('w-3.5 h-3.5', config.text)} />
+      )}
       <span className={cn('text-xs font-semibold', config.text)}>{config.label}</span>
     </div>
   );
@@ -69,10 +81,12 @@ function FocusGroupCard({
   focusGroup,
   isSelected,
   index,
+  onEdit,
 }: {
   focusGroup: FocusGroup;
   isSelected: boolean;
   index: number;
+  onEdit: () => void;
 }) {
   const { setSelectedFocusGroup } = useAppStore();
   const queryClient = useQueryClient();
@@ -88,8 +102,15 @@ function FocusGroupCard({
     },
   });
 
+  const isLaunchReady = focusGroup.persona_ids.length >= 2 && focusGroup.questions.length >= 1;
+  const canEdit = focusGroup.status === 'pending';
+
   const handleRun = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!isLaunchReady) {
+      toast.error('Add more details', 'Need at least 2 personas and 1 question before launching.');
+      return;
+    }
     runMutation.mutate();
   };
 
@@ -100,7 +121,10 @@ function FocusGroupCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
-      onClick={() => setSelectedFocusGroup(focusGroup)}
+      onClick={() => {
+        setSelectedFocusGroup(focusGroup);
+        onEdit();
+      }}
       className={cn(
         'relative p-5 rounded-2xl cursor-pointer transition-all duration-300',
         'border-2 bg-white',
@@ -190,22 +214,42 @@ function FocusGroupCard({
           )}
         </div>
 
-        {/* Action button */}
-        {canRun && (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleRun}
-            disabled={runMutation.isPending}
-            className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {runMutation.isPending ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Play className="w-5 h-5" />
-            )}
-          </motion.button>
-        )}
+        {/* Actions */}
+        <div className="flex flex-col items-end gap-2">
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="w-24"
+            >
+              Edit
+            </Button>
+          )}
+          {canRun && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleRun}
+              disabled={runMutation.isPending || !isLaunchReady}
+              className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                !isLaunchReady
+                  ? 'Add at least 2 personas and 1 question before launching.'
+                  : undefined
+              }
+            >
+              {runMutation.isPending ? (
+                <SpinnerLogo className="w-5 h-5" />
+              ) : (
+                <Play className="w-5 h-5" />
+              )}
+            </motion.button>
+          )}
+        </div>
       </div>
 
       {/* Selected indicator arrow */}
@@ -222,174 +266,393 @@ function FocusGroupCard({
   );
 }
 
-function CreateFocusGroupForm({
-  onClose,
-  onSuccess,
+function FocusGroupForm({
+  mode,
+  focusGroup,
+  onCancel,
+  onSaved,
 }: {
-  onClose: () => void;
-  onSuccess: () => void;
+  mode: 'create' | 'edit';
+  focusGroup?: FocusGroup;
+  onCancel: () => void;
+  onSaved: (group: FocusGroup) => void;
 }) {
-  const { selectedProject, personas } = useAppStore();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [questions, setQuestions] = useState(['']);
-  const [selectedPersonas, setSelectedPersonas] = useState<string[]>([]);
-
+  const { selectedProject } = useAppStore();
   const queryClient = useQueryClient();
 
-  const createMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string; questions: string[]; persona_ids: string[] }) =>
-      focusGroupsApi.create(selectedProject!.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['focus-groups'] });
-      toast.success('Focus group created', 'Successfully created new focus group');
-      onSuccess();
-      onClose();
-    },
-    onError: (error: Error) => {
-      toast.error('Failed to create focus group', error.message);
-    },
+  const { data: availablePersonas = [], isLoading: personasLoading } = useQuery({
+    queryKey: ['personas', selectedProject?.id],
+    queryFn: () => personasApi.getByProject(selectedProject!.id),
+    enabled: !!selectedProject,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const validQuestions = questions.filter((q) => q.trim().length > 0);
-    createMutation.mutate({
-      name,
-      description: description || undefined,
-      questions: validQuestions,
+  const parsedContext = parseTargetContext(focusGroup?.project_context);
+  const [name, setName] = useState(focusGroup?.name ?? '');
+  const [description, setDescription] = useState(focusGroup?.description ?? '');
+  const [projectContext, setProjectContext] = useState(parsedContext.text);
+  const [targetParticipants, setTargetParticipants] = useState(parsedContext.target);
+  const [modeValue, setModeValue] = useState<'normal' | 'adversarial'>(focusGroup?.mode ?? 'normal');
+  const [questions, setQuestions] = useState<string[]>(
+    focusGroup?.questions?.length ? focusGroup.questions : ['']
+  );
+  const [selectedPersonas, setSelectedPersonas] = useState<string[]>(focusGroup?.persona_ids ?? []);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState<'save' | 'launch' | null>(null);
+
+  useEffect(() => {
+    if (mode === 'edit' && focusGroup) {
+      const parsed = parseTargetContext(focusGroup.project_context);
+      setName(focusGroup.name);
+      setDescription(focusGroup.description ?? '');
+      setProjectContext(parsed.text);
+      setTargetParticipants(parsed.target);
+      setModeValue(focusGroup.mode);
+      setQuestions(focusGroup.questions?.length ? focusGroup.questions : ['']);
+      setSelectedPersonas(focusGroup.persona_ids ?? []);
+    }
+  }, [mode, focusGroup]);
+
+  useEffect(() => {
+    if (mode === 'create' && availablePersonas.length >= 2 && selectedPersonas.length === 0) {
+      setSelectedPersonas(
+        availablePersonas.slice(0, Math.min(4, availablePersonas.length)).map((p) => p.id)
+      );
+    }
+  }, [mode, availablePersonas, selectedPersonas.length]);
+
+  const trimmedQuestions = questions.map((q) => q.trim()).filter(Boolean);
+  const launchReady = selectedPersonas.length >= 2 && trimmedQuestions.length >= 1;
+
+  const togglePersona = (personaId: string, checked: boolean) => {
+    setSelectedPersonas((prev) =>
+      checked ? [...prev, personaId] : prev.filter((id) => id !== personaId)
+    );
+  };
+
+  const handleSave = async (launch: boolean) => {
+    if (!selectedProject) {
+      toast.error('Select a project first');
+      return;
+    }
+
+    if (!name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+
+    if (launch && !launchReady) {
+      toast.error('Add more details', 'Need at least 2 personas and 1 question before launching.');
+      return;
+    }
+
+    const payload: CreateFocusGroupPayload = {
+      name: name.trim(),
+      description: description.trim() ? description.trim() : undefined,
+      project_context: composeTargetContext(targetParticipants, projectContext),
       persona_ids: selectedPersonas,
+      questions: trimmedQuestions,
+      mode: modeValue,
+    };
+
+    setIsSaving(true);
+    setSavingAction(launch ? 'launch' : 'save');
+
+    try {
+      let savedGroup: FocusGroup;
+      if (mode === 'create') {
+        savedGroup = await focusGroupsApi.create(selectedProject.id, payload);
+      } else {
+        savedGroup = await focusGroupsApi.update(focusGroup!.id, payload);
+      }
+
+      if (launch) {
+        await focusGroupsApi.run(savedGroup.id);
+        toast.success('Focus group launched', 'Simulation running in the background.');
+      } else {
+        toast.success(
+          mode === 'create' ? 'Focus group created' : 'Changes saved',
+          mode === 'create'
+            ? 'Session configuration ready for launch.'
+            : 'Latest updates stored successfully.'
+        );
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['focus-groups', selectedProject.id] });
+      setSelectedFocusGroup(savedGroup);
+      onSaved(savedGroup);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to save focus group', message);
+    } finally {
+      setIsSaving(false);
+      setSavingAction(null);
+    }
+  };
+
+  const handleAddQuestion = () => setQuestions((prev) => [...prev, '']);
+
+  const handleQuestionChange = (index: number, value: string) => {
+    setQuestions((prev) => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
     });
   };
 
-  const canSubmit = name.trim() && questions.some((q) => q.trim()) && selectedPersonas.length >= 2;
+  const handleRemoveQuestion = (index: number) => {
+    setQuestions((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+  };
+
+  const personaCount = availablePersonas.length;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Name */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">
-          Focus Group Name *
-        </label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-primary-400 focus:ring-4 focus:ring-primary-100 transition-all outline-none"
-          placeholder="e.g., Product Feedback Session"
-        />
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">
+            {mode === 'create' ? 'Create Focus Group' : 'Edit Focus Group'}
+          </h2>
+          <p className="text-sm text-slate-500">
+            {mode === 'create'
+              ? 'Capture a draft now and refine or launch when ready.'
+              : 'Update the configuration before launching the session.'}
+          </p>
+        </div>
+        <Button variant="ghost" onClick={onCancel} disabled={isSaving}>
+          Cancel
+        </Button>
       </div>
 
-      {/* Description */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">
-          Description (optional)
-        </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-primary-400 focus:ring-4 focus:ring-primary-100 transition-all outline-none resize-none"
-          placeholder="Brief description of this focus group..."
-        />
-      </div>
-
-      {/* Questions */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">
-          Questions *
-        </label>
-        <div className="space-y-2">
-          {questions.map((q, idx) => (
-            <div key={idx} className="flex gap-2">
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => {
-                  const newQuestions = [...questions];
-                  newQuestions[idx] = e.target.value;
-                  setQuestions(newQuestions);
-                }}
-                className="flex-1 px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-primary-400 focus:ring-4 focus:ring-primary-100 transition-all outline-none"
-                placeholder={`Question ${idx + 1}`}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="bg-card border border-border">
+          <CardContent className="space-y-4 p-6">
+            <div className="space-y-2">
+              <Label>Focus Group Name *</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Product Feedback Session"
+                maxLength={255}
               />
-              {questions.length > 1 && (
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Brief description of the focus group objectives"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Project Context</Label>
+              <Textarea
+                value={projectContext}
+                onChange={(e) => setProjectContext(e.target.value)}
+                rows={3}
+                placeholder="Optional background context shared with participants"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Mode</Label>
+              <div className="flex gap-2">
                 <Button
                   type="button"
-                  variant="secondary"
-                  onClick={() => setQuestions(questions.filter((_, i) => i !== idx))}
+                  variant={modeValue === 'normal' ? 'default' : 'outline'}
+                  onClick={() => setModeValue('normal')}
+                  disabled={isSaving}
                 >
-                  Remove
+                  Cooperative
                 </Button>
-              )}
+                <Button
+                  type="button"
+                  variant={modeValue === 'adversarial' ? 'default' : 'outline'}
+                  onClick={() => setModeValue('adversarial')}
+                  disabled={isSaving}
+                >
+                  Adversarial
+                </Button>
+              </div>
             </div>
-          ))}
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setQuestions([...questions, ''])}
-            className="w-full"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Question
-          </Button>
-        </div>
+            <div className="space-y-2">
+              <Label>Target Participants</Label>
+              <Select
+                value={String(targetParticipants)}
+                onValueChange={(value) => setTargetParticipants(Number.parseInt(value, 10))}
+                disabled={isSaving}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2, 4, 6, 8, 10, 12].map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {option} participants
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border border-border">
+          <CardContent className="space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <Label>Discussion Questions</Label>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleAddQuestion}
+                disabled={isSaving}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Question
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {questions.map((q, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={q}
+                    onChange={(e) => handleQuestionChange(index, e.target.value)}
+                    placeholder={`Question ${index + 1}`}
+                    disabled={isSaving}
+                  />
+                  {questions.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleRemoveQuestion(index)}
+                      disabled={isSaving}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Persona Selection */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">
-          Select Personas * (min. 2)
-        </label>
-        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 rounded-xl border-2 border-slate-200">
-          {personas.map((persona) => (
-            <label
-              key={persona.id}
-              className={cn(
-                'flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all',
-                selectedPersonas.includes(persona.id)
-                  ? 'bg-primary-100 border-2 border-primary-400'
-                  : 'bg-slate-50 border-2 border-transparent hover:border-slate-300'
-              )}
-            >
-              <input
-                type="checkbox"
-                checked={selectedPersonas.includes(persona.id)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedPersonas([...selectedPersonas, persona.id]);
-                  } else {
-                    setSelectedPersonas(selectedPersonas.filter((id) => id !== persona.id));
-                  }
-                }}
-                className="w-4 h-4 text-primary-600 rounded"
-              />
-              <span className="text-sm text-slate-700 truncate">
-                {persona.full_name || `${persona.age}y ${persona.gender}`}
-              </span>
-            </label>
-          ))}
-        </div>
-        <p className="text-xs text-slate-500 mt-2">
-          Selected: {selectedPersonas.length} / {personas.length}
-        </p>
-      </div>
+      <Card className="bg-card border border-border">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Select Personas</Label>
+              <p className="text-xs text-slate-500">
+                Choose at least two personas before launching a session.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setSelectedPersonas(availablePersonas.map((p) => p.id))}
+                disabled={isSaving || availablePersonas.length === 0}
+              >
+                Select All
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setSelectedPersonas([])}
+                disabled={isSaving || availablePersonas.length === 0}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
 
-      {/* Actions */}
-      <div className="flex gap-3 pt-4">
-        <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+          {personasLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <SpinnerLogo className="w-8 h-8" />
+            </div>
+          ) : personaCount === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">
+              No personas available. Generate personas first to run a focus group.
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1 mb-3">
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>{selectedPersonas.length} selected</span>
+                  <span>{targetParticipants} target</span>
+                </div>
+                <Progress
+                  value={Math.min((selectedPersonas.length / Math.max(1, targetParticipants)) * 100, 100)}
+                  className="h-2"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto rounded-xl border border-slate-200 p-2">
+                {availablePersonas.map((persona) => {
+                  const checked = selectedPersonas.includes(persona.id);
+                  return (
+                    <label
+                      key={persona.id}
+                    className={cn(
+                      'flex items-center gap-2 p-3 rounded-lg border transition-all cursor-pointer',
+                      checked
+                        ? 'border-primary-400 bg-primary-50'
+                        : 'border-transparent bg-slate-50 hover:border-slate-200'
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4"
+                      checked={checked}
+                      onChange={(e) => togglePersona(persona.id, e.target.checked)}
+                      disabled={isSaving}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-700">{persona.full_name ?? persona.persona_title ?? 'Persona'}</p>
+                      <p className="text-xs text-slate-500">{persona.occupation ?? 'Occupation not set'}</p>
+                    </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-wrap gap-2 justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={isSaving}
+        >
           Cancel
         </Button>
         <Button
-          type="submit"
-          disabled={!canSubmit || createMutation.isPending}
-          isLoading={createMutation.isPending}
-          className="flex-1"
+          type="button"
+          variant="secondary"
+          onClick={() => handleSave(false)}
+          disabled={isSaving || !name.trim()}
+          isLoading={isSaving && savingAction === 'save'}
         >
-          Create Focus Group
+          {mode === 'create' ? 'Create Focus Group' : 'Save Changes'}
+        </Button>
+        <Button
+          type="button"
+          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+          onClick={() => handleSave(true)}
+          disabled={isSaving || !name.trim() || personasLoading}
+          isLoading={isSaving && savingAction === 'launch'}
+        >
+          Launch Focus Group
         </Button>
       </div>
-    </form>
+
+      {!launchReady && (
+        <p className="text-xs text-amber-600">
+          To launch, select at least two personas and include at least one question.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -402,8 +665,13 @@ export function FocusGroupPanel() {
     personas,
     focusGroups,
     setFocusGroups,
+    setSelectedFocusGroup,
   } = useAppStore();
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [formState, setFormState] = useState<
+    | { mode: 'create' }
+    | { mode: 'edit'; focusGroup: FocusGroup }
+    | null
+  >(null);
 
   const { isLoading, isError, error } = useQuery<FocusGroup[]>({
     queryKey: ['focus-groups', selectedProject?.id],
@@ -423,7 +691,10 @@ export function FocusGroupPanel() {
     }
   }, [selectedProject, setFocusGroups]);
 
-  const hasEnoughPersonas = (personas?.length ?? 0) >= 2;
+  const handleFormSaved = (group: FocusGroup) => {
+    setFormState(null);
+    setSelectedFocusGroup(group);
+  };
 
   return (
     <FloatingPanel
@@ -441,34 +712,35 @@ export function FocusGroupPanel() {
           <h3 className="text-lg font-semibold text-slate-900 mb-2">No Project Selected</h3>
           <p className="text-sm text-slate-500">Select a project to view focus groups</p>
         </div>
-      ) : showCreateForm ? (
-        <CreateFocusGroupForm
-          onClose={() => setShowCreateForm(false)}
-          onSuccess={() => setShowCreateForm(false)}
-        />
       ) : (
-        <>
-          {/* Header */}
-          <div className="mb-6">
+        <div className="space-y-6">
+          <div>
             <Button
-              onClick={() => setShowCreateForm(true)}
-              disabled={!hasEnoughPersonas}
+              onClick={() => setFormState({ mode: 'create' })}
               className="w-full bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600"
             >
               <Sparkles className="w-4 h-4 mr-2" />
               Create New Focus Group
             </Button>
-            {!hasEnoughPersonas && (
+            {(personas?.length ?? 0) < 2 && (
               <p className="text-xs text-amber-600 mt-2">
-                Need at least 2 personas to create a focus group
+                Fewer than two personas available. You can create a draft now and launch once personas are ready.
               </p>
             )}
           </div>
 
-          {/* Focus Groups List */}
+          {formState ? (
+            <FocusGroupForm
+              mode={formState.mode}
+              focusGroup={formState.mode === 'edit' ? formState.focusGroup : undefined}
+              onCancel={() => setFormState(null)}
+              onSaved={handleFormSaved}
+            />
+          ) : null}
+
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-primary-500 animate-spin mb-4" />
+              <SpinnerLogo className="w-8 h-8 mb-4" />
               <p className="text-sm text-slate-600">Loading focus groups...</p>
             </div>
           ) : isError ? (
@@ -493,12 +765,13 @@ export function FocusGroupPanel() {
                     focusGroup={fg}
                     isSelected={selectedFocusGroup?.id === fg.id}
                     index={idx}
+                    onEdit={() => setFormState({ mode: 'edit', focusGroup: fg })}
                   />
                 ))}
               </AnimatePresence>
             </div>
           )}
-        </>
+        </div>
       )}
     </FloatingPanel>
   );

@@ -72,6 +72,41 @@ async def generate_ai_summary(
         )
 
 
+@router.post("/focus-groups/{focus_group_id}/insights")
+async def generate_insights(
+    focus_group_id: UUID,
+    use_pro_model: bool = Query(
+        True,
+        description="Use Gemini 2.5 Pro for highest-quality analysis"
+    ),
+    include_recommendations: bool = Query(True, description="Include strategic recommendations"),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Alias for /ai-summary - Generate AI-powered insights for a focus group
+
+    This endpoint provides the same functionality as /ai-summary
+    """
+    return await generate_ai_summary(focus_group_id, use_pro_model, include_recommendations, db)
+
+
+@router.get("/focus-groups/{focus_group_id}/insights")
+async def get_insights(
+    focus_group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Get cached insights for a focus group
+
+    For now, this returns a 404 to indicate insights need to be generated.
+    In the future, this could be enhanced to cache and retrieve previously generated insights.
+    """
+    raise HTTPException(
+        status_code=404,
+        detail="Insights not found. Generate them first using POST /focus-groups/{id}/insights"
+    )
+
+
 @router.get("/focus-groups/{focus_group_id}/responses")
 async def get_focus_group_responses(
     focus_group_id: UUID,

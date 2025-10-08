@@ -21,8 +21,8 @@ class FocusGroupCreate(BaseModel):
 
     Pola wymagane:
     - name: Nazwa grupy (1-255 znaków)
-    - persona_ids: Lista UUID person uczestniczących (2-100 person)
-    - questions: Lista pytań do dyskusji (1-50 pytań)
+    - persona_ids: Lista UUID person uczestniczących (0-100 person, minimum 2 do uruchomienia)
+    - questions: Lista pytań do dyskusji (0-50 pytań, minimum 1 do uruchomienia)
 
     Pola opcjonalne:
     - description: Opis grupy (max 1000 znaków)
@@ -31,12 +31,15 @@ class FocusGroupCreate(BaseModel):
     - mode: Tryb dyskusji ('normal' lub 'adversarial')
       normal = normalna dyskusja
       adversarial = persony są bardziej krytyczne/sceptyczne
+
+    Uwaga: Puste listy persona_ids/questions są dozwolone dla draftu,
+    ale przed uruchomieniem (run) wymagane minimum 2 persony i 1 pytanie.
     """
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
     project_context: Optional[str] = Field(None, max_length=5000)
-    persona_ids: List[UUID] = Field(..., min_items=2, max_items=100)
-    questions: List[str] = Field(..., min_items=1, max_items=50)
+    persona_ids: List[UUID] = Field(default_factory=list, max_items=100)
+    questions: List[str] = Field(default_factory=list, max_items=50)
     mode: str = Field(default="normal", pattern="^(normal|adversarial)$")
 
 

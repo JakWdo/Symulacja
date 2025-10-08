@@ -8,16 +8,30 @@ Umożliwia analizę relacji między uczestnikami focus groups i ich opiniami.
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import logging
+import json
 
 from neo4j import AsyncGraphDatabase, AsyncDriver
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 from app.models import PersonaResponse, Persona, FocusGroup
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+
+# Pydantic models for LLM structured output
+class ConceptExtraction(BaseModel):
+    """Strukturalizowane wyniki ekstrakcji konceptów przez LLM"""
+    concepts: List[str] = Field(description="Lista kluczowych konceptów/tematów (max 5)")
+    emotions: List[str] = Field(description="Lista wykrytych emocji")
+    sentiment: float = Field(description="Ogólny sentiment od -1.0 do 1.0")
+    key_phrases: List[str] = Field(description="Najważniejsze frazy z wypowiedzi (max 3)")
 
 
 class GraphService:
@@ -32,9 +46,41 @@ class GraphService:
     """
 
     def __init__(self):
-        """Inicjalizuj połączenie z Neo4j"""
+        """Inicjalizuj połączenie z Neo4j i LLM do ekstrakcji konceptów"""
         self.driver: Optional[AsyncDriver] = None
         self.settings = settings
+
+        # Initialize LLM for concept extraction
+        self.llm = ChatGoogleGenerativeAI(
+            model=settings.PERSONA_GENERATION_MODEL,  # Use Flash for speed
+            google_api_key=settings.GOOGLE_API_KEY,
+            temperature=0.3,  # Lower temperature for consistent extraction
+            max_tokens=500,
+        )
+
+        # Create extraction prompt template
+        self.extraction_prompt = ChatPromptTemplate.from_messages([
+            ("system", """Jesteś ekspertem od analizy tekstu. Wyekstraktuj z podanej wypowiedzi:
+1. Kluczowe koncepty/tematy (max 5) - rzeczowniki lub frazy opisujące główne zagadnienia
+2. Emocje wyrażone w tekście (np. 'Satisfied', 'Frustrated', 'Neutral', 'Excited', 'Concerned')
+3. Sentiment jako liczba od -1.0 (bardzo negatywny) do 1.0 (bardzo pozytywny)
+4. Najważniejsze frazy cytowane bezpośrednio z tekstu (max 3)
+
+Zwróć wynik jako JSON w formacie:
+{{
+  "concepts": ["koncept1", "koncept2"],
+  "emotions": ["emocja1"],
+  "sentiment": 0.5,
+  "key_phrases": ["fraza1", "fraza2"]
+}}
+
+Koncepty powinny być ogólne i wielokrotnego użytku (np. 'Price', 'Usability', 'Design').
+Emocje w języku angielskim."""),
+            ("human", "{text}")
+        ])
+
+        # JSON output parser
+        self.json_parser = JsonOutputParser(pydantic_object=ConceptExtraction)
 
     async def connect(self):
         """Nawiąż połączenie z Neo4j"""
@@ -131,17 +177,22 @@ class GraphService:
                 )
                 stats["personas_added"] += 1
 
-            # 2. Extract concepts and create relationships
+            # 2. Extract concepts and create relationships using LLM
             concept_mentions = {}  # Track concept frequency
 
-            for response in responses:
+            logger.info(f"Processing {len(responses)} responses with LLM extraction...")
+
+            for idx, response in enumerate(responses):
                 persona_id = str(response.persona_id)
 
-                # Simple keyword extraction (top concepts)
-                concepts = self._extract_concepts(response.response)
-                sentiment = self._analyze_sentiment(response.response)
+                # LLM-powered extraction
+                extraction = await self._extract_concepts_with_llm(response.response)
 
-                for concept in concepts:
+                if (idx + 1) % 10 == 0:
+                    logger.info(f"Processed {idx + 1}/{len(responses)} responses")
+
+                # Create concept nodes and relationships
+                for concept in extraction.concepts:
                     # Create/update concept node
                     await session.run(
                         """
@@ -164,15 +215,13 @@ class GraphService:
                         """,
                         persona_id=persona_id,
                         concept=concept,
-                        sentiment=sentiment
+                        sentiment=extraction.sentiment
                     )
                     stats["relationships_created"] += 1
-
                     concept_mentions[concept] = concept_mentions.get(concept, 0) + 1
 
-                # 3. Create emotion nodes based on sentiment
-                emotion = self._sentiment_to_emotion(sentiment)
-                if emotion:
+                # 3. Create emotion nodes from LLM extraction
+                for emotion in extraction.emotions:
                     await session.run(
                         """
                         MERGE (e:Emotion {name: $emotion})
@@ -187,12 +236,12 @@ class GraphService:
                         MATCH (p:Persona {id: $persona_id})
                         MATCH (e:Emotion {name: $emotion})
                         MERGE (p)-[r:FEELS]->(e)
-                        ON CREATE SET r.intensity = $sentiment
-                        ON MATCH SET r.intensity = (r.intensity + $sentiment) / 2
+                        ON CREATE SET r.intensity = $intensity
+                        ON MATCH SET r.intensity = (r.intensity + $intensity) / 2
                         """,
                         persona_id=persona_id,
                         emotion=emotion,
-                        sentiment=abs(sentiment)
+                        intensity=abs(extraction.sentiment)
                     )
                     stats["emotions_created"] += 1
 
@@ -403,37 +452,53 @@ class GraphService:
             "links": links
         }
 
-    def _extract_concepts(self, text: str) -> List[str]:
+    async def _extract_concepts_with_llm(self, text: str) -> ConceptExtraction:
         """
-        Prosta ekstrakcja kluczowych konceptów z tekstu
+        Ekstrakcja konceptów przy użyciu Gemini LLM
 
-        W pełnej implementacji użyj NLP (spaCy, NLTK) lub LLM
+        Używa structured output do wyekstraktowania:
+        - Kluczowych konceptów/tematów
+        - Emocji
+        - Sentymentu
+        - Najważniejszych fraz
+
+        Args:
+            text: Tekst odpowiedzi persony
+
+        Returns:
+            ConceptExtraction object z wyekstraktowanymi danymi
         """
-        # Simple keyword extraction - words that appear frequently
+        try:
+            # Create chain: prompt -> LLM -> JSON parser
+            chain = self.extraction_prompt | self.llm | self.json_parser
+            result = await chain.ainvoke({"text": text})
+
+            # Validate and return
+            return ConceptExtraction(**result)
+
+        except Exception as e:
+            logger.warning(f"LLM concept extraction failed: {e}, falling back to defaults")
+            # Fallback to simple extraction
+            return ConceptExtraction(
+                concepts=self._simple_keyword_extraction(text),
+                emotions=["Neutral"],
+                sentiment=0.0,
+                key_phrases=[]
+            )
+
+    def _simple_keyword_extraction(self, text: str) -> List[str]:
+        """Fallback: prosta ekstrakcja słów kluczowych bez LLM"""
         keywords = [
-            "price", "cost", "pricing", "expensive", "affordable",
-            "design", "interface", "ui", "ux", "visual",
-            "usability", "ease", "simple", "intuitive",
-            "features", "functionality", "capability",
-            "performance", "speed", "fast", "slow",
-            "security", "privacy", "safe", "trust",
-            "support", "help", "service",
-            "quality", "value", "worth"
+            "Price", "Cost", "Design", "Interface", "Usability",
+            "Features", "Performance", "Security", "Support", "Quality"
         ]
-
         text_lower = text.lower()
-        found = []
-
-        for keyword in keywords:
-            if keyword in text_lower:
-                # Capitalize first letter
-                found.append(keyword.capitalize())
-
-        return list(set(found))[:5]  # Max 5 concepts per response
+        found = [kw for kw in keywords if kw.lower() in text_lower]
+        return list(set(found))[:5]
 
     def _analyze_sentiment(self, text: str) -> float:
         """
-        Prosta analiza sentymentu
+        Fallback: prosta analiza sentymentu
         Returns: -1.0 (negative) to 1.0 (positive)
         """
         positive = ["good", "great", "love", "excellent", "amazing", "like", "helpful", "useful", "easy"]
@@ -557,3 +622,145 @@ class GraphService:
                 })
 
             return concepts
+
+    async def get_controversial_concepts(
+        self,
+        focus_group_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Znajduje koncepcje polaryzujące - te, które wywołują skrajne opinie
+
+        Zwraca koncepcje z dużym rozrzutem sentymentu (jedni kochają, inni nienawidzą)
+        """
+        await self.connect()
+
+        async with self.driver.session() as session:
+            result = await session.run(
+                """
+                MATCH (c:Concept)<-[m:MENTIONS]-(p:Persona {focus_group_id: $focus_group_id})
+                WITH c,
+                     COLLECT(m.sentiment) as sentiments,
+                     COLLECT({name: p.name, sentiment: m.sentiment}) as persona_sentiments
+                WHERE size(sentiments) >= 3
+                WITH c,
+                     sentiments,
+                     persona_sentiments,
+                     reduce(s = 0.0, x IN sentiments | s + x) / size(sentiments) as avg_sentiment,
+                     reduce(s = 0.0, x IN sentiments | s + (x * x)) / size(sentiments) as variance
+                WITH c, avg_sentiment, variance, persona_sentiments,
+                     sqrt(variance - (avg_sentiment * avg_sentiment)) as std_dev
+                WHERE std_dev > 0.4
+                RETURN c.name as concept,
+                       avg_sentiment,
+                       std_dev as polarization,
+                       [ps IN persona_sentiments WHERE ps.sentiment > 0.5 | ps.name] as supporters,
+                       [ps IN persona_sentiments WHERE ps.sentiment < -0.3 | ps.name] as critics,
+                       size(persona_sentiments) as total_mentions
+                ORDER BY std_dev DESC
+                LIMIT 10
+                """,
+                focus_group_id=focus_group_id
+            )
+
+            controversial = []
+            async for record in result:
+                controversial.append({
+                    "concept": record["concept"],
+                    "avg_sentiment": record["avg_sentiment"],
+                    "polarization": record["polarization"],
+                    "supporters": record["supporters"],
+                    "critics": record["critics"],
+                    "total_mentions": record["total_mentions"]
+                })
+
+            return controversial
+
+    async def get_trait_opinion_correlations(
+        self,
+        focus_group_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Znajduje korelacje między cechami demograficznymi/psychologicznymi a opiniami
+
+        Przykład: "Osoby młodsze (<30) są bardziej pozytywne wobec 'Innovation'"
+        """
+        await self.connect()
+
+        async with self.driver.session() as session:
+            result = await session.run(
+                """
+                MATCH (p:Persona {focus_group_id: $focus_group_id})-[m:MENTIONS]->(c:Concept)
+                WITH c.name as concept,
+                     AVG(CASE WHEN p.age < 30 THEN m.sentiment ELSE null END) as young_sentiment,
+                     AVG(CASE WHEN p.age >= 30 AND p.age < 50 THEN m.sentiment ELSE null END) as mid_sentiment,
+                     AVG(CASE WHEN p.age >= 50 THEN m.sentiment ELSE null END) as senior_sentiment,
+                     COUNT(m) as mentions
+                WHERE mentions >= 3
+                WITH concept, young_sentiment, mid_sentiment, senior_sentiment, mentions,
+                     ABS(coalesce(young_sentiment, 0.0) - coalesce(senior_sentiment, 0.0)) as age_gap
+                WHERE age_gap > 0.3
+                RETURN concept,
+                       young_sentiment,
+                       mid_sentiment,
+                       senior_sentiment,
+                       age_gap,
+                       mentions
+                ORDER BY age_gap DESC
+                LIMIT 10
+                """,
+                focus_group_id=focus_group_id
+            )
+
+            correlations = []
+            async for record in result:
+                correlations.append({
+                    "concept": record["concept"],
+                    "young_sentiment": record["young_sentiment"],
+                    "mid_sentiment": record["mid_sentiment"],
+                    "senior_sentiment": record["senior_sentiment"],
+                    "age_gap": record["age_gap"],
+                    "mentions": record["mentions"]
+                })
+
+            return correlations
+
+    async def get_emotion_distribution(
+        self,
+        focus_group_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Pobiera rozkład emocji w grupie fokusowej
+
+        Zwraca agregację: jakie emocje dominują, ilu uczestników je wyraża
+        """
+        await self.connect()
+
+        async with self.driver.session() as session:
+            result = await session.run(
+                """
+                MATCH (e:Emotion)<-[f:FEELS]-(p:Persona {focus_group_id: $focus_group_id})
+                WITH e.name as emotion,
+                     COUNT(DISTINCT p) as personas_count,
+                     AVG(f.intensity) as avg_intensity
+                RETURN emotion, personas_count, avg_intensity
+                ORDER BY personas_count DESC
+                """,
+                focus_group_id=focus_group_id
+            )
+
+            emotions = []
+            async for record in result:
+                emotions.append({
+                    "emotion": record["emotion"],
+                    "personas_count": record["personas_count"],
+                    "avg_intensity": record["avg_intensity"],
+                    "percentage": 0  # Will be calculated by caller
+                })
+
+            # Calculate percentages
+            total_personas = sum(e["personas_count"] for e in emotions)
+            if total_personas > 0:
+                for emotion in emotions:
+                    emotion["percentage"] = (emotion["personas_count"] / total_personas) * 100
+
+            return emotions

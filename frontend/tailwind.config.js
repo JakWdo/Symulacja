@@ -8,6 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
+        'brand-orange': '#F27405',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

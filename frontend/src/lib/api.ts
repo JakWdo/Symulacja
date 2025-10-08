@@ -114,12 +114,28 @@ export const focusGroupsApi = {
     );
     return data;
   },
+  get: async (focusGroupId: string): Promise<FocusGroup> => {
+    const { data } = await api.get<FocusGroup>(
+      `/focus-groups/${focusGroupId}`,
+    );
+    return data;
+  },
   create: async (
     projectId: string,
     payload: CreateFocusGroupPayload,
   ): Promise<FocusGroup> => {
     const { data } = await api.post<FocusGroup>(
       `/projects/${projectId}/focus-groups`,
+      payload,
+    );
+    return data;
+  },
+  update: async (
+    focusGroupId: string,
+    payload: Partial<CreateFocusGroupPayload>,
+  ): Promise<FocusGroup> => {
+    const { data } = await api.put<FocusGroup>(
+      `/focus-groups/${focusGroupId}`,
       payload,
     );
     return data;
@@ -316,5 +332,20 @@ export const graphApi = {
   getKeyConcepts: async (focusGroupId: string): Promise<any[]> => {
     const { data } = await api.get(`/graph/${focusGroupId}/concepts`);
     return data.concepts || [];
+  },
+
+  getControversialConcepts: async (focusGroupId: string): Promise<any[]> => {
+    const { data } = await api.get(`/graph/${focusGroupId}/controversial`);
+    return data.controversial_concepts || [];
+  },
+
+  getTraitCorrelations: async (focusGroupId: string): Promise<any[]> => {
+    const { data } = await api.get(`/graph/${focusGroupId}/correlations`);
+    return data.correlations || [];
+  },
+
+  getEmotionDistribution: async (focusGroupId: string): Promise<any[]> => {
+    const { data } = await api.get(`/graph/${focusGroupId}/emotions`);
+    return data.emotions || [];
   },
 };

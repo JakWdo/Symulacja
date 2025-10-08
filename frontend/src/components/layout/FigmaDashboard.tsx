@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, FolderOpen, Users, BarChart3, MessageSquare, Eye, Clock } from 'lucide-react';
 import { projectsApi, personasApi, focusGroupsApi, surveysApi } from '@/lib/api';
+import { CustomLineChart, CustomDonutChart, LineChartSeries } from '@/components/charts/CustomCharts';
 
 interface DashboardProps {
   onNavigate?: (view: string) => void;
@@ -10,7 +11,7 @@ interface DashboardProps {
 
 export function FigmaDashboard({ onNavigate }: DashboardProps) {
   // Fetch all projects
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+  const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
   });
@@ -41,6 +42,11 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
       return surveyArrays.flat();
     },
     enabled: projectIds.length > 0,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const hasRunning = data?.some((s: any) => s.status === 'running');
+      return hasRunning ? 3000 : false;
+    },
   });
 
   // Fetch all focus groups
@@ -54,6 +60,11 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
       return fgArrays.flat();
     },
     enabled: projectIds.length > 0,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const hasRunning = data?.some((fg: any) => fg.status === 'running');
+      return hasRunning ? 2000 : false;
+    },
   });
 
   // Calculate stats
@@ -65,16 +76,65 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
   // Calculate monthly activity
   const monthlyActivity = calculateMonthlyActivity(allPersonas, allSurveys, allFocusGroups);
 
-  // Calculate project distribution
-  const projectDistribution = projects.slice(0, 4).map((p, idx) => {
-    const projectPersonas = allPersonas.filter(persona => persona.project_id === p.id);
-    const total = allPersonas.length || 1;
-    const percentage = Math.round((projectPersonas.length / total) * 100);
+  const activitySeries: LineChartSeries[] = [
+    {
+      id: 'personas',
+      label: 'Personas',
+      color: '#F27405',
+      getValue: (month) => month.personas,
+    },
+    {
+      id: 'surveys',
+      label: 'Surveys',
+      color: '#F29F05',
+      getValue: (month) => month.surveys,
+    },
+    {
+      id: 'focusGroups',
+      label: 'Focus Groups',
+      color: '#28a745',
+      getValue: (month) => month.focusGroups,
+    },
+  ];
+
+  // Calculate project distribution across recent activity
+  const projectActivity = projects.map((project) => {
+    const projectPersonas = allPersonas.filter(persona => persona.project_id === project.id);
+    const projectSurveys = allSurveys.filter(survey => survey.project_id === project.id);
+    const projectFocusGroups = allFocusGroups.filter(fg => fg.project_id === project.id);
+
+    const total =
+      projectPersonas.length + projectSurveys.length + projectFocusGroups.length;
 
     return {
-      name: p.name,
+      id: project.id,
+      name: project.name,
+      personas: projectPersonas.length,
+      surveys: projectSurveys.length,
+      focusGroups: projectFocusGroups.length,
+      total,
+    };
+  });
+
+  const palette = ['#F27405', '#F29F05', '#28a745', '#17a2b8'];
+
+  const topProjectActivity = projectActivity
+    .filter((entry) => entry.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 4);
+
+  const distributionTotal = topProjectActivity.reduce((sum, entry) => sum + entry.total, 0);
+
+  const projectDistribution = topProjectActivity.map((entry, idx) => {
+    const percentage = distributionTotal
+      ? Math.round((entry.total / distributionTotal) * 100)
+      : 0;
+
+    return {
+      name: entry.name,
+      value: entry.total,
+      color: palette[idx % palette.length],
       percentage,
-      color: ['#F27405', '#F29F05', '#28a745', '#17a2b8'][idx % 4],
     };
   });
 
@@ -112,7 +172,8 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
     });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-6">
+    <div className="w-full h-full overflow-y-auto">
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -132,7 +193,7 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
+        <Card className="bg-card border border-border rounded-xl shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">Active Projects</CardTitle>
             <FolderOpen className="h-4 w-4 text-[#F27405]" />
@@ -143,7 +204,7 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
+        <Card className="bg-card border border-border rounded-xl shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">Total Personas</CardTitle>
             <Users className="h-4 w-4 text-[#F27405]" />
@@ -154,7 +215,7 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
+        <Card className="bg-card border border-border rounded-xl shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">Running Surveys</CardTitle>
             <BarChart3 className="h-4 w-4 text-[#F27405]" />
@@ -165,7 +226,7 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
+        <Card className="bg-card border border-border rounded-xl shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">Focus Groups</CardTitle>
             <MessageSquare className="h-4 w-4 text-[#F27405]" />
@@ -180,99 +241,65 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Research Activity Chart */}
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl lg:col-span-2 shadow-sm">
+        <Card className="bg-card border border-border rounded-xl lg:col-span-2 shadow-sm">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-foreground">Research Activity</CardTitle>
             <p className="text-muted-foreground">Monthly breakdown of personas, surveys, and focus groups</p>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-[12px] items-end justify-between h-[240px] px-4">
-              {monthlyActivity.map((month, index) => {
-                const totalHeight = 200;
-                const maxPersonas = Math.max(...monthlyActivity.map((m) => m.personas));
-                const maxSurveys = Math.max(...monthlyActivity.map((m) => m.surveys));
-                const maxFocusGroups = Math.max(...monthlyActivity.map((m) => m.focusGroups));
+            <CustomLineChart data={monthlyActivity} series={activitySeries} />
 
-                const personasHeight = Math.max(
-                  20,
-                  (month.personas / maxPersonas) * (totalHeight * 0.7),
-                );
-                const surveysHeight = Math.max(
-                  12,
-                  (month.surveys / maxSurveys) * (totalHeight * 0.4),
-                );
-                const focusGroupsHeight = Math.max(
-                  8,
-                  (month.focusGroups / maxFocusGroups) * (totalHeight * 0.3),
-                );
-
-                return (
-                  <div key={index} className="flex flex-col items-center gap-3">
-                    <div
-                      className="bg-[#f3f3f3] flex flex-col items-center justify-end overflow-hidden rounded-[5px] w-[38px]"
-                      style={{ height: `${totalHeight}px` }}
-                    >
-                      <div className="flex-1 bg-[#f2f2f2] w-full" />
-                      <div
-                        className="bg-[#F27405] w-full"
-                        style={{ height: `${personasHeight}px` }}
-                      />
-                      <div
-                        className="bg-[#F29F05] w-full"
-                        style={{ height: `${surveysHeight}px` }}
-                      />
-                      <div
-                        className="bg-[#28a745] w-full"
-                        style={{ height: `${focusGroupsHeight}px` }}
-                      />
-                    </div>
-                    <span className="text-sm text-muted-foreground">{month.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Project Distribution */}
-        <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-foreground">Project Distribution</CardTitle>
-            <p className="text-muted-foreground">Resource allocation by project</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Pie Chart */}
-            <div className="flex items-center justify-center">
-              <div className="relative w-[140px] h-[140px] rounded-full border-[20px] border-[#F5F5F5]" style={{
-                background: `conic-gradient(
-                  #F27405 0% ${projectDistribution[0]?.percentage || 35}%,
-                  #F29F05 ${projectDistribution[0]?.percentage || 35}% ${(projectDistribution[0]?.percentage || 35) + (projectDistribution[1]?.percentage || 28)}%,
-                  #28a745 ${(projectDistribution[0]?.percentage || 35) + (projectDistribution[1]?.percentage || 28)}% ${(projectDistribution[0]?.percentage || 35) + (projectDistribution[1]?.percentage || 28) + (projectDistribution[2]?.percentage || 22)}%,
-                  #17a2b8 ${(projectDistribution[0]?.percentage || 35) + (projectDistribution[1]?.percentage || 28) + (projectDistribution[2]?.percentage || 22)}% 100%
-                )`
-              }}>
-                <div className="absolute inset-[20px] bg-white rounded-full flex items-center justify-center">
-                  <span className="text-xl text-muted-foreground">100%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="space-y-3">
-              {projectDistribution.map((project, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: project.color }} />
-                  <span className="text-sm text-foreground flex-1 truncate">{project.name}</span>
-                  <span className="text-sm text-muted-foreground">{project.percentage}%</span>
+            {/* Chart Legend */}
+            <div className="mt-6 flex items-center justify-center gap-6 flex-wrap">
+              {activitySeries.map((serie) => (
+                <div key={serie.id} className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: serie.color }} />
+                  <span className="text-sm text-card-foreground">{serie.label}</span>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
+
+        {/* Project Distribution */}
+        <Card className="bg-card border border-border rounded-xl shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-foreground">Project Distribution</CardTitle>
+            <p className="text-muted-foreground">Resource allocation by project</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex w-full justify-center">
+              <CustomDonutChart
+                data={projectDistribution.map(({ name, value, color }) => ({
+                  name,
+                  value,
+                  color,
+                }))}
+                totalLabel="Activities"
+              />
+            </div>
+
+            {projectDistribution.length > 0 ? (
+              <div className="space-y-3">
+                {projectDistribution.map((project) => (
+                  <div key={project.name} className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: project.color }} />
+                    <span className="text-sm text-foreground flex-1 truncate">{project.name}</span>
+                    <span className="text-sm text-muted-foreground">{project.percentage}%</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">
+                No recent personas, surveys, or focus groups recorded
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent Projects */}
-      <Card className="bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-sm">
+      <Card className="bg-card border border-border rounded-xl shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-2xl font-bold text-foreground">Recent Projects</CardTitle>
@@ -294,7 +321,7 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
               {recentProjects.map((project) => (
                 <div
                   key={project.id}
-                  className="bg-[rgba(248,249,250,0.3)] border border-[rgba(0,0,0,0.12)] rounded-lg p-4"
+                  className="bg-muted/30 border border-border rounded-lg p-4"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
@@ -347,6 +374,7 @@ export function FigmaDashboard({ onNavigate }: DashboardProps) {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

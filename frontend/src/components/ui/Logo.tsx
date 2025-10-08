@@ -6,12 +6,14 @@ interface LogoProps {
 }
 
 export function Logo({ className, spinning = false }: LogoProps) {
+  // Use transparent logo for spinning animation
+  const logoSrc = spinning ? '/sight-logo-przezroczyste.png' : '/logo.png';
+
   return (
     <img
-      src="/sight-logo-przezroczyste.png"
+      src={logoSrc}
       alt="Sight logo"
       className={cn(
-        'mix-blend-multiply dark:mix-blend-screen',
         spinning && 'animate-spin',
         className
       )}

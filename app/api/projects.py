@@ -47,6 +47,9 @@ async def create_project(
     db_project = Project(
         name=project.name,
         description=project.description,
+        target_audience=project.target_audience,
+        research_objectives=project.research_objectives,
+        additional_notes=project.additional_notes,
         target_demographics=project.target_demographics,  # JSON z rozkładami
         target_sample_size=project.target_sample_size,
     )
@@ -154,13 +157,19 @@ async def update_project(
         project.name = project_update.name
     if project_update.description is not None:
         project.description = project_update.description
+    if project_update.target_audience is not None:
+        project.target_audience = project_update.target_audience
+    if project_update.research_objectives is not None:
+        project.research_objectives = project_update.research_objectives
+    if project_update.additional_notes is not None:
+        project.additional_notes = project_update.additional_notes
     if project_update.target_demographics is not None:
         project.target_demographics = project_update.target_demographics
     if project_update.target_sample_size is not None:
         project.target_sample_size = project_update.target_sample_size
 
     await db.commit()
-    await db.refresh(db_project)
+    await db.refresh(project)
 
     return project
 

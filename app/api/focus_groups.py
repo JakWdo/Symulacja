@@ -3,13 +3,14 @@ API Endpoints dla Grup Fokusowych
 
 Ten moduł zawiera endpoints do zarządzania symulowanymi grupami fokusowymi:
 - POST /projects/{id}/focus-groups - Utworzenie grupy fokusowej
+- PUT /focus-groups/{id} - Aktualizacja grupy fokusowej (draft editing)
 - POST /focus-groups/{id}/run - Uruchomienie symulacji (background task)
 - GET /focus-groups - Lista grup
 - GET /focus-groups/{id} - Szczegóły grupy
 - GET /focus-groups/{id}/results - Wyniki dyskusji z metrykami
 
 Grupy fokusowe działają asynchronicznie - tworzenie jest natychmiastowe,
-ale wykonanie symulacji (run) działa w tle i może trwać kilkadziesiąt sekund.
+but wykonanie symulacji (run) działa w tle i może trwać kilkadziesiąt sekund.
 """
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,6 +68,43 @@ async def create_focus_group(
     return db_focus_group
 
 
+@router.put("/focus-groups/{focus_group_id}", response_model=FocusGroupResponse)
+async def update_focus_group(
+    focus_group_id: UUID,
+    focus_group_update: FocusGroupCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a focus group (for draft editing)"""
+
+    # Verify focus group exists
+    result = await db.execute(
+        select(FocusGroup).where(FocusGroup.id == focus_group_id)
+    )
+    focus_group = result.scalar_one_or_none()
+
+    if not focus_group:
+        raise HTTPException(status_code=404, detail="Focus group not found")
+
+    # Only allow updates for pending focus groups
+    if focus_group.status != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail="Can only update pending focus groups"
+        )
+
+    # Update fields
+    focus_group.name = focus_group_update.name
+    focus_group.description = focus_group_update.description
+    focus_group.persona_ids = focus_group_update.persona_ids
+    focus_group.questions = focus_group_update.questions
+    focus_group.mode = focus_group_update.mode
+
+    await db.commit()
+    await db.refresh(focus_group)
+
+    return focus_group
+
+
 @router.post("/focus-groups/{focus_group_id}/run", status_code=202)
 async def run_focus_group(
     focus_group_id: UUID,
@@ -88,6 +126,19 @@ async def run_focus_group(
 
     if focus_group.status == "running":
         raise HTTPException(status_code=400, detail="Focus group is already running")
+
+    # Validate minimum requirements before running
+    if len(focus_group.persona_ids) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Focus group must have at least 2 personas (currently has {len(focus_group.persona_ids)})"
+        )
+
+    if len(focus_group.questions) < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Focus group must have at least 1 question"
+        )
 
     # Schedule background task and keep reference
     logger.info(f"🎬 Scheduling focus group task: {focus_group_id}")

@@ -5,7 +5,7 @@
  * Provides CustomBarChart and CustomPieChart with dynamic data support
  */
 
-import pieSvgPaths from '@/imports/svg-unlax8gz8c';
+import { pieSvgPaths } from '@/lib/svg-paths';
 
 export interface MonthlyActivity {
   name: string;
@@ -198,6 +198,270 @@ export function CustomPieChart({ data }: CustomPieChartProps) {
   );
 }
 
+export interface LineChartSeries {
+  id: string;
+  label: string;
+  color: string;
+  getValue: (item: MonthlyActivity) => number;
+}
+
+export interface CustomLineChartProps {
+  data: MonthlyActivity[];
+  series: LineChartSeries[];
+  height?: number;
+}
+
+/**
+ * Custom Line Chart Component
+ *
+ * Renders up to three series with smooth SVG lines and labelled axes.
+ * Designed for lightweight dashboards without pulling in a charting library.
+ */
+export function CustomLineChart({
+  data,
+  series,
+  height = 240,
+}: CustomLineChartProps) {
+  if (!data || data.length === 0 || !series || series.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[240px] text-muted-foreground">
+        <p>No data available</p>
+      </div>
+    );
+  }
+
+  const width = 640;
+  const padding = { top: 24, right: 24, bottom: 40, left: 48 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const stepX = data.length > 1 ? chartWidth / (data.length - 1) : 0;
+
+  const maxValue = Math.max(
+    1,
+    ...data.flatMap((month) =>
+      series.map((serie) => serie.getValue(month))
+    )
+  );
+
+  const yTicks = 4;
+  const yTickValues = Array.from({ length: yTicks + 1 }, (_, idx) =>
+    Math.round((maxValue / yTicks) * idx)
+  );
+
+  const pointCoordinates = series.map((serie) => {
+    return data.map((month, idx) => {
+      const value = serie.getValue(month);
+      const x =
+        padding.left +
+        (data.length > 1 ? idx * stepX : chartWidth / 2);
+      const y =
+        padding.top +
+        (chartHeight - (value / maxValue) * chartHeight);
+      return { x, y, value, month: month.name };
+    });
+  });
+  const gridColor = 'hsl(var(--muted))';
+  const axisColor = 'hsl(var(--border))';
+  const textColor = 'hsl(var(--muted-foreground))';
+
+  return (
+    <div className="relative w-full">
+      <svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        className="overflow-visible"
+      >
+        {/* Grid */}
+        {yTickValues.map((value, idx) => {
+          const y =
+            padding.top +
+            (chartHeight - (value / maxValue) * chartHeight);
+          return (
+            <g key={value}>
+              <line
+                x1={padding.left}
+                y1={y}
+                x2={width - padding.right}
+                y2={y}
+                stroke={idx === 0 ? axisColor : gridColor}
+                strokeWidth={idx === 0 ? 1.5 : 1}
+                strokeDasharray={idx === 0 ? undefined : '4 4'}
+              />
+              <text
+                x={padding.left - 12}
+                y={y + 4}
+                textAnchor="end"
+                className="text-xs"
+                fill={textColor}
+              >
+                {value}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* X-axis */}
+        <line
+          x1={padding.left}
+          y1={height - padding.bottom}
+          x2={width - padding.right}
+          y2={height - padding.bottom}
+          stroke={axisColor}
+          strokeWidth={1.5}
+        />
+
+        {/* Series paths */}
+        {pointCoordinates.map((points, serieIdx) => {
+          const path = points
+            .map((point, idx) =>
+              idx === 0
+                ? `M ${point.x} ${point.y}`
+                : `L ${point.x} ${point.y}`
+            )
+            .join(' ');
+          const serie = series[serieIdx];
+          return (
+            <g key={serie.id}>
+              <path
+                d={path}
+                fill="none"
+                stroke={serie.color}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {points.map((point) => (
+                <circle
+                  key={`${serie.id}-${point.month}`}
+                  cx={point.x}
+                  cy={point.y}
+                  r={4.5}
+                  fill={serie.color}
+                  className="shadow-sm"
+                />
+              ))}
+            </g>
+          );
+        })}
+
+        {/* Month labels */}
+        {data.map((month, idx) => {
+          const x =
+            padding.left +
+            (data.length > 1
+              ? idx * stepX
+              : chartWidth / 2);
+          return (
+            <text
+              key={month.name}
+              x={x}
+              y={height - padding.bottom + 24}
+              textAnchor="middle"
+              className="text-xs"
+              fill={textColor}
+            >
+              {month.name}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+export interface DonutChartDatum {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export interface CustomDonutChartProps {
+  data: DonutChartDatum[];
+  size?: number;
+  thickness?: number;
+  totalLabel?: string;
+}
+
+/**
+ * Custom Donut Chart Component
+ *
+ * Displays proportional slices with stroke-dasharray instead of static SVG paths.
+ */
+export function CustomDonutChart({
+  data,
+  size = 170,
+  thickness = 22,
+  totalLabel,
+}: CustomDonutChartProps) {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+
+  if (!data || data.length === 0 || total === 0) {
+    return (
+      <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+        <p>No distribution data</p>
+      </div>
+    );
+  }
+
+  const center = size / 2;
+  const radius = center - thickness / 2;
+  const circumference = 2 * Math.PI * radius;
+  let cumulative = 0;
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="block"
+      >
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          strokeWidth={thickness}
+          stroke="hsl(var(--muted))"
+          fill="none"
+        />
+
+        {data.map((item) => {
+          const fraction = item.value / total;
+          const segmentLength = fraction * circumference;
+          const circle = (
+            <circle
+              key={item.name}
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke={item.color}
+              strokeWidth={thickness}
+              strokeDasharray={`${segmentLength} ${circumference}`}
+              strokeDashoffset={-cumulative}
+              fill="none"
+              strokeLinecap="round"
+              transform={`rotate(-90 ${center} ${center})`}
+            />
+          );
+          cumulative += segmentLength;
+          return circle;
+        })}
+      </svg>
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        <span className="text-xs text-muted-foreground uppercase tracking-wide">
+          {totalLabel || 'Total'}
+        </span>
+        <span className="text-2xl font-semibold text-foreground">
+          {total}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Legend component for charts
  */
@@ -224,4 +488,3 @@ export function ChartLegend({ items }: ChartLegendProps) {
     </div>
   );
 }
-

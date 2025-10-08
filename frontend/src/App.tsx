@@ -20,7 +20,7 @@ import { FocusGroupPanel } from '@/components/panels/FocusGroupPanel';
 import { AnalysisPanel } from '@/components/panels/AnalysisPanel';
 import { ToastContainer } from '@/components/ui/Toast';
 import { useAppStore } from '@/store/appStore';
-import { personasApi } from '@/lib/api';
+import { personasApi, focusGroupsApi } from '@/lib/api';
 import { useTheme } from '@/hooks/use-theme';
 import type { Project, FocusGroup, Survey } from '@/types';
 
@@ -76,6 +76,7 @@ export default function App() {
           <ProjectDetail
             project={viewProject}
             onBack={() => setCurrentView('projects')}
+            onNavigate={setCurrentView}
             onSelectFocusGroup={(focusGroup) => {
               setViewFocusGroup(focusGroup);
               setCurrentView('focus-group-detail');
@@ -102,7 +103,30 @@ export default function App() {
         return (
           <FocusGroupBuilder
             onBack={() => setCurrentView('focus-groups')}
-            onSave={() => setCurrentView('focus-groups')}
+            onSave={async (focusGroupData) => {
+              try {
+                if (!selectedProject) return;
+
+                // Konwertuj dane z buildera do formatu API
+                const payload = {
+                  name: focusGroupData.title,
+                  description: focusGroupData.description || null,
+                  persona_ids: [], // Builder nie wybiera person - musimy to obsłużyć w FocusGroupView
+                  questions: focusGroupData.researchQuestions || [],
+                  mode: 'normal' as const,
+                };
+
+                const createdFocusGroup = await focusGroupsApi.create(selectedProject.id, payload);
+
+                setViewFocusGroup(createdFocusGroup);
+                setCurrentView('focus-group-detail');
+                return createdFocusGroup;
+              } catch (error) {
+                console.error('Failed to create focus group:', error);
+                // TODO: Dodać toast notification o błędzie
+                throw error;
+              }
+            }}
           />
         );
       case 'focus-group-detail':
@@ -150,10 +174,8 @@ export default function App() {
         );
       case 'settings':
         return (
-          <div className="h-full overflow-y-auto">
-            <div className="p-6">
-              <Settings />
-            </div>
+          <div className="h-full overflow-y-auto p-6">
+            <Settings />
           </div>
         );
       default:
@@ -162,12 +184,14 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <SidebarProvider>
-        <div className="flex w-full">
+    <div className="h-screen bg-background text-foreground">
+      <SidebarProvider className="h-full">
+        <div className="flex w-full h-full min-h-0">
           <AppSidebar currentView={currentView} onNavigate={setCurrentView} />
-          <main className="flex-1 bg-[rgba(232,233,236,0.3)] overflow-auto">
-            {renderContent()}
+          <main className="flex flex-1 min-h-0 bg-[rgba(232,233,236,0.3)] overflow-hidden">
+            <div className="flex-1 min-h-0 h-full">
+              {renderContent()}
+            </div>
           </main>
         </div>
       </SidebarProvider>

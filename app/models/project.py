@@ -43,6 +43,9 @@ class Project(Base):
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    target_audience = Column(Text, nullable=True)
+    research_objectives = Column(Text, nullable=True)
+    additional_notes = Column(Text, nullable=True)
     target_demographics = Column(JSON, nullable=False)  # {"age_group": {...}, "gender": {...}, ...}
     target_sample_size = Column(Integer, nullable=False)
     chi_square_statistic = Column(JSON, nullable=True)  # {"age": 2.34, "gender": 1.12, ...}

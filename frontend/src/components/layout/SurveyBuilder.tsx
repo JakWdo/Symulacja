@@ -57,7 +57,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
 
   const createMutation = useMutation({
-    mutationFn: (launch: boolean) => {
+    mutationFn: () => {
       const payload = {
         title: surveyTitle,
         description: surveyDescription || undefined,
@@ -156,8 +156,9 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
   }
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="max-w-7xl mx-auto space-y-6 p-6">
+    <div className="w-full h-full overflow-y-auto">
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="max-w-7xl mx-auto space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={onBack}>
@@ -433,7 +434,8 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
             </Card>
           </div>
         </div>
-      </div>
-    </DragDropContext>
+        </div>
+      </DragDropContext>
+    </div>
   );
 }

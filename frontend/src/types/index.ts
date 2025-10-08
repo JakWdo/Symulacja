@@ -3,6 +3,9 @@ export interface Project {
   id: string;
   name: string;
   description: string | null;
+  target_audience: string | null;
+  research_objectives: string | null;
+  additional_notes: string | null;
   target_demographics: Record<string, Record<string, number>>;
   target_sample_size: number;
   chi_square_statistic: Record<string, number> | null;
@@ -354,29 +357,76 @@ export interface AdvancedInsights {
 // Graph Types
 export interface GraphNode {
   id: string;
-  label: string;
-  type: 'persona' | 'cluster' | 'topic' | 'project';
+  name?: string;
+  label?: string;
+  type: 'persona' | 'concept' | 'emotion' | 'cluster' | 'topic' | 'project';
+  group?: number;
   x?: number;
   y?: number;
   z?: number;
   vx?: number;
   vy?: number;
   vz?: number;
-  data: Persona | ClusterDetail | any;
+  data?: Persona | ClusterDetail | any;
+  metadata?: Record<string, any>;
   color?: string;
   size?: number;
+  sentiment?: number;
 }
 
 export interface GraphLink {
   source: string | GraphNode;
   target: string | GraphNode;
-  value: number;
-  type: 'similarity' | 'cluster' | 'response';
+  value?: number;
+  type: 'mentions' | 'feels' | 'agrees' | 'disagrees' | 'similarity' | 'cluster' | 'response';
+  strength?: number;
+  sentiment?: number;
 }
 
 export interface GraphData {
   nodes: GraphNode[];
   links: GraphLink[];
+}
+
+// Advanced Graph Insights
+export interface ControversialConcept {
+  concept: string;
+  avg_sentiment: number;
+  polarization: number;
+  supporters: string[];
+  critics: string[];
+  total_mentions: number;
+}
+
+export interface TraitCorrelation {
+  concept: string;
+  young_sentiment: number | null;
+  mid_sentiment: number | null;
+  senior_sentiment: number | null;
+  age_gap: number;
+  mentions: number;
+}
+
+export interface EmotionData {
+  emotion: string;
+  personas_count: number;
+  avg_intensity: number;
+  percentage: number;
+}
+
+export interface InfluentialPersona {
+  id: string;
+  name: string;
+  influence: number;
+  connections: number;
+  sentiment: number;
+}
+
+export interface KeyConcept {
+  name: string;
+  frequency: number;
+  sentiment: number;
+  personas: string[];
 }
 
 // UI State Types

@@ -10,6 +10,11 @@ Market Research SaaS to platforma umożliwiająca:
 - **Ankiety syntetyczne** ⭐ - Tworzenie i uruchamianie ankiet z 4 typami pytań (single/multiple choice, rating scale, open text)
 - **Analizę wyników** - Automatyczne podsumowania AI przez Google Gemini + statystyki ankiet
 
+## 🛠️ Ostatnie zmiany
+
+- Naprawiono błąd zamykający sesję bazy przed zapisaniem person – profile widać w projektach od razu, a zapisy odbywają się partiami dla lepszej wydajności.
+- Panel i strona „Personas” korzystają ze wspólnej logiki generowania, więc wywołanie kreatora zawsze uruchamia żądanie API i pokazuje postęp.
+
 ## 🏗️ Architektura
 
 ### Backend
@@ -124,7 +129,9 @@ docker-compose exec backend alembic upgrade head
 
 ## 📖 Użytkowanie
 
-### 1. Utwórz Projekt
+### Przykład cURL
+
+#### 1. Utwórz Projekt
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/projects \
@@ -140,7 +147,7 @@ curl -X POST http://localhost:8000/api/v1/projects \
   }'
 ```
 
-### 2. Wygeneruj Persony
+#### 2. Wygeneruj Persony
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/projects/{project_id}/personas/generate \
@@ -153,7 +160,7 @@ curl -X POST http://localhost:8000/api/v1/projects/{project_id}/personas/generat
 
 Generowanie 20 person trwa ~30-60 sekund.
 
-### 3. Utwórz Grupę Fokusową
+#### 3. Utwórz Grupę Fokusową
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/projects/{project_id}/focus-groups \
@@ -170,7 +177,7 @@ curl -X POST http://localhost:8000/api/v1/projects/{project_id}/focus-groups \
   }'
 ```
 
-### 4. Uruchom Dyskusję
+#### 4. Uruchom Dyskusję
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/focus-groups/{focus_group_id}/run
@@ -178,7 +185,7 @@ curl -X POST http://localhost:8000/api/v1/focus-groups/{focus_group_id}/run
 
 Dyskusja trwa ~2-5 minut (zależy od liczby person i pytań).
 
-### 5. Pobierz Wyniki
+#### 5. Pobierz Wyniki
 
 ```bash
 # Odpowiedzi
@@ -189,6 +196,76 @@ curl http://localhost:8000/api/v1/focus-groups/{focus_group_id}/insights
 
 # AI Summary
 curl -X POST http://localhost:8000/api/v1/focus-groups/{focus_group_id}/ai-summary?use_pro_model=true
+
+# Graph Analysis (po zakończeniu focus group)
+curl http://localhost:8000/api/v1/graph/{focus_group_id}/controversial  # Kontrowersyjne tematy
+curl http://localhost:8000/api/v1/graph/{focus_group_id}/influential    # Wpływowe persony
+```
+
+### Przykład Python
+
+```python
+import requests
+import time
+
+BASE_URL = "http://localhost:8000/api/v1"
+
+# 1. Utwórz projekt
+project = requests.post(f"{BASE_URL}/projects", json={
+    "name": "Test Aplikacji Mobilnej",
+    "description": "Badanie UX nowej aplikacji",
+    "target_demographics": {
+        "age_group": {"18-24": 0.4, "25-34": 0.6},
+        "gender": {"Male": 0.5, "Female": 0.5}
+    },
+    "target_sample_size": 15
+}).json()
+project_id = project["id"]
+print(f"✅ Projekt utworzony: {project_id}")
+
+# 2. Wygeneruj persony
+requests.post(f"{BASE_URL}/projects/{project_id}/personas/generate", json={
+    "num_personas": 15,
+    "adversarial_mode": False
+})
+print("⏳ Czekam 45s na generowanie person...")
+time.sleep(45)
+
+# 3. Pobierz persony
+personas = requests.get(f"{BASE_URL}/projects/{project_id}/personas").json()
+persona_ids = [p["id"] for p in personas[:10]]
+print(f"✅ Wygenerowano {len(personas)} person")
+
+# 4. Utwórz focus group
+focus_group = requests.post(f"{BASE_URL}/projects/{project_id}/focus-groups", json={
+    "name": "Sesja Testowa",
+    "persona_ids": persona_ids,
+    "questions": [
+        "Jakie są Twoje pierwsze wrażenia?",
+        "Co Ci się najbardziej podoba?",
+        "Co należy poprawić?"
+    ],
+    "mode": "normal"
+}).json()
+fg_id = focus_group["id"]
+print(f"✅ Focus group: {fg_id}")
+
+# 5. Uruchom dyskusję
+requests.post(f"{BASE_URL}/focus-groups/{fg_id}/run")
+print("⏳ Czekam 2 min na dyskusję...")
+time.sleep(120)
+
+# 6. Pobierz wyniki
+insights = requests.get(f"{BASE_URL}/focus-groups/{fg_id}/insights").json()
+print(f"\n📈 WYNIKI:")
+print(f"  Idea Score: {insights['idea_score']:.1f}/100")
+print(f"  Consensus: {insights['consensus_level']:.1%}")
+
+# 7. Pobierz kontrowersyjne tematy z grafu
+controversial = requests.get(f"{BASE_URL}/graph/{fg_id}/controversial").json()
+print(f"\n🔥 Kontrowersyjne tematy:")
+for concept in controversial["controversial_concepts"][:3]:
+    print(f"  • {concept['concept']} (polaryzacja: {concept['polarization']:.2f})")
 ```
 
 ## 🧪 Testowanie
@@ -246,11 +323,22 @@ python -m pytest tests/test_insights_v2_api.py tests/test_persona_generator.py -
 - **Wizualizacje**: Bar charts, pie charts dla wyników ankiet
 - **Wydajność**: ~1-3s na odpowiedź persony, pełna ankieta w <60s
 
+### Analiza Grafowa (Graph Analysis) 🔥 NEW
+- **Graf wiedzy Neo4j**: Automatyczne budowanie grafu z dyskusji focus group
+- **Ekstrakcja konceptów**: LLM wyodrębnia kluczowe tematy i emocje z odpowiedzi
+- **Relacje między uczestnikami**: AGREES_WITH, DISAGREES_WITH, MENTIONS, FEELS
+- **Kontrowersyjne tematy**: Identyfikacja polaryzujących konceptów (wysoka wariancja sentymentu)
+- **Wpływowe persony**: PageRank-style analiza najbardziej połączonych uczestników
+- **Korelacje demograficzne**: Jak wiek/płeć wpływa na opinie
+- **Wizualizacja 3D**: Interaktywny graf z React Three Fiber (Force Graph 3D)
+- **Automatyczne**: Graf buduje się po zakończeniu focus group (~30-60s)
+
 ### Analizy
 - **AI Summaries**: executive summary, key insights, recommendations (Gemini 2.5 Pro/Flash)
 - **Sentiment analysis**: prosta analiza sentymentu na podstawie słów kluczowych
 - **Response tracking**: grupowanie odpowiedzi po pytaniach
 - **Survey analytics**: statystyki dla każdego typu pytania (mean, median, distribution)
+- **Graph insights**: kontrowersyjne koncepty, wpływowe persony, korelacje trait-opinion
 
 ## 🛠️ Konfiguracja
 

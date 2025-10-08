@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,41 +8,74 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Loader2, Clock, CheckCircle, Plus, Trash2, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Loader2, Clock, CheckCircle, Plus, Trash2, Brain, Network, GitGraph, Edit as EditIcon, CheckSquare } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { focusGroupsApi, personasApi } from '@/lib/api';
-import { formatDate, cn } from '@/lib/utils';
+import { focusGroupsApi, personasApi, graphApi, analysisApi } from '@/lib/api';
 import { Logo } from '@/components/ui/Logo';
 import { ScoreChart } from '@/components/ui/ScoreChart';
+import { GraphAnalysisPanel } from '@/components/panels/GraphAnalysisPanel';
+import { getTargetParticipants } from '@/lib/focusGroupUtils';
+import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { toast } from '@/components/ui/toastStore';
 import type { FocusGroup, FocusGroupResponses } from '@/types';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface FocusGroupViewProps {
   focusGroup: FocusGroup;
   onBack: () => void;
 }
 
-const sentimentData = [
-  { name: 'Very Positive', value: 35, color: '#10B981' },
-  { name: 'Positive', value: 28, color: '#34D399' },
-  { name: 'Neutral', value: 22, color: '#6B7280' },
-  { name: 'Negative', value: 12, color: '#F59E0B' },
-  { name: 'Very Negative', value: 3, color: '#EF4444' }
+interface ChatMessage {
+  id: number;
+  persona: string;
+  message: string;
+  timestamp: string;
+}
+
+const mockChatMessages: ChatMessage[] = [
+  { id: 1, persona: 'Sarah Johnson', message: 'I really appreciate tools that integrate well with my existing workflow. Time-saving is key for me.', timestamp: '14:32' },
+  { id: 2, persona: 'Michael Chen', message: 'For me, the technical aspects matter most. I need flexibility and customization options.', timestamp: '14:33' },
+  { id: 3, persona: 'Emily Rodriguez', message: 'Cost is definitely a factor for small businesses like mine. But reliability is even more important.', timestamp: '14:34' },
+  { id: 4, persona: 'David Kim', message: 'The user interface needs to be intuitive. I don\'t want to spend hours learning a new tool.', timestamp: '14:35' },
 ];
 
-export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
+export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusGroupViewProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [discussionProgress, setDiscussionProgress] = useState(0);
-  const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set([0]));
-  const [activeView, setActiveView] = useState<'responses' | 'ai-summary'>('responses');
   const [activeTab, setActiveTab] = useState('setup');
   const [aiSummaryGenerated, setAiSummaryGenerated] = useState(false);
   const [generatingAiSummary, setGeneratingAiSummary] = useState(false);
   const [newQuestion, setNewQuestion] = useState('');
-  const [questions, setQuestions] = useState<string[]>(focusGroup.questions || []);
+  const [questions, setQuestions] = useState<string[]>(initialFocusGroup.questions || []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [buildingGraph, setBuildingGraph] = useState(false);
+  const [graphBuilt, setGraphBuilt] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isEditMode, setIsEditMode] = useState(initialFocusGroup.status === 'pending');
+  const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(initialFocusGroup.persona_ids || []);
 
   const queryClient = useQueryClient();
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: { persona_ids?: string[]; questions?: string[] }) =>
+      focusGroupsApi.update(initialFocusGroup.id, payload as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-group', initialFocusGroup.id] });
+      setIsEditMode(false);
+    },
+  });
+
+  // Fetch focus group status in real-time
+  const { data: focusGroup = initialFocusGroup } = useQuery({
+    queryKey: ['focus-group', initialFocusGroup.id],
+    queryFn: () => focusGroupsApi.get(initialFocusGroup.id),
+    refetchInterval: (data) => {
+      // Poll every 2s when running, stop when completed
+      return data?.status === 'running' ? 2000 : false;
+    },
+    initialData: initialFocusGroup,
+  });
 
   // Fetch personas for this project
   const { data: personas = [] } = useQuery({
@@ -55,6 +88,15 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
     queryKey: ['focus-group-responses', focusGroup.id],
     queryFn: () => focusGroupsApi.getResponses(focusGroup.id),
     enabled: focusGroup.status === 'completed',
+    refetchInterval: focusGroup.status === 'running' ? 3000 : false, // Poll every 3s when running
+  });
+
+  // Fetch AI insights
+  const { data: insights, isLoading: insightsLoading } = useQuery({
+    queryKey: ['focus-group-insights', focusGroup.id],
+    queryFn: () => analysisApi.getInsights(focusGroup.id),
+    enabled: focusGroup.status === 'completed' && aiSummaryGenerated,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const runMutation = useMutation({
@@ -62,10 +104,25 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
     onSuccess: () => {
       setIsRunning(true);
       setDiscussionProgress(0);
+      setChatMessages([]);
 
-      // Simulate progress
+      // Simulate progress with chat messages
       const interval = setInterval(() => {
         setDiscussionProgress((prev) => {
+          // Add chat messages during progress
+          if (prev === 15 && chatMessages.length === 0) {
+            setChatMessages([mockChatMessages[0]]);
+          }
+          if (prev === 35 && chatMessages.length === 1) {
+            setChatMessages(prev => [...prev, mockChatMessages[1]]);
+          }
+          if (prev === 55 && chatMessages.length === 2) {
+            setChatMessages(prev => [...prev, mockChatMessages[2]]);
+          }
+          if (prev === 75 && chatMessages.length === 3) {
+            setChatMessages(prev => [...prev, mockChatMessages[3]]);
+          }
+
           if (prev >= 100) {
             clearInterval(interval);
             setIsRunning(false);
@@ -83,14 +140,17 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
     runMutation.mutate();
   };
 
-  const toggleQuestion = (index: number) => {
-    const newExpanded = new Set(expandedQuestions);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
-    } else {
-      newExpanded.add(index);
+  const handleBuildGraph = async () => {
+    setBuildingGraph(true);
+    try {
+      await graphApi.buildGraph(focusGroup.id);
+      setGraphBuilt(true);
+      queryClient.invalidateQueries({ queryKey: ['graph-data', focusGroup.id] });
+    } catch (error) {
+      console.error('Failed to build graph:', error);
+    } finally {
+      setBuildingGraph(false);
     }
-    setExpandedQuestions(newExpanded);
   };
 
   const addQuestion = () => {
@@ -104,14 +164,20 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
     setQuestions(questions.filter((_, i) => i !== index));
   };
 
-  const handleGenerateAiSummary = () => {
+  const handleGenerateAiSummary = async () => {
     setGeneratingAiSummary(true);
 
-    setTimeout(() => {
+    try {
+      await analysisApi.generateInsights(focusGroup.id);
       setGeneratingAiSummary(false);
       setAiSummaryGenerated(true);
+      queryClient.invalidateQueries({ queryKey: ['focus-group-insights', focusGroup.id] });
       setActiveTab('results');
-    }, 3000);
+    } catch (error) {
+      console.error('Failed to generate AI summary:', error);
+      setGeneratingAiSummary(false);
+      // TODO: Show error toast
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -131,8 +197,20 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
 
   const discussionComplete = focusGroup.status === 'completed';
 
+  // Sprawdź czy to draft (brak person lub pytań)
+  const isDraft = focusGroup.status === 'pending' &&
+    (focusGroup.persona_ids.length === 0 || focusGroup.questions.length === 0);
+
+  // Automatycznie włącz tryb edycji dla nowych draftów (pustych)
+  useEffect(() => {
+    if (isDraft && selectedPersonaIds.length === 0 && questions.length === 0) {
+      setIsEditMode(true);
+    }
+  }, [isDraft]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-6">
+    <div className="w-full h-full overflow-y-auto">
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
@@ -172,6 +250,12 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
             <BarChart3 className="w-4 h-4 mr-2" />
             Results & Analysis
           </TabsTrigger>
+          {discussionComplete && (
+            <TabsTrigger value="graph" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
+              <GitGraph className="w-4 h-4 mr-2" />
+              Graph Analysis
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Configuration Tab */}
@@ -192,14 +276,16 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                           Q{index + 1}
                         </span>
                         <p className="text-foreground flex-1">{question}</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeQuestion(index)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {isEditMode && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeQuestion(index)}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -208,27 +294,29 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                   )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <Label htmlFor="new-question" className="sr-only">Add Question</Label>
-                      <Input
-                        id="new-question"
-                        placeholder="Enter a new discussion question..."
-                        value={newQuestion}
-                        onChange={(e) => setNewQuestion(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && addQuestion()}
-                      />
+                {isEditMode && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label htmlFor="new-question" className="sr-only">Add Question</Label>
+                        <Input
+                          id="new-question"
+                          placeholder="Enter a new discussion question..."
+                          value={newQuestion}
+                          onChange={(e) => setNewQuestion(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && addQuestion()}
+                        />
+                      </div>
+                      <Button
+                        onClick={addQuestion}
+                        disabled={!newQuestion.trim()}
+                        className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <Button
-                      onClick={addQuestion}
-                      disabled={!newQuestion.trim()}
-                      className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -236,28 +324,139 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
             <Card className="bg-card border border-border shadow-sm">
               <CardHeader>
                 <CardTitle className="text-card-foreground">Participants</CardTitle>
-                <p className="text-muted-foreground">{focusGroup.persona_ids.length} personas selected for this session</p>
+                <p className="text-muted-foreground">
+                  {isEditMode ? 'Select personas for this session' : `${selectedPersonaIds.length} personas selected for this session`}
+                </p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {personas
-                    .filter(p => focusGroup.persona_ids.includes(p.id))
-                    .map((persona, index) => (
+                  {isEditMode ? (
+                    // Tryb edycji - pokaż wszystkie persony z checkboxami
+                    personas.map((persona) => (
                       <div key={persona.id} className="flex items-center space-x-3 p-3 bg-muted rounded-lg border border-border">
                         <Checkbox
-                          checked={true}
-                          disabled
+                          checked={selectedPersonaIds.includes(persona.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPersonaIds([...selectedPersonaIds, persona.id]);
+                            } else {
+                              setSelectedPersonaIds(selectedPersonaIds.filter(id => id !== persona.id));
+                            }
+                          }}
                         />
                         <div className="flex-1">
-                          <p className="text-card-foreground font-medium">{persona.full_name || `Persona ${index + 1}`}</p>
+                          <p className="text-card-foreground font-medium">{persona.full_name || `Persona ${persona.id.slice(0, 8)}`}</p>
                           <p className="text-sm text-muted-foreground">{persona.age} years old • {persona.occupation || 'No occupation'}</p>
                         </div>
                       </div>
-                    ))}
+                    ))
+                  ) : (
+                    // Tryb przeglądania - pokaż tylko wybrane persony
+                    selectedPersonaIds.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-4">No personas selected</p>
+                    ) : (
+                      personas
+                        .filter(p => selectedPersonaIds.includes(p.id))
+                        .map((persona, index) => (
+                          <div key={persona.id} className="flex items-center space-x-3 p-3 bg-muted rounded-lg border border-border">
+                            <Checkbox
+                              checked={true}
+                              disabled
+                            />
+                            <div className="flex-1">
+                              <p className="text-card-foreground font-medium">{persona.full_name || `Persona ${index + 1}`}</p>
+                              <p className="text-sm text-muted-foreground">{persona.age} years old • {persona.occupation || 'No occupation'}</p>
+                            </div>
+                          </div>
+                        ))
+                    )
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Draft Actions */}
+          {isDraft && (
+            <Card className="bg-card border border-border shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-card-foreground mb-2">Draft Focus Group</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedPersonaIds.length === 0 && questions.length === 0
+                        ? 'Add questions and select personas to complete setup'
+                        : selectedPersonaIds.length === 0
+                        ? 'Select at least 2 personas to complete setup'
+                        : questions.length === 0
+                        ? 'Add at least 1 question to complete setup'
+                        : 'Ready to complete setup and run the focus group'}
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    {!isEditMode ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsEditMode(true)}
+                          className="border-border text-card-foreground"
+                        >
+                          <EditIcon className="w-4 h-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            updateMutation.mutate({
+                              persona_ids: selectedPersonaIds,
+                              questions: questions.filter(q => q.trim() !== ''),
+                            });
+                          }}
+                          disabled={selectedPersonaIds.length < 2 || questions.length === 0 || updateMutation.isPending}
+                          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                        >
+                          {updateMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <CheckSquare className="w-4 h-4 mr-2" />
+                          )}
+                          Complete Setup
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsEditMode(false);
+                            setSelectedPersonaIds(focusGroup.persona_ids);
+                            setQuestions(focusGroup.questions);
+                          }}
+                          className="border-border text-card-foreground"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            updateMutation.mutate({
+                              persona_ids: selectedPersonaIds,
+                              questions: questions.filter(q => q.trim() !== ''),
+                            });
+                          }}
+                          disabled={updateMutation.isPending}
+                          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                        >
+                          {updateMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : null}
+                          Save Changes
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Discussion Tab */}
@@ -322,6 +521,39 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                       </p>
                     </div>
                   </div>
+
+                  {/* Live Chat Messages */}
+                  {chatMessages.length > 0 && (
+                    <div className="bg-card border border-border rounded-lg p-4">
+                      <h4 className="text-card-foreground font-medium mb-3">Live Discussion</h4>
+                      <div className="space-y-3 max-h-48 overflow-y-auto">
+                        {chatMessages.map((message) => (
+                          <motion.div
+                            key={message.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex gap-3"
+                          >
+                            <div className="w-8 h-8 bg-gradient-to-br from-[#F27405] to-[#F29F05] rounded-full flex items-center justify-center shrink-0">
+                              <span className="text-white text-xs font-medium">
+                                {message.persona.split(' ').map(n => n[0]).join('')}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-card-foreground font-medium text-sm">{message.persona}</span>
+                                <span className="text-muted-foreground text-xs">{message.timestamp}</span>
+                              </div>
+                              <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
+                                <p className="text-card-foreground text-sm">{message.message}</p>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -359,13 +591,43 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
                   <p className="text-muted-foreground mb-4">
                     AI insights have been generated. View the complete analysis in the "Results & Analysis" tab.
                   </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setActiveTab('results')}
-                    className="border-border text-card-foreground hover:text-card-foreground"
-                  >
-                    View Results
-                  </Button>
+                  <div className="flex gap-3 justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveTab('results')}
+                      className="border-border text-card-foreground hover:text-card-foreground"
+                    >
+                      View Results
+                    </Button>
+                    {!graphBuilt && (
+                      <Button
+                        onClick={handleBuildGraph}
+                        disabled={buildingGraph}
+                        className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                      >
+                        {buildingGraph ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Building Graph...
+                          </>
+                        ) : (
+                          <>
+                            <Network className="w-4 h-4 mr-2" />
+                            Build Knowledge Graph
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {graphBuilt && (
+                      <Button
+                        onClick={() => window.location.hash = '#graph-analysis'}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Network className="w-4 h-4 mr-2" />
+                        View Graph Analysis
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -376,281 +638,248 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
         <TabsContent value="results" className="space-y-6">
           {discussionComplete ? (
             <>
-              {/* View Toggle */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setActiveView('responses')}
-                  className={cn(
-                    'flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all',
-                    activeView === 'responses'
-                      ? 'bg-gradient-to-br from-[#F27405] to-[#F29F05] text-white shadow-lg'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/70'
-                  )}
-                >
-                  <MessageSquare className="w-4 h-4 inline mr-2" />
-                  Responses
-                </button>
-                <button
-                  onClick={() => setActiveView('ai-summary')}
-                  className={cn(
-                    'flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all',
-                    activeView === 'ai-summary'
-                      ? 'bg-gradient-to-br from-[#F27405] to-[#F29F05] text-white shadow-lg'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/70'
-                  )}
-                >
-                  <BarChart3 className="w-4 h-4 inline mr-2" />
-                  AI Summary
-                </button>
-              </div>
-
-              {/* Content */}
-              <AnimatePresence mode="wait">
-                {activeView === 'responses' && (
-                  <motion.div
-                    key="responses"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {responsesLoading ? (
-                      <div className="flex flex-col items-center justify-center py-12">
-                        <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-                        <p className="text-sm text-muted-foreground">Loading responses...</p>
+              {/* AI Summary Card */}
+              {insightsLoading ? (
+                <Card className="bg-card border border-border shadow-sm">
+                  <CardContent className="py-12 flex flex-col items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+                    <p className="text-muted-foreground">Loading AI insights...</p>
+                  </CardContent>
+                </Card>
+              ) : insights ? (
+                <Card className="bg-card border border-border shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-card-foreground flex items-center gap-2">
+                      <Logo className="w-5 h-5" />
+                      AI Summary
+                    </CardTitle>
+                    <p className="text-muted-foreground">Key insights generated by AI analysis</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Executive Summary */}
+                      <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
+                        <h4 className="font-semibold text-card-foreground">Executive Summary</h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {insights.llm_rationale || 'Participants showed strong interest in ease-of-use features and integration capabilities. Pricing concerns were raised by multiple participants, suggesting value proposition optimization.'}
+                        </p>
                       </div>
-                    ) : !responses || responses.questions.length === 0 ? (
-                      <Card className="bg-card border border-border">
-                        <CardContent className="text-center py-12">
-                          <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                          <p className="text-sm text-muted-foreground">No responses available</p>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <div className="space-y-4">
-                        {responses.questions.map((q, qIdx) => {
-                          const isExpanded = expandedQuestions.has(qIdx);
 
-                          return (
-                            <motion.div
-                              key={qIdx}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: qIdx * 0.1 }}
-                              className="border border-border rounded-xl overflow-hidden bg-card shadow-sm hover:shadow-md transition-shadow"
-                            >
-                              {/* Question Header */}
-                              <button
-                                onClick={() => toggleQuestion(qIdx)}
-                                className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-muted/50 to-card hover:from-muted hover:to-muted/50 transition-colors"
+                      {/* Key Insights */}
+                      <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
+                        <h4 className="font-semibold text-card-foreground">Key Insights</h4>
+                        <ul className="space-y-1">
+                          {insights.signal_breakdown?.strengths.slice(0, 4).map((item, idx) => (
+                            <li key={idx} className="text-sm text-muted-foreground">• {item.title}</li>
+                          )) || (
+                            <>
+                              <li className="text-sm text-muted-foreground">• Usability is the primary concern</li>
+                              <li className="text-sm text-muted-foreground">• Mobile access is highly valued</li>
+                              <li className="text-sm text-muted-foreground">• Integration needs vary by role</li>
+                              <li className="text-sm text-muted-foreground">• Price sensitivity across segments</li>
+                            </>
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Recommendations */}
+                      <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
+                        <h4 className="font-semibold text-card-foreground">Recommendations</h4>
+                        <ul className="space-y-1">
+                          {insights.signal_breakdown?.opportunities.slice(0, 4).map((item, idx) => (
+                            <li key={idx} className="text-sm text-muted-foreground">• {item.title}</li>
+                          )) || (
+                            <>
+                              <li className="text-sm text-muted-foreground">• Prioritize UX improvements</li>
+                              <li className="text-sm text-muted-foreground">• Develop mobile-first approach</li>
+                              <li className="text-sm text-muted-foreground">• Create tiered pricing model</li>
+                              <li className="text-sm text-muted-foreground">• Focus on integration features</li>
+                            </>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-card border border-border shadow-sm">
+                  <CardContent className="py-12 text-center">
+                    <Brain className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No insights available. Generate AI summary first.</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Sentiment & Score Analysis */}
+              {insights && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Sentiment Analysis */}
+                  <Card className="bg-card border border-border shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-card-foreground">Sentiment Analysis</CardTitle>
+                      <p className="text-muted-foreground">Overall sentiment distribution</p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col items-center space-y-6">
+                        {/* Doughnut Chart */}
+                        <div className="relative w-64 h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: 'Very Positive', value: Math.round(insights.metrics.sentiment_summary.positive_ratio * 35), color: '#10B981' },
+                                  { name: 'Positive', value: Math.round(insights.metrics.sentiment_summary.positive_ratio * 65), color: '#34D399' },
+                                  { name: 'Neutral', value: Math.round(insights.metrics.sentiment_summary.neutral_ratio * 100), color: '#6B7280' },
+                                  { name: 'Negative', value: Math.round(insights.metrics.sentiment_summary.negative_ratio * 100), color: '#F59E0B' },
+                                  { name: 'Very Negative', value: Math.round(insights.metrics.sentiment_summary.negative_ratio * 25), color: '#EF4444' }
+                                ]}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={100}
+                                dataKey="value"
+                                startAngle={90}
+                                endAngle={450}
                               >
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-[#F27405]/10 text-[#F27405] flex items-center justify-center font-bold text-sm">
-                                    Q{qIdx + 1}
-                                  </div>
-                                  <div className="text-left">
-                                    <h4 className="font-semibold text-foreground">{q.question}</h4>
-                                    <p className="text-xs text-muted-foreground mt-0.5">{q.responses.length} responses</p>
-                                  </div>
-                                </div>
-                                {isExpanded ? (
-                                  <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                                ) : (
-                                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                                )}
-                              </button>
+                                {[
+                                  { name: 'Very Positive', value: Math.round(insights.metrics.sentiment_summary.positive_ratio * 35), color: '#10B981' },
+                                  { name: 'Positive', value: Math.round(insights.metrics.sentiment_summary.positive_ratio * 65), color: '#34D399' },
+                                  { name: 'Neutral', value: Math.round(insights.metrics.sentiment_summary.neutral_ratio * 100), color: '#6B7280' },
+                                  { name: 'Negative', value: Math.round(insights.metrics.sentiment_summary.negative_ratio * 100), color: '#F59E0B' },
+                                  { name: 'Very Negative', value: Math.round(insights.metrics.sentiment_summary.negative_ratio * 25), color: '#EF4444' }
+                                ].map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={entry.color}
+                                    stroke={hoveredIndex === index ? "#333333" : entry.color}
+                                    strokeWidth={hoveredIndex === index ? 3 : 0}
+                                    style={{
+                                      cursor: 'pointer',
+                                      filter: hoveredIndex === index ? 'drop-shadow(0px 4px 8px rgba(0,0,0,0.15))' : 'none',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={() => setHoveredIndex(index)}
+                                    onMouseLeave={() => setHoveredIndex(null)}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                content={({ active, payload }) => {
+                                  if (active && payload && payload.length) {
+                                    const data = payload[0].payload;
+                                    return (
+                                      <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                                        <p className="text-popover-foreground font-medium">{data.name}</p>
+                                        <p className="text-popover-foreground text-sm">{data.value}%</p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
 
-                              {/* Responses */}
-                              <AnimatePresence>
-                                {isExpanded && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={{ duration: 0.3 }}
-                                    className="border-t border-border"
-                                  >
-                                    <div className="p-4 space-y-3">
-                                      {q.responses.map((r, rIdx) => (
-                                        <motion.div
-                                          key={`${r.persona_id}-${rIdx}`}
-                                          initial={{ opacity: 0, x: -10 }}
-                                          animate={{ opacity: 1, x: 0 }}
-                                          transition={{ delay: rIdx * 0.05 }}
-                                          className="p-4 rounded-lg bg-gradient-to-br from-muted/50 to-card border border-border hover:border-primary/20 hover:shadow-sm transition-all"
-                                        >
-                                          <div className="flex items-start gap-3">
-                                            <div className="flex-shrink-0">
-                                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F27405] to-[#F29F05] flex items-center justify-center text-white font-bold text-sm shadow-md">
-                                                {rIdx + 1}
-                                              </div>
-                                            </div>
-                                            <div className="flex-1">
-                                              <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
-                                                  {r.persona_id.slice(0, 8)}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground">
-                                                  {formatDate(r.created_at)}
-                                                </span>
-                                              </div>
-                                              <p className="text-sm text-foreground leading-relaxed">
-                                                {r.response || <span className="italic text-muted-foreground">No response recorded</span>}
-                                              </p>
-                                            </div>
-                                          </div>
-                                        </motion.div>
-                                      ))}
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </motion.div>
-                          );
-                        })}
+                        {/* Legend */}
+                        <div className="flex flex-wrap gap-4 justify-center">
+                          {[
+                            { name: 'Very Positive', color: '#10B981' },
+                            { name: 'Positive', color: '#34D399' },
+                            { name: 'Neutral', color: '#6B7280' },
+                            { name: 'Negative', color: '#F59E0B' },
+                            { name: 'Very Negative', color: '#EF4444' }
+                          ].map((entry, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: entry.color }}
+                              />
+                              <span className="text-sm text-card-foreground">{entry.name}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    )}
-                  </motion.div>
-                )}
+                    </CardContent>
+                  </Card>
 
-                {activeView === 'ai-summary' && (
-                  <motion.div
-                    key="ai-summary"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {/* AI Summary */}
-                    <Card className="bg-card border border-border shadow-sm">
-                      <CardHeader>
-                        <CardTitle className="text-card-foreground flex items-center gap-2">
-                          <Logo className="w-5 h-5" />
-                          AI Summary
-                        </CardTitle>
-                        <p className="text-muted-foreground">Key insights generated by AI analysis</p>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className="bg-muted p-4 rounded-lg border border-border">
-                            <h4 className="text-card-foreground font-medium mb-2">Executive Summary</h4>
-                            <p className="text-muted-foreground text-sm">
-                              Participants showed strong interest in ease-of-use features and integration capabilities.
-                              Pricing concerns were raised by 60% of participants, suggesting value proposition optimization.
-                            </p>
+                  {/* Score Analysis */}
+                  <Card className="bg-card border border-border shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-card-foreground">Score Analysis</CardTitle>
+                      <p className="text-muted-foreground">Overall participant satisfaction score</p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-center py-8">
+                        <ScoreChart score={Math.round(insights.idea_score)} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Raw Responses */}
+              {responsesLoading ? (
+                <Card className="bg-card border border-border shadow-sm">
+                  <CardContent className="py-12 flex flex-col items-center justify-center">
+                    <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+                    <p className="text-sm text-muted-foreground">Loading responses...</p>
+                  </CardContent>
+                </Card>
+              ) : responses && responses.questions.length > 0 ? (
+                <Card className="bg-card border border-border shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-card-foreground">Raw Responses</CardTitle>
+                    <p className="text-muted-foreground">Detailed responses from each participant</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {responses.questions.map((q, qIdx) => (
+                        <div key={qIdx} className="space-y-4">
+                          {/* Question Header */}
+                          <div className="flex items-center gap-3">
+                            <div className="bg-muted border border-border rounded px-3 py-1">
+                              <span className="text-sm font-semibold text-card-foreground">Q{qIdx + 1}</span>
+                            </div>
+                            <h4 className="text-card-foreground font-semibold">{q.question}</h4>
                           </div>
 
-                          <div className="bg-muted p-4 rounded-lg border border-border">
-                            <h4 className="text-card-foreground font-medium mb-2">Key Insights</h4>
-                            <ul className="text-muted-foreground text-sm space-y-1">
-                              <li>• Usability is the primary concern</li>
-                              <li>• Mobile access is highly valued</li>
-                              <li>• Integration needs vary by role</li>
-                              <li>• Price sensitivity across segments</li>
-                            </ul>
-                          </div>
+                          {/* Responses */}
+                          <div className="ml-12 space-y-3">
+                            {q.responses.slice(0, 3).map((r, rIdx) => {
+                              const persona = personas.find(p => p.id === r.persona_id);
+                              const initials = persona?.full_name?.split(' ').map(n => n[0]).join('') || 'P';
 
-                          <div className="bg-muted p-4 rounded-lg border border-border">
-                            <h4 className="text-card-foreground font-medium mb-2">Recommendations</h4>
-                            <ul className="text-muted-foreground text-sm space-y-1">
-                              <li>• Prioritize UX improvements</li>
-                              <li>• Develop mobile-first approach</li>
-                              <li>• Create tiered pricing model</li>
-                              <li>• Focus on integration features</li>
-                            </ul>
+                              return (
+                                <div key={`${r.persona_id}-${rIdx}`} className="bg-muted border border-border rounded-lg p-4 space-y-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-gradient-to-br from-[#F27405] to-[#F29F05] rounded-full flex items-center justify-center shrink-0">
+                                      <span className="text-white text-xs font-semibold">{initials}</span>
+                                    </div>
+                                    <div>
+                                      <p className="text-card-foreground font-medium text-sm">{persona?.full_name || `Persona ${rIdx + 1}`}</p>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground leading-relaxed ml-11">
+                                    {r.response || <span className="italic">No response recorded</span>}
+                                  </p>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Statistics */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <Card className="bg-card border border-border shadow-sm">
-                        <CardHeader>
-                          <CardTitle className="text-card-foreground">Sentiment Analysis</CardTitle>
-                          <p className="text-muted-foreground">Overall sentiment distribution</p>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex flex-col items-center space-y-6">
-                            {/* Doughnut Chart */}
-                            <div className="relative w-64 h-64">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                  <Pie
-                                    data={sentimentData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={100}
-                                    dataKey="value"
-                                    startAngle={0}
-                                    endAngle={360}
-                                  >
-                                    {sentimentData.map((entry, index) => (
-                                      <Cell
-                                        key={`cell-${index}`}
-                                        fill={entry.color}
-                                        stroke={hoveredIndex === index ? "#333333" : entry.color}
-                                        strokeWidth={hoveredIndex === index ? 3 : 0}
-                                        style={{
-                                          cursor: 'pointer',
-                                          filter: hoveredIndex === index ? 'drop-shadow(0px 4px 8px rgba(0,0,0,0.15))' : 'none',
-                                          transition: 'all 0.2s ease'
-                                        }}
-                                        onMouseEnter={() => setHoveredIndex(index)}
-                                        onMouseLeave={() => setHoveredIndex(null)}
-                                      />
-                                    ))}
-                                  </Pie>
-                                  <Tooltip
-                                    content={({ active, payload }) => {
-                                      if (active && payload && payload.length) {
-                                        const data = payload[0].payload;
-                                        return (
-                                          <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-                                            <p className="text-popover-foreground font-medium">{data.name}</p>
-                                            <p className="text-popover-foreground text-sm">{data.value}%</p>
-                                          </div>
-                                        );
-                                      }
-                                      return null;
-                                    }}
-                                  />
-                                </PieChart>
-                              </ResponsiveContainer>
-                            </div>
-
-                            {/* Legend */}
-                            <div className="flex flex-wrap gap-4 justify-center">
-                              {sentimentData.map((entry, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                  <div
-                                    className="w-4 h-4 rounded-full"
-                                    style={{ backgroundColor: entry.color }}
-                                  />
-                                  <span className="text-sm text-card-foreground">{entry.name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="bg-card border border-border shadow-sm">
-                        <CardHeader>
-                          <CardTitle className="text-card-foreground">Score Analysis</CardTitle>
-                          <p className="text-muted-foreground">Overall participant satisfaction score</p>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="h-64 flex items-start justify-center pt-4">
-                            <ScoreChart score={70} maxScore={100} />
-                          </div>
-                        </CardContent>
-                      </Card>
+                      ))}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-card border border-border">
+                  <CardContent className="text-center py-12">
+                    <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-sm text-muted-foreground">No responses available</p>
+                  </CardContent>
+                </Card>
+              )}
             </>
           ) : (
             <Card className="bg-card border border-border shadow-sm">
@@ -664,7 +893,27 @@ export function FocusGroupView({ focusGroup, onBack }: FocusGroupViewProps) {
             </Card>
           )}
         </TabsContent>
+
+        {/* Graph Analysis Tab */}
+        <TabsContent value="graph" className="space-y-6">
+          {discussionComplete ? (
+            <div className="h-[calc(100vh-300px)]">
+              <GraphAnalysisPanel focusGroupId={focusGroup.id} />
+            </div>
+          ) : (
+            <Card className="bg-card border border-border shadow-sm">
+              <CardContent className="text-center py-12">
+                <Network className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">Graph Not Available</h3>
+                <p className="text-muted-foreground">
+                  Complete the discussion first to build the knowledge graph.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

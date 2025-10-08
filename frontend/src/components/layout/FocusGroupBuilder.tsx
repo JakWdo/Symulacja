@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Plus, Trash2, Calendar, Users, MessageSquare, Settings, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Users, MessageSquare, Settings, Loader2, Check } from 'lucide-react';
 import { projectsApi } from '@/lib/api';
+import { useAppStore } from '@/store/appStore';
+import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
 
 interface FocusGroupBuilderProps {
   onBack: () => void;
@@ -21,12 +23,22 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
   });
+  const { selectedProject: globalProject } = useAppStore();
   const [focusGroupTitle, setFocusGroupTitle] = useState('');
   const [focusGroupDescription, setFocusGroupDescription] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
   const [participantCount, setParticipantCount] = useState('8');
   const [discussionTopics, setDiscussionTopics] = useState<string[]>(['']);
   const [researchQuestions, setResearchQuestions] = useState<string[]>(['']);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (globalProject && selectedProject === '') {
+      setSelectedProject(globalProject.id);
+    } else if (!globalProject && projects.length > 0 && selectedProject === '') {
+      setSelectedProject(projects[0].id);
+    }
+  }, [globalProject, projects, selectedProject]);
 
   const addDiscussionTopic = () => {
     setDiscussionTopics([...discussionTopics, '']);
@@ -60,21 +72,28 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
     }
   };
 
-  const handleSave = () => {
-    const focusGroup = {
-      title: focusGroupTitle,
-      description: focusGroupDescription,
-      projectId: selectedProject,
-      targetParticipants: parseInt(participantCount),
-      discussionTopics: discussionTopics.filter(topic => topic.trim() !== ''),
-      researchQuestions: researchQuestions.filter(question => question.trim() !== ''),
-      status: 'draft'
-    };
-    onSave(focusGroup);
+  const handleCreate = async () => {
+    setIsSaving(true);
+    try {
+      const focusGroup = {
+        title: focusGroupTitle,
+        description: focusGroupDescription,
+        projectId: selectedProject,
+        targetParticipants: parseInt(participantCount),
+        discussionTopics: discussionTopics.filter(topic => topic.trim() !== ''),
+        researchQuestions: researchQuestions.filter(question => question.trim() !== ''),
+      };
+      await onSave(focusGroup);
+    } catch (error) {
+      console.error('Save failed:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="w-full h-full overflow-y-auto">
+      <div className="max-w-5xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={onBack}>
@@ -86,16 +105,17 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           <p className="text-muted-foreground">Set up a new focus group session</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleSave} disabled={!focusGroupTitle || !selectedProject}>
-            Save Draft
-          </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={!focusGroupTitle || !selectedProject}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          <Button
+            onClick={handleCreate}
+            disabled={!focusGroupTitle || !selectedProject || isSaving}
+            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
           >
-            <Calendar className="w-4 h-4 mr-2" />
-            Schedule Session
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Check className="w-4 h-4 mr-2" />
+            )}
+            Create Focus Group
           </Button>
         </div>
       </div>
@@ -136,21 +156,21 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                   <SelectTrigger>
                     <SelectValue placeholder="Select a project" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {projectsLoading ? (
-                      <div className="flex items-center justify-center p-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      </div>
-                    ) : (
-                      projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+                <SelectContent>
+                  {projectsLoading ? (
+                    <div className="flex items-center justify-center p-2">
+                      <SpinnerLogo className="w-4 h-4" />
+                    </div>
+                  ) : (
+                    projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
             </CardContent>
           </Card>
 
@@ -310,5 +330,6 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
         </div>
       </div>
     </div>
+  </div>
   );
 }

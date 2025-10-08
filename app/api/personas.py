@@ -1,10 +1,33 @@
+"""
+API Endpoints - Zarządzanie Personami
+
+Endpointy do generowania i zarządzania syntetycznymi personami dla badań rynkowych.
+
+Główne funkcjonalności:
+- POST /projects/{project_id}/personas/generate - generuje persony z AI (async background task)
+- GET /projects/{project_id}/personas - pobiera wszystkie persony projektu
+- GET /personas/{persona_id} - pobiera szczegóły pojedynczej persony
+- DELETE /personas/{persona_id} - usuwa personę (soft delete)
+
+Generowanie person:
+1. Parsuje rozkłady demograficzne z target_demographics projektu
+2. Uruchamia PersonaGenerator (Google Gemini Flash) w tle
+3. Waliduje statystycznie wygenerowane persony (chi-kwadrat)
+4. Zapisuje do bazy danych
+5. Czas: ~1.5-3s per persona, ~30-60s dla 20 person
+
+Używa background tasks - endpoint zwraca 202 Accepted natychmiast.
+"""
+
 import asyncio
+from functools import lru_cache
 import json
 import logging
 import random
 import re
 from typing import Dict, List, Any, Optional, Tuple
 from uuid import UUID
+from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy import select
@@ -16,7 +39,7 @@ from app.schemas.persona import (
     PersonaResponse,
     PersonaGenerateRequest,
 )
-from app.services import DemographicDistribution, PersonaGenerator
+from app.services import DemographicDistribution
 from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PreferredPersonaGenerator
 from app.services.persona_validator import PersonaValidator
 from app.core.constants import (
@@ -33,6 +56,24 @@ from app.core.constants import (
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
+
+# Śledź uruchomione zadania aby zapobiec garbage collection
+_running_tasks = set()
+
+
+@lru_cache(maxsize=1)
+def _get_persona_generator() -> PreferredPersonaGenerator:
+    logger.info("Initializing cached persona generator instance")
+    return PreferredPersonaGenerator()
+
+
+def _calculate_concurrency_limit(num_personas: int, adversarial_mode: bool) -> int:
+    base_limit = max(3, min(12, (num_personas // 3) + 3))
+    if adversarial_mode:
+        base_limit = max(2, base_limit - 2)
+    if num_personas > 0:
+        base_limit = min(base_limit, num_personas)
+    return base_limit
 
 
 _NAME_FROM_STORY_PATTERN = re.compile(
@@ -256,7 +297,7 @@ def _normalize_distribution(
 async def generate_personas(
     project_id: UUID,
     request: PersonaGenerateRequest,
-    background_tasks: BackgroundTasks,
+    _background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),  # Potrzebne do weryfikacji projektu przed uruchomieniem zadania
 ):
     """
@@ -265,7 +306,7 @@ async def generate_personas(
     Endpoint ten:
     1. Weryfikuje czy projekt istnieje
     2. Loguje request
-    3. Dodaje zadanie do kolejki background tasks (nie blokuje HTTP response)
+    3. Uruchamia zadanie w tle przy użyciu asyncio.create_task (odpowiedź HTTP wraca od razu)
     4. Zwraca natychmiast potwierdzenie
 
     Faktyczne generowanie odbywa się asynchronicznie w _generate_personas_task().
@@ -273,7 +314,7 @@ async def generate_personas(
     Args:
         project_id: UUID projektu
         request: Parametry generowania (num_personas, adversarial_mode, advanced_options)
-        background_tasks: FastAPI BackgroundTasks do uruchomienia zadania w tle
+        _background_tasks: FastAPI BackgroundTasks do uruchomienia zadania w tle (obecnie niewykorzystane)
         db: Sesja bazy (tylko do weryfikacji projektu)
 
     Returns:
@@ -308,15 +349,18 @@ async def generate_personas(
         else None
     )
 
-    # Dodaj zadanie do kolejki background tasks
-    # WAŻNE: Zadanie dostanie własną sesję DB (nie dzielimy sesji między requesty!)
-    background_tasks.add_task(
-        _generate_personas_task,
+    # Utwórz zadanie asynchroniczne
+    logger.info(f"Creating async task for persona generation (project={project_id}, personas={request.num_personas})")
+    task = asyncio.create_task(_generate_personas_task(
         project_id,
         request.num_personas,
         request.adversarial_mode,
         advanced_payload,
-    )
+    ))
+
+    # Keep task reference to prevent garbage collection
+    _running_tasks.add(task)
+    task.add_done_callback(_running_tasks.discard)
 
     # Zwróć natychmiast (nie czekaj na zakończenie generowania)
     return {
@@ -353,196 +397,271 @@ async def _generate_personas_task(
         adversarial_mode: Czy użyć adversarial prompting (dla edge cases)
         advanced_options: Opcjonalne zaawansowane opcje (custom distributions, etc.)
     """
-    # Utwórz własną sesję DB (niezależną od HTTP requesta)
-    async with AsyncSessionLocal() as db:
-        # Użyj PersonaGeneratorLangChain (główny generator z Gemini)
-        generator = PreferredPersonaGenerator()
-        generator_name = "langchain"
-        logger.info("Using %s persona generator", generator_name, extra={"project_id": str(project_id)})
+    logger.info(f"Starting persona generation task for project {project_id}, num_personas={num_personas}")
 
-        project = await db.get(Project, project_id)
-        if not project:
-            logger.error("Project not found in background task.", extra={"project_id": str(project_id)})
-            return
-            
-        target_demographics = project.target_demographics or {}
-        distribution = DemographicDistribution(
-            age_groups=_normalize_distribution(target_demographics.get("age_group", {}), DEFAULT_AGE_GROUPS),
-            genders=_normalize_distribution(target_demographics.get("gender", {}), DEFAULT_GENDERS),
-            education_levels=_normalize_distribution(target_demographics.get("education_level", {}), DEFAULT_EDUCATION_LEVELS),
-            income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), DEFAULT_INCOME_BRACKETS),
-            locations=_normalize_distribution(target_demographics.get("location", {}), DEFAULT_LOCATIONS),
-        )
+    try:
+        # Utwórz własną sesję DB (niezależną od HTTP requesta)
+        async with AsyncSessionLocal() as db:
+            # Generator trzymamy w cache, żeby uniknąć kosztownej inicjalizacji przy każdym zadaniu
+            generator = _get_persona_generator()
+            generator_name = getattr(generator, "__class__", type(generator)).__name__
+            logger.info("Using %s persona generator", generator_name, extra={"project_id": str(project_id)})
 
-        # POPRAWKA WYDAJNOŚCI: Użycie semafora do kontrolowanej współbieżności
-        concurrency_limit = 15
-        semaphore = asyncio.Semaphore(concurrency_limit)
-        demographic_profiles = [generator.sample_demographic_profile(distribution)[0] for _ in range(num_personas)]
-        psychological_profiles = [{**generator.sample_big_five_traits(), **generator.sample_cultural_dimensions()} for _ in range(num_personas)]
+            project = await db.get(Project, project_id)
+            if not project:
+                logger.error("Project not found in background task.", extra={"project_id": str(project_id)})
+                return
 
-        async def create_single_persona(demo_profile, psych_profile):
-            async with semaphore:
-                return await generator.generate_persona_personality(demo_profile, psych_profile, advanced_options)
-
-        tasks = [create_single_persona(demo, psych) for demo, psych in zip(demographic_profiles, psychological_profiles)]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        personas_data = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.error("Failed to process persona generation result.", exc_info=result)
-                continue
-
-            prompt, personality_json = result
-
-            # Robust JSON parsing with fallback
-            personality = {}
-            try:
-                if isinstance(personality_json, str):
-                    # Strip markdown code blocks if present
-                    cleaned = personality_json.strip()
-                    if cleaned.startswith("```json"):
-                        cleaned = cleaned[7:]
-                    if cleaned.startswith("```"):
-                        cleaned = cleaned[3:]
-                    if cleaned.endswith("```"):
-                        cleaned = cleaned[:-3]
-                    cleaned = cleaned.strip()
-                    personality = json.loads(cleaned)
-                elif isinstance(personality_json, dict):
-                    personality = personality_json
-                else:
-                    logger.warning(
-                        f"Unexpected personality_json type: {type(personality_json)}",
-                        extra={"project_id": str(project_id), "index": i}
-                    )
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.error(
-                    f"Failed to parse personality JSON for persona {i}: {str(e)[:200]}",
-                    extra={
-                        "project_id": str(project_id),
-                        "index": i,
-                        "raw_json": str(personality_json)[:500],
-                    }
-                )
-                personality = {}
-
-            demographic = demographic_profiles[i]
-            psychological = psychological_profiles[i]
-
-            # Parse age from age_group
-            age_group = demographic.get("age_group", "25-34")
-            age = random.randint(25, 34)
-            if "-" in age_group:
-                try:
-                    start, end = map(int, age_group.split("-"))
-                    age = random.randint(start, end)
-                except ValueError:
-                    pass
-            elif "+" in age_group:
-                try:
-                    start = int(age_group.replace("+", ""))
-                    age = random.randint(start, start + 15)
-                except ValueError:
-                    pass
-
-            occupation = _get_consistent_occupation(
-                demographic.get("education_level"),
-                demographic.get("income_bracket"),
-                age,
-                DEFAULT_OCCUPATIONS
+            target_demographics = project.target_demographics or {}
+            distribution = DemographicDistribution(
+                age_groups=_normalize_distribution(target_demographics.get("age_group", {}), DEFAULT_AGE_GROUPS),
+                genders=_normalize_distribution(target_demographics.get("gender", {}), DEFAULT_GENDERS),
+                education_levels=_normalize_distribution(target_demographics.get("education_level", {}), DEFAULT_EDUCATION_LEVELS),
+                income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), DEFAULT_INCOME_BRACKETS),
+                locations=_normalize_distribution(target_demographics.get("location", {}), DEFAULT_LOCATIONS),
             )
 
-            # Smart fallbacks for missing fields
-            full_name = personality.get("full_name")
-            if not full_name or full_name == "N/A":
-                # Try to infer from background_story
-                inferred_name = _infer_full_name(personality.get("background_story"))
-                full_name = inferred_name or _fallback_full_name(demographic.get("gender"), age)
-                logger.warning(
-                    f"Missing full_name for persona {i}, using fallback: {full_name}",
-                    extra={"project_id": str(project_id), "index": i}
-                )
+            # Kontrolowana współbieżność pozwala przyspieszyć generowanie bez przeciążania modelu
+            logger.info(f"Generating demographic and psychological profiles for {num_personas} personas")
+            concurrency_limit = _calculate_concurrency_limit(num_personas, adversarial_mode)
+            semaphore = asyncio.Semaphore(concurrency_limit)
+            demographic_profiles = [generator.sample_demographic_profile(distribution)[0] for _ in range(num_personas)]
+            psychological_profiles = [{**generator.sample_big_five_traits(), **generator.sample_cultural_dimensions()} for _ in range(num_personas)]
 
-            persona_title = personality.get("persona_title")
-            if not persona_title or persona_title == "N/A":
-                persona_title = occupation or f"{demographic.get('gender', 'Person')} {age}"
-                logger.warning(
-                    f"Missing persona_title for persona {i}, using fallback: {persona_title}",
-                    extra={"project_id": str(project_id), "index": i}
-                )
+            logger.info(
+                f"Starting LLM generation for {num_personas} personas with concurrency={concurrency_limit}",
+                extra={"project_id": str(project_id), "concurrency_limit": concurrency_limit},
+            )
 
-            headline = personality.get("headline")
-            if not headline or headline == "N/A":
-                headline = _compose_headline(
-                    full_name, persona_title, occupation, demographic.get("location")
-                )
-                logger.warning(
-                    f"Missing headline for persona {i}, using generated: {headline}",
-                    extra={"project_id": str(project_id), "index": i}
-                )
+            personas_data: List[Dict[str, Any]] = []
+            batch_payloads: List[Dict[str, Any]] = []
+            saved_count = 0
+            # Mniejsze batch-e oznaczają szybszą widoczność danych w UI i niższe zużycie pamięci
+            batch_size = max(1, min(10, num_personas // 4 or 1))
 
-            background_story = personality.get("background_story", "")
-            if not background_story:
-                logger.warning(
-                    f"Missing background_story for persona {i}",
-                    extra={"project_id": str(project_id), "index": i}
-                )
+            async def persist_batch() -> None:
+                """Zapisz aktualny batch person do bazy – komentarz po polsku, zgodnie z prośbą."""
+                nonlocal saved_count
+                if not batch_payloads:
+                    return
+                try:
+                    db.add_all([Persona(**data) for data in batch_payloads])
+                    await db.commit()
+                    saved_count += len(batch_payloads)
+                    logger.info(
+                        "Persisted persona batch",
+                        extra={
+                            "project_id": str(project_id),
+                            "batch_size": len(batch_payloads),
+                            "saved_total": saved_count,
+                            "target": num_personas,
+                        },
+                    )
+                except Exception as commit_error:  # pragma: no cover - zabezpieczenie awaryjne
+                    await db.rollback()
+                    logger.error(
+                        "Nie udało się zapisać partii wygenerowanych person.",
+                        exc_info=commit_error,
+                        extra={"project_id": str(project_id), "batch_size": len(batch_payloads)},
+                    )
+                    raise
+                finally:
+                    batch_payloads.clear()
 
-            values = personality.get("values", [])
-            if not values:
-                values = random.sample(DEFAULT_VALUES, k=min(5, len(DEFAULT_VALUES)))
-                logger.warning(
-                    f"Missing values for persona {i}, using defaults",
-                    extra={"project_id": str(project_id), "index": i}
-                )
+            async def create_single_persona(idx: int, demo_profile: Dict[str, Any], psych_profile: Dict[str, Any]):
+                async with semaphore:
+                    result = await generator.generate_persona_personality(demo_profile, psych_profile, advanced_options)
+                    if (idx + 1) % max(1, batch_size) == 0 or idx == num_personas - 1:
+                        logger.info(
+                            "Generated personas chunk",
+                            extra={"project_id": str(project_id), "generated": idx + 1, "target": num_personas},
+                        )
+                    return idx, result
 
-            interests = personality.get("interests", [])
-            if not interests:
-                interests = random.sample(DEFAULT_INTERESTS, k=min(5, len(DEFAULT_INTERESTS)))
-                logger.warning(
-                    f"Missing interests for persona {i}, using defaults",
-                    extra={"project_id": str(project_id), "index": i}
-                )
+            tasks = [
+                asyncio.create_task(create_single_persona(i, demo, psych))
+                for i, (demo, psych) in enumerate(zip(demographic_profiles, psychological_profiles))
+            ]
 
-            personas_data.append({
-                "project_id": project_id,
-                "full_name": full_name,
-                "persona_title": persona_title,
-                "headline": headline,
-                "age": age,
-                "gender": demographic.get("gender"),
-                "location": demographic.get("location"),
-                "education_level": demographic.get("education_level"),
-                "income_bracket": demographic.get("income_bracket"),
-                "occupation": occupation,
-                "background_story": background_story,
-                "values": values,
-                "interests": interests,
-                "personality_prompt": prompt,
-                **psychological
-            })
-
-        # Logika walidacji i zapisu do bazy (bez zmian)
-        validator = PersonaValidator()
-        validation_results = validator.validate_personas(personas_data)
-        if not validation_results["is_valid"]:
-            logger.warning("Persona validation found issues.", extra=validation_results)
-
-        db.add_all([Persona(**data) for data in personas_data])
-        await db.commit()
-
-        if not adversarial_mode and hasattr(generator, "validate_distribution"):
             try:
-                validation = generator.validate_distribution(demographic_profiles, distribution)
-                project.is_statistically_valid = validation.get("overall_valid", False)
-                project.chi_square_statistic = {k: v.get("chi_square_statistic") for k, v in validation.items() if k != "overall_valid"}
-                project.p_values = {k: v.get("p_value") for k, v in validation.items() if k != "overall_valid"}
-                await db.commit()
-            except Exception as e:
-                logger.error("Statistical validation failed.", exc_info=e)
+                for future in asyncio.as_completed(tasks):
+                    try:
+                        idx, result = await future
+                    except Exception as gen_error:  # pragma: no cover - logowanie błędów zadań
+                        logger.error(
+                            "Persona generation coroutine failed.",
+                            exc_info=gen_error,
+                            extra={"project_id": str(project_id)},
+                        )
+                        continue
 
-        logger.info("Persona generation task completed.", extra={"project_id": str(project_id), "count": len(personas_data)})
+                    prompt, personality_json = result
+
+                    # Robust JSON parsing with fallback
+                    personality: Dict[str, Any] = {}
+                    try:
+                        if isinstance(personality_json, str):
+                            cleaned = personality_json.strip()
+                            if cleaned.startswith("```json"):
+                                cleaned = cleaned[7:]
+                            if cleaned.startswith("```"):
+                                cleaned = cleaned[3:]
+                            if cleaned.endswith("```"):
+                                cleaned = cleaned[:-3]
+                            cleaned = cleaned.strip()
+                            personality = json.loads(cleaned)
+                        elif isinstance(personality_json, dict):
+                            personality = personality_json
+                        else:
+                            logger.warning(
+                                f"Unexpected personality_json type: {type(personality_json)}",
+                                extra={"project_id": str(project_id), "index": idx}
+                            )
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.error(
+                            f"Failed to parse personality JSON for persona {idx}: {str(e)[:200]}",
+                            extra={
+                                "project_id": str(project_id),
+                                "index": idx,
+                                "raw_json": str(personality_json)[:500],
+                            }
+                        )
+                        personality = {}
+
+                    demographic = demographic_profiles[idx]
+                    psychological = psychological_profiles[idx]
+
+                    # Parse age from age_group
+                    age_group = demographic.get("age_group", "25-34")
+                    age = random.randint(25, 34)
+                    if "-" in age_group:
+                        try:
+                            start, end = map(int, age_group.split("-"))
+                            age = random.randint(start, end)
+                        except ValueError:
+                            pass
+                    elif "+" in age_group:
+                        try:
+                            start = int(age_group.replace("+", ""))
+                            age = random.randint(start, start + 15)
+                        except ValueError:
+                            pass
+
+                    occupation = _get_consistent_occupation(
+                        demographic.get("education_level"),
+                        demographic.get("income_bracket"),
+                        age,
+                        DEFAULT_OCCUPATIONS
+                    )
+
+                    # Smart fallbacks for missing fields
+                    full_name = personality.get("full_name")
+                    if not full_name or full_name == "N/A":
+                        inferred_name = _infer_full_name(personality.get("background_story"))
+                        full_name = inferred_name or _fallback_full_name(demographic.get("gender"), age)
+                        logger.warning(
+                            f"Missing full_name for persona {idx}, using fallback: {full_name}",
+                            extra={"project_id": str(project_id), "index": idx}
+                        )
+
+                    persona_title = personality.get("persona_title")
+                    if not persona_title or persona_title == "N/A":
+                        persona_title = occupation or f"{demographic.get('gender', 'Person')} {age}"
+                        logger.warning(
+                            f"Missing persona_title for persona {idx}, using fallback: {persona_title}",
+                            extra={"project_id": str(project_id), "index": idx}
+                        )
+
+                    headline = personality.get("headline")
+                    if not headline or headline == "N/A":
+                        headline = _compose_headline(
+                            full_name, persona_title, occupation, demographic.get("location")
+                        )
+                        logger.warning(
+                            f"Missing headline for persona {idx}, using generated: {headline}",
+                            extra={"project_id": str(project_id), "index": idx}
+                        )
+
+                    background_story = personality.get("background_story", "")
+                    if not background_story:
+                        logger.warning(
+                            f"Missing background_story for persona {idx}",
+                            extra={"project_id": str(project_id), "index": idx}
+                        )
+
+                    values = personality.get("values", [])
+                    if not values:
+                        values = random.sample(DEFAULT_VALUES, k=min(5, len(DEFAULT_VALUES)))
+                        logger.warning(
+                            f"Missing values for persona {idx}, using defaults",
+                            extra={"project_id": str(project_id), "index": idx}
+                        )
+
+                    interests = personality.get("interests", [])
+                    if not interests:
+                        interests = random.sample(DEFAULT_INTERESTS, k=min(5, len(DEFAULT_INTERESTS)))
+                        logger.warning(
+                            f"Missing interests for persona {idx}, using defaults",
+                            extra={"project_id": str(project_id), "index": idx}
+                        )
+
+                    persona_payload = {
+                        "project_id": project_id,
+                        "full_name": full_name,
+                        "persona_title": persona_title,
+                        "headline": headline,
+                        "age": age,
+                        "gender": demographic.get("gender"),
+                        "location": demographic.get("location"),
+                        "education_level": demographic.get("education_level"),
+                        "income_bracket": demographic.get("income_bracket"),
+                        "occupation": occupation,
+                        "background_story": background_story,
+                        "values": values,
+                        "interests": interests,
+                        "personality_prompt": prompt,
+                        **psychological
+                    }
+
+                    personas_data.append(persona_payload)
+                    batch_payloads.append(persona_payload)
+
+                    if len(batch_payloads) >= batch_size:
+                        await persist_batch()
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Finalne opróżnienie bufora
+            await persist_batch()
+
+            if not personas_data:
+                logger.warning("No personas were generated successfully.", extra={"project_id": str(project_id)})
+                return
+
+            # Walidacja jakości wygenerowanych person
+            validator = PersonaValidator()
+            validation_results = validator.validate_personas(personas_data)
+            if not validation_results["is_valid"]:
+                logger.warning("Persona validation found issues.", extra=validation_results)
+
+            if not adversarial_mode and hasattr(generator, "validate_distribution"):
+                try:
+                    validation = generator.validate_distribution(demographic_profiles, distribution)
+                    project = await db.get(Project, project_id)  # Ponowne pobranie po commitach batchy
+                    if project:
+                        project.is_statistically_valid = validation.get("overall_valid", False)
+                        project.chi_square_statistic = {k: v.get("chi_square_statistic") for k, v in validation.items() if k != "overall_valid"}
+                        project.p_values = {k: v.get("p_value") for k, v in validation.items() if k != "overall_valid"}
+                        await db.commit()
+                except Exception as e:
+                    logger.error("Statistical validation failed.", exc_info=e)
+
+            logger.info("Persona generation task completed.", extra={"project_id": str(project_id), "count": len(personas_data)})
+    except Exception as e:
+        logger.error(f"CRITICAL ERROR in persona generation task", exc_info=e)
 
 
 @router.get("/projects/{project_id}/personas", response_model=List[PersonaResponse])

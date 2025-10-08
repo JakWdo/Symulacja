@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,12 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { MoreVertical, Plus, Users, Eye, TrendingUp, BarChart3, ChevronLeft, ChevronRight, Filter, Loader2 } from 'lucide-react';
+import { MoreVertical, Plus, Users, Eye, TrendingUp, BarChart3, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { PersonaGenerationWizard } from '@/components/personas/PersonaGenerationWizard';
+import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { projectsApi, personasApi } from '@/lib/api';
+import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { Persona as APIPersona } from '@/types';
+import { toast } from '@/components/ui/toastStore';
+import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
+import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
 
 
 // Display-friendly Persona interface
@@ -84,13 +88,15 @@ function transformPersona(apiPersona: APIPersona): DisplayPersona {
 }
 
 
-
-
 export function Personas() {
   const { selectedProject, setSelectedProject: setGlobalProject } = useAppStore();
   const [selectedPersona, setSelectedPersona] = useState<DisplayPersona | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
   const [currentPersonaIndex, setCurrentPersonaIndex] = useState(0);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [progressMeta, setProgressMeta] = useState<{ start: number; duration: number } | null>(null);
+  const [activeGenerationProjectId, setActiveGenerationProjectId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Filter states
   const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
@@ -104,7 +110,7 @@ export function Personas() {
   });
 
   // Fetch personas for selected project and transform to display format
-  const { data: apiPersonas = [] } = useQuery({
+  const { data: apiPersonas = [], isFetching: isFetchingPersonas } = useQuery({
     queryKey: ['personas', selectedProject?.id],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -142,6 +148,14 @@ export function Personas() {
     }
   }, [filteredPersonas.length]);
 
+  React.useEffect(() => {
+    if (!selectedProject) {
+      setActiveGenerationProjectId(null);
+      setGenerationProgress(0);
+      setProgressMeta(null);
+    }
+  }, [selectedProject]);
+
   // Calculate population statistics based on filtered personas
   const ageGroups = filteredPersonas.reduce((acc, persona) => {
     const ageGroup = persona.age < 25 ? '18-24' : 
@@ -163,13 +177,93 @@ export function Personas() {
     .sort(([,a], [,b]) => b - a)
     .slice(0, 5);
 
-  const handleGeneratePersonas = async (config: any) => {
-    // This would integrate with the PersonaGenerationWizard
-    console.log('Generating personas with config:', config);
+  const noPersonas = apiPersonas.length === 0;
+  const isCurrentProjectGenerating =
+    activeGenerationProjectId !== null && activeGenerationProjectId === selectedProject?.id;
+
+  const generateMutation = useMutation({
+    mutationFn: (payload: GeneratePersonasPayload) =>
+      personasApi.generate(selectedProject!.id, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['personas', selectedProject?.id] });
+      queryClient.invalidateQueries({ queryKey: ['personas', 'all'] });
+      const modeLabel = variables.adversarial_mode ? 'Adversarial' : 'Standard';
+      toast.info(
+        'Generowanie uruchomione',
+        `${modeLabel} cohort: ${variables.num_personas} personas w tle.`,
+      );
+    },
+    onError: (error: Error) => {
+      setGenerationProgress(0);
+      setProgressMeta(null);
+      setShowPersonaWizard(true);
+      setActiveGenerationProjectId(null);
+      toast.error('Generowanie nie powiodło się', error.message);
+    },
+  });
+
+  const isGenerating =
+    isCurrentProjectGenerating &&
+    (generateMutation.isPending ||
+      (generateMutation.isSuccess && noPersonas) ||
+      ((isFetchingPersonas || generateMutation.isPending) && noPersonas));
+
+  React.useEffect(() => {
+    if (!isGenerating) {
+      if (generationProgress > 0) {
+        setGenerationProgress(100);
+        const timeout = setTimeout(() => {
+          setGenerationProgress(0);
+          setProgressMeta(null);
+          setActiveGenerationProjectId(null);
+        }, 800);
+        return () => clearTimeout(timeout);
+      }
+      if (generationProgress === 0 && activeGenerationProjectId !== null) {
+        setActiveGenerationProjectId(null);
+      }
+      setProgressMeta(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setGenerationProgress((prev) => {
+        if (!progressMeta) {
+          return Math.min(prev + 8, 92);
+        }
+        const elapsed = Date.now() - progressMeta.start;
+        const ratio = Math.min(elapsed / progressMeta.duration, 0.97);
+        const target = 5 + ratio * 90;
+        return prev + (target - prev) * 0.35;
+      });
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [isGenerating, progressMeta, generationProgress, activeGenerationProjectId, selectedProject?.id]);
+
+  const handleGeneratePersonas = (config: PersonaGenerationConfig) => {
+    if (!selectedProject) {
+      toast.error('Wybierz projekt, aby wygenerować persony.');
+      return;
+    }
+
+    const payload = transformWizardConfigToPayload(config);
+    setActiveGenerationProjectId(selectedProject.id);
+    setShowPersonaWizard(false);
+    setProgressMeta({ start: Date.now(), duration: estimateGenerationDuration(payload.num_personas) });
+    setGenerationProgress(5);
+    generateMutation.mutate(payload);
   };
 
+  const showProgressBar =
+    activeGenerationProjectId === selectedProject?.id && generationProgress > 0;
+  const estimatedSeconds = progressMeta
+    ? Math.max(1, Math.ceil((progressMeta.duration - (Date.now() - progressMeta.start)) / 1000))
+    : 10;
+
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-6">
+    <div className="w-full h-full overflow-y-auto">
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -186,19 +280,26 @@ export function Personas() {
               if (project) setGlobalProject(project);
             }}
           >
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Select project" />
+            <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors">
+              <SelectValue
+                placeholder="Select project"
+                className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+              />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
               {projectsLoading ? (
                 <div className="flex items-center justify-center p-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <SpinnerLogo className="w-4 h-4" />
                 </div>
               ) : projects.length === 0 ? (
                 <div className="p-2 text-sm text-muted-foreground">No projects found</div>
               ) : (
                 projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
+                  <SelectItem
+                    key={project.id}
+                    value={project.id}
+                    className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                  >
                     {project.name}
                   </SelectItem>
                 ))
@@ -214,6 +315,19 @@ export function Personas() {
           </Button>
         </div>
       </div>
+
+      {showProgressBar && (
+        <div className="rounded-lg border border-border bg-card/80 p-4 space-y-2 shadow-sm">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <SpinnerLogo className="w-4 h-4" />
+              <span>Generowanie person w toku…</span>
+            </div>
+            <span>~{estimatedSeconds}s</span>
+          </div>
+          <Progress value={Math.min(generationProgress, 100)} />
+        </div>
+      )}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -722,6 +836,7 @@ export function Personas() {
         onOpenChange={setShowPersonaWizard}
         onGenerate={handleGeneratePersonas}
       />
+      </div>
     </div>
   );
 }

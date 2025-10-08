@@ -219,6 +219,118 @@ The persona generation uses **hybrid AI + statistical sampling**:
 
 **Performance:** ~30-60s for 20 personas (Gemini Flash)
 
+## Graph Analysis System (Knowledge Graph)
+
+The platform includes an **automated knowledge graph** built with Neo4j that provides deep insights into focus group discussions. After each focus group completes, the system automatically extracts concepts, emotions, and relationships using LLM-powered analysis.
+
+### Architecture
+
+**Data Flow:**
+1. Focus group completes → Automatic graph build triggered
+2. LLM (Gemini Flash) extracts concepts, emotions, sentiment from each response
+3. Neo4j graph created with nodes: Personas, Concepts, Emotions
+4. Relationships: MENTIONS, FEELS, AGREES_WITH, DISAGREES_WITH
+5. Frontend fetches and visualizes graph with advanced analytics
+
+**Key Components:**
+- **Backend:** [app/services/graph_service.py](app/services/graph_service.py) - Neo4j integration with LangChain
+- **API:** [app/api/graph_analysis.py](app/api/graph_analysis.py) - RESTful endpoints
+- **Frontend:** [frontend/src/components/panels/GraphAnalysisPanel.tsx](frontend/src/components/panels/GraphAnalysisPanel.tsx) - 3D visualization + insights
+
+### Available Graph Insights
+
+**1. Key Concepts** - Most frequently mentioned topics with sentiment
+```bash
+GET /api/v1/graph/{focus_group_id}/concepts
+```
+
+**2. Controversial Concepts** - Polarizing topics (high sentiment variance)
+```bash
+GET /api/v1/graph/{focus_group_id}/controversial
+# Returns concepts with supporters vs critics breakdown
+```
+
+**3. Trait-Opinion Correlations** - Age/demographic differences in opinions
+```bash
+GET /api/v1/graph/{focus_group_id}/correlations
+# Shows how young vs senior participants feel about concepts
+```
+
+**4. Emotion Distribution** - Emotional responses across participants
+```bash
+GET /api/v1/graph/{focus_group_id}/emotions
+```
+
+**5. Influential Personas** - Most connected participants (thought leaders)
+```bash
+GET /api/v1/graph/{focus_group_id}/influential
+```
+
+### Example: Finding Polarizing Topics
+
+```bash
+# Run focus group
+curl -X POST http://localhost:8000/api/v1/focus-groups/{id}/run
+
+# Graph is automatically built after completion
+
+# Query controversial concepts
+curl http://localhost:8000/api/v1/graph/{focus_group_id}/controversial
+```
+
+**Sample Response:**
+```json
+{
+  "controversial_concepts": [
+    {
+      "concept": "Pricing",
+      "avg_sentiment": 0.1,
+      "polarization": 0.85,
+      "supporters": ["Alice Johnson", "Bob Smith"],
+      "critics": ["Charlie Davis", "Diana Evans"],
+      "total_mentions": 12
+    }
+  ]
+}
+```
+
+### Advanced Cypher Queries
+
+The system includes pre-built analytics queries in [app/services/graph_service.py](app/services/graph_service.py):
+
+- **Controversial Concepts:** `get_controversial_concepts()` - Uses standard deviation to find polarizing topics
+- **Trait Correlations:** `get_trait_opinion_correlations()` - Age-based opinion segmentation
+- **Influence Analysis:** `get_influential_personas()` - PageRank-style connection counting
+
+### Frontend Usage
+
+The Graph Analysis tab appears automatically after focus group completion:
+
+1. Navigate to Focus Group → "Graph Analysis" tab
+2. Interactive 3D visualization with color-coded nodes:
+   - 🔵 Blue = Personas
+   - 🟣 Purple = Concepts
+   - 🟠 Amber = Emotions
+   - 🟢 Green = Positive sentiment
+   - 🔴 Red = Negative sentiment
+3. Sidebar shows: Key Concepts, Influential Personas, Controversial Topics, Emotions, Age Correlations
+4. Click nodes to explore details
+5. Use filters: All, Positive, Negative, High Influence
+
+### Performance & Optimization
+
+- **LLM Extraction:** ~0.5-1s per response (Gemini Flash)
+- **Graph Build:** ~30-60s for 20 personas × 4 questions
+- **Frontend:** Limits to 100 strongest connections for performance
+- **Caching:** 5-minute stale time on frontend queries
+
+### Manual Graph Build (if needed)
+
+```bash
+# Force rebuild graph
+curl -X POST http://localhost:8000/api/v1/graph/build/{focus_group_id}
+```
+
 ## Code Style Notes
 
 - All services use **async/await** pattern (FastAPI + SQLAlchemy async)

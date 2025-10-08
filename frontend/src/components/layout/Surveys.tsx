@@ -3,11 +3,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { MoreVertical, Plus, Users, Eye, BarChart3, Play, Trash2, Clock, Loader2 } from 'lucide-react';
+import { MoreVertical, Plus, Users, Eye, BarChart3, Play, Trash2, Clock } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { surveysApi } from '@/lib/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { surveysApi, projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import type { Survey } from '@/types';
+import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
 
 interface SurveysProps {
   onCreateSurvey: () => void;
@@ -15,14 +17,25 @@ interface SurveysProps {
 }
 
 export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
-  const { selectedProject } = useAppStore();
+  const { selectedProject, setSelectedProject } = useAppStore();
   const queryClient = useQueryClient();
+
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsApi.getAll,
+  });
 
   // Fetch surveys for selected project
   const { data: surveys = [], isLoading } = useQuery({
     queryKey: ['surveys', selectedProject?.id],
     queryFn: () => surveysApi.getByProject(selectedProject!.id),
     enabled: !!selectedProject,
+    refetchInterval: (query) => {
+      // Poll every 3s if any survey is running
+      const data = query.state.data;
+      const hasRunningSurvey = data?.some((s: Survey) => s.status === 'running');
+      return hasRunningSurvey ? 3000 : false;
+    },
   });
 
   // Run survey mutation
@@ -68,76 +81,70 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
     }
   };
 
+  const statsSection = (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Card className="bg-card border border-border shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Surveys</p>
+              <p className="text-2xl font-bold text-[#F27405]">{surveys.length}</p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-[#F27405]" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border border-border shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Responses</p>
+              <p className="text-2xl font-bold text-[#F27405]">
+                {surveys.reduce((sum, survey) => sum + survey.actual_responses, 0).toLocaleString()}
+              </p>
+            </div>
+            <Users className="w-8 h-8 text-[#F27405]" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  let bodyContent;
+
   if (!selectedProject) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Please select a project to view surveys</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-7xl mx-auto space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Synthetic Surveys</h1>
-          <p className="text-muted-foreground">
-            Generate quantitative insights from virtual respondents perfectly matched to your target audience
+    bodyContent = (
+      <Card className="bg-card border border-border">
+        <CardContent className="py-12 text-center space-y-4">
+          <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto" />
+          <h3 className="text-lg text-card-foreground">No project selected</h3>
+          <p className="text-sm text-muted-foreground">
+            Choose a project from the dropdown to view and manage surveys.
           </p>
-        </div>
-        <Button
-          onClick={onCreateSurvey}
-          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create New Survey
-        </Button>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="bg-card border border-border shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Surveys</p>
-                <p className="text-2xl font-bold text-[#F27405]">{surveys.length}</p>
-              </div>
-              <BarChart3 className="w-8 h-8 text-[#F27405]" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border border-border shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Responses</p>
-                <p className="text-2xl font-bold text-[#F27405]">
-                  {surveys.reduce((sum, survey) => sum + survey.actual_responses, 0).toLocaleString()}
-                </p>
-              </div>
-              <Users className="w-8 h-8 text-[#F27405]" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Surveys List */}
-      <div className="space-y-4">
-        <h2 className="text-xl text-foreground">Your Surveys</h2>
-
-        {isLoading ? (
+        </CardContent>
+      </Card>
+    );
+  } else if (isLoading) {
+    bodyContent = (
+      <>
+        {statsSection}
+        <div className="space-y-4">
+          <h2 className="text-xl text-foreground">Your Surveys</h2>
           <Card className="bg-card border border-border">
             <CardContent className="p-12 text-center">
               <p className="text-muted-foreground">Loading surveys...</p>
             </CardContent>
           </Card>
-        ) : surveys.length === 0 ? (
+        </div>
+      </>
+    );
+  } else if (surveys.length === 0) {
+    bodyContent = (
+      <>
+        {statsSection}
+        <div className="space-y-4">
+          <h2 className="text-xl text-foreground">Your Surveys</h2>
           <Card className="bg-card border border-border">
             <CardContent className="p-12 text-center">
               <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -154,7 +161,15 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
               </Button>
             </CardContent>
           </Card>
-        ) : (
+        </div>
+      </>
+    );
+  } else {
+    bodyContent = (
+      <>
+        {statsSection}
+        <div className="space-y-4">
+          <h2 className="text-xl text-foreground">Your Surveys</h2>
           <div className="grid grid-cols-1 gap-4">
             {surveys.map((survey) => {
               const progress = survey.target_responses > 0
@@ -248,8 +263,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                                     ? 'In progress...'
                                     : survey.status === 'draft'
                                     ? 'Not started'
-                                    : 'N/A'
-                                  }
+                                    : 'N/A'}
                                 </p>
                               )}
                             </div>
@@ -268,32 +282,27 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                               View Results
                             </Button>
                           )}
-                          {survey.status === 'draft' && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleRunSurvey(survey)}
-                              disabled={runMutation.isPending}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <Play className="w-4 h-4 mr-2" />
-                              {runMutation.isPending ? 'Launching...' : 'Launch'}
-                            </Button>
-                          )}
-                          {survey.status === 'running' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled
-                              className="border-border"
-                            >
-                              <Clock className="w-4 h-4 mr-2 animate-spin" />
-                              Running...
-                            </Button>
-                          )}
-                          <p className="text-xs text-muted-foreground ml-auto">
-                            Created {new Date(survey.created_at).toLocaleDateString()}
-                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteSurvey(survey)}
+                            className="text-red-600 dark:text-red-400 border-red-200 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </Button>
                         </div>
+                      </div>
+
+                      {/* Meta */}
+                      <div className="flex flex-col items-end gap-2 text-right">
+                        <Badge variant="secondary" className="bg-primary/10 text-primary">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {survey.status === 'running' ? 'Active' : survey.status}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground">
+                          Created {new Date(survey.created_at).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
                   </CardContent>
@@ -301,8 +310,70 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
               );
             })}
           </div>
-        )}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="w-full h-full overflow-y-auto">
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">Synthetic Surveys</h1>
+            <p className="text-muted-foreground">
+              Generate quantitative insights from virtual respondents perfectly matched to your target audience
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Select
+              value={selectedProject?.id || ''}
+              onValueChange={(value) => {
+                const project = projects.find((p) => p.id === value);
+                if (project) setSelectedProject(project);
+              }}
+            >
+              <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
+                <SelectValue
+                  placeholder="Select project"
+                  className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                />
+              </SelectTrigger>
+              <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
+                {projectsLoading ? (
+                  <div className="flex items-center justify-center p-2">
+                    <SpinnerLogo className="w-4 h-4" />
+                  </div>
+                ) : projects.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">No projects found</div>
+                ) : (
+                  projects.map((project) => (
+                    <SelectItem
+                      key={project.id}
+                      value={project.id}
+                      className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                    >
+                      {project.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={onCreateSurvey}
+              className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+              disabled={!selectedProject}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create New Survey
+            </Button>
+          </div>
+        </div>
+
+        {bodyContent}
       </div>
     </div>
   );
 }
+

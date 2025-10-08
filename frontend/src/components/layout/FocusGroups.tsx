@@ -4,9 +4,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { MoreVertical, Plus, Users, MessageSquare, Eye, Settings, Loader2 } from 'lucide-react';
+import { MoreVertical, Plus, Users, MessageSquare, Eye, Settings } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { focusGroupsApi } from '@/lib/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { focusGroupsApi, projectsApi } from '@/lib/api';
+import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
 
 interface FocusGroupsProps {
   onCreateFocusGroup: () => void;
@@ -16,7 +18,12 @@ interface FocusGroupsProps {
 }
 
 export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGroupsProps) {
-  const { selectedProject } = useAppStore();
+  const { selectedProject, setSelectedProject } = useAppStore();
+
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsApi.getAll,
+  });
 
   const { data: focusGroups = [], isLoading } = useQuery({
     queryKey: ['focus-groups', selectedProject?.id],
@@ -25,21 +32,17 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
       return await focusGroupsApi.getByProject(selectedProject.id);
     },
     enabled: !!selectedProject,
+    refetchInterval: (query) => {
+      // Poll every 2s if any focus group is running
+      const data = query.state.data;
+      const hasRunningFG = data?.some((fg: any) => fg.status === 'running');
+      return hasRunningFG ? 2000 : false;
+    },
   });
 
-  if (!selectedProject) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Please select a project to view focus groups</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-6">
+    <div className="w-full h-full overflow-y-auto">
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -48,26 +51,72 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
             Conduct in-depth qualitative research with AI-powered focus group sessions
           </p>
         </div>
-        <Button
-          onClick={onCreateFocusGroup}
-          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Focus Group
-        </Button>
+        <div className="flex items-center gap-3">
+          <Select
+            value={selectedProject?.id || ''}
+            onValueChange={(value) => {
+              const project = projects.find((p) => p.id === value);
+              if (project) setSelectedProject(project);
+            }}
+          >
+            <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
+              <SelectValue
+                placeholder="Select project"
+                className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+              />
+            </SelectTrigger>
+            <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
+              {projectsLoading ? (
+                <div className="flex items-center justify-center p-2">
+                  <SpinnerLogo className="w-4 h-4" />
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground">No projects found</div>
+              ) : (
+                projects.map((project) => (
+                  <SelectItem
+                    key={project.id}
+                    value={project.id}
+                    className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                  >
+                    {project.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={onCreateFocusGroup}
+            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+            disabled={!selectedProject}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Focus Group
+          </Button>
+        </div>
       </div>
 
-      {isLoading ? (
+      {!selectedProject ? (
+        <Card className="bg-card border border-border">
+          <CardContent className="py-12 text-center space-y-4">
+            <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto" />
+            <h3 className="text-lg text-card-foreground">No project selected</h3>
+            <p className="text-sm text-muted-foreground">
+              Choose a project from the dropdown to view and manage focus groups.
+            </p>
+          </CardContent>
+        </Card>
+      ) : isLoading ? (
         <div className="flex items-center justify-center h-[400px]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <SpinnerLogo className="w-10 h-10" />
         </div>
       ) : focusGroups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
-          <MessageSquare className="w-16 h-16 text-muted-foreground" />
-          <h2 className="text-2xl font-bold text-foreground">No Focus Groups Yet</h2>
-          <p className="text-muted-foreground">Create your first focus group to get started.</p>
+        <div className="flex flex-col items-center justify-center h-[400px] space-y-3">
+          <MessageSquare className="w-12 h-12 text-muted-foreground" />
+          <h2 className="text-lg font-medium text-foreground">No focus groups yet</h2>
+          <p className="text-sm text-muted-foreground">Create your first focus group to conduct qualitative research</p>
           <Button
-            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white mt-2"
             onClick={onCreateFocusGroup}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -118,8 +167,13 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                     {/* Header */}
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="mb-2">
+                        <div className="mb-2 flex items-center gap-2">
                           <h3 className="text-lg font-semibold text-card-foreground">{focusGroup.name}</h3>
+                          {focusGroup.status === 'pending' && (focusGroup.persona_ids?.length === 0 || focusGroup.questions?.length === 0) && (
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                              Draft
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">
                           {focusGroup.description || 'No description'}
@@ -175,6 +229,8 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                             ? 'Completed'
                             : focusGroup.status === 'running'
                             ? `In progress (${focusGroup.persona_ids?.length || 0} participants)`
+                            : focusGroup.status === 'pending' && (focusGroup.persona_ids?.length === 0 || focusGroup.questions?.length === 0)
+                            ? 'Draft'
                             : focusGroup.status === 'pending'
                             ? 'Ready to start'
                             : 'Failed'
@@ -185,36 +241,28 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 pt-2">
-                      {focusGroup.status === 'completed' && (
-                        <Button
-                          size="sm"
-                          onClick={() => onSelectFocusGroup(focusGroup)}
-                          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Results
-                        </Button>
-                      )}
-                      {focusGroup.status === 'pending' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onSelectFocusGroup(focusGroup)}
-                          className="border-border text-muted-foreground hover:text-foreground"
-                        >
-                          <Settings className="w-4 h-4 mr-2" />
-                          Setup Focus Group
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        onClick={() => onSelectFocusGroup(focusGroup)}
+                        className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Manage Session
+                      </Button>
                       {focusGroup.status === 'running' && (
-                        <Button
-                          size="sm"
-                          onClick={() => onSelectFocusGroup(focusGroup)}
-                          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-                        >
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <Badge className="bg-blue-100 text-blue-700">
                           In Progress
-                        </Button>
+                        </Badge>
+                      )}
+                      {focusGroup.status === 'completed' && (
+                        <Badge className="bg-green-100 text-green-700">
+                          Completed
+                        </Badge>
+                      )}
+                      {focusGroup.status === 'failed' && (
+                        <Badge className="bg-red-100 text-red-700">
+                          Failed
+                        </Badge>
                       )}
                       <p className="text-xs text-muted-foreground ml-auto">
                         Created {new Date(focusGroup.created_at).toLocaleDateString()}
@@ -229,6 +277,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

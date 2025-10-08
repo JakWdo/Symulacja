@@ -140,6 +140,18 @@ class FocusGroupServiceLangChain:
 
             await db.commit()
 
+            # Automatically build knowledge graph after completion
+            logger.info(f"🧠 Starting automatic graph build for focus group {focus_group_id}")
+            try:
+                from app.services.graph_service import GraphService
+                graph_service = GraphService()
+                graph_stats = await graph_service.build_graph_from_focus_group(db, str(focus_group_id))
+                await graph_service.close()
+                logger.info(f"✅ Graph built successfully: {graph_stats}")
+            except Exception as graph_error:
+                # Don't fail the entire focus group if graph building fails
+                logger.error(f"⚠️ Graph build failed (non-critical): {graph_error}", exc_info=True)
+
             return {
                 "focus_group_id": str(focus_group_id),
                 "status": "completed",

@@ -37,7 +37,8 @@ export function SurveyResults({ survey, onBack }: SurveyResultsProps) {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-6">
+    <div className="w-full h-full overflow-y-auto">
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -253,6 +254,7 @@ export function SurveyResults({ survey, onBack }: SurveyResultsProps) {
           </div>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }
