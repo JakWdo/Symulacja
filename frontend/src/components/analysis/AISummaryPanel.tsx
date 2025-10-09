@@ -18,7 +18,14 @@ import axios from 'axios';
 import { analysisApi } from '@/lib/api';
 import type { AISummary } from '@/types';
 import { Logo } from '@/components/ui/Logo';
-import { useAppStore } from '@/store/appStore';
+import { useAISummaryStore } from '@/store/aiSummaryStore';
+
+const normalizeMarkdown = (value: string): string =>
+  value.replace(
+    /(^|\n)(\s*(?:[-+*]\s+)?)((?!\*\*)[^:\n]*?)\*\*:/g,
+    (_, lineStart: string, bullet: string, boldText: string) =>
+      `${lineStart}${bullet}**${boldText.trim()}**:`
+  );
 
 interface AISummaryPanelProps {
   focusGroupId: string;
@@ -45,16 +52,19 @@ export function AISummaryPanel({
   const sessionTitle = focusGroupName || 'wybranej sesji';
   const [hasTriggered, setHasTriggered] = useState(false);
   const queryClient = useQueryClient();
-  const { pendingSummaries, setSummaryPending } = useAppStore((state) => ({
-    pendingSummaries: state.pendingSummaries,
-    setSummaryPending: state.setSummaryPending,
-  }));
+  const persistentGenerating = useAISummaryStore(
+    (state) => state.generatingStatuses[focusGroupId] ?? false
+  );
+  const setPersistentGenerating = useAISummaryStore(
+    (state) => state.setGeneratingStatus
+  );
 
   const {
     data: summary,
     isLoading,
     isFetching,
     error,
+    refetch,
   } = useQuery<AISummary | null>({
     queryKey: ['ai-summary', focusGroupId],
     queryFn: async () => {
@@ -68,6 +78,8 @@ export function AISummaryPanel({
       }
     },
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes
+    refetchInterval: persistentGenerating ? 5000 : false,
+    refetchIntervalInBackground: persistentGenerating,
   });
 
   const generateMutation = useMutation({
@@ -80,30 +92,36 @@ export function AISummaryPanel({
   });
 
   const isGenerating = generateMutation.isPending;
-  const summaryPending = pendingSummaries[focusGroupId] ?? false;
-  const showLoading = (isLoading || isFetching || summaryPending) && !summary;
+  const showLoading =
+    (isLoading || isFetching || persistentGenerating) && !summary;
 
   const handleGenerate = useCallback(async () => {
     try {
       onGenerateStart?.();
-      setSummaryPending(focusGroupId, true);
+      setPersistentGenerating(focusGroupId, true);
       const result = await generateMutation.mutateAsync();
       await queryClient.invalidateQueries({ queryKey: ['ai-summary', focusGroupId] });
       toast.success(
         'Podsumowanie AI gotowe',
         `Model: ${result.metadata.model_used}`
       );
-      setSummaryPending(focusGroupId, false);
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data?.detail || err.message
         : 'Failed to generate summary';
       toast.error('Błąd generowania', message);
-      setSummaryPending(focusGroupId, false);
+      setPersistentGenerating(focusGroupId, false);
     } finally {
       onGenerateComplete?.();
     }
-  }, [focusGroupId, generateMutation, onGenerateComplete, onGenerateStart, queryClient, setSummaryPending]);
+  }, [
+    focusGroupId,
+    generateMutation,
+    onGenerateComplete,
+    onGenerateStart,
+    queryClient,
+    setPersistentGenerating,
+  ]);
 
   // Trigger generation when triggerGenerate prop changes
   useEffect(() => {
@@ -114,10 +132,22 @@ export function AISummaryPanel({
   }, [triggerGenerate, hasTriggered, summary, showLoading, isGenerating, handleGenerate]);
 
   useEffect(() => {
-    if (summary && pendingSummaries[focusGroupId]) {
-      setSummaryPending(focusGroupId, false);
+    if (summary) {
+      setPersistentGenerating(focusGroupId, false);
     }
-  }, [summary, focusGroupId, pendingSummaries, setSummaryPending]);
+  }, [summary, focusGroupId, setPersistentGenerating]);
+
+  useEffect(() => {
+    if (error) {
+      setPersistentGenerating(focusGroupId, false);
+    }
+  }, [error, focusGroupId, setPersistentGenerating]);
+
+  useEffect(() => {
+    if (persistentGenerating && !isFetching && !isLoading && !summary) {
+      refetch();
+    }
+  }, [persistentGenerating, isFetching, isLoading, summary, refetch]);
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
@@ -184,7 +214,12 @@ export function AISummaryPanel({
           </p>
 
           {!hideGenerateButton && (
-            <Button onClick={handleGenerate} disabled={isGenerating || summaryPending} className="gap-2" size="lg">
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating || persistentGenerating}
+              className="gap-2"
+              size="lg"
+            >
               <Sparkles className="w-5 h-5" />
               Generate AI Summary
             </Button>
@@ -292,7 +327,7 @@ export function AISummaryPanel({
             variant="outline"
             size="sm"
             className="gap-2"
-            disabled={isGenerating}
+            disabled={isGenerating || persistentGenerating}
           >
             <Zap className="w-4 h-4" />
             Regenerate
@@ -312,7 +347,7 @@ export function AISummaryPanel({
               className="px-6 pb-6"
             >
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown>{summary.executive_summary}</ReactMarkdown>
+                <ReactMarkdown>{normalizeMarkdown(summary.executive_summary)}</ReactMarkdown>
               </div>
             </motion.div>
           )}
@@ -345,7 +380,7 @@ export function AISummaryPanel({
                       {idx + 1}
                     </div>
                     <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
-                      <ReactMarkdown>{insight}</ReactMarkdown>
+                      <ReactMarkdown>{normalizeMarkdown(insight)}</ReactMarkdown>
                     </div>
                   </div>
                 ))}
@@ -377,15 +412,15 @@ export function AISummaryPanel({
                     <div
                       key={idx}
                       className="flex gap-3 p-4 bg-accent-50 border border-accent-200 rounded-lg"
-                    >
-                      <AlertTriangle className="w-5 h-5 text-accent-600 flex-shrink-0 mt-0.5" />
-                      <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
-                        <ReactMarkdown>{finding}</ReactMarkdown>
-                      </div>
+                  >
+                    <AlertTriangle className="w-5 h-5 text-accent-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
+                      <ReactMarkdown>{normalizeMarkdown(finding)}</ReactMarkdown>
                     </div>
-                  ))}
-                </div>
-              </motion.div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
             )}
           </AnimatePresence>
         </div>
@@ -413,7 +448,7 @@ export function AISummaryPanel({
                     <div key={segment} className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
                       <h4 className="text-sm font-semibold text-slate-900 mb-2">{segment}</h4>
                       <div className="text-sm text-slate-700 leading-relaxed prose prose-sm max-w-none">
-                        <ReactMarkdown>{analysis}</ReactMarkdown>
+                        <ReactMarkdown>{normalizeMarkdown(analysis)}</ReactMarkdown>
                       </div>
                     </div>
                   ))}
@@ -445,18 +480,18 @@ export function AISummaryPanel({
                   {summary.recommendations.map((rec, idx) => (
                     <div
                       key={idx}
-                      className="flex gap-3 p-4 bg-green-50 border border-green-200 rounded-lg"
-                    >
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold">
-                        {idx + 1}
-                      </div>
-                      <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
-                        <ReactMarkdown>{rec}</ReactMarkdown>
-                      </div>
+                    className="flex gap-3 p-4 bg-green-50 border border-green-200 rounded-lg"
+                  >
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold">
+                      {idx + 1}
                     </div>
-                  ))}
-                </div>
-              </motion.div>
+                    <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
+                      <ReactMarkdown>{normalizeMarkdown(rec)}</ReactMarkdown>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
             )}
           </AnimatePresence>
         </div>
@@ -474,7 +509,7 @@ export function AISummaryPanel({
               className="px-6 pb-6"
             >
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown>{summary.sentiment_narrative}</ReactMarkdown>
+                <ReactMarkdown>{normalizeMarkdown(summary.sentiment_narrative)}</ReactMarkdown>
               </div>
             </motion.div>
           )}

@@ -138,7 +138,10 @@ export function AnalysisPanel() {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <AISummaryPanel focusGroupId={selectedFocusGroup.id} />
+                <AISummaryPanel
+                  focusGroupId={selectedFocusGroup.id}
+                  focusGroupName={selectedFocusGroup.name}
+                />
               </motion.div>
             )}
           </AnimatePresence>
