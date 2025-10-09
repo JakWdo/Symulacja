@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { FigmaDashboard } from '@/components/layout/FigmaDashboard';
@@ -30,6 +30,7 @@ import type { Project, FocusGroup, Survey } from '@/types';
 export default function App() {
   // Initialize theme
   useTheme();
+  const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const {
     selectedProject,
@@ -130,6 +131,9 @@ export default function App() {
                 };
 
                 const createdFocusGroup = await focusGroupsApi.create(selectedProject.id, payload);
+
+                await queryClient.invalidateQueries({ queryKey: ['focus-groups'] });
+                queryClient.setQueryData(['focus-group', createdFocusGroup.id], createdFocusGroup);
 
                 setViewFocusGroup(createdFocusGroup);
                 setCurrentView('focus-group-detail');

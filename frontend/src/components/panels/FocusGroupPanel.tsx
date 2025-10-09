@@ -95,6 +95,7 @@ function FocusGroupCard({
     mutationFn: () => focusGroupsApi.run(focusGroup.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['focus-groups', focusGroup.project_id] });
+      queryClient.invalidateQueries({ queryKey: ['focus-group', focusGroup.id] });
       toast.info('Focus group started', `"${focusGroup.name}" is now running`);
     },
     onError: (error: Error) => {
@@ -681,8 +682,12 @@ export function FocusGroupPanel() {
       return data;
     },
     enabled: !!selectedProject,
+    refetchOnWindowFocus: 'always',
+    refetchOnMount: 'always',
+    refetchOnReconnect: 'always',
     refetchInterval: (query) =>
       query.state.data?.some((group) => group.status === 'running') ? 2000 : false,
+    refetchIntervalInBackground: true,
   });
 
   useEffect(() => {

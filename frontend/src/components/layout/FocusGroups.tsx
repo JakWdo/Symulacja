@@ -25,7 +25,12 @@ const getStatusBadge = (focusGroup: any) => {
     case 'completed':
       return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">Completed</Badge>;
     case 'running':
-      return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">In Progress</Badge>;
+      return (
+        <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400 flex items-center gap-1.5">
+          <SpinnerLogo className="w-3.5 h-3.5" />
+          In Progress
+        </Badge>
+      );
     case 'failed':
       return (
         <Badge className="bg-red-100 text-red-700 dark:bg-red-400/10 dark:text-red-400">
@@ -62,12 +67,16 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
       return await focusGroupsApi.getByProject(selectedProject.id);
     },
     enabled: !!selectedProject,
+    refetchOnWindowFocus: 'always',
+    refetchOnMount: 'always',
+    refetchOnReconnect: 'always',
     refetchInterval: (query) => {
       // Poll every 2s if any focus group is running
       const data = query.state.data;
       const hasRunningFG = data?.some((fg: any) => fg.status === 'running');
       return hasRunningFG ? 2000 : false;
     },
+    refetchIntervalInBackground: true,
   });
 
   const { mutateAsync: deleteFocusGroup, isPending: isDeleting } = useMutation({
@@ -214,7 +223,10 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
 
             <div className="grid grid-cols-1 gap-4">
               {focusGroups.map((focusGroup) => (
-            <Card key={focusGroup.id} className="bg-card border border-border hover:shadow-md transition-shadow shadow-sm">
+            <Card
+              key={focusGroup.id}
+              className={`bg-card border hover:shadow-md transition-shadow shadow-sm ${focusGroup.status === 'running' ? 'border-[#F27405]/50 shadow-[0_0_0_1px_rgba(242,116,5,0.08)]' : 'border-border'}`}
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 space-y-4">
@@ -288,18 +300,20 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
 
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Status</p>
-                        <p className="text-xs text-card-foreground">
-                          {focusGroup.status === 'completed'
-                            ? 'Completed'
-                            : focusGroup.status === 'running'
-                            ? `In progress (${focusGroup.persona_ids?.length || 0} participants)`
-                            : focusGroup.status === 'pending' && (focusGroup.persona_ids?.length === 0 || focusGroup.questions?.length === 0)
-                            ? 'Draft'
-                            : focusGroup.status === 'pending'
-                            ? 'Ready to start'
-                            : 'Failed'
-                          }
-                        </p>
+                        <div className="text-xs text-card-foreground flex items-center gap-2">
+                          {focusGroup.status === 'running' && <SpinnerLogo className="w-3 h-3" />}
+                          <span>
+                            {focusGroup.status === 'completed'
+                              ? 'Completed'
+                              : focusGroup.status === 'running'
+                              ? `In progress (${focusGroup.persona_ids?.length || 0} participants)`
+                              : focusGroup.status === 'pending' && (focusGroup.persona_ids?.length === 0 || focusGroup.questions?.length === 0)
+                              ? 'Draft'
+                              : focusGroup.status === 'pending'
+                              ? 'Ready to start'
+                              : 'Failed'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 

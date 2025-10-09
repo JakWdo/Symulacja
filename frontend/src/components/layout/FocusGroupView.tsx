@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Clock, CheckCircle, Plus, Trash2, Brain } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Clock, CheckCircle, Plus, Trash2, Brain, AlertCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { focusGroupsApi, personasApi, analysisApi, projectsApi } from '@/lib/api';
 import { Logo } from '@/components/ui/Logo';
@@ -68,6 +68,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(initialFocusGroup.persona_ids || []);
   const [insights, setInsights] = useState<AISummaryResponse | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -94,13 +95,18 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   });
 
   // Fetch focus group status in real-time
-  const { data: focusGroup = initialFocusGroup } = useQuery({
+  const { data: focusGroup = initialFocusGroup, isFetching: focusGroupFetching } = useQuery({
     queryKey: ['focus-group', initialFocusGroup.id],
     queryFn: () => focusGroupsApi.get(initialFocusGroup.id),
+    refetchOnWindowFocus: 'always',
+    refetchOnMount: 'always',
+    refetchOnReconnect: 'always',
     refetchInterval: (data) => {
       // Poll every 2s when running, stop when completed
       return data?.status === 'running' ? 2000 : false;
     },
+    refetchIntervalInBackground: true,
+    keepPreviousData: true,
     initialData: initialFocusGroup,
   });
 
@@ -121,11 +127,20 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     setSelectedPersonaIds((prev) => (arraysEqual(prev, nextPersonaIds) ? prev : nextPersonaIds));
   }, [focusGroup.questions, focusGroup.persona_ids, updateMutation.isPending]);
 
-  const { data: responses, isLoading: responsesLoading } = useQuery<FocusGroupResponses>({
+  const {
+    data: responses,
+    isLoading: responsesLoading,
+    isFetching: responsesFetching,
+  } = useQuery<FocusGroupResponses>({
     queryKey: ['focus-group-responses', focusGroup.id],
     queryFn: () => focusGroupsApi.getResponses(focusGroup.id),
-    enabled: focusGroup.status === 'completed',
-    refetchInterval: focusGroup.status === 'running' ? 3000 : false, // Poll every 3s when running
+    enabled: focusGroup.status !== 'pending',
+    keepPreviousData: true,
+    refetchOnWindowFocus: 'always',
+    refetchOnMount: 'always',
+    refetchOnReconnect: 'always',
+    refetchInterval: focusGroup.status === 'completed' ? false : 3000, // Keep polling while running
+    refetchIntervalInBackground: true,
   });
 
   const { data: cachedSummary, isLoading: cachedSummaryLoading } = useQuery<AISummaryResponse | null>({
@@ -169,41 +184,130 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   const contextLabel = `${focusGroup.name} · ${projectName}`;
   const summaryProcessing = summaryPending || generatingAiSummary;
   const insightsLoading = !insights && (cachedSummaryLoading || summaryProcessing);
+  const responsesPending = responsesLoading || responsesFetching;
+
+  const totalExpectedResponses = useMemo(() => {
+    const totalQuestions = focusGroup.questions?.length ?? 0;
+    const totalParticipants = focusGroup.persona_ids?.length ?? 0;
+    return totalQuestions * totalParticipants;
+  }, [focusGroup.questions, focusGroup.persona_ids]);
+
+  const responsesCount = useMemo(() => {
+    if (!responses?.questions?.length) {
+      return 0;
+    }
+    return responses.questions.reduce((sum, question) => sum + question.responses.length, 0);
+  }, [responses]);
+
+  const responsesProgress = useMemo(() => {
+    if (!totalExpectedResponses) {
+      return 0;
+    }
+    const ratio = (responsesCount / totalExpectedResponses) * 100;
+    return Math.min(Math.round(ratio), 95);
+  }, [responsesCount, totalExpectedResponses]);
+
+  useEffect(() => {
+    if (!responsesProgress) {
+      return;
+    }
+    setDiscussionProgress((prev) => (responsesProgress > prev ? responsesProgress : prev));
+  }, [responsesProgress]);
+
+  useEffect(() => {
+    if (focusGroup.status === 'running') {
+      setIsRunning(true);
+      return;
+    }
+
+    if (focusGroup.status === 'completed') {
+      setIsRunning(false);
+      setDiscussionProgress(100);
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (focusGroup.status === 'failed') {
+      setIsRunning(false);
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (focusGroup.status === 'pending') {
+      if (!isRunning && discussionProgress !== 0) {
+        setDiscussionProgress(0);
+        setChatMessages([]);
+      }
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
+    }
+  }, [focusGroup.status, isRunning, discussionProgress]);
+
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const runMutation = useMutation({
     mutationFn: () => focusGroupsApi.run(focusGroup.id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-group', focusGroup.id] });
+      queryClient.invalidateQueries({ queryKey: ['focus-group-responses', focusGroup.id] });
+
       setIsRunning(true);
       setDiscussionProgress(0);
       setChatMessages([]);
 
       // Simulate progress with chat messages
-      const interval = setInterval(() => {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
+
+      const intervalId = setInterval(() => {
         setDiscussionProgress((prev) => {
-          // Add chat messages during progress
-          if (prev === 15 && chatMessages.length === 0) {
-            setChatMessages([mockChatMessages[0]]);
-          }
-          if (prev === 35 && chatMessages.length === 1) {
-            setChatMessages(prev => [...prev, mockChatMessages[1]]);
-          }
-          if (prev === 55 && chatMessages.length === 2) {
-            setChatMessages(prev => [...prev, mockChatMessages[2]]);
-          }
-          if (prev === 75 && chatMessages.length === 3) {
-            setChatMessages(prev => [...prev, mockChatMessages[3]]);
+          if (prev >= 95) {
+            clearInterval(intervalId);
+            progressTimerRef.current = null;
+            return prev;
           }
 
-          if (prev >= 100) {
-            clearInterval(interval);
-            setIsRunning(false);
-            queryClient.invalidateQueries({ queryKey: ['focus-groups'] });
-            queryClient.invalidateQueries({ queryKey: ['focus-group-responses', focusGroup.id] });
-            return 100;
-          }
-          return prev + 5;
+          const next = Math.min(prev + 5, 95);
+
+          setChatMessages((prevMessages) => {
+            if (prevMessages.length === 0 && next >= 15) {
+              return [mockChatMessages[0]];
+            }
+            if (prevMessages.length === 1 && next >= 35) {
+              return [...prevMessages, mockChatMessages[1]];
+            }
+            if (prevMessages.length === 2 && next >= 55) {
+              return [...prevMessages, mockChatMessages[2]];
+            }
+            if (prevMessages.length === 3 && next >= 75) {
+              return [...prevMessages, mockChatMessages[3]];
+            }
+            return prevMessages;
+          });
+
+          return next;
         });
       }, 500);
+
+      progressTimerRef.current = intervalId;
       toast.success('Focus group launched', contextLabel);
     },
     onError: (error: unknown) => {
@@ -695,7 +799,56 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
         {/* Results Tab */}
         <TabsContent value="results" className="space-y-6">
-          {discussionComplete ? (
+          {focusGroup.status === 'pending' && !isRunning && (
+            <Card className="bg-card border border-border shadow-sm">
+              <CardContent className="text-center py-12">
+                <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No Results Yet</h3>
+                <p className="text-muted-foreground">
+                  Run the discussion simulation first to generate analysis and insights.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {(focusGroup.status === 'running' || isRunning) && (
+            <Card className="bg-card border border-border shadow-sm">
+              <CardContent className="py-12 flex flex-col items-center gap-4 text-center">
+                <Logo className="w-8 h-8" spinning />
+                <div className="space-y-1">
+                  <h3 className="text-lg font-medium text-card-foreground">Discussion in progress</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    We will surface responses and insights here automatically once the run completes.
+                  </p>
+                </div>
+                <div className="w-full max-w-sm space-y-2">
+                  <Progress value={discussionProgress} className="w-full" />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{discussionProgress}% complete</span>
+                    {totalExpectedResponses > 0 ? (
+                      <span>
+                        {responsesCount}/{totalExpectedResponses} responses
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {focusGroup.status === 'failed' && (
+            <Card className="bg-card border border-border shadow-sm">
+              <CardContent className="py-12 text-center space-y-3">
+                <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
+                <h3 className="text-lg font-medium text-destructive">Run failed</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  We could not finish this simulation. Check the activity log or try launching the focus group again.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {discussionComplete && (
             <>
               {/* AI Summary Card */}
               {insightsLoading ? (
@@ -834,7 +987,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               )}
 
               {/* Raw Responses */}
-              {responsesLoading ? (
+              {responsesPending ? (
                 <Card className="bg-card border border-border shadow-sm">
                   <CardContent className="py-12 flex flex-col items-center justify-center">
                     <Logo className="w-12 h-12 mb-4" spinning />
@@ -896,16 +1049,6 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                 </Card>
               )}
             </>
-          ) : (
-            <Card className="bg-card border border-border shadow-sm">
-              <CardContent className="text-center py-12">
-                <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">No Results Yet</h3>
-                <p className="text-muted-foreground">
-                  Run the discussion simulation first to generate analysis and insights.
-                </p>
-              </CardContent>
-            </Card>
           )}
         </TabsContent>
       </Tabs>

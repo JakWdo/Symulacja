@@ -41,12 +41,16 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
     queryKey: ['surveys', selectedProject?.id],
     queryFn: () => surveysApi.getByProject(selectedProject!.id),
     enabled: !!selectedProject,
+    refetchOnWindowFocus: 'always',
+    refetchOnMount: 'always',
+    refetchOnReconnect: 'always',
     refetchInterval: (query) => {
       // Poll every 3s if any survey is running
       const data = query.state.data;
       const hasRunningSurvey = data?.some((s: Survey) => s.status === 'running');
       return hasRunningSurvey ? 3000 : false;
     },
+    refetchIntervalInBackground: true,
   });
 
   // Run survey mutation
@@ -116,7 +120,12 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
       case 'completed':
         return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">Completed</Badge>;
       case 'running':
-        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">In Progress</Badge>;
+        return (
+          <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400 flex items-center gap-1.5">
+            <SpinnerLogo className="w-3.5 h-3.5" />
+            In Progress
+          </Badge>
+        );
       case 'draft':
         return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Draft</Badge>;
       case 'failed':
@@ -222,7 +231,10 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                 : 0;
 
               return (
-                <Card key={survey.id} className="bg-card border border-border hover:shadow-md transition-shadow shadow-sm">
+                <Card
+                  key={survey.id}
+                  className={`bg-card border hover:shadow-md transition-shadow shadow-sm ${survey.status === 'running' ? 'border-[#F27405]/50 shadow-[0_0_0_1px_rgba(242,116,5,0.08)]' : 'border-border'}`}
+                >
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 space-y-4">
