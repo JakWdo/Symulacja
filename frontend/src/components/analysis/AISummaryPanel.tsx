@@ -18,6 +18,7 @@ import axios from 'axios';
 import { analysisApi } from '@/lib/api';
 import type { AISummary } from '@/types';
 import { Logo } from '@/components/ui/Logo';
+import { useAISummaryStore } from '@/store/aiSummaryStore';
 
 interface AISummaryPanelProps {
   focusGroupId: string;
@@ -44,12 +45,19 @@ export function AISummaryPanel({
   const sessionTitle = focusGroupName || 'wybranej sesji';
   const [hasTriggered, setHasTriggered] = useState(false);
   const queryClient = useQueryClient();
+  const persistentGenerating = useAISummaryStore(
+    (state) => state.generatingStatuses[focusGroupId] ?? false
+  );
+  const setPersistentGenerating = useAISummaryStore(
+    (state) => state.setGeneratingStatus
+  );
 
   const {
     data: summary,
     isLoading,
     isFetching,
     error,
+    refetch,
   } = useQuery<AISummary | null>({
     queryKey: ['ai-summary', focusGroupId],
     queryFn: async () => {
@@ -63,6 +71,8 @@ export function AISummaryPanel({
       }
     },
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes
+    refetchInterval: persistentGenerating ? 5000 : false,
+    refetchIntervalInBackground: persistentGenerating,
   });
 
   const generateMutation = useMutation({
@@ -75,11 +85,12 @@ export function AISummaryPanel({
   });
 
   const isGenerating = generateMutation.isPending;
-  const showLoading = isLoading || isFetching;
+  const showLoading = isLoading || isFetching || persistentGenerating;
 
   const handleGenerate = useCallback(async () => {
     try {
       onGenerateStart?.();
+      setPersistentGenerating(focusGroupId, true);
       const result = await generateMutation.mutateAsync();
       await queryClient.invalidateQueries({ queryKey: ['ai-summary', focusGroupId] });
       toast.success(
@@ -91,10 +102,18 @@ export function AISummaryPanel({
         ? err.response?.data?.detail || err.message
         : 'Failed to generate summary';
       toast.error('Błąd generowania', message);
+      setPersistentGenerating(focusGroupId, false);
     } finally {
       onGenerateComplete?.();
     }
-  }, [focusGroupId, generateMutation, onGenerateComplete, onGenerateStart, queryClient]);
+  }, [
+    focusGroupId,
+    generateMutation,
+    onGenerateComplete,
+    onGenerateStart,
+    queryClient,
+    setPersistentGenerating,
+  ]);
 
   // Trigger generation when triggerGenerate prop changes
   useEffect(() => {
@@ -103,6 +122,24 @@ export function AISummaryPanel({
       handleGenerate();
     }
   }, [triggerGenerate, hasTriggered, summary, showLoading, isGenerating, handleGenerate]);
+
+  useEffect(() => {
+    if (summary) {
+      setPersistentGenerating(focusGroupId, false);
+    }
+  }, [summary, focusGroupId, setPersistentGenerating]);
+
+  useEffect(() => {
+    if (error) {
+      setPersistentGenerating(focusGroupId, false);
+    }
+  }, [error, focusGroupId, setPersistentGenerating]);
+
+  useEffect(() => {
+    if (persistentGenerating && !isFetching && !isLoading && !summary) {
+      refetch();
+    }
+  }, [persistentGenerating, isFetching, isLoading, summary, refetch]);
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
