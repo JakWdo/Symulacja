@@ -51,7 +51,11 @@ const sanitizeQuestions = (list: string[]) =>
   list.map((question) => question.trim()).filter((question) => question.length > 0);
 
 export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusGroupViewProps) {
-  const { selectedProject } = useAppStore();
+  const { selectedProject, pendingSummaries, setSummaryPending } = useAppStore((state) => ({
+    selectedProject: state.selectedProject,
+    pendingSummaries: state.pendingSummaries,
+    setSummaryPending: state.setSummaryPending,
+  }));
   const [isRunning, setIsRunning] = useState(false);
   const [discussionProgress, setDiscussionProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('setup');
@@ -140,15 +144,20 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     staleTime: 1000 * 60 * 10,
   });
 
+  const summaryPending = pendingSummaries[focusGroup.id] ?? false;
+
   useEffect(() => {
     if (cachedSummary) {
       setInsights(cachedSummary);
       setAiSummaryGenerated(true);
-    } else if (!generatingAiSummary && focusGroup.status === 'completed') {
+      if (summaryPending) {
+        setSummaryPending(focusGroup.id, false);
+      }
+    } else if (!generatingAiSummary && !summaryPending && focusGroup.status === 'completed') {
       setInsights(null);
       setAiSummaryGenerated(false);
     }
-  }, [cachedSummary, generatingAiSummary, focusGroup.status]);
+  }, [cachedSummary, generatingAiSummary, summaryPending, focusGroup.status, focusGroup.id, setSummaryPending]);
 
   const { data: project } = useQuery({
     queryKey: ['project', focusGroup.project_id],
@@ -158,8 +167,8 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
   const projectName = project?.name || selectedProject?.name || 'Unknown project';
   const contextLabel = `${focusGroup.name} · ${projectName}`;
-
-  const insightsLoading = generatingAiSummary || (cachedSummaryLoading && !insights);
+  const summaryProcessing = summaryPending || generatingAiSummary;
+  const insightsLoading = !insights && (cachedSummaryLoading || summaryProcessing);
 
   const runMutation = useMutation({
     mutationFn: () => focusGroupsApi.run(focusGroup.id),
@@ -287,18 +296,22 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
   const handleGenerateAiSummary = async () => {
     setGeneratingAiSummary(true);
+    setSummaryPending(focusGroup.id, true);
+    setAiSummaryGenerated(false);
 
     try {
       const generatedInsights = await analysisApi.generateAISummary(focusGroup.id, true, true);
       setInsights(generatedInsights);
       setGeneratingAiSummary(false);
       setAiSummaryGenerated(true);
+      setSummaryPending(focusGroup.id, false);
       setActiveTab('results');
       await queryClient.invalidateQueries({ queryKey: ['focus-group-ai-summary', focusGroup.id] });
       toast.success('AI Summary generated successfully', contextLabel);
     } catch (error) {
       console.error('Failed to generate AI summary:', error);
       setGeneratingAiSummary(false);
+      setSummaryPending(focusGroup.id, false);
       const message = error instanceof Error ? error.message : 'Unknown error';
       toast.error('Failed to generate AI summary', `${contextLabel} • ${message}`);
     }
@@ -636,10 +649,10 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                   </p>
                   <Button
                     onClick={handleGenerateAiSummary}
-                    disabled={generatingAiSummary}
+                    disabled={summaryProcessing}
                     className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
                   >
-                    {generatingAiSummary ? (
+                    {summaryProcessing ? (
                       <>
                         <Logo className="w-4 h-4 mr-2" spinning />
                         Generating AI Summary...

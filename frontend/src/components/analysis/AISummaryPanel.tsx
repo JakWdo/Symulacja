@@ -18,6 +18,7 @@ import axios from 'axios';
 import { analysisApi } from '@/lib/api';
 import type { AISummary } from '@/types';
 import { Logo } from '@/components/ui/Logo';
+import { useAppStore } from '@/store/appStore';
 
 interface AISummaryPanelProps {
   focusGroupId: string;
@@ -44,6 +45,10 @@ export function AISummaryPanel({
   const sessionTitle = focusGroupName || 'wybranej sesji';
   const [hasTriggered, setHasTriggered] = useState(false);
   const queryClient = useQueryClient();
+  const { pendingSummaries, setSummaryPending } = useAppStore((state) => ({
+    pendingSummaries: state.pendingSummaries,
+    setSummaryPending: state.setSummaryPending,
+  }));
 
   const {
     data: summary,
@@ -75,26 +80,30 @@ export function AISummaryPanel({
   });
 
   const isGenerating = generateMutation.isPending;
-  const showLoading = isLoading || isFetching;
+  const summaryPending = pendingSummaries[focusGroupId] ?? false;
+  const showLoading = (isLoading || isFetching || summaryPending) && !summary;
 
   const handleGenerate = useCallback(async () => {
     try {
       onGenerateStart?.();
+      setSummaryPending(focusGroupId, true);
       const result = await generateMutation.mutateAsync();
       await queryClient.invalidateQueries({ queryKey: ['ai-summary', focusGroupId] });
       toast.success(
         'Podsumowanie AI gotowe',
         `Model: ${result.metadata.model_used}`
       );
+      setSummaryPending(focusGroupId, false);
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data?.detail || err.message
         : 'Failed to generate summary';
       toast.error('Błąd generowania', message);
+      setSummaryPending(focusGroupId, false);
     } finally {
       onGenerateComplete?.();
     }
-  }, [focusGroupId, generateMutation, onGenerateComplete, onGenerateStart, queryClient]);
+  }, [focusGroupId, generateMutation, onGenerateComplete, onGenerateStart, queryClient, setSummaryPending]);
 
   // Trigger generation when triggerGenerate prop changes
   useEffect(() => {
@@ -103,6 +112,12 @@ export function AISummaryPanel({
       handleGenerate();
     }
   }, [triggerGenerate, hasTriggered, summary, showLoading, isGenerating, handleGenerate]);
+
+  useEffect(() => {
+    if (summary && pendingSummaries[focusGroupId]) {
+      setSummaryPending(focusGroupId, false);
+    }
+  }, [summary, focusGroupId, pendingSummaries, setSummaryPending]);
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
@@ -169,7 +184,7 @@ export function AISummaryPanel({
           </p>
 
           {!hideGenerateButton && (
-            <Button onClick={handleGenerate} disabled={isGenerating} className="gap-2" size="lg">
+            <Button onClick={handleGenerate} disabled={isGenerating || summaryPending} className="gap-2" size="lg">
               <Sparkles className="w-5 h-5" />
               Generate AI Summary
             </Button>

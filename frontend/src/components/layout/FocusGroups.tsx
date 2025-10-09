@@ -20,6 +20,28 @@ interface FocusGroupsProps {
   onCreateDialogChange: (show: boolean) => void;
 }
 
+const getStatusBadge = (focusGroup: any) => {
+  switch (focusGroup.status) {
+    case 'completed':
+      return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">Completed</Badge>;
+    case 'running':
+      return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">In Progress</Badge>;
+    case 'failed':
+      return (
+        <Badge className="bg-red-100 text-red-700 dark:bg-red-400/10 dark:text-red-400">
+          Failed
+        </Badge>
+      );
+    case 'pending':
+      if ((focusGroup.persona_ids?.length || 0) === 0 || (focusGroup.questions?.length || 0) === 0) {
+        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Draft</Badge>;
+      }
+      return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Ready to start</Badge>;
+    default:
+      return null;
+  }
+};
+
 export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGroupsProps) {
   const { selectedProject, setSelectedProject } = useAppStore();
   const queryClient = useQueryClient();
@@ -201,6 +223,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                       <div className="flex-1">
                         <div className="mb-2 flex items-center gap-2">
                           <h3 className="text-lg font-semibold text-card-foreground">{focusGroup.name}</h3>
+                          {getStatusBadge(focusGroup)}
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">
                           {focusGroup.description || 'No description'}
@@ -290,21 +313,6 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                         <Settings className="w-4 h-4 mr-2" />
                         Manage Session
                       </Button>
-                      {focusGroup.status === 'running' && (
-                        <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">
-                          In Progress
-                        </Badge>
-                      )}
-                      {focusGroup.status === 'completed' && (
-                        <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">
-                          Completed
-                        </Badge>
-                      )}
-                      {focusGroup.status === 'failed' && (
-                        <Badge className="bg-red-100 text-red-700">
-                          Failed
-                        </Badge>
-                      )}
                       <p className="text-xs text-muted-foreground ml-auto">
                         Created {new Date(focusGroup.created_at).toLocaleDateString()}
                       </p>

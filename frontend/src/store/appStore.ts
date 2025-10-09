@@ -19,6 +19,7 @@ interface AppState {
   personas: Persona[];
   focusGroups: FocusGroup[];
   graphData: GraphData | null;
+  pendingSummaries: Record<string, boolean>;
 
   // UI State
   activePanel: PanelKey | null;
@@ -51,6 +52,7 @@ interface AppState {
   toggleLabels: () => void;
   setPanelPosition: (panel: PanelKey, position: Position) => void;
   setTriggerPosition: (panel: PanelKey, position: Position) => void;
+  setSummaryPending: (focusGroupId: string, pending: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -62,6 +64,7 @@ export const useAppStore = create<AppState>((set) => ({
   personas: [],
   focusGroups: [],
   graphData: null,
+  pendingSummaries: {},
   activePanel: null,
   isLoading: false,
   error: null,
@@ -111,4 +114,20 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       triggerPositions: { ...state.triggerPositions, [panel]: position },
     })),
+  setSummaryPending: (focusGroupId, pending) =>
+    set((state) => {
+      const currentlyPending = !!state.pendingSummaries[focusGroupId];
+      if (pending === currentlyPending) {
+        return {};
+      }
+
+      if (pending) {
+        return {
+          pendingSummaries: { ...state.pendingSummaries, [focusGroupId]: true },
+        };
+      }
+
+      const { [focusGroupId]: _removed, ...rest } = state.pendingSummaries;
+      return { pendingSummaries: rest };
+    }),
 }));
