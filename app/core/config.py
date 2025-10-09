@@ -1,3 +1,11 @@
+"""
+Konfiguracja aplikacji
+
+Moduł dostarcza klasę `Settings`, która zbiera wszystkie
+zmienne środowiskowe projektu (baza danych, LLM-y, bezpieczeństwo).
+Funkcja `get_settings()` zwraca jedną, współdzieloną instancję ustawień.
+"""
+
 from typing import Optional
 from functools import lru_cache
 
@@ -50,7 +58,7 @@ class Settings(BaseSettings):
     PERSONA_GENERATION_MODEL: str = "gemini-2.5-flash"
     # ANALYSIS_MODEL: Model do analizy i podsumowań (dokładny)
     ANALYSIS_MODEL: str = "gemini-2.5-pro"
-    # DEFAULT_MODEL: Backward compatibility
+    # DEFAULT_MODEL: ustawienie utrzymujące zgodność wsteczną
     DEFAULT_MODEL: str = "gemini-2.5-flash"
     # TEMPERATURE: Kreatywność modelu (0.0-1.0, wyższe = bardziej kreatywne)
     TEMPERATURE: float = 0.7
@@ -74,7 +82,7 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
 
     # === ŚRODOWISKO ===
-    # ENVIRONMENT: development, staging, production
+    # ENVIRONMENT: development / staging / production
     ENVIRONMENT: str = "development"
     # DEBUG: Włącz szczegółowe logi błędów
     DEBUG: bool = True

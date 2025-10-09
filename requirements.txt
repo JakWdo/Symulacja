@@ -54,8 +54,9 @@ python-multipart
 
 # Auth & Security
 python-jose[cryptography]
-passlib[bcrypt]
+bcrypt
 python-dotenv
+email-validator
 
 # Utilities
 python-dateutil

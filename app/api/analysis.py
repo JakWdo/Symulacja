@@ -22,7 +22,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.models import FocusGroup, Persona, PersonaResponse
+from app.models import FocusGroup, Persona, PersonaResponse, User
+from app.api.dependencies import get_current_user, get_focus_group_for_user
 from app.services.discussion_summarizer import DiscussionSummarizerService
 
 router = APIRouter()
@@ -38,6 +39,7 @@ async def generate_ai_summary(
     ),
     include_recommendations: bool = Query(True, description="Include strategic recommendations"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     Generate AI-powered discussion summary for a focus group
@@ -51,6 +53,7 @@ async def generate_ai_summary(
     - Sentiment narrative
     """
     try:
+        await _get_focus_group(db, focus_group_id, current_user)
         summarizer = DiscussionSummarizerService(use_pro_model=use_pro_model)
 
         summary = await summarizer.generate_discussion_summary(
@@ -80,13 +83,14 @@ async def generate_ai_summary(
 async def get_ai_summary(
     focus_group_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     Retrieve cached AI summary for a focus group.
 
     Alias for GET /focus-groups/{id}/insights to keep backwards compatibility.
     """
-    return await get_insights(focus_group_id, db)
+    return await get_insights(focus_group_id, db, current_user)
 
 
 @router.post("/focus-groups/{focus_group_id}/insights")
@@ -98,26 +102,34 @@ async def generate_insights(
     ),
     include_recommendations: bool = Query(True, description="Include strategic recommendations"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     Alias for /ai-summary - Generate AI-powered insights for a focus group
 
     This endpoint provides the same functionality as /ai-summary
     """
-    return await generate_ai_summary(focus_group_id, use_pro_model, include_recommendations, db)
+    return await generate_ai_summary(
+        focus_group_id,
+        use_pro_model,
+        include_recommendations,
+        db,
+        current_user,
+    )
 
 
 @router.get("/focus-groups/{focus_group_id}/insights")
 async def get_insights(
     focus_group_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     Get cached insights for a focus group
 
     Returns the most recently generated AI summary cached on the focus group.
     """
-    focus_group = await _get_focus_group(db, focus_group_id)
+    focus_group = await _get_focus_group(db, focus_group_id, current_user)
 
     if not focus_group.ai_summary:
         raise HTTPException(
@@ -132,10 +144,11 @@ async def get_insights(
 async def get_focus_group_responses(
     focus_group_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Return full response transcripts grouped by question."""
 
-    focus_group = await _get_focus_group(db, focus_group_id)
+    focus_group = await _get_focus_group(db, focus_group_id, current_user)
 
     result = await db.execute(
         select(PersonaResponse)
@@ -163,7 +176,7 @@ async def get_focus_group_responses(
             }
         )
 
-    # Include any questions that might not exist on the focus group definition (defensive)
+    # Dodaj także pytania, które mogły nie trafić do definicji grupy
     for question, entries in grouped.items():
         if question not in (focus_group.questions or []):
             ordered_questions.append({"question": question, "responses": entries})
@@ -177,11 +190,9 @@ async def get_focus_group_responses(
 
 
 
-async def _get_focus_group(db: AsyncSession, focus_group_id: UUID) -> FocusGroup:
-    result = await db.execute(
-        select(FocusGroup).where(FocusGroup.id == focus_group_id)
-    )
-    focus_group = result.scalar_one_or_none()
-    if not focus_group:
-        raise HTTPException(status_code=404, detail="Focus group not found")
-    return focus_group
+async def _get_focus_group(
+    db: AsyncSession,
+    focus_group_id: UUID,
+    current_user: User,
+) -> FocusGroup:
+    return await get_focus_group_for_user(focus_group_id, current_user, db)

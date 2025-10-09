@@ -15,8 +15,9 @@ Kluczowe endpointy:
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from app.core.config import get_settings
-from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis
+from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_api
 import logging
 
 logger = logging.getLogger(__name__)
@@ -38,15 +39,15 @@ if settings.ENVIRONMENT == "production":
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="AI-powered market research SaaS platform with synthetic personas",
+    description="AI-powered market research platform with synthetic personas",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
-# CORS middleware - ograniczenie origin w zależności od środowiska
-# Development: wszystkie originy dozwolone (*)
-# Production: tylko originy z ALLOWED_ORIGINS (np. https://app.example.com)
+# Middleware CORS - ograniczenie origin w zależności od środowiska
+# Tryb deweloperski: wszystkie originy dozwolone (*)
+# Tryb produkcyjny: tylko originy z ALLOWED_ORIGINS (np. https://app.example.com)
 allowed_origins = (
     ["*"] if settings.ENVIRONMENT == "development"
     else settings.ALLOWED_ORIGINS.split(",")
@@ -54,13 +55,21 @@ allowed_origins = (
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,  # Lista dozwolonych origin
-    allow_credentials=True,  # Zezwól na cookies/auth headers
-    allow_methods=["*"],  # Wszystkie metody HTTP (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Wszystkie headery
+    allow_credentials=True,  # Zezwalamy na ciasteczka i nagłówki uwierzytelniające
+    allow_methods=["*"],  # Wszystkie metody HTTP (GET, POST, PUT, DELETE itp.)
+    allow_headers=["*"],  # Wszystkie nagłówki
 )
+
+# Podpinamy katalog plików statycznych (avatary)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Podłącz routery z poszczególnych modułów
 # Prefix: /api/v1 (z settings.API_V1_PREFIX)
+# Endpointy autoryzacyjne jako pierwsze (publiczne)
+app.include_router(auth.router, prefix=settings.API_V1_PREFIX, tags=["Auth"])
+app.include_router(settings_api.router, prefix=settings.API_V1_PREFIX, tags=["Settings"])
+
+# Chronione endpointy (wymagają uwierzytelnienia)
 app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["Projects"])
 app.include_router(personas.router, prefix=settings.API_V1_PREFIX, tags=["Personas"])
 app.include_router(focus_groups.router, prefix=settings.API_V1_PREFIX, tags=["Focus Groups"])
@@ -81,7 +90,7 @@ async def root():
         "name": settings.PROJECT_NAME,
         "version": "1.0.0",
         "status": "operational",
-        "docs": "/docs",  # Swagger UI
+        "docs": "/docs",  # Interfejs Swagger
     }
 
 

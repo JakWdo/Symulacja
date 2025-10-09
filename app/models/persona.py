@@ -1,3 +1,10 @@
+"""
+Model ORM dla person (syntetycznych uczestników badań)
+
+Tabela `personas` przechowuje kompletny profil wygenerowanych postaci:
+dane demograficzne, osobowość, historię fabularną oraz powiązanie z projektem.
+"""
+
 from __future__ import annotations
 
 import uuid

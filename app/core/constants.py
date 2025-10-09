@@ -1,6 +1,6 @@
-"""Shared constants for demographic distributions and defaults."""
+"""Wspólne stałe dla rozkładów demograficznych i wartości domyślnych."""
 
-# Default demographic distributions
+# Domyślne rozkłady demograficzne
 DEFAULT_AGE_GROUPS = {
     "18-24": 0.15,
     "25-34": 0.25,
@@ -48,117 +48,117 @@ DEFAULT_INCOME_BRACKETS = {
     "> $150k": 0.10,
 }
 
-# Persona personality defaults - EXPANDED for diversity
+# Domyślne zawody person – poszerzone dla różnorodności
 DEFAULT_OCCUPATIONS = [
-    # Tech & Engineering
+    # Technologie i inżynieria
     "Software Engineer", "Data Scientist", "UX Designer", "Product Manager", "DevOps Engineer",
     "Cybersecurity Analyst", "AI/ML Engineer", "Cloud Architect", "QA Engineer", "Technical Writer",
-    # Business & Management
+    # Biznes i zarządzanie
     "Business Analyst", "Operations Manager", "Project Manager", "Strategy Consultant", "CFO",
     "Entrepreneur", "Startup Founder", "Business Development Manager", "Account Executive",
-    # Marketing & Sales
+    # Marketing i sprzedaż
     "Marketing Manager", "Brand Strategist", "Content Creator", "Social Media Manager", "SEO Specialist",
     "Growth Hacker", "Sales Director", "Customer Success Manager", "PR Specialist",
-    # Creative & Design
+    # Kreatywność i projektowanie
     "Graphic Designer", "Art Director", "Video Editor", "Photographer", "Illustrator",
     "Copywriter", "Creative Director", "Motion Designer", "UI Designer", "Brand Designer",
-    # Healthcare & Science
+    # Zdrowie i nauka
     "Physician", "Nurse Practitioner", "Research Scientist", "Pharmacist", "Physical Therapist",
     "Clinical Psychologist", "Biotech Researcher", "Medical Device Engineer", "Healthcare Administrator",
-    # Education & Training
+    # Edukacja i szkolenia
     "University Professor", "High School Teacher", "Corporate Trainer", "Education Consultant",
     "Curriculum Designer", "EdTech Specialist", "School Principal", "Online Course Creator",
-    # Finance & Legal
+    # Finanse i prawo
     "Financial Analyst", "Investment Banker", "Accountant", "Tax Consultant", "Lawyer",
     "Paralegal", "Compliance Officer", "Risk Analyst", "Financial Advisor", "Auditor",
-    # Service & Hospitality
+    # Usługi i hotelarstwo
     "Restaurant Manager", "Hotel Manager", "Event Planner", "Chef", "Travel Agent",
     "Customer Service Manager", "Retail Manager", "Personal Trainer", "Life Coach",
-    # Trades & Manual
+    # Zawody techniczne i manualne
     "Electrician", "Plumber", "Carpenter", "Mechanic", "HVAC Technician",
     "Construction Manager", "Landscaper", "Real Estate Agent",
-    # Arts & Entertainment
+    # Sztuka i rozrywka
     "Musician", "Actor", "Film Producer", "Journalist", "Podcaster", "YouTuber",
     "Gallery Curator", "Fashion Designer", "Interior Designer",
-    # Government & Nonprofit
+    # Sektor publiczny i organizacje non-profit
     "Social Worker", "Policy Analyst", "Nonprofit Director", "Community Organizer",
     "Urban Planner", "Environmental Scientist", "Public Health Specialist",
 ]
 
 DEFAULT_VALUES = [
-    # Personal Growth
+    # Rozwój osobisty
     "Personal Growth", "Self-Improvement", "Continuous Learning", "Curiosity", "Authenticity",
     "Self-Expression", "Independence", "Autonomy", "Creativity", "Innovation",
-    # Relationships & Community
+    # Relacje i wspólnota
     "Family", "Friendship", "Love", "Community", "Belonging", "Connection", "Empathy",
     "Compassion", "Kindness", "Generosity", "Collaboration", "Teamwork",
-    # Achievement & Success
+    # Osiągnięcia i sukces
     "Ambition", "Success", "Excellence", "Achievement", "Recognition", "Status",
     "Wealth", "Career Advancement", "Power", "Leadership", "Competition",
-    # Ethical & Moral
+    # Etyka i moralność
     "Integrity", "Honesty", "Fairness", "Justice", "Equality", "Diversity",
     "Inclusion", "Respect", "Trust", "Loyalty", "Responsibility",
-    # Lifestyle & Wellbeing
+    # Styl życia i dobrostan
     "Health", "Wellness", "Fitness", "Balance", "Work-Life Balance", "Happiness",
     "Joy", "Fun", "Adventure", "Freedom", "Flexibility", "Simplicity",
-    # Social & Environmental
+    # Społeczeństwo i środowisko
     "Sustainability", "Environmentalism", "Social Justice", "Activism", "Philanthropy",
     "Volunteering", "Making a Difference", "Legacy", "Impact",
-    # Intellectual & Spiritual
+    # Sfera intelektualna i duchowa
     "Wisdom", "Knowledge", "Truth", "Spirituality", "Mindfulness", "Peace",
     "Tradition", "Heritage", "Culture", "Art", "Beauty",
-    # Practical & Security
+    # Praktyczność i bezpieczeństwo
     "Security", "Stability", "Predictability", "Efficiency", "Productivity",
     "Organization", "Planning", "Pragmatism", "Resourcefulness",
 ]
 
 DEFAULT_INTERESTS = [
-    # Sports & Fitness
+    # Sport i aktywność
     "Running", "Yoga", "Weightlifting", "Cycling", "Swimming", "Hiking", "Rock Climbing",
     "Martial Arts", "CrossFit", "Dance", "Team Sports", "Tennis", "Golf",
-    # Arts & Creativity
+    # Sztuka i kreatywność
     "Painting", "Drawing", "Photography", "Videography", "Music", "Playing Instruments",
     "Singing", "Writing", "Poetry", "Creative Writing", "Journaling", "Calligraphy",
     "Sculpture", "Pottery", "Crafting", "Knitting", "Sewing",
-    # Technology & Gaming
+    # Technologia i gry
     "Gaming", "Video Games", "Board Games", "Virtual Reality", "Coding", "Programming",
     "3D Modeling", "Robotics", "Drones", "Smart Home Tech", "Cryptocurrency", "NFTs",
-    # Food & Cooking
+    # Jedzenie i gotowanie
     "Cooking", "Baking", "Grilling", "Wine Tasting", "Coffee", "Tea", "Craft Beer",
     "Food Blogging", "Recipe Development", "Meal Prep", "Vegetarian Cooking", "International Cuisine",
-    # Travel & Adventure
+    # Podróże i przygoda
     "Travel", "Backpacking", "Road Trips", "International Travel", "Solo Travel",
     "Adventure Travel", "Camping", "RV Life", "Digital Nomad Lifestyle",
-    # Learning & Intellectual
+    # Nauka i sfera intelektualna
     "Reading", "Audiobooks", "Podcasts", "Online Courses", "Language Learning",
     "History", "Philosophy", "Science", "Astronomy", "Psychology", "Economics",
-    # Social & Community
+    # Społeczność i zaangażowanie
     "Volunteering", "Community Service", "Mentoring", "Networking", "Public Speaking",
     "Activism", "Politics", "Debate", "Social Causes",
-    # Entertainment & Media
+    # Rozrywka i media
     "Movies", "TV Shows", "Streaming", "Theater", "Concerts", "Live Music",
     "Festivals", "Stand-up Comedy", "Opera", "Ballet",
-    # Nature & Outdoors
+    # Natura i aktywność na świeżym powietrzu
     "Gardening", "Bird Watching", "Fishing", "Hunting", "Kayaking", "Surfing",
     "Skiing", "Snowboarding", "Nature Photography", "Wildlife Conservation",
-    # Business & Finance
+    # Biznes i finanse
     "Investing", "Stock Market", "Real Estate", "Entrepreneurship", "Side Hustles",
     "Personal Finance", "Budgeting", "Startups", "Business Books",
-    # Wellness & Self-Care
+    # Dobrostan i dbanie o siebie
     "Meditation", "Mindfulness", "Spa Days", "Massage", "Aromatherapy",
     "Holistic Health", "Natural Remedies", "Mental Health Advocacy",
-    # DIY & Making
+    # Do-it-yourself i tworzenie
     "DIY Projects", "Home Improvement", "Woodworking", "Electronics", "Car Restoration",
     "3D Printing", "Model Building", "Home Brewing",
-    # Fashion & Style
+    # Moda i styl
     "Fashion", "Sustainable Fashion", "Thrifting", "Vintage Shopping", "Makeup",
     "Skincare", "Haircare", "Personal Styling",
-    # Collecting & Hobbies
+    # Kolekcjonowanie i hobby
     "Collecting", "Antiques", "Coins", "Stamps", "Vinyl Records", "Sneakers",
     "Action Figures", "Comic Books", "Trading Cards",
 ]
 
-# Communication styles for persona generation
+# Style komunikacji używane przy generowaniu person
 DEFAULT_COMMUNICATION_STYLES = [
     "direct and concise", "warm and empathetic", "analytical and data-driven",
     "enthusiastic and energetic", "calm and measured", "humorous and lighthearted",
@@ -169,7 +169,7 @@ DEFAULT_COMMUNICATION_STYLES = [
     "expressive and animated", "reserved and observant",
 ]
 
-# Decision-making styles
+# Style podejmowania decyzji
 DEFAULT_DECISION_STYLES = [
     "data-driven and analytical", "intuition-based and spontaneous",
     "consensus-seeking and collaborative", "decisive and quick",
@@ -180,7 +180,7 @@ DEFAULT_DECISION_STYLES = [
     "deliberate and methodical", "flexible and adaptive",
 ]
 
-# Life situations for context
+# Sytuacje życiowe używane jako kontekst
 DEFAULT_LIFE_SITUATIONS = [
     "single and career-focused", "married without children", "married with young children",
     "single parent", "empty nester", "recently divorced", "engaged and planning wedding",

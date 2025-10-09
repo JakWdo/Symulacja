@@ -19,7 +19,12 @@ from typing import List
 from uuid import UUID
 
 from app.db import AsyncSessionLocal, get_db
-from app.models import Survey, Project
+from app.models import Survey, User
+from app.api.dependencies import (
+    get_current_user,
+    get_project_for_user,
+    get_survey_for_user,
+)
 from app.schemas.survey import (
     SurveyCreate,
     SurveyResponse,
@@ -37,6 +42,7 @@ async def create_survey(
     project_id: UUID,
     survey: SurveyCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Utwórz nową ankietę dla projektu
@@ -52,14 +58,7 @@ async def create_survey(
     Raises:
         404: Projekt nie istnieje
     """
-    # Verify project exists
-    result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.is_active == True)
-    )
-    project = result.scalar_one_or_none()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    await get_project_for_user(project_id, current_user, db)
 
     # Konwertuj pytania z Pydantic do dict
     questions_dict = [q.model_dump() for q in survey.questions]
@@ -84,6 +83,7 @@ async def create_survey(
 async def get_project_surveys(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Pobierz wszystkie ankiety projektu
@@ -98,16 +98,9 @@ async def get_project_surveys(
     Raises:
         404: Projekt nie istnieje
     """
-    # Verify project exists
-    result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.is_active == True)
-    )
-    project = result.scalar_one_or_none()
+    await get_project_for_user(project_id, current_user, db)
 
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    # Get all surveys for project
+    # Pobierz wszystkie ankiety powiązane z projektem
     result = await db.execute(
         select(Survey)
         .where(Survey.project_id == project_id, Survey.is_active == True)
@@ -122,6 +115,7 @@ async def get_project_surveys(
 async def get_survey(
     survey_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Pobierz szczegóły ankiety
@@ -136,14 +130,7 @@ async def get_survey(
     Raises:
         404: Ankieta nie istnieje
     """
-    result = await db.execute(
-        select(Survey).where(Survey.id == survey_id, Survey.is_active == True)
-    )
-    survey = result.scalar_one_or_none()
-
-    if not survey:
-        raise HTTPException(status_code=404, detail="Survey not found")
-
+    survey = await get_survey_for_user(survey_id, current_user, db)
     return survey
 
 
@@ -152,6 +139,7 @@ async def run_survey(
     survey_id: UUID,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Uruchom zbieranie odpowiedzi od person projektu
@@ -177,14 +165,7 @@ async def run_survey(
     import logging
     logger = logging.getLogger(__name__)
 
-    # Verify survey exists
-    result = await db.execute(
-        select(Survey).where(Survey.id == survey_id, Survey.is_active == True)
-    )
-    survey = result.scalar_one_or_none()
-
-    if not survey:
-        raise HTTPException(status_code=404, detail="Survey not found")
+    survey = await get_survey_for_user(survey_id, current_user, db)
 
     if survey.status == "running":
         raise HTTPException(status_code=400, detail="Survey is already running")
@@ -192,11 +173,11 @@ async def run_survey(
     if survey.status == "completed":
         raise HTTPException(status_code=400, detail="Survey is already completed")
 
-    # Schedule background task and keep reference
+    # Uruchamiamy zadanie w tle i zachowujemy referencję
     logger.info(f"📊 Scheduling survey task: {survey_id}")
     task = asyncio.create_task(_run_survey_task(survey_id))
 
-    # Keep task reference to prevent garbage collection
+    # Zapobiegamy usunięciu zadania przez garbage collector
     _running_tasks.add(task)
     task.add_done_callback(_running_tasks.discard)
 
@@ -224,7 +205,7 @@ async def _run_survey_task(survey_id: UUID):
 
     try:
         async with AsyncSessionLocal() as db:
-            # Import service (lazy loading aby uniknąć circular imports)
+            # Import serwisu (leniwe ładowanie, aby uniknąć zapętlenia importów)
             from app.services.survey_response_generator import SurveyResponseGenerator
 
             service = SurveyResponseGenerator()
@@ -234,7 +215,7 @@ async def _run_survey_task(survey_id: UUID):
     except Exception as e:
         logger.error(f"❌ Error in survey background task: {e}", exc_info=True)
 
-        # Mark survey as failed
+        # Oznaczamy ankietę jako nieudaną
         try:
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
@@ -252,6 +233,7 @@ async def _run_survey_task(survey_id: UUID):
 async def get_survey_results(
     survey_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Pobierz wyniki ankiety z analizą statystyczną
@@ -275,13 +257,7 @@ async def get_survey_results(
     """
     from app.services.survey_response_generator import SurveyResponseGenerator
 
-    result = await db.execute(
-        select(Survey).where(Survey.id == survey_id, Survey.is_active == True)
-    )
-    survey = result.scalar_one_or_none()
-
-    if not survey:
-        raise HTTPException(status_code=404, detail="Survey not found")
+    survey = await get_survey_for_user(survey_id, current_user, db)
 
     if survey.status == "draft":
         raise HTTPException(
@@ -289,7 +265,7 @@ async def get_survey_results(
             detail="Survey has not been run yet. Use POST /surveys/{id}/run to execute it."
         )
 
-    # Generate analytics using service
+    # Generujemy analitykę przy użyciu serwisu
     service = SurveyResponseGenerator()
     analytics = await service.get_survey_analytics(db, str(survey_id))
 
@@ -307,7 +283,7 @@ async def get_survey_results(
         "created_at": survey.created_at,
         "started_at": survey.started_at,
         "completed_at": survey.completed_at,
-        **analytics,  # question_analytics, demographic_breakdown, completion_rate, average_response_time_ms
+            **analytics,  # zawiera: analitykę pytań, podział demograficzny, wskaźnik ukończenia i średni czas odpowiedzi
     }
 
 
@@ -315,6 +291,7 @@ async def get_survey_results(
 async def delete_survey(
     survey_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Usuń ankietę (soft delete)
@@ -326,15 +303,9 @@ async def delete_survey(
     Raises:
         404: Ankieta nie istnieje
     """
-    result = await db.execute(
-        select(Survey).where(Survey.id == survey_id, Survey.is_active == True)
-    )
-    survey = result.scalar_one_or_none()
+    survey = await get_survey_for_user(survey_id, current_user, db)
 
-    if not survey:
-        raise HTTPException(status_code=404, detail="Survey not found")
-
-    # Soft delete
+    # Miękkie usunięcie ankiety
     survey.is_active = False
     await db.commit()
 

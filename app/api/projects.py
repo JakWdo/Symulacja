@@ -8,14 +8,15 @@ Ten moduł zawiera CRUD endpoints dla zarządzania projektami:
 - PUT /projects/{id} - Aktualizacja projektu
 - DELETE /projects/{id} - Usunięcie projektu (soft delete)
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 from uuid import UUID
 
 from app.db import get_db
-from app.models import Project
+from app.models import Project, User
+from app.api.dependencies import get_current_user, get_project_for_user
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
 
 router = APIRouter()
@@ -25,6 +26,7 @@ router = APIRouter()
 async def create_project(
     project: ProjectCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Utwórz nowy projekt badawczy
@@ -52,6 +54,7 @@ async def create_project(
         additional_notes=project.additional_notes,
         target_demographics=project.target_demographics,  # JSON z rozkładami
         target_sample_size=project.target_sample_size,
+        owner_id=current_user.id,
     )
 
     db.add(db_project)
@@ -66,6 +69,7 @@ async def list_projects(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Pobierz listę wszystkich aktywnych projektów
@@ -84,7 +88,10 @@ async def list_projects(
     """
     result = await db.execute(
         select(Project)
-        .where(Project.is_active.is_(True))  # Tylko aktywne projekty
+        .where(
+            Project.is_active.is_(True),
+            Project.owner_id == current_user.id,
+        )
         .offset(skip)
         .limit(limit)
     )
@@ -96,6 +103,7 @@ async def list_projects(
 async def get_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Pobierz szczegóły konkretnego projektu
@@ -110,14 +118,7 @@ async def get_project(
     Raises:
         HTTPException 404: Jeśli projekt nie istnieje
     """
-    result = await db.execute(
-        select(Project).where(Project.id == project_id)
-    )
-    project = result.scalar_one_or_none()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
+    project = await get_project_for_user(project_id, current_user, db)
     return project
 
 
@@ -126,6 +127,7 @@ async def update_project(
     project_id: UUID,
     project_update: ProjectUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Zaktualizuj istniejący projekt
@@ -144,13 +146,7 @@ async def update_project(
     Raises:
         HTTPException 404: Jeśli projekt nie istnieje
     """
-    result = await db.execute(
-        select(Project).where(Project.id == project_id)
-    )
-    project = result.scalar_one_or_none()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = await get_project_for_user(project_id, current_user, db, include_inactive=True)
 
     # Zaktualizuj tylko podane pola (partial update)
     if project_update.name is not None:
@@ -178,6 +174,7 @@ async def update_project(
 async def delete_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Usuń projekt (soft delete)
@@ -199,15 +196,9 @@ async def delete_project(
     Raises:
         HTTPException 404: Jeśli projekt nie istnieje
     """
-    result = await db.execute(
-        select(Project).where(Project.id == project_id)
-    )
-    project = result.scalar_one_or_none()
+    project = await get_project_for_user(project_id, current_user, db, include_inactive=True)
 
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    # Soft delete - ustaw is_active na False zamiast usuwać z bazy
+    # Miękkie usunięcie – ustaw is_active na False zamiast usuwać z bazy
     project.is_active = False
     await db.commit()
 

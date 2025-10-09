@@ -1,4 +1,4 @@
-import { Search, LayoutDashboard, FolderOpen, Settings, Command, Users, MessageSquare, BarChart3, Network } from 'lucide-react';
+import { Search, LayoutDashboard, FolderOpen, Settings, Command, Users, MessageSquare, BarChart3, Network, LogOut } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -11,10 +11,11 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Logo } from '@/components/ui/Logo';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AppSidebarProps {
   currentView: string;
@@ -23,6 +24,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
   const { theme } = useTheme();
+  const { user, logout } = useAuth();
 
   return (
     <Sidebar className="bg-sidebar border-r border-sidebar-border w-64 h-screen">
@@ -156,14 +158,22 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
 
         <div className="flex items-center gap-3 mt-6 p-3 rounded-[10px] bg-sidebar-accent border border-sidebar-border min-h-[62px]">
           <Avatar className="w-8 h-8 flex-shrink-0">
-            <AvatarFallback className="text-white text-[14px] bg-primary rounded-full shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]">
-              JD
+            {user?.avatar_url && <AvatarImage src={user.avatar_url} />}
+            <AvatarFallback className="text-white text-[14px] bg-brand-orange rounded-full shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]">
+              {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
-            <p className="text-[14px] leading-5 text-foreground truncate">John Doe</p>
-            <p className="text-[12px] leading-4 text-muted-foreground truncate">Researcher</p>
+            <p className="text-[14px] leading-5 text-foreground truncate">{user?.full_name || 'User'}</p>
+            <p className="text-[12px] leading-4 text-muted-foreground truncate">{user?.role || user?.email || 'Researcher'}</p>
           </div>
+          <button
+            onClick={logout}
+            className="p-1.5 hover:bg-sidebar-accent-foreground/10 rounded transition-colors"
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
       </SidebarFooter>
     </Sidebar>

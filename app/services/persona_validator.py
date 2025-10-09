@@ -53,11 +53,11 @@ class PersonaValidator:
         if not text1 or not text2:
             return 0.0
 
-        # Normalizuj tekst (lowercase, trim whitespace)
+        # Normalizujemy tekst (małe litery, bez zbędnych spacji)
         t1 = text1.lower().strip()
         t2 = text2.lower().strip()
 
-        # Użyj SequenceMatcher do obliczenia similarity ratio
+        # Używamy SequenceMatcher do obliczenia współczynnika podobieństwa
         return difflib.SequenceMatcher(None, t1, t2).ratio()
 
     def check_background_uniqueness(
@@ -76,9 +76,9 @@ class PersonaValidator:
         Returns:
             Słownik z metrykami unikalności:
             {
-                "is_unique": bool,  # True jeśli brak duplikatów
+                "is_unique": bool,  # Wartość True oznacza brak duplikatów
                 "avg_similarity": float,  # Średnie podobieństwo (0-1)
-                "max_similarity": float,  # Maksymalne podobieństwo (0-1)
+                "max_similarity": float,  # Najwyższe odnotowane podobieństwo (0-1)
                 "duplicate_pairs": [  # Lista par podejrzanych o duplikację
                     {
                         "index_1": int,
@@ -102,17 +102,17 @@ class PersonaValidator:
         similarities = []
         duplicate_pairs = []
 
-        # Porównaj każdą parę person (combinations)
+        # Porównujemy każdą parę person (wszystkie kombinacje)
         for i in range(len(personas)):
             for j in range(i + 1, len(personas)):
                 story1 = personas[i].get("background_story", "")
                 story2 = personas[j].get("background_story", "")
 
-                # Oblicz similarity (0-1)
+                # Wyliczamy poziom podobieństwa (0-1)
                 similarity = self.calculate_text_similarity(story1, story2)
                 similarities.append(similarity)
 
-                # Jeśli similarity > threshold, oflaguj jako duplikat
+                # Jeżeli podobieństwo przekracza próg, zaznaczamy duplikat
                 if similarity > self.similarity_threshold:
                     duplicate_pairs.append({
                         "index_1": i,
@@ -162,7 +162,7 @@ class PersonaValidator:
                 "value_diversity": 1.0,
             }
 
-        # Zbierz wartości demograficzne
+        # Zbieramy wartości demograficzne
         ages = [p.get("age") for p in personas if p.get("age")]
         genders = [p.get("gender") for p in personas if p.get("gender")]
         locations = [p.get("location") for p in personas if p.get("location")]
@@ -175,7 +175,7 @@ class PersonaValidator:
                 return 0.0
             return len(set(items)) / len(items)
 
-        # Różnorodność demograficzna = średnia ważona z ratios unikalnych wartości
+        # Różnorodność demograficzna = średnia ważona z udziału unikalnych wartości
         demographic_diversity = (
             calc_unique_ratio(ages) * 0.2 +
             calc_unique_ratio(genders) * 0.2 +
@@ -195,10 +195,10 @@ class PersonaValidator:
                 variance = sum((x - mean) ** 2 for x in values) / len(values)
                 trait_variances.append(variance)
 
-        # Wyższa wariancja = większa różnorodność (normalizuj do max 1.0)
+        # Większa wariancja oznacza większą różnorodność (normalizujemy do maks. 1.0)
         personality_diversity = min(1.0, sum(trait_variances) / len(trait_variances)) if trait_variances else 0.5
 
-        # Różnorodność wartości = ratio unikalnych wartości w całej puli
+        # Różnorodność wartości = udział unikalnych elementów w całej puli
         all_values = []
         for p in personas:
             values = p.get("values", [])

@@ -16,6 +16,53 @@ import type {
   Question,
 } from '@/types';
 
+// === AUTH TYPES ===
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  role?: string;
+  company?: string;
+  avatar_url?: string;
+  plan: string;
+  is_verified: boolean;
+  created_at: string;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+  full_name: string;
+  company?: string;
+  role?: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+// === SETTINGS TYPES ===
+export interface NotificationSettings {
+  email_notifications_enabled: boolean;
+  discussion_complete_notifications: boolean;
+  weekly_reports_enabled: boolean;
+  system_updates_notifications: boolean;
+}
+
+export interface AccountStats {
+  plan: string;
+  projects_count: number;
+  personas_count: number;
+  focus_groups_count: number;
+}
+
 export interface CreateProjectPayload {
   name: string;
   description?: string | null;
@@ -66,6 +113,27 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL
 const api = axios.create({
   baseURL: baseUrl,
 });
+
+// Add auth interceptor - attach JWT token to all requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle 401 errors globally - redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const projectsApi = {
   getAll: async (): Promise<Project[]> => {
@@ -358,5 +426,58 @@ export const graphApi = {
   getEmotionDistribution: async (focusGroupId: string): Promise<any[]> => {
     const { data } = await api.get(`/graph/${focusGroupId}/emotions`);
     return data.emotions || [];
+  },
+};
+
+// === AUTH API ===
+export const authApi = {
+  register: async (data: RegisterData): Promise<TokenResponse> => {
+    const { data: response } = await api.post<TokenResponse>('/auth/register', data);
+    return response;
+  },
+
+  login: async (credentials: LoginCredentials): Promise<TokenResponse> => {
+    const { data } = await api.post<TokenResponse>('/auth/login', credentials);
+    return data;
+  },
+
+  logout: async (): Promise<void> => {
+    await api.post('/auth/logout');
+  },
+
+  me: async (): Promise<User> => {
+    const { data } = await api.get<User>('/auth/me');
+    return data;
+  },
+};
+
+// === SETTINGS API ===
+export const settingsApi = {
+  getProfile: async (): Promise<User> => {
+    const { data } = await api.get<User>('/settings/profile');
+    return data;
+  },
+
+  updateProfile: async (payload: Partial<User>): Promise<{ message: string; user: User }> => {
+    const { data } = await api.put('/settings/profile', payload);
+    return data;
+  },
+
+  getNotifications: async (): Promise<NotificationSettings> => {
+    const { data } = await api.get<NotificationSettings>('/settings/notifications');
+    return data;
+  },
+
+  updateNotifications: async (settings: Partial<NotificationSettings>): Promise<void> => {
+    await api.put('/settings/notifications', settings);
+  },
+
+  getStats: async (): Promise<AccountStats> => {
+    const { data } = await api.get<AccountStats>('/settings/stats');
+    return data;
+  },
+
+  deleteAccount: async (): Promise<void> => {
+    await api.delete('/settings/account');
   },
 };

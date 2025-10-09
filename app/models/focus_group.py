@@ -1,3 +1,10 @@
+"""
+Model ORM dla grup fokusowych
+
+Zawiera definicję tabeli `focus_groups`, używanej do zapisywania
+symulowanych dyskusji (skład, pytania, status wykonania).
+"""
+
 from __future__ import annotations
 
 import uuid

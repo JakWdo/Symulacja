@@ -1,5 +1,5 @@
 """
-Pakiet testów dla platformy Market Research SaaS
+Pakiet testów dla sight
 
 Ten katalog zawiera automatyczne testy jednostkowe i integracyjne dla aplikacji.
 Testy sprawdzają poprawność działania generatorów person, API, serwisów i innych

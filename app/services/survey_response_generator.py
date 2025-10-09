@@ -44,12 +44,12 @@ class SurveyResponseGenerator:
         """Inicjalizuj serwis z LangChain LLM"""
         self.settings = settings
 
-        # Initialize LangChain Gemini LLM
+        # Inicjalizujemy model Gemini w LangChain
         self.llm = ChatGoogleGenerativeAI(
             model=settings.DEFAULT_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=settings.TEMPERATURE,
-            max_tokens=1024,  # Shorter responses for surveys
+            max_tokens=1024,  # Krótsze odpowiedzi na potrzeby ankiet
         )
 
     async def generate_responses(
@@ -77,27 +77,27 @@ class SurveyResponseGenerator:
         logger.info(f"📊 Starting survey {survey_id}")
         start_time = time.time()
 
-        # Load survey
+        # Pobieramy ankietę z bazy
         result = await db.execute(
             select(Survey).where(Survey.id == survey_id)
         )
         survey = result.scalar_one()
         logger.info(f"📋 Survey loaded: {survey.title}, questions: {len(survey.questions)}")
 
-        # Update status
+        # Aktualizujemy status ankiety
         survey.status = "running"
         survey.started_at = datetime.now(timezone.utc)
         await db.commit()
 
         try:
-            # Load personas from project
+            # Pobieramy persony przypisane do projektu
             personas = await self._load_project_personas(db, survey.project_id)
             logger.info(f"👥 Loaded {len(personas)} personas from project")
 
             if len(personas) == 0:
                 raise ValueError("Project has no personas. Generate personas first.")
 
-            # Generate responses for all personas concurrently
+            # Generujemy odpowiedzi równolegle dla wszystkich person
             logger.info(f"🔄 Generating responses for {len(personas)} personas...")
             response_times = []
 
@@ -107,19 +107,19 @@ class SurveyResponseGenerator:
             ]
             persona_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            # Collect response times (excluding errors)
+            # Zbieramy czasy odpowiedzi (pomijając błędy)
             for result in persona_results:
                 if isinstance(result, dict) and "response_time_ms" in result:
                     response_times.append(result["response_time_ms"])
 
-            # Calculate metrics
+            # Wyliczamy metryki wydajności
             total_time = (time.time() - start_time) * 1000
             avg_response_time = (
                 sum(response_times) / len(response_times) if response_times else 0
             )
             actual_responses = len([r for r in persona_results if not isinstance(r, Exception)])
 
-            # Update survey
+            # Zapisujemy metryki w rekordzie ankiety
             survey.status = "completed"
             survey.completed_at = datetime.now(timezone.utc)
             survey.total_execution_time_ms = int(total_time)
@@ -180,14 +180,14 @@ class SurveyResponseGenerator:
         """
         start_time = time.time()
 
-        # Generate answers for all questions
+        # Generujemy odpowiedzi dla wszystkich pytań ankiety
         answers = {}
 
         for question in questions:
             answer = await self._generate_answer_for_question(persona, question)
             answers[question["id"]] = answer
 
-        # Save survey response to database
+        # Zapisujemy odpowiedzi ankietowe w bazie danych
         async with AsyncSessionLocal() as session:
             survey_response = SurveyResponse(
                 survey_id=survey_id if isinstance(survey_id, UUID) else UUID(str(survey_id)),
@@ -231,10 +231,10 @@ class SurveyResponseGenerator:
         question_title = question["title"]
         question_desc = question.get("description", "")
 
-        # Build persona context
+        # Budujemy kontekst persony
         persona_context = self._build_persona_context(persona)
 
-        # Create type-specific prompt
+        # Tworzymy prompt zależny od typu pytania
         if question_type == "single-choice":
             return await self._answer_single_choice(
                 persona_context, question_title, question_desc, question["options"]
@@ -289,13 +289,13 @@ Choose the ONE option this persona would most likely select:""")
         response = await chain.ainvoke({})
         answer = response.content.strip()
 
-        # Validate against options (fuzzy match)
+        # Sprawdzamy zgodność z listą opcji (dopasowanie przybliżone)
         answer_lower = answer.lower()
         for option in options:
             if option.lower() in answer_lower or answer_lower in option.lower():
                 return option
 
-        # Fallback to first option if no match
+        # Jeśli nie ma dopasowania, wybieramy pierwszą opcję
         return options[0]
 
     async def _answer_multiple_choice(
@@ -320,7 +320,7 @@ Choose the options this persona would select (comma-separated):""")
         response = await chain.ainvoke({})
         answer = response.content.strip()
 
-        # Parse comma-separated answers
+        # Parsujemy odpowiedzi rozdzielone przecinkami
         selected = []
         answer_parts = [a.strip() for a in answer.split(',')]
 
@@ -331,7 +331,7 @@ Choose the options this persona would select (comma-separated):""")
                     if option not in selected:
                         selected.append(option)
 
-        # Return at least one option
+        # Gwarantujemy zwrot co najmniej jednej opcji
         return selected if selected else [options[0]]
 
     async def _answer_rating_scale(
@@ -353,13 +353,13 @@ Rate from {scale_min} (lowest) to {scale_max} (highest):""")
         response = await chain.ainvoke({})
         answer = response.content.strip()
 
-        # Extract number
+        # Wyciągamy wartość liczbową z odpowiedzi
         try:
             rating = int(''.join(filter(str.isdigit, answer)) or scale_min)
-            # Clamp to range
+            # Ograniczamy wynik do dozwolonego zakresu
             return max(scale_min, min(scale_max, rating))
         except:
-            # Fallback to middle value
+            # W razie problemów bierzemy wartość środkową
             return (scale_min + scale_max) // 2
 
     async def _answer_open_text(
@@ -449,7 +449,7 @@ Your response:""")
             - completion_rate: Procent person, które odpowiedziały
             - average_response_time_ms: Średni czas odpowiedzi
         """
-        # Load survey and responses
+        # Wczytujemy ankietę i odpowiedzi
         survey_result = await db.execute(
             select(Survey).where(Survey.id == survey_id)
         )
@@ -460,14 +460,14 @@ Your response:""")
         )
         responses = responses_result.scalars().all()
 
-        # Load personas for demographic breakdown
+        # Wczytujemy persony do analizy demograficznej
         persona_ids = [r.persona_id for r in responses]
         personas_result = await db.execute(
             select(Persona).where(Persona.id.in_(persona_ids))
         )
         personas = {p.id: p for p in personas_result.scalars().all()}
 
-        # Calculate analytics for each question
+        # Obliczamy statystyki dla każdego pytania
         question_analytics = []
 
         for question in survey.questions:
@@ -475,9 +475,9 @@ Your response:""")
             q_type = question["type"]
             q_title = question["title"]
 
-            # Collect answers for this question
+            # Zbieramy odpowiedzi dla tego pytania
             answers = [r.answers.get(q_id) for r in responses if q_id in r.answers]
-            answers = [a for a in answers if a is not None]  # Filter None values
+            answers = [a for a in answers if a is not None]  # Usuwamy wartości None
 
             stats = self._calculate_question_stats(q_type, answers)
 
@@ -491,12 +491,12 @@ Your response:""")
                 )
             )
 
-        # Demographic breakdown
+        # Przygotowujemy rozbicie demograficzne
         demographic_breakdown = self._calculate_demographic_breakdown(
             responses, personas, survey.questions
         )
 
-        # Overall metrics
+        # Zestawiamy metryki globalne
         total_personas = len(personas)
         completion_rate = (len(responses) / total_personas * 100) if total_personas > 0 else 0
 
@@ -515,7 +515,7 @@ Your response:""")
     def _calculate_question_stats(self, question_type: str, answers: List[Any]) -> Dict[str, Any]:
         """Oblicz statystyki dla pytania na podstawie typu"""
         if question_type == "single-choice":
-            # Count occurrences
+            # Zliczamy wystąpienia
             counter = Counter(answers)
             return {
                 "distribution": dict(counter),
@@ -523,7 +523,7 @@ Your response:""")
             }
 
         elif question_type == "multiple-choice":
-            # Flatten lists and count
+            # Spłaszczamy listy i zliczamy
             all_options = [opt for answer_list in answers for opt in answer_list]
             counter = Counter(all_options)
             return {
@@ -532,7 +532,7 @@ Your response:""")
             }
 
         elif question_type == "rating-scale":
-            # Numeric statistics
+            # Statystyki liczbowe
             numeric_answers = [int(a) for a in answers if isinstance(a, (int, float, str)) and str(a).isdigit()]
             if numeric_answers:
                 return {
@@ -547,13 +547,13 @@ Your response:""")
             return {}
 
         elif question_type == "open-text":
-            # Text statistics
+            # Statystyki tekstowe
             texts = [str(a) for a in answers]
             lengths = [len(t.split()) for t in texts]
             return {
                 "total_responses": len(texts),
                 "avg_word_count": sum(lengths) / len(lengths) if lengths else 0,
-                "sample_responses": texts[:5],  # First 5 responses as sample
+                "sample_responses": texts[:5],  # Pierwsze 5 odpowiedzi jako próbka
             }
 
         return {}
@@ -562,7 +562,7 @@ Your response:""")
         self, responses: List[SurveyResponse], personas: Dict[UUID, Persona], questions: List[Dict]
     ) -> Dict[str, Dict[str, Any]]:
         """Rozłóż odpowiedzi według demografii"""
-        # Group by age_group, gender, education, income
+        # Grupujemy według wieku, płci, wykształcenia i dochodu
         breakdown = {
             "by_age": {},
             "by_gender": {},
@@ -575,25 +575,25 @@ Your response:""")
             if not persona:
                 continue
 
-            # Age group
+            # Przedział wiekowy
             age_group = f"{(persona.age // 10) * 10}-{(persona.age // 10) * 10 + 9}"
             if age_group not in breakdown["by_age"]:
                 breakdown["by_age"][age_group] = {"count": 0}
             breakdown["by_age"][age_group]["count"] += 1
 
-            # Gender
+            # Płeć
             gender = persona.gender
             if gender not in breakdown["by_gender"]:
                 breakdown["by_gender"][gender] = {"count": 0}
             breakdown["by_gender"][gender]["count"] += 1
 
-            # Education
+            # Wykształcenie
             education = persona.education_level or "Unknown"
             if education not in breakdown["by_education"]:
                 breakdown["by_education"][education] = {"count": 0}
             breakdown["by_education"][education]["count"] += 1
 
-            # Income
+            # Dochód
             income = persona.income_bracket or "Unknown"
             if income not in breakdown["by_income"]:
                 breakdown["by_income"][income] = {"count": 0}

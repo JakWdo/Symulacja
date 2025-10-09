@@ -62,28 +62,28 @@ class PersonaGeneratorLangChain:
         self.settings = settings
         self._rng = np.random.default_rng(self.settings.RANDOM_SEED)
 
-        # Initialize LangChain Gemini LLM with higher temperature for diversity
+        # Inicjalizujemy model Gemini z wyższą temperaturą dla większej różnorodności
         persona_model = getattr(settings, "PERSONA_GENERATION_MODEL", settings.DEFAULT_MODEL)
 
         self.llm = ChatGoogleGenerativeAI(
             model=persona_model,
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.9,  # Increased from default for more creative/diverse personas
+            temperature=0.9,  # Podniesiona wartość dla bardziej kreatywnych, zróżnicowanych person
             max_tokens=settings.MAX_TOKENS,
             top_p=0.95,
             top_k=40,
         )
 
-        # Setup output parser for structured JSON responses
+        # Konfigurujemy parser JSON, aby wymusić strukturalną odpowiedź
         self.json_parser = JsonOutputParser()
 
-        # Create prompt template for persona generation
+        # Budujemy szablon promptu do generowania person
         self.persona_prompt = ChatPromptTemplate.from_messages([
             ("system", "You are a market research expert creating realistic synthetic personas. Always respond with valid JSON."),
             ("user", "{prompt}")
         ])
 
-        # Create LangChain chain for persona generation
+        # Składamy łańcuch LangChain (prompt -> LLM -> parser)
         self.persona_chain = (
             self.persona_prompt
             | self.llm
@@ -271,7 +271,7 @@ class PersonaGeneratorLangChain:
 
         prompt_text = self._create_persona_prompt(demographic_profile, psychological_profile)
 
-        # Use LangChain chain to generate structured response
+        # Używamy łańcucha LangChain do wygenerowania strukturalnej odpowiedzi
         import logging
         logger = logging.getLogger(__name__)
 
@@ -324,7 +324,7 @@ class PersonaGeneratorLangChain:
         # Generuj unikalny seed dla tej persony (do różnicowania)
         persona_seed = self._rng.integers(1000, 9999)
 
-        # Trait interpretation guidance
+        # Wskazówki do interpretacji cech osobowości
         openness_val = psychological.get('openness', 0.5)
         conscientiousness_val = psychological.get('conscientiousness', 0.5)
         extraversion_val = psychological.get('extraversion', 0.5)
@@ -449,7 +449,7 @@ Generate JSON ONLY (no markdown, no extra text):
             {
                 "age": {"p_value": float, "chi_square_statistic": float, ...},
                 "gender": {...},
-                "overall_valid": bool  # True jeśli wszystkie p > 0.05
+                "overall_valid": bool  # Wartość True oznacza, że wszystkie p > 0.05
             }
         """
         results = {}

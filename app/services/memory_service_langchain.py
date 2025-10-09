@@ -33,7 +33,7 @@ class MemoryServiceLangChain:
         """Inicjalizuj serwis pamięci z embeddings"""
         self.settings = settings
 
-        # Initialize LangChain Gemini embeddings
+        # Inicjalizujemy embeddingi LangChain Gemini
         self.embeddings = GoogleGenerativeAIEmbeddings(
             model="models/embedding-001",
             google_api_key=settings.GOOGLE_API_KEY
@@ -79,11 +79,11 @@ class MemoryServiceLangChain:
         last_event = result.scalar_one_or_none()
         sequence_number = (last_event.sequence_number + 1) if last_event else 1
 
-        # Wygeneruj embedding używając Google Gemini (do semantic search później)
+        # Wygeneruj embedding używając Google Gemini (na potrzeby późniejszego wyszukiwania semantycznego)
         event_text = self._event_to_text(event_type, event_data)
         embedding = await self._generate_embedding(event_text)
 
-        # Utwórz event (niemodyfikowalny - append-only log)
+        # Utwórz event (niemodyfikowalny – log tylko do dopisywania)
         event = PersonaEvent(
             persona_id=persona_id,
             focus_group_id=focus_group_id,
@@ -135,8 +135,8 @@ class MemoryServiceLangChain:
                     "event_type": str,
                     "event_data": dict,
                     "timestamp": str,
-                    "relevance_score": float,  # similarity * decay_factor
-                    "similarity": float,       # czysty cosine similarity
+                    "relevance_score": float,  # podobieństwo * współczynnik zaniku
+                    "similarity": float,       # czysty cosinusowy wynik podobieństwa
                     "age_days": float          # wiek eventu w dniach
                 },
                 ...
@@ -157,7 +157,7 @@ class MemoryServiceLangChain:
         if not events:
             return []
 
-        # Oblicz score dla każdego eventu
+        # Oblicz wynik dopasowania dla każdego eventu
         scored_events = []
         current_time = datetime.now(timezone.utc)
 
@@ -171,7 +171,7 @@ class MemoryServiceLangChain:
             # Zastosuj temporal decay jeśli włączony
             if time_decay:
                 time_diff = (current_time - event.timestamp).total_seconds()
-                # Decay factor: exp(-t/30dni) - po 30 dniach score spada do ~37%
+                # Współczynnik zaniku: exp(-t/30 dni) – po 30 dniach wynik maleje do ~37%
                 decay_factor = np.exp(-time_diff / (30 * 24 * 3600))
                 score = similarity * decay_factor
             else:
@@ -186,7 +186,7 @@ class MemoryServiceLangChain:
                 }
             )
 
-        # Sortuj po score i weź top-k
+        # Posortuj po wyniku i wybierz top-k
         scored_events.sort(key=lambda x: x["score"], reverse=True)
         top_events = scored_events[:top_k]
 

@@ -47,7 +47,7 @@ EMOTION_KEYWORDS = {
 }
 
 
-# Pydantic models for LLM structured output
+# Modele Pydantic opisujące strukturę odpowiedzi LLM
 class ConceptExtraction(BaseModel):
     """Strukturalizowane wyniki ekstrakcji konceptów przez LLM"""
     concepts: List[str] = Field(description="Lista kluczowych konceptów/tematów (max 5)")
@@ -67,7 +67,7 @@ class GraphService:
     - Relacje: MENTIONS, AGREES_WITH, DISAGREES_WITH, FEELS
     """
 
-    # In-memory caches used when Neo4j is unavailable
+    # Pamięci podręczne w RAM używane, gdy Neo4j jest niedostępny
     _memory_graph_cache: Dict[str, Dict[str, Any]] = {}
     _memory_stats_cache: Dict[str, Dict[str, Any]] = {}
     _memory_metrics_cache: Dict[str, Dict[str, Any]] = {}
@@ -82,15 +82,15 @@ class GraphService:
 
         if self.settings.GOOGLE_API_KEY:
             try:
-                # Initialize LLM for concept extraction
+                # Inicjalizujemy model LLM do ekstrakcji konceptów
                 self.llm = ChatGoogleGenerativeAI(
-                    model=settings.PERSONA_GENERATION_MODEL,  # Use Flash for speed
+                    model=settings.PERSONA_GENERATION_MODEL,  # Szybszy wariant Flash
                     google_api_key=settings.GOOGLE_API_KEY,
-                    temperature=0.3,  # Lower temperature for consistent extraction
+                    temperature=0.3,  # Niższa temperatura dla spójnego wydobycia
                     max_tokens=500,
                 )
 
-                # Create extraction prompt template
+                # Tworzymy szablon promptu do ekstrakcji
                 self.extraction_prompt = ChatPromptTemplate.from_messages([
                     ("system", """Jesteś ekspertem od analizy tekstu. Wyekstraktuj z podanej wypowiedzi:
 1. Kluczowe koncepty/tematy (max 5) - rzeczowniki lub frazy opisujące główne zagadnienia
@@ -122,7 +122,7 @@ Emocje w języku angielskim."""),
                 "GOOGLE_API_KEY not configured. Graph analysis will use keyword-based extraction."
             )
 
-        # JSON output parser
+        # Parser JSON odpowiedzialny za walidację struktury
         self.json_parser = JsonOutputParser(pydantic_object=ConceptExtraction)
 
     async def connect(self):
@@ -133,7 +133,7 @@ Emocje w języku angielskim."""),
                     self.settings.NEO4J_URI,
                     auth=(self.settings.NEO4J_USER, self.settings.NEO4J_PASSWORD)
                 )
-                # Verify connection works
+                # Sprawdzamy, czy połączenie działa
                 async with self.driver.session() as session:
                     await session.run("RETURN 1")
                 logger.info(f"Connected to Neo4j at {self.settings.NEO4J_URI}")
@@ -941,11 +941,11 @@ Emocje w języku angielskim."""),
             return self._fallback_concept_extraction(text)
 
         try:
-            # Create chain: prompt -> LLM -> JSON parser
+            # Tworzymy łańcuch: prompt -> LLM -> parser JSON
             chain = self.extraction_prompt | self.llm | self.json_parser
             result = await chain.ainvoke({"text": text})
 
-            # Validate and return
+            # Walidujemy wynik i zwracamy strukturę
             return ConceptExtraction(**result)
 
         except Exception as e:
@@ -1094,7 +1094,7 @@ Emocje w języku angielskim."""),
                 detected.append(emotion)
 
         if detected:
-            # Zachowaj kolejność wykrycia i usuń duplikaty
+            # Zachowujemy kolejność wykrycia i usuwamy duplikaty
             seen = set()
             unique = []
             for emotion in detected:
@@ -1147,7 +1147,7 @@ Emocje w języku angielskim."""),
         if not record or record["shared_concepts"] == 0:
             return 0.0
 
-        # Similarity = (shared concepts / 10) - sentiment difference
+        # Wzór: podobieństwo = (liczba wspólnych konceptów / 10) - różnica sentymentów
         similarity = (record["shared_concepts"] / 10.0) - record["sentiment_diff"]
         return max(-1.0, min(1.0, similarity))
 

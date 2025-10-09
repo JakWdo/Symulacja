@@ -20,7 +20,12 @@ from typing import List
 from uuid import UUID
 
 from app.db import AsyncSessionLocal, get_db
-from app.models import FocusGroup, Project
+from app.models import FocusGroup, User
+from app.api.dependencies import (
+    get_current_user,
+    get_project_for_user,
+    get_focus_group_for_user,
+)
 from app.schemas.focus_group import (
     FocusGroupCreate,
     FocusGroupResponse,
@@ -40,17 +45,11 @@ async def create_focus_group(
     project_id: UUID,
     focus_group: FocusGroupCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Create a new focus group"""
 
-    # Verify project exists
-    result = await db.execute(
-        select(Project).where(Project.id == project_id)
-    )
-    project = result.scalar_one_or_none()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    await get_project_for_user(project_id, current_user, db)
 
     db_focus_group = FocusGroup(
         project_id=project_id,
@@ -74,26 +73,20 @@ async def update_focus_group(
     focus_group_id: UUID,
     focus_group_update: FocusGroupCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Update a focus group (for draft editing)"""
 
-    # Verify focus group exists
-    result = await db.execute(
-        select(FocusGroup).where(FocusGroup.id == focus_group_id)
-    )
-    focus_group = result.scalar_one_or_none()
+    focus_group = await get_focus_group_for_user(focus_group_id, current_user, db)
 
-    if not focus_group:
-        raise HTTPException(status_code=404, detail="Focus group not found")
-
-    # Only allow updates for pending focus groups
+    # Aktualizacje są dozwolone tylko dla grup w statusie "pending"
     if focus_group.status != "pending":
         raise HTTPException(
             status_code=400,
             detail="Can only update pending focus groups"
         )
 
-    # Update fields
+    # Uaktualnij pola przekazane w żądaniu
     focus_group.name = focus_group_update.name
     focus_group.description = focus_group_update.description
     focus_group.persona_ids = focus_group_update.persona_ids
@@ -112,24 +105,18 @@ async def run_focus_group(
     focus_group_id: UUID,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Execute a focus group simulation"""
     import logging
     logger = logging.getLogger(__name__)
 
-    # Verify focus group exists
-    result = await db.execute(
-        select(FocusGroup).where(FocusGroup.id == focus_group_id)
-    )
-    focus_group = result.scalar_one_or_none()
-
-    if not focus_group:
-        raise HTTPException(status_code=404, detail="Focus group not found")
+    focus_group = await get_focus_group_for_user(focus_group_id, current_user, db)
 
     if focus_group.status == "running":
         raise HTTPException(status_code=400, detail="Focus group is already running")
 
-    # Validate minimum requirements before running
+    # Sprawdź minimalne wymagania przed uruchomieniem symulacji
     if len(focus_group.persona_ids) < 2:
         raise HTTPException(
             status_code=400,
@@ -142,11 +129,11 @@ async def run_focus_group(
             detail="Focus group must have at least 1 question"
         )
 
-    # Schedule background task and keep reference
+    # Rejestrujemy zadanie w tle i zachowujemy referencję
     logger.info(f"🎬 Scheduling focus group task: {focus_group_id}")
     task = asyncio.create_task(_run_focus_group_task(focus_group_id))
 
-    # Keep task reference to prevent garbage collection
+    # Zapewniamy, że garbage collector nie usunie zadania
     _running_tasks.add(task)
     task.add_done_callback(_running_tasks.discard)
 
@@ -173,7 +160,7 @@ async def _run_focus_group_task(focus_group_id: UUID):
             result = await service.run_focus_group(db, str(focus_group_id))
             logger.info(f"✅ Focus group completed: {result.get('status')}")
 
-            # Automatically build knowledge graph after completion
+    # Po zakończeniu można samoczynnie budować graf wiedzy
             if result.get('status') == 'completed':
                 logger.info(f"🔨 Building knowledge graph for focus group {focus_group_id}...")
                 graph_service = GraphService()
@@ -192,15 +179,10 @@ async def _run_focus_group_task(focus_group_id: UUID):
 async def get_focus_group(
     focus_group_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Get focus group results"""
-    result = await db.execute(
-        select(FocusGroup).where(FocusGroup.id == focus_group_id)
-    )
-    focus_group = result.scalar_one_or_none()
-
-    if not focus_group:
-        raise HTTPException(status_code=404, detail="Focus group not found")
+    focus_group = await get_focus_group_for_user(focus_group_id, current_user, db)
 
     return {
         "id": focus_group.id,
@@ -229,8 +211,10 @@ async def list_focus_groups(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """List focus groups for a project"""
+    await get_project_for_user(project_id, current_user, db)
     result = await db.execute(
         select(FocusGroup)
         .where(FocusGroup.project_id == project_id)
@@ -245,15 +229,10 @@ async def list_focus_groups(
 async def delete_focus_group(
     focus_group_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Delete a focus group (hard delete)"""
-    result = await db.execute(
-        select(FocusGroup).where(FocusGroup.id == focus_group_id)
-    )
-    focus_group = result.scalar_one_or_none()
-
-    if not focus_group:
-        raise HTTPException(status_code=404, detail="Focus group not found")
+    focus_group = await get_focus_group_for_user(focus_group_id, current_user, db)
 
     await db.delete(focus_group)
     await db.commit()

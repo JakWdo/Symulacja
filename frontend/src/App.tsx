@@ -19,6 +19,9 @@ import { PersonaPanel } from '@/components/panels/PersonaPanel';
 import { FocusGroupPanel } from '@/components/panels/FocusGroupPanel';
 import { AnalysisPanel } from '@/components/panels/AnalysisPanel';
 import { ToastContainer } from '@/components/ui/Toast';
+import { AppLoader } from '@/components/AppLoader';
+import { Login } from '@/components/auth/Login';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppStore } from '@/store/appStore';
 import { personasApi, focusGroupsApi } from '@/lib/api';
 import { useTheme } from '@/hooks/use-theme';
@@ -27,6 +30,7 @@ import type { Project, FocusGroup, Survey } from '@/types';
 export default function App() {
   // Initialize theme
   useTheme();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const {
     selectedProject,
     setPersonas,
@@ -192,6 +196,17 @@ export default function App() {
     }
   };
 
+  // Show loading screen while checking auth
+  if (authLoading) {
+    return <AppLoader message="Loading your workspace..." />;
+  }
+
+  // Show login if not authenticated
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  // Show main app if authenticated
   return (
     <div className="h-screen bg-background text-foreground">
       <SidebarProvider className="h-full">

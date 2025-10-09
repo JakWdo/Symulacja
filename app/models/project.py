@@ -1,8 +1,15 @@
+"""
+Model ORM dla projektów badawczych
+
+Tabela `projects` opisuje główny kontener danych użytkownika:
+cele badawcze, założenia demograficzne oraz powiązane persony i grupy fokusowe.
+"""
+
 from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -41,6 +48,7 @@ class Project(Base):
     __tablename__ = "projects"
 
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     target_audience = Column(Text, nullable=True)
@@ -59,6 +67,7 @@ class Project(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     # Relacje (cascade="all, delete-orphan" = usunięcie projektu usuwa persony i grupy)
+    owner = relationship("User", back_populates="projects")
     personas = relationship(
         "Persona", back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )

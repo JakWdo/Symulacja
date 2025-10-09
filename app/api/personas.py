@@ -29,12 +29,13 @@ from typing import Dict, List, Any, Optional, Tuple
 from uuid import UUID
 from functools import lru_cache
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import AsyncSessionLocal, get_db
-from app.models import Project, Persona
+from app.models import Project, Persona, User
+from app.api.dependencies import get_current_user, get_project_for_user, get_persona_for_user
 from app.schemas.persona import (
     PersonaResponse,
     PersonaGenerateRequest,
@@ -299,6 +300,7 @@ async def generate_personas(
     request: PersonaGenerateRequest,
     _background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),  # Potrzebne do weryfikacji projektu przed uruchomieniem zadania
+    current_user: User = Depends(get_current_user),
 ):
     """
     Rozpocznij generowanie syntetycznych person dla projektu (w tle)
@@ -329,9 +331,7 @@ async def generate_personas(
         HTTPException 404: Jeśli projekt nie istnieje
     """
     # Weryfikacja czy projekt istnieje (przed dodaniem do kolejki)
-    project = await db.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    await get_project_for_user(project_id, current_user, db)
 
     logger.info(
         "Persona generation request received",
@@ -358,7 +358,7 @@ async def generate_personas(
         advanced_payload,
     ))
 
-    # Keep task reference to prevent garbage collection
+    # Zachowujemy referencję do zadania, aby GC go nie usunął
     _running_tasks.add(task)
     task.add_done_callback(_running_tasks.discard)
 
@@ -497,7 +497,7 @@ async def _generate_personas_task(
 
                     prompt, personality_json = result
 
-                    # Robust JSON parsing with fallback
+                    # Odporne parsowanie JSON-a z mechanizmem awaryjnym
                     personality: Dict[str, Any] = {}
                     try:
                         if isinstance(personality_json, str):
@@ -531,7 +531,7 @@ async def _generate_personas_task(
                     demographic = demographic_profiles[idx]
                     psychological = psychological_profiles[idx]
 
-                    # Parse age from age_group
+                    # Wyliczamy wiek na podstawie przedziału wiekowego
                     age_group = demographic.get("age_group", "25-34")
                     age = random.randint(25, 34)
                     if "-" in age_group:
@@ -554,7 +554,7 @@ async def _generate_personas_task(
                         DEFAULT_OCCUPATIONS
                     )
 
-                    # Smart fallbacks for missing fields
+                    # Sprytne wartości domyślne dla brakujących pól
                     full_name = personality.get("full_name")
                     if not full_name or full_name == "N/A":
                         inferred_name = _infer_full_name(personality.get("background_story"))
@@ -670,8 +670,10 @@ async def list_personas(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """List personas for a project"""
+    await get_project_for_user(project_id, current_user, db)
     result = await db.execute(
         select(Persona)
         .where(Persona.project_id == project_id, Persona.is_active.is_(True))
@@ -686,16 +688,10 @@ async def list_personas(
 async def get_persona(
     persona_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Get a specific persona"""
-    result = await db.execute(
-        select(Persona).where(Persona.id == persona_id)
-    )
-    persona = result.scalar_one_or_none()
-
-    if not persona:
-        raise HTTPException(status_code=404, detail="Persona not found")
-
+    persona = await get_persona_for_user(persona_id, current_user, db)
     return persona
 
 
@@ -703,17 +699,12 @@ async def get_persona(
 async def delete_persona(
     persona_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Soft delete a persona"""
-    result = await db.execute(
-        select(Persona).where(Persona.id == persona_id)
-    )
-    persona = result.scalar_one_or_none()
+    persona = await get_persona_for_user(persona_id, current_user, db)
 
-    if not persona:
-        raise HTTPException(status_code=404, detail="Persona not found")
-
-    # Soft delete
+    # Miękkie usunięcie rekordu
     persona.is_active = False
     await db.commit()
 

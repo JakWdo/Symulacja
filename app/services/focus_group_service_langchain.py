@@ -41,13 +41,13 @@ class FocusGroupServiceLangChain:
         self.settings = settings
         self.memory_service = MemoryServiceLangChain()
 
-        # Initialize LangChain Gemini LLM
-        # Note: gemini-2.5 models use tokens for reasoning, so we need higher limit
+        # Inicjalizujemy model Gemini w LangChain
+        # Uwaga: modele gemini-2.5 zużywają więcej tokenów na wnioskowanie, więc podnosimy limit
         self.llm = ChatGoogleGenerativeAI(
             model=settings.DEFAULT_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=settings.TEMPERATURE,
-            max_tokens=2048,  # Increased for gemini-2.5 reasoning tokens
+            max_tokens=2048,  # Większa liczba tokenów na potrzeby rozumowania gemini-2.5
         )
 
     async def run_focus_group(
@@ -85,24 +85,24 @@ class FocusGroupServiceLangChain:
         logger.info(f"🚀 Starting focus group {focus_group_id}")
         start_time = time.time()
 
-        # Load focus group
+        # Pobieramy grupę fokusową z bazy danych
         result = await db.execute(
             select(FocusGroup).where(FocusGroup.id == focus_group_id)
         )
         focus_group = result.scalar_one()
         logger.info(f"📋 Focus group loaded: {focus_group.name}, questions: {len(focus_group.questions)}")
 
-        # Update status
+        # Aktualizujemy status grupy
         focus_group.status = "running"
         focus_group.started_at = datetime.now(timezone.utc)
         await db.commit()
 
         try:
-            # Load personas
+            # Pobieramy persony
             personas = await self._load_personas(db, focus_group.persona_ids)
             logger.info(f"👥 Loaded {len(personas)} personas")
 
-            # Process each question
+            # Przetwarzamy każde pytanie z listy
             all_responses = []
             response_times = []
 
@@ -113,7 +113,7 @@ class FocusGroupServiceLangChain:
                 print(f"❓ PROCESSING QUESTION: {question} for {len(personas)} personas")
                 logger.info(f"Processing question: {question} for {len(personas)} personas")
 
-                # Get responses from all personas concurrently
+                # Równolegle pobieramy odpowiedzi od wszystkich person
                 responses = await self._get_concurrent_responses(
                     personas, question, focus_group_id
                 )
@@ -128,11 +128,11 @@ class FocusGroupServiceLangChain:
                     {"question": question, "responses": responses, "time_ms": question_time}
                 )
 
-            # Calculate metrics
+            # Wyliczamy metryki wykonywania
             total_time = (time.time() - start_time) * 1000
             avg_response_time = sum(response_times) / len(response_times)
 
-            # Update focus group
+            # Aktualizujemy rekord grupy fokusowej
             focus_group.status = "completed"
             focus_group.completed_at = datetime.now(timezone.utc)
             focus_group.total_execution_time_ms = int(total_time)
@@ -140,7 +140,7 @@ class FocusGroupServiceLangChain:
 
             await db.commit()
 
-            # Automatically build knowledge graph after completion
+            # Po zakończeniu automatycznie budujemy graf wiedzy
             logger.info(f"🧠 Starting automatic graph build for focus group {focus_group_id}")
             try:
                 from app.services.graph_service import GraphService
@@ -149,7 +149,7 @@ class FocusGroupServiceLangChain:
                 await graph_service.close()
                 logger.info(f"✅ Graph built successfully: {graph_stats}")
             except Exception as graph_error:
-                # Don't fail the entire focus group if graph building fails
+                # Błąd przy budowie grafu nie powinien zatrzymać całego procesu
                 logger.error(f"⚠️ Graph build failed (non-critical): {graph_error}", exc_info=True)
 
             return {
@@ -172,12 +172,12 @@ class FocusGroupServiceLangChain:
             )
 
             focus_group.status = "failed"
-            # Store first 500 chars of error for debugging
+            # Zapisujemy pierwsze 500 znaków błędu do debugowania
             if hasattr(focus_group, 'error_message'):
                 focus_group.error_message = str(e)[:500]
             await db.commit()
 
-            # Don't re-raise - this is background task, just log
+            # Nie propagujemy wyjątku dalej – zadanie działa w tle, wystarczy log
             return {
                 "focus_group_id": str(focus_group_id),
                 "status": "failed",
@@ -283,7 +283,7 @@ class FocusGroupServiceLangChain:
                 "context_used": int  # ile eventów użyto jako kontekst
             }
         """
-        # Pobierz relevantny kontekst z pamięci (poprzednie interakcje)
+        # Pobieramy istotny kontekst z pamięci (poprzednie interakcje)
         focus_group_uuid = focus_group_id if isinstance(focus_group_id, UUID) else UUID(str(focus_group_id))
 
         async with AsyncSessionLocal() as session:
@@ -376,7 +376,7 @@ IMPORTANT INSTRUCTION:
         return fallback
 
     async def _invoke_llm(self, prompt_text: str) -> str:
-        """Call the underlying LLM and return stripped text content."""
+        """Wywołaj model LLM i zwróć oczyszczony tekst odpowiedzi."""
         logger = logging.getLogger(__name__)
         try:
             result = await self.llm.ainvoke(prompt_text)
@@ -386,7 +386,7 @@ IMPORTANT INSTRUCTION:
 
         content = getattr(result, "content", "")
         if isinstance(content, list):
-            # Join text parts if LangChain returns segmented content
+            # Scal tekstowe fragmenty, jeśli LangChain zwraca je w częściach
             content = " ".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in content)
 
         text = content.strip() if isinstance(content, str) else ""
@@ -395,7 +395,7 @@ IMPORTANT INSTRUCTION:
         return text
 
     def _fallback_response(self, persona: Persona, question: str) -> str:
-        """Return a crafted fallback answer when the LLM provides nothing."""
+        """Zwróć przygotowaną odpowiedź zapasową, gdy LLM nic nie wygeneruje."""
         lowered_question = question.lower()
         if "pizza" in lowered_question:
             return self._pizza_fallback_response(persona)
@@ -458,22 +458,22 @@ IMPORTANT INSTRUCTION:
         Args:
             persona: Obiekt persony
             question: Pytanie do odpowiedzi
-            context: Lista relevantnych poprzednich interakcji (z event sourcing)
+            context: Lista istotnych poprzednich interakcji (z event sourcing)
 
         Returns:
             Pełny prompt gotowy do wysłania do LLM
         """
 
-        # Formatuj kontekst poprzednich odpowiedzi (max 3 najrelevantniejsze)
+        # Formatuj kontekst poprzednich odpowiedzi (maksymalnie 3 najbardziej istotne)
         context_text = ""
         if context:
             context_text = "\n\nPast interactions:\n"
-            for i, ctx in enumerate(context[:3], 1):  # Ogranicz do 3 najbardziej relevantnych
+            for i, ctx in enumerate(context[:3], 1):  # Ograniczamy do 3 najważniejszych wpisów
                 if ctx["event_type"] == "response_given":
                     context_text += f"{i}. Q: {ctx['event_data'].get('question', '')}\n"
                     context_text += f"   A: {ctx['event_data'].get('response', '')}\n"
 
-        # Przytnij background story do 300 znaków (oszczędność tokenów)
+        # Przycinamy historię tła do 300 znaków (oszczędność tokenów)
         background = persona.background_story[:300] if persona.background_story else 'Has diverse life experiences'
 
         return f"""You are participating in a focus group discussion.

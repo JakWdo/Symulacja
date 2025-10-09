@@ -85,7 +85,7 @@ class DiscussionSummarizerService:
         """
         self.settings = settings
 
-        # Choose model based on need
+        # Dobieramy model do jakości i czasu wykonania
         analysis_model = getattr(settings, "ANALYSIS_MODEL", "gemini-2.5-pro")
         generation_model = getattr(settings, "PERSONA_GENERATION_MODEL", settings.DEFAULT_MODEL)
 
@@ -100,7 +100,7 @@ class DiscussionSummarizerService:
 
         self.str_parser = StrOutputParser()
 
-        # Create summarization prompt
+        # Budujemy wzorzec promptu dla podsumowania
         self.summary_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a world-class market research analyst specializing in qualitative research synthesis.
 Your role is to analyze focus group discussions and generate strategic insights for product teams.
@@ -145,7 +145,7 @@ IMPORTANT GUIDELINES:
                 "metadata": Dict[str, Any]
             }
         """
-        # Fetch focus group
+        # Pobieramy grupę fokusową
         result = await db.execute(
             select(FocusGroup).where(FocusGroup.id == focus_group_id)
         )
@@ -157,7 +157,7 @@ IMPORTANT GUIDELINES:
         if focus_group.status != "completed":
             raise ValueError("Focus group must be completed to generate summary")
 
-        # Fetch all responses
+        # Pobieramy wszystkie odpowiedzi
         result = await db.execute(
             select(PersonaResponse)
             .where(PersonaResponse.focus_group_id == focus_group_id)
@@ -168,29 +168,29 @@ IMPORTANT GUIDELINES:
         if not responses:
             raise ValueError("No responses found for this focus group")
 
-        # Fetch personas for demographic context
+        # Pobieramy persony, aby mieć kontekst demograficzny
         persona_ids = list(set(str(r.persona_id) for r in responses))
         result = await db.execute(
             select(Persona).where(Persona.id.in_(persona_ids))
         )
         personas = {str(p.id): p for p in result.scalars().all()}
 
-        # Prepare discussion data
+        # Przygotowujemy dane dyskusji w ustrukturyzowanej formie
         discussion_data = self._prepare_discussion_data(
             focus_group, responses, personas, include_demographics
         )
 
-        # Generate AI summary
+        # Generujemy podsumowanie przez model AI
         prompt_text = self._create_summary_prompt(
             discussion_data, include_recommendations
         )
 
         ai_response = await self.chain.ainvoke({"prompt": prompt_text})
 
-        # Parse structured response
+        # Przetwarzamy odpowiedź modelu do struktury słownika
         parsed_summary = self._parse_ai_response(ai_response)
 
-        # Add metadata
+        # Dodajemy metadane techniczne
         parsed_summary["metadata"] = {
             "focus_group_id": focus_group_id,
             "focus_group_name": focus_group.name,
@@ -201,7 +201,7 @@ IMPORTANT GUIDELINES:
             "questions_asked": len(focus_group.questions),
         }
 
-        # Persist summary on the focus group for reuse (commit handled by caller)
+        # Przypisujemy podsumowanie do obiektu grupy (commit wykona wywołujący)
         focus_group.ai_summary = parsed_summary
 
         return parsed_summary
@@ -307,14 +307,14 @@ IMPORTANT GUIDELINES:
         responses_by_question = discussion_data["responses_by_question"]
         demo_summary = discussion_data.get("demographic_summary")
 
-        # Format questions and responses
+        # Formatujemy pytania wraz z odpowiedziami
         formatted_discussion = []
         for idx, (question, responses) in enumerate(responses_by_question.items(), 1):
             formatted_discussion.append(f"\n**Question {idx}:** {question}")
             formatted_discussion.append(f"*({len(responses)} responses)*\n")
 
-            for ridx, resp in enumerate(responses[:15], 1):  # Limit to avoid token overflow
-                text = resp["response"][:300]  # Truncate very long responses
+            for ridx, resp in enumerate(responses[:15], 1):  # Ograniczamy liczbę odpowiedzi, aby nie przekroczyć limitu tokenów
+                text = resp["response"][:300]  # Skracamy bardzo długie wypowiedzi
                 sentiment = resp["sentiment"]
                 sentiment_label = "positive" if sentiment > 0.15 else "negative" if sentiment < -0.15 else "neutral"
 
@@ -329,7 +329,7 @@ IMPORTANT GUIDELINES:
 
         discussion_text = "\n".join(formatted_discussion)
 
-        # Demographic context
+        # Kontekst demograficzny
         demo_context = ""
         if demo_summary:
             demo_context = f"""
@@ -411,8 +411,8 @@ Describe the emotional journey of the discussion:
 
     def _parse_ai_response(self, ai_response: str) -> Dict[str, Any]:
         """
-        Parse AI response into structured format
-        Handles markdown sections and extracts key components
+        Przetwarza odpowiedź AI na ustrukturyzowaną postać
+        Obsługuje sekcje w formacie Markdown i wydobywa kluczowe elementy
         """
         sections = {
             "executive_summary": "",
@@ -421,7 +421,7 @@ Describe the emotional journey of the discussion:
             "segment_analysis": {},
             "recommendations": [],
             "sentiment_narrative": "",
-            "full_analysis": ai_response,  # Keep full text for reference
+            "full_analysis": ai_response,  # Zachowujemy pełny tekst dla wglądu
         }
 
         current_section = None
@@ -432,7 +432,7 @@ Describe the emotional journey of the discussion:
         for line in lines:
             line_lower = line.lower().strip()
 
-            # Detect section headers
+            # Wykrywamy nagłówki sekcji
             if "executive summary" in line_lower and line.startswith("#"):
                 if current_section:
                     self._finalize_section(sections, current_section, current_content)
@@ -467,7 +467,7 @@ Describe the emotional journey of the discussion:
                 if current_section and line.strip():
                     current_content.append(line)
 
-        # Finalize last section
+        # Zapisujemy ostatnią sekcję
         if current_section:
             self._finalize_section(sections, current_section, current_content)
 
@@ -482,7 +482,7 @@ Describe the emotional journey of the discussion:
         if section_name in ["executive_summary", "sentiment_narrative"]:
             sections[section_name] = content_text
         elif section_name in ["key_insights", "surprising_findings", "recommendations"]:
-            # Extract bullet points
+            # Wyodrębniamy wypunktowania
             bullets = []
             for line in content:
                 stripped = line.strip()
@@ -492,7 +492,7 @@ Describe the emotional journey of the discussion:
                         bullets.append(bullet_text)
             sections[section_name] = bullets
         elif section_name == "segment_analysis":
-            # Parse segment analysis (key-value pairs)
+            # Parsujemy analizę segmentów (pary klucz-wartość)
             segments = {}
             current_segment = None
             for line in content:
@@ -506,5 +506,5 @@ Describe the emotional journey of the discussion:
             sections[section_name] = segments
 
 
-# Import numpy for demographic aggregation
+# Importujemy numpy na potrzeby agregacji demograficznej
 import numpy as np

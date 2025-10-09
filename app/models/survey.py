@@ -1,5 +1,5 @@
 """
-Survey models for synthetic survey functionality.
+Modele ankiet wykorzystywane do funkcjonalności syntetycznych badań.
 
 Umożliwia tworzenie ankiet i zbieranie odpowiedzi od syntetycznych person.
 """
@@ -30,7 +30,7 @@ class Survey(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
 
-    # Pytania ankiety (JSON array of Question objects)
+    # Pytania ankietowe zapisane jako tablica JSON obiektów pytania
     # Format: [{"id": "q1", "type": "single-choice", "title": "...", "options": [...], ...}, ...]
     questions = Column(JSON, nullable=False)
 
@@ -46,19 +46,19 @@ class Survey(Base):
     target_responses = Column(Integer, default=1000, nullable=False)
     actual_responses = Column(Integer, default=0, nullable=False)
 
-    # Timestamps
+    # Znacznik czasus
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Execution metrics (podobnie jak w FocusGroup)
+    # Metryki wykonania (podobnie jak w FocusGroup)
     total_execution_time_ms = Column(Integer, nullable=True)
     avg_response_time_ms = Column(Integer, nullable=True)
 
-    # Soft delete
+    # Miękkie usunięcie
     is_active = Column(Boolean, default=True, nullable=False)
 
-    # Relations
+    # Relacje
     project = relationship("Project", back_populates="surveys")
     responses = relationship("SurveyResponse", back_populates="survey", cascade="all, delete-orphan")
 
@@ -84,12 +84,12 @@ class SurveyResponse(Base):
     # Dla open-text: {"q1": "Free text response..."}
     answers = Column(JSON, nullable=False)
 
-    # Timestamp
+    # Znacznik czasu
     completed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    # Execution metrics
+    # Metryki wykonania
     response_time_ms = Column(Integer, nullable=True)
 
-    # Relations
+    # Relacje
     survey = relationship("Survey", back_populates="responses")
     persona = relationship("Persona")
