@@ -5,9 +5,10 @@ Zarządza grafem wiedzy łączącym persony, koncepcje i emocje.
 Umożliwia analizę relacji między uczestnikami focus groups i ich opiniami.
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Iterable
 from datetime import datetime
-from collections import Counter
+from collections import Counter, defaultdict
+from statistics import mean, pstdev, StatisticsError
 import logging
 import json
 import re
@@ -65,6 +66,11 @@ class GraphService:
     - Emocje (nodes typu :Emotion)
     - Relacje: MENTIONS, AGREES_WITH, DISAGREES_WITH, FEELS
     """
+
+    # In-memory caches used when Neo4j is unavailable
+    _memory_graph_cache: Dict[str, Dict[str, Any]] = {}
+    _memory_stats_cache: Dict[str, Dict[str, Any]] = {}
+    _memory_metrics_cache: Dict[str, Dict[str, Any]] = {}
 
     def __init__(self):
         """Inicjalizuj połączenie z Neo4j i LLM do ekstrakcji konceptów"""
@@ -168,200 +174,158 @@ Emocje w języku angielskim."""),
                 "relationships_created": int
             }
         """
-        await self.connect()
-
-        # Fetch focus group data
-        result = await db.execute(
-            select(FocusGroup).where(FocusGroup.id == focus_group_id)
+        focus_group, responses, personas = await self._load_focus_group_entities(
+            db, focus_group_id
         )
-        focus_group = result.scalar_one_or_none()
 
-        if not focus_group or focus_group.status != "completed":
-            raise ValueError("Focus group not found or not completed")
+        try:
+            await self.connect()
+            neo4j_available = True
+        except ConnectionError:
+            neo4j_available = False
 
-        # Fetch responses
-        result = await db.execute(
-            select(PersonaResponse)
-            .where(PersonaResponse.focus_group_id == focus_group_id)
-        )
-        responses = result.scalars().all()
+        processed = await self._prepare_graph_snapshot(responses, personas)
+        stats = processed["stats"]
+        graph_data = processed["graph_data"]
+        metrics = processed["metrics"]
+        entries = processed["entries"]
 
-        # Fetch personas
-        persona_ids = list(set(str(r.persona_id) for r in responses))
-        result = await db.execute(
-            select(Persona).where(Persona.id.in_(persona_ids))
-        )
-        personas = {str(p.id): p for p in result.scalars().all()}
-
-        stats = {
-            "personas_added": 0,
-            "concepts_extracted": 0,
-            "relationships_created": 0,
-            "emotions_created": 0
-        }
-
-        async with self.driver.session() as session:
-            # 1. Create persona nodes
-            for persona_id, persona in personas.items():
-                await session.run(
-                    """
-                    MERGE (p:Persona {id: $id})
-                    SET p.name = $name,
-                        p.age = $age,
-                        p.gender = $gender,
-                        p.occupation = $occupation,
-                        p.focus_group_id = $focus_group_id,
-                        p.updated_at = datetime()
-                    """,
-                    id=persona_id,
-                    name=persona.full_name,
-                    age=persona.age,
-                    gender=persona.gender,
-                    occupation=persona.occupation,
-                    focus_group_id=focus_group_id
-                )
-                stats["personas_added"] += 1
-
-            # 2. Extract concepts and create relationships using LLM
-            concept_mentions = {}  # Track concept frequency
-
-            logger.info(f"Processing {len(responses)} responses with LLM extraction...")
-
-            for idx, response in enumerate(responses):
-                persona_id = str(response.persona_id)
-
-                # LLM-powered extraction
-                extraction = await self._extract_concepts_with_llm(response.response)
-
-                if (idx + 1) % 10 == 0:
-                    logger.info(f"Processed {idx + 1}/{len(responses)} responses")
-
-                # Create concept nodes and relationships
-                for concept in extraction.concepts:
-                    # Create/update concept node
+        if neo4j_available and self.driver:
+            async with self.driver.session() as session:
+                for persona_id, persona in personas.items():
                     await session.run(
                         """
-                        MERGE (c:Concept {name: $name})
-                        ON CREATE SET c.frequency = 1, c.created_at = datetime()
-                        ON MATCH SET c.frequency = c.frequency + 1
+                        MERGE (p:Persona {id: $id})
+                        SET p.name = $name,
+                            p.age = $age,
+                            p.gender = $gender,
+                            p.occupation = $occupation,
+                            p.focus_group_id = $focus_group_id,
+                            p.updated_at = datetime()
                         """,
-                        name=concept
+                        id=persona_id,
+                        name=persona.full_name,
+                        age=persona.age,
+                        gender=persona.gender,
+                        occupation=persona.occupation,
+                        focus_group_id=focus_group_id
                     )
 
-                    # Create MENTIONS relationship
-                    await session.run(
-                        """
-                        MATCH (p:Persona {id: $persona_id})
-                        MATCH (c:Concept {name: $concept})
-                        MERGE (p)-[r:MENTIONS]->(c)
-                        ON CREATE SET r.count = 1, r.sentiment = $sentiment
-                        ON MATCH SET r.count = r.count + 1,
-                                     r.sentiment = (r.sentiment + $sentiment) / 2
-                        """,
-                        persona_id=persona_id,
-                        concept=concept,
-                        sentiment=extraction.sentiment
-                    )
-                    stats["relationships_created"] += 1
-                    concept_mentions[concept] = concept_mentions.get(concept, 0) + 1
+                for entry in entries:
+                    persona_id = entry["persona_id"]
+                    sentiment = entry["sentiment"]
 
-                # 3. Create emotion nodes from LLM extraction
-                for emotion in extraction.emotions:
-                    await session.run(
-                        """
-                        MERGE (e:Emotion {name: $emotion})
-                        ON CREATE SET e.count = 1
-                        ON MATCH SET e.count = e.count + 1
-                        """,
-                        emotion=emotion
-                    )
+                    for concept in entry["concepts"]:
+                        await session.run(
+                            """
+                            MERGE (c:Concept {name: $name})
+                            ON CREATE SET c.frequency = 1, c.created_at = datetime()
+                            ON MATCH SET c.frequency = c.frequency + 1
+                            """,
+                            name=concept
+                        )
 
-                    await session.run(
-                        """
-                        MATCH (p:Persona {id: $persona_id})
-                        MATCH (e:Emotion {name: $emotion})
-                        MERGE (p)-[r:FEELS]->(e)
-                        ON CREATE SET r.intensity = $intensity
-                        ON MATCH SET r.intensity = (r.intensity + $intensity) / 2
-                        """,
-                        persona_id=persona_id,
-                        emotion=emotion,
-                        intensity=abs(extraction.sentiment)
-                    )
-                    stats["emotions_created"] += 1
+                        await session.run(
+                            """
+                            MATCH (p:Persona {id: $persona_id})
+                            MATCH (c:Concept {name: $concept})
+                            MERGE (p)-[r:MENTIONS]->(c)
+                            ON CREATE SET r.count = 1, r.sentiment = $sentiment
+                            ON MATCH SET r.count = r.count + 1,
+                                         r.sentiment = (r.sentiment + $sentiment) / 2
+                            """,
+                            persona_id=persona_id,
+                            concept=concept,
+                            sentiment=sentiment
+                        )
 
-            # 4. Create inter-persona relationships (agrees/disagrees)
-            # Based on concept overlap and sentiment similarity
-            for p1_id in persona_ids:
-                for p2_id in persona_ids:
-                    if p1_id >= p2_id:
-                        continue
+                    for emotion in entry["emotions"]:
+                        await session.run(
+                            """
+                            MERGE (e:Emotion {name: $emotion})
+                            ON CREATE SET e.count = 1
+                            ON MATCH SET e.count = e.count + 1
+                            """,
+                            emotion=emotion
+                        )
 
-                    # Calculate similarity
-                    similarity = await self._calculate_persona_similarity(
-                        session, p1_id, p2_id
-                    )
+                        await session.run(
+                            """
+                            MATCH (p:Persona {id: $persona_id})
+                            MATCH (e:Emotion {name: $emotion})
+                            MERGE (p)-[r:FEELS]->(e)
+                            ON CREATE SET r.intensity = $intensity
+                            ON MATCH SET r.intensity = (r.intensity + $intensity) / 2
+                            """,
+                            persona_id=persona_id,
+                            emotion=emotion,
+                            intensity=abs(sentiment)
+                        )
 
-                    if similarity > 0.5:
+                for edge in metrics["persona_edges"]:
+                    if edge["type"] == "agrees":
                         await session.run(
                             """
                             MATCH (p1:Persona {id: $p1_id})
                             MATCH (p2:Persona {id: $p2_id})
                             MERGE (p1)-[r:AGREES_WITH]->(p2)
-                            SET r.strength = $similarity
+                            SET r.strength = $strength
                             """,
-                            p1_id=p1_id,
-                            p2_id=p2_id,
-                            similarity=similarity
+                            p1_id=edge["source"],
+                            p2_id=edge["target"],
+                            strength=edge["strength"]
                         )
-                        stats["relationships_created"] += 1
-                    elif similarity < -0.3:
+                    else:
                         await session.run(
                             """
                             MATCH (p1:Persona {id: $p1_id})
                             MATCH (p2:Persona {id: $p2_id})
                             MERGE (p1)-[r:DISAGREES_WITH]->(p2)
-                            SET r.strength = $similarity
+                            SET r.strength = $strength
                             """,
-                            p1_id=p1_id,
-                            p2_id=p2_id,
-                            similarity=abs(similarity)
+                            p1_id=edge["source"],
+                            p2_id=edge["target"],
+                            strength=edge["strength"]
                         )
-                        stats["relationships_created"] += 1
+        else:
+            logger.info("Neo4j unavailable. Graph data stored in memory cache.")
 
-            stats["concepts_extracted"] = len(concept_mentions)
+        self._memory_graph_cache[focus_group_id] = graph_data
+        self._memory_stats_cache[focus_group_id] = stats
+        self._memory_metrics_cache[focus_group_id] = metrics
 
         return stats
 
     async def get_graph_data(
         self,
         focus_group_id: str,
-        filter_type: Optional[str] = None
+        filter_type: Optional[str] = None,
+        db: Optional[AsyncSession] = None
     ) -> Dict[str, Any]:
         """
-        Pobiera dane grafu dla wizualizacji
+        Pobiera dane grafu dla wizualizacji.
 
-        Args:
-            focus_group_id: ID grupy fokusowej
-            filter_type: Typ filtra ('positive', 'negative', 'influence', None)
-
-        Returns:
-            {
-                "nodes": [{"id": str, "name": str, "type": str, "group": int, ...}],
-                "links": [{"source": str, "target": str, "type": str, "strength": float}]
-            }
+        Przy niedostępności Neo4j korzysta z pamięciowego grafu zbudowanego na
+        podstawie danych z bazy Postgres.
         """
         try:
             await self.connect()
-        except ConnectionError as e:
-            logger.error(f"Cannot connect to Neo4j: {e}")
-            return {"nodes": [], "links": [], "error": "Graph database unavailable"}
+            neo4j_available = True
+        except ConnectionError:
+            neo4j_available = False
 
-        nodes = []
-        links = []
+        if not neo4j_available or not self.driver:
+            graph_data, metrics = await self._ensure_memory_graph(
+                focus_group_id, db
+            )
+            if filter_type:
+                return self._apply_filter(graph_data, metrics, filter_type)
+            return self._copy_graph(graph_data)
+
+        nodes: List[Dict[str, Any]] = []
+        links: List[Dict[str, Any]] = []
 
         async with self.driver.session() as session:
-            # Fetch personas
             result = await session.run(
                 """
                 MATCH (p:Persona {focus_group_id: $focus_group_id})
@@ -376,7 +340,6 @@ Emocje w języku angielskim."""),
             async for record in result:
                 sentiment = record["avg_sentiment"] or 0.0
 
-                # Apply filters
                 if filter_type == 'positive' and sentiment < 0.6:
                     continue
                 if filter_type == 'negative' and sentiment > -0.3:
@@ -395,7 +358,6 @@ Emocje w języku angielskim."""),
                     }
                 })
 
-            # Fetch concepts
             result = await session.run(
                 """
                 MATCH (c:Concept)<-[m:MENTIONS]-(p:Persona {focus_group_id: $focus_group_id})
@@ -418,7 +380,6 @@ Emocje w języku angielskim."""),
                     "sentiment": record["avg_sentiment"]
                 })
 
-            # Fetch emotions
             result = await session.run(
                 """
                 MATCH (e:Emotion)<-[f:FEELS]-(p:Persona {focus_group_id: $focus_group_id})
@@ -437,8 +398,6 @@ Emocje w języku angielskim."""),
                     "size": min(15, 5 + record["count"])
                 })
 
-            # Fetch relationships
-            # Persona -> Concept
             result = await session.run(
                 """
                 MATCH (p:Persona {focus_group_id: $focus_group_id})-[m:MENTIONS]->(c:Concept)
@@ -460,7 +419,6 @@ Emocje w języku angielskim."""),
                     "sentiment": record["sentiment"]
                 })
 
-            # Persona -> Emotion
             result = await session.run(
                 """
                 MATCH (p:Persona {focus_group_id: $focus_group_id})-[f:FEELS]->(e:Emotion)
@@ -477,7 +435,6 @@ Emocje w języku angielskim."""),
                     "strength": record["intensity"]
                 })
 
-            # Persona <-> Persona (agreements/disagreements)
             result = await session.run(
                 """
                 MATCH (p1:Persona {focus_group_id: $focus_group_id})-[r:AGREES_WITH|DISAGREES_WITH]->(p2:Persona)
@@ -500,6 +457,469 @@ Emocje w języku angielskim."""),
             "nodes": nodes,
             "links": links
         }
+
+    async def _load_focus_group_entities(
+        self,
+        db: AsyncSession,
+        focus_group_id: str
+    ) -> Tuple[FocusGroup, List[PersonaResponse], Dict[str, Persona]]:
+        """Ładuje dane grupy fokusowej, odpowiedzi i persony."""
+        result = await db.execute(
+            select(FocusGroup).where(FocusGroup.id == focus_group_id)
+        )
+        focus_group = result.scalar_one_or_none()
+
+        if not focus_group or focus_group.status != "completed":
+            raise ValueError("Focus group not found or not completed")
+
+        result = await db.execute(
+            select(PersonaResponse).where(
+                PersonaResponse.focus_group_id == focus_group_id
+            )
+        )
+        responses = result.scalars().all()
+
+        persona_ids = sorted({str(response.persona_id) for response in responses})
+        personas: Dict[str, Persona] = {}
+        if persona_ids:
+            result = await db.execute(
+                select(Persona).where(Persona.id.in_(persona_ids))
+            )
+            personas = {str(persona.id): persona for persona in result.scalars().all()}
+
+        return focus_group, responses, personas
+
+    async def _prepare_graph_snapshot(
+        self,
+        responses: List[PersonaResponse],
+        personas: Dict[str, Persona]
+    ) -> Dict[str, Any]:
+        """
+        Buduje strukturę grafu w pamięci na podstawie odpowiedzi i dostępnych person.
+        """
+        persona_concepts: Dict[str, Dict[str, List[float]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        persona_emotions: Dict[str, Dict[str, List[float]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        concept_aggregates: Dict[str, Dict[str, Any]] = defaultdict(
+            lambda: {"mentions": 0, "sentiments": [], "personas": set()}
+        )
+        emotion_aggregates: Dict[str, Dict[str, Any]] = defaultdict(
+            lambda: {"count": 0, "intensities": [], "personas": set()}
+        )
+        persona_sentiment_totals: Dict[str, Dict[str, float]] = defaultdict(
+            lambda: {"total": 0.0, "count": 0}
+        )
+
+        entries: List[Dict[str, Any]] = []
+        total_emotion_links = 0
+
+        for response in responses:
+            text = response.response or ""
+            persona_id = str(response.persona_id)
+            extraction = await self._extract_concepts_with_llm(text)
+
+            normalized_concepts = self._normalize_concepts(extraction.concepts)
+            normalized_emotions = self._normalize_emotions(extraction.emotions)
+
+            sentiment_total = persona_sentiment_totals[persona_id]
+            sentiment_total["total"] += extraction.sentiment
+            sentiment_total["count"] += 1
+
+            for concept in normalized_concepts:
+                persona_concepts[persona_id][concept].append(extraction.sentiment)
+                aggregate = concept_aggregates[concept]
+                aggregate["mentions"] += 1
+                aggregate["sentiments"].append(extraction.sentiment)
+                aggregate["personas"].add(persona_id)
+
+            for emotion in normalized_emotions:
+                intensity = abs(extraction.sentiment)
+                persona_emotions[persona_id][emotion].append(intensity)
+                aggregate = emotion_aggregates[emotion]
+                aggregate["count"] += 1
+                aggregate["intensities"].append(intensity)
+                aggregate["personas"].add(persona_id)
+                total_emotion_links += 1
+
+            entries.append({
+                "persona_id": persona_id,
+                "concepts": normalized_concepts,
+                "emotions": normalized_emotions,
+                "sentiment": extraction.sentiment
+            })
+
+        persona_sentiments = {
+            persona_id: (
+                totals["total"] / totals["count"] if totals["count"] else 0.0
+            )
+            for persona_id, totals in persona_sentiment_totals.items()
+        }
+
+        for persona_id in personas.keys():
+            persona_sentiments.setdefault(persona_id, 0.0)
+
+        persona_edges = self._compute_persona_edges(persona_concepts)
+
+        concept_aggregates = {
+            concept: {
+                "mentions": data["mentions"],
+                "sentiments": list(data["sentiments"]),
+                "personas": set(data["personas"])
+            }
+            for concept, data in concept_aggregates.items()
+        }
+
+        emotion_aggregates = {
+            emotion: {
+                "count": data["count"],
+                "intensities": list(data["intensities"]),
+                "personas": set(data["personas"])
+            }
+            for emotion, data in emotion_aggregates.items()
+        }
+
+        persona_concepts = {
+            persona_id: dict(concepts)
+            for persona_id, concepts in persona_concepts.items()
+        }
+        persona_emotions = {
+            persona_id: dict(emotions)
+            for persona_id, emotions in persona_emotions.items()
+        }
+
+        persona_metadata = {
+            persona_id: {
+                "name": persona.full_name,
+                "age": persona.age,
+                "occupation": persona.occupation
+            }
+            for persona_id, persona in personas.items()
+        }
+
+        metrics = {
+            "persona_concepts": persona_concepts,
+            "persona_emotions": persona_emotions,
+            "concept_aggregates": concept_aggregates,
+            "emotion_aggregates": emotion_aggregates,
+            "persona_sentiments": persona_sentiments,
+            "persona_metadata": persona_metadata,
+            "persona_edges": persona_edges
+        }
+
+        graph_data, persona_connections = self._build_graph_from_metrics(
+            personas, metrics
+        )
+        metrics["persona_connections"] = persona_connections
+
+        stats = {
+            "personas_added": len(personas),
+            "concepts_extracted": len(concept_aggregates),
+            "relationships_created": len(graph_data["links"]),
+            "emotions_created": total_emotion_links
+        }
+
+        return {
+            "stats": stats,
+            "graph_data": graph_data,
+            "metrics": metrics,
+            "entries": entries
+        }
+
+    async def _ensure_memory_graph(
+        self,
+        focus_group_id: str,
+        db: Optional[AsyncSession]
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Zapewnia, że graf dla danej grupy jest dostępny w pamięci."""
+        if focus_group_id not in self._memory_graph_cache:
+            if db is None:
+                raise ValueError(
+                    "Graph not built yet and database session is required for fallback"
+                )
+
+            _, responses, personas = await self._load_focus_group_entities(db, focus_group_id)
+            processed = await self._prepare_graph_snapshot(responses, personas)
+            self._memory_graph_cache[focus_group_id] = processed["graph_data"]
+            self._memory_stats_cache[focus_group_id] = processed["stats"]
+            self._memory_metrics_cache[focus_group_id] = processed["metrics"]
+
+        return (
+            self._memory_graph_cache[focus_group_id],
+            self._memory_metrics_cache[focus_group_id]
+        )
+
+    def _apply_filter(
+        self,
+        graph_data: Dict[str, Any],
+        metrics: Dict[str, Any],
+        filter_type: str
+    ) -> Dict[str, Any]:
+        """Zastosuj filtr do pamięciowego grafu."""
+        persona_sentiments = metrics.get("persona_sentiments", {})
+        persona_connections = metrics.get("persona_connections", {})
+        persona_metadata = metrics.get("persona_metadata", {})
+
+        if filter_type == "positive":
+            allowed_personas = {
+                persona_id for persona_id, sentiment in persona_sentiments.items()
+                if sentiment >= 0.6
+            }
+        elif filter_type == "negative":
+            allowed_personas = {
+                persona_id for persona_id, sentiment in persona_sentiments.items()
+                if sentiment <= -0.3
+            }
+        elif filter_type == "influence":
+            allowed_personas = {
+                persona_id for persona_id, connections in persona_connections.items()
+                if connections >= 3
+            }
+        else:
+            allowed_personas = set(persona_metadata.keys())
+
+        if not allowed_personas:
+            return {"nodes": [], "links": []}
+
+        filtered_links: List[Dict[str, Any]] = []
+        for link in graph_data.get("links", []):
+            source = str(link.get("source"))
+            target = str(link.get("target"))
+            link_type = link.get("type")
+
+            if link_type == "mentions":
+                if source not in allowed_personas:
+                    continue
+                if filter_type == "influence" and link.get("strength", 0.0) < 0.4:
+                    continue
+            elif link_type == "feels":
+                if source not in allowed_personas:
+                    continue
+            else:
+                if source not in allowed_personas or target not in allowed_personas:
+                    continue
+
+            filtered_links.append(self._copy_link(link))
+
+        connected_nodes = set()
+        for link in filtered_links:
+            connected_nodes.add(str(link["source"]))
+            connected_nodes.add(str(link["target"]))
+
+        filtered_nodes: List[Dict[str, Any]] = []
+        for node in graph_data.get("nodes", []):
+            node_id = str(node.get("id"))
+            node_type = node.get("type")
+
+            if node_type == "persona":
+                if node_id in allowed_personas:
+                    filtered_nodes.append(self._copy_node(node))
+            else:
+                if node_id in connected_nodes:
+                    filtered_nodes.append(self._copy_node(node))
+
+        return {
+            "nodes": filtered_nodes,
+            "links": filtered_links
+        }
+
+    def _copy_graph(self, graph_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Tworzy płytką kopię struktur grafu, aby nie modyfikować cache."""
+        return {
+            "nodes": [self._copy_node(node) for node in graph_data.get("nodes", [])],
+            "links": [self._copy_link(link) for link in graph_data.get("links", [])]
+        }
+
+    def _copy_node(self, node: Dict[str, Any]) -> Dict[str, Any]:
+        copied = dict(node)
+        metadata = copied.get("metadata")
+        if isinstance(metadata, dict):
+            copied["metadata"] = dict(metadata)
+        return copied
+
+    def _copy_link(self, link: Dict[str, Any]) -> Dict[str, Any]:
+        return dict(link)
+
+    def _build_graph_from_metrics(
+        self,
+        personas: Dict[str, Persona],
+        metrics: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], Dict[str, int]]:
+        """Na podstawie metryk buduje listę nodes/links."""
+        persona_concepts = metrics["persona_concepts"]
+        persona_emotions = metrics["persona_emotions"]
+        persona_sentiments = metrics["persona_sentiments"]
+        concept_aggregates = metrics["concept_aggregates"]
+        emotion_aggregates = metrics["emotion_aggregates"]
+        persona_edges = metrics["persona_edges"]
+
+        connections_counter: Counter = Counter()
+        for edge in persona_edges:
+            connections_counter[edge["source"]] += 1
+            connections_counter[edge["target"]] += 1
+
+        nodes: List[Dict[str, Any]] = []
+        persona_connections: Dict[str, int] = {}
+
+        for persona_id, persona in personas.items():
+            concept_connections = sum(
+                len(values) for values in persona_concepts.get(persona_id, {}).values()
+            )
+            emotion_connections = sum(
+                len(values) for values in persona_emotions.get(persona_id, {}).values()
+            )
+            total_connections = (
+                concept_connections + emotion_connections + connections_counter.get(persona_id, 0)
+            )
+            persona_connections[persona_id] = total_connections
+
+            nodes.append({
+                "id": persona_id,
+                "name": persona.full_name,
+                "type": "persona",
+                "group": 1,
+                "size": min(20, 10 + total_connections),
+                "sentiment": persona_sentiments.get(persona_id, 0.0),
+                "metadata": {
+                    "age": persona.age,
+                    "occupation": persona.occupation
+                }
+            })
+
+        for concept, data in concept_aggregates.items():
+            mentions = data["mentions"]
+            avg_sentiment = mean(data["sentiments"]) if data["sentiments"] else 0.0
+            nodes.append({
+                "id": f"concept_{concept}",
+                "name": concept,
+                "type": "concept",
+                "group": 2,
+                "size": min(25, 8 + mentions * 2),
+                "sentiment": avg_sentiment
+            })
+
+        for emotion, data in emotion_aggregates.items():
+            nodes.append({
+                "id": f"emotion_{emotion}",
+                "name": emotion,
+                "type": "emotion",
+                "group": 3,
+                "size": min(15, 5 + len(data["personas"]))
+            })
+
+        links: List[Dict[str, Any]] = []
+
+        for persona_id, concepts in persona_concepts.items():
+            for concept, sentiments in concepts.items():
+                if not sentiments:
+                    continue
+                links.append({
+                    "source": persona_id,
+                    "target": f"concept_{concept}",
+                    "type": "mentions",
+                    "strength": min(1.0, len(sentiments) / 5.0),
+                    "sentiment": mean(sentiments)
+                })
+
+        for persona_id, emotions in persona_emotions.items():
+            for emotion, intensities in emotions.items():
+                if not intensities:
+                    continue
+                links.append({
+                    "source": persona_id,
+                    "target": f"emotion_{emotion}",
+                    "type": "feels",
+                    "strength": mean(intensities)
+                })
+
+        for edge in persona_edges:
+            links.append({
+                "source": edge["source"],
+                "target": edge["target"],
+                "type": edge["type"],
+                "strength": edge["strength"]
+            })
+
+        return {"nodes": nodes, "links": links}, persona_connections
+
+    def _compute_persona_edges(
+        self,
+        persona_concepts: Dict[str, Dict[str, List[float]]]
+    ) -> List[Dict[str, Any]]:
+        """Wyznacza relacje między personami na podstawie wspólnych konceptów."""
+        edges: List[Dict[str, Any]] = []
+        persona_ids = sorted(persona_concepts.keys())
+
+        for idx, persona_id in enumerate(persona_ids):
+            for other_id in persona_ids[idx + 1:]:
+                concepts_a = persona_concepts.get(persona_id, {})
+                concepts_b = persona_concepts.get(other_id, {})
+                shared = set(concepts_a.keys()) & set(concepts_b.keys())
+                if not shared:
+                    continue
+
+                diffs = []
+                for concept in shared:
+                    values_a = concepts_a.get(concept, [])
+                    values_b = concepts_b.get(concept, [])
+                    avg_a = mean(values_a) if values_a else 0.0
+                    avg_b = mean(values_b) if values_b else 0.0
+                    diffs.append(abs(avg_a - avg_b))
+
+                avg_diff = mean(diffs) if diffs else 0.0
+                similarity = (len(shared) / 10.0) - avg_diff
+                similarity = max(-1.0, min(1.0, similarity))
+
+                if similarity > 0.5:
+                    edges.append({
+                        "source": persona_id,
+                        "target": other_id,
+                        "type": "agrees",
+                        "strength": similarity
+                    })
+                elif similarity < -0.3:
+                    edges.append({
+                        "source": persona_id,
+                        "target": other_id,
+                        "type": "disagrees",
+                        "strength": abs(similarity)
+                    })
+
+        return edges
+
+    def _normalize_concepts(self, concepts: Iterable[str]) -> List[str]:
+        """Czyści i normalizuje nazwy konceptów."""
+        normalized: List[str] = []
+        seen = set()
+        for concept in concepts:
+            if not concept:
+                continue
+            cleaned = re.sub(r"\s+", " ", concept).strip()
+            if not cleaned:
+                continue
+            formatted = cleaned.title()
+            if formatted not in seen:
+                seen.add(formatted)
+                normalized.append(formatted)
+        return normalized
+
+    def _normalize_emotions(self, emotions: Iterable[str]) -> List[str]:
+        """Czyści i normalizuje nazwy emocji."""
+        normalized: List[str] = []
+        seen = set()
+        for emotion in emotions:
+            if not emotion:
+                continue
+            cleaned = re.sub(r"\s+", " ", emotion).strip()
+            if not cleaned:
+                continue
+            formatted = cleaned.title()
+            if formatted not in seen:
+                seen.add(formatted)
+                normalized.append(formatted)
+        return normalized
 
     async def _extract_concepts_with_llm(self, text: str) -> ConceptExtraction:
         """
@@ -733,7 +1153,8 @@ Emocje w języku angielskim."""),
 
     async def get_influential_personas(
         self,
-        focus_group_id: str
+        focus_group_id: str,
+        db: Optional[AsyncSession] = None
     ) -> List[Dict[str, Any]]:
         """
         Znajduje najbardziej wpływowe persony w grafie
@@ -741,8 +1162,29 @@ Emocje w języku angielskim."""),
         """
         try:
             await self.connect()
+            neo4j_available = True
         except ConnectionError:
-            return []
+            neo4j_available = False
+
+        if not neo4j_available or not self.driver:
+            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
+            persona_metadata = metrics.get("persona_metadata", {})
+            persona_connections = metrics.get("persona_connections", {})
+            persona_sentiments = metrics.get("persona_sentiments", {})
+
+            personas = [
+                {
+                    "id": persona_id,
+                    "name": meta["name"],
+                    "influence": min(100, persona_connections.get(persona_id, 0) * 5),
+                    "connections": persona_connections.get(persona_id, 0),
+                    "sentiment": persona_sentiments.get(persona_id, 0.0)
+                }
+                for persona_id, meta in persona_metadata.items()
+            ]
+
+            personas.sort(key=lambda item: item["connections"], reverse=True)
+            return personas[:10]
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -772,13 +1214,39 @@ Emocje w języku angielskim."""),
 
     async def get_key_concepts(
         self,
-        focus_group_id: str
+        focus_group_id: str,
+        db: Optional[AsyncSession] = None
     ) -> List[Dict[str, Any]]:
         """Pobiera najczęściej wspominane koncepcje"""
         try:
             await self.connect()
+            neo4j_available = True
         except ConnectionError:
-            return []
+            neo4j_available = False
+
+        if not neo4j_available or not self.driver:
+            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
+            persona_metadata = metrics.get("persona_metadata", {})
+            concept_aggregates = metrics.get("concept_aggregates", {})
+
+            concepts = []
+            for concept, data in concept_aggregates.items():
+                if data["mentions"] == 0:
+                    continue
+                avg_sentiment = mean(data["sentiments"]) if data["sentiments"] else 0.0
+                persona_names = [
+                    persona_metadata.get(persona_id, {}).get("name", persona_id)
+                    for persona_id in list(data["personas"])
+                ]
+                concepts.append({
+                    "name": concept,
+                    "frequency": data["mentions"],
+                    "sentiment": avg_sentiment,
+                    "personas": persona_names[:5]
+                })
+
+            concepts.sort(key=lambda item: item["frequency"], reverse=True)
+            return concepts[:10]
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -799,14 +1267,15 @@ Emocje w języku angielskim."""),
                     "name": record["name"],
                     "frequency": record["frequency"],
                     "sentiment": record["avg_sentiment"],
-                    "personas": record["personas"][:5]  # Top 5 personas
+                    "personas": record["personas"][:5]
                 })
 
             return concepts
 
     async def get_controversial_concepts(
         self,
-        focus_group_id: str
+        focus_group_id: str,
+        db: Optional[AsyncSession] = None
     ) -> List[Dict[str, Any]]:
         """
         Znajduje koncepcje polaryzujące - te, które wywołują skrajne opinie
@@ -815,8 +1284,53 @@ Emocje w języku angielskim."""),
         """
         try:
             await self.connect()
+            neo4j_available = True
         except ConnectionError:
-            return []
+            neo4j_available = False
+
+        if not neo4j_available or not self.driver:
+            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
+            concept_aggregates = metrics.get("concept_aggregates", {})
+            persona_concepts = metrics.get("persona_concepts", {})
+            persona_metadata = metrics.get("persona_metadata", {})
+
+            controversial: List[Dict[str, Any]] = []
+            for concept, data in concept_aggregates.items():
+                sentiments = data["sentiments"]
+                if len(sentiments) < 3:
+                    continue
+                try:
+                    std_dev = pstdev(sentiments)
+                except StatisticsError:
+                    continue
+                if std_dev <= 0.4:
+                    continue
+                avg_sentiment = mean(sentiments) if sentiments else 0.0
+                supporters: List[str] = []
+                critics: List[str] = []
+
+                for persona_id in data["personas"]:
+                    persona_values = persona_concepts.get(persona_id, {}).get(concept, [])
+                    if not persona_values:
+                        continue
+                    persona_avg = mean(persona_values)
+                    name = persona_metadata.get(persona_id, {}).get("name", persona_id)
+                    if persona_avg > 0.5:
+                        supporters.append(name)
+                    elif persona_avg < -0.3:
+                        critics.append(name)
+
+                controversial.append({
+                    "concept": concept,
+                    "avg_sentiment": avg_sentiment,
+                    "polarization": std_dev,
+                    "supporters": supporters,
+                    "critics": critics,
+                    "total_mentions": len(sentiments)
+                })
+
+            controversial.sort(key=lambda item: item["polarization"], reverse=True)
+            return controversial[:10]
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -861,7 +1375,8 @@ Emocje w języku angielskim."""),
 
     async def get_trait_opinion_correlations(
         self,
-        focus_group_id: str
+        focus_group_id: str,
+        db: Optional[AsyncSession] = None
     ) -> List[Dict[str, Any]]:
         """
         Znajduje korelacje między cechami demograficznymi/psychologicznymi a opiniami
@@ -870,8 +1385,64 @@ Emocje w języku angielskim."""),
         """
         try:
             await self.connect()
+            neo4j_available = True
         except ConnectionError:
-            return []
+            neo4j_available = False
+
+        if not neo4j_available or not self.driver:
+            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
+            concept_aggregates = metrics.get("concept_aggregates", {})
+            persona_concepts = metrics.get("persona_concepts", {})
+            persona_metadata = metrics.get("persona_metadata", {})
+
+            correlations: List[Dict[str, Any]] = []
+            for concept, data in concept_aggregates.items():
+                if data["mentions"] < 3:
+                    continue
+
+                young: List[float] = []
+                mid: List[float] = []
+                senior: List[float] = []
+
+                for persona_id, concepts in persona_concepts.items():
+                    if concept not in concepts:
+                        continue
+                    meta = persona_metadata.get(persona_id)
+                    if not meta or meta.get("age") is None:
+                        continue
+                    avg_sentiment = mean(concepts[concept]) if concepts[concept] else 0.0
+                    age = meta["age"]
+                    if age < 30:
+                        young.append(avg_sentiment)
+                    elif age < 50:
+                        mid.append(avg_sentiment)
+                    else:
+                        senior.append(avg_sentiment)
+
+                if not (young or mid or senior):
+                    continue
+
+                young_avg = mean(young) if young else None
+                mid_avg = mean(mid) if mid else None
+                senior_avg = mean(senior) if senior else None
+                base_young = young_avg if young_avg is not None else 0.0
+                base_senior = senior_avg if senior_avg is not None else 0.0
+                age_gap = abs(base_young - base_senior)
+
+                if age_gap <= 0.3:
+                    continue
+
+                correlations.append({
+                    "concept": concept,
+                    "young_sentiment": young_avg,
+                    "mid_sentiment": mid_avg,
+                    "senior_sentiment": senior_avg,
+                    "age_gap": age_gap,
+                    "mentions": data["mentions"]
+                })
+
+            correlations.sort(key=lambda item: item["age_gap"], reverse=True)
+            return correlations[:10]
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -913,7 +1484,8 @@ Emocje w języku angielskim."""),
 
     async def get_emotion_distribution(
         self,
-        focus_group_id: str
+        focus_group_id: str,
+        db: Optional[AsyncSession] = None
     ) -> List[Dict[str, Any]]:
         """
         Pobiera rozkład emocji w grupie fokusowej
@@ -922,8 +1494,32 @@ Emocje w języku angielskim."""),
         """
         try:
             await self.connect()
+            neo4j_available = True
         except ConnectionError:
-            return []
+            neo4j_available = False
+
+        if not neo4j_available or not self.driver:
+            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
+            emotion_aggregates = metrics.get("emotion_aggregates", {})
+
+            emotions = []
+            for emotion, data in emotion_aggregates.items():
+                personas_count = len(data["personas"])
+                avg_intensity = mean(data["intensities"]) if data["intensities"] else 0.0
+                emotions.append({
+                    "emotion": emotion,
+                    "personas_count": personas_count,
+                    "avg_intensity": avg_intensity,
+                    "percentage": 0
+                })
+
+            total_personas = sum(item["personas_count"] for item in emotions)
+            if total_personas > 0:
+                for emotion in emotions:
+                    emotion["percentage"] = (emotion["personas_count"] / total_personas) * 100
+
+            emotions.sort(key=lambda item: item["personas_count"], reverse=True)
+            return emotions
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -944,10 +1540,9 @@ Emocje w języku angielskim."""),
                     "emotion": record["emotion"],
                     "personas_count": record["personas_count"],
                     "avg_intensity": record["avg_intensity"],
-                    "percentage": 0  # Will be calculated by caller
+                    "percentage": 0
                 })
 
-            # Calculate percentages
             total_personas = sum(e["personas_count"] for e in emotions)
             if total_personas > 0:
                 for emotion in emotions:

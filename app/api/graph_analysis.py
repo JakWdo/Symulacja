@@ -70,7 +70,7 @@ async def get_graph(
     """
     service = GraphService()
     try:
-        data = await service.get_graph_data(focus_group_id, filter_type)
+        data = await service.get_graph_data(focus_group_id, filter_type, db)
         return GraphDataResponse(**data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -94,7 +94,7 @@ async def get_influential_personas(
     """
     service = GraphService()
     try:
-        personas = await service.get_influential_personas(focus_group_id)
+        personas = await service.get_influential_personas(focus_group_id, db)
         return InfluentialPersonasResponse(personas=personas)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -118,7 +118,7 @@ async def get_key_concepts(
     """
     service = GraphService()
     try:
-        concepts = await service.get_key_concepts(focus_group_id)
+        concepts = await service.get_key_concepts(focus_group_id, db)
         return KeyConceptsResponse(concepts=concepts)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -142,7 +142,7 @@ async def get_controversial_concepts(
     """
     service = GraphService()
     try:
-        controversial = await service.get_controversial_concepts(focus_group_id)
+        controversial = await service.get_controversial_concepts(focus_group_id, db)
         return {"controversial_concepts": controversial}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -169,7 +169,7 @@ async def get_trait_correlations(
     """
     service = GraphService()
     try:
-        correlations = await service.get_trait_opinion_correlations(focus_group_id)
+        correlations = await service.get_trait_opinion_correlations(focus_group_id, db)
         return {"correlations": correlations}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -193,7 +193,7 @@ async def get_emotion_distribution(
     """
     service = GraphService()
     try:
-        emotions = await service.get_emotion_distribution(focus_group_id)
+        emotions = await service.get_emotion_distribution(focus_group_id, db)
         return {"emotions": emotions}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
