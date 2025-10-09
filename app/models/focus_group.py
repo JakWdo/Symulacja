@@ -70,7 +70,7 @@ class FocusGroup(Base):
     persona_ids = Column(ARRAY(PGUUID(as_uuid=True)), nullable=False)  # [uuid1, uuid2, ...]
     questions = Column(ARRAY(Text), nullable=False)  # ["Question 1?", "Question 2?", ...]
     mode = Column(String(50), nullable=False, default="normal")  # "normal" lub "adversarial"
-    status = Column(String(50), nullable=False, default="pending")  # pending/running/completed/failed
+    status = Column(String(50), nullable=False, default="pending")  # Możliwe statusy: pending/running/completed/failed
     target_participants = Column(Integer, nullable=True, default=10)  # Docelowa liczba uczestników
 
     # Metryki wydajności
@@ -82,7 +82,7 @@ class FocusGroup(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
-    # AI summary cache
+    # Bufor przechowujący ostatnie podsumowanie AI
     ai_summary = Column(JSON, nullable=True)
 
     # Relacje

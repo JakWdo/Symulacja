@@ -170,7 +170,7 @@ async def get_current_admin_user(
     return current_user
 
 
-# Opcjonalna dependency dla public endpoints (token opcjonalny)
+# Opcjonalna zależność dla publicznych endpointów (token jest opcjonalny)
 async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db)
@@ -216,7 +216,7 @@ async def get_current_user_optional(
         if user and user.is_active:
             return user
     except Exception:
-        # Ignoruj błędy - zwróć None dla public access
+        # Ignorujemy błędy i zwracamy None dla dostępu publicznego
         pass
 
     return None

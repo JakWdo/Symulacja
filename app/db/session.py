@@ -19,9 +19,9 @@ settings = get_settings()
 # Engine to główny punkt wejścia do bazy danych
 engine = create_async_engine(
     settings.DATABASE_URL,  # URL z pliku .env (postgresql+asyncpg://...)
-    echo=settings.DEBUG,  # Loguj SQL queries w trybie DEBUG
+    echo=settings.DEBUG,  # Loguj zapytania SQL w trybie DEBUG
     poolclass=NullPool if settings.ENVIRONMENT == "test" else None,  # Bez poolingu w testach
-    pool_pre_ping=True,  # Sprawdzaj czy connection jest żywe przed użyciem
+    pool_pre_ping=True,  # Sprawdzaj czy połączenie jest aktywne przed użyciem
     pool_size=5 if settings.ENVIRONMENT == "production" else 5,  # Max 5 aktywnych połączeń
     max_overflow=10 if settings.ENVIRONMENT == "production" else 10,  # Max 10 dodatkowych przy szczycie
     pool_recycle=3600,  # Odtwarzaj połączenia co 1h (zapobiega timeout PostgreSQL)

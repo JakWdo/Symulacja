@@ -35,7 +35,7 @@ class User(Base):
     full_name = Column(String(255), nullable=False)
     role = Column(String(100), nullable=True)  # np. "Market Researcher", "Product Manager"
     company = Column(String(255), nullable=True)
-    avatar_url = Column(String(500), nullable=True)  # URL do avatara
+    avatar_url = Column(String(500), nullable=True)  # Adres URL do avatara
 
     # === API CONFIGURATION ===
     # Szyfrowany Google API key (używany zamiast globalnego settings.GOOGLE_API_KEY)
@@ -48,15 +48,15 @@ class User(Base):
     system_updates_notifications = Column(Boolean, default=True)
 
     # === ACCOUNT STATUS ===
-    is_active = Column(Boolean, default=True)  # Account enabled/disabled
-    is_verified = Column(Boolean, default=False)  # Email verified (future feature)
-    plan = Column(String(50), default="free")  # "free", "pro", "enterprise"
+    is_active = Column(Boolean, default=True)  # Czy konto jest aktywne
+    is_verified = Column(Boolean, default=False)  # Czy adres e-mail został zweryfikowany (funkcja przyszłościowa)
+    plan = Column(String(50), default="free")  # Plany taryfowe: "free", "pro", "enterprise"
 
     # === TIMESTAMPS ===
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     last_login_at = Column(DateTime, nullable=True)
-    deleted_at = Column(DateTime, nullable=True)  # Soft delete
+    deleted_at = Column(DateTime, nullable=True)  # Miękkie usunięcie (data dezaktywacji)
 
     # === RELATIONSHIPS ===
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
