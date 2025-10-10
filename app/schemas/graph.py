@@ -65,3 +65,22 @@ class KeyConcept(BaseModel):
 class KeyConceptsResponse(BaseModel):
     """Lista kluczowych konceptów"""
     concepts: List[KeyConcept]
+
+
+class GraphQueryInsight(BaseModel):
+    """Pojedynczy insight zwrócony przez zapytanie"""
+    title: str
+    detail: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class GraphQueryRequest(BaseModel):
+    """Zapytanie natural language do analizy grafu"""
+    question: str = Field(..., min_length=1, max_length=500, description="Pytanie użytkownika")
+
+
+class GraphQueryResponse(BaseModel):
+    """Ustrukturyzowana odpowiedź na zapytanie"""
+    answer: str
+    insights: List[GraphQueryInsight] = Field(default_factory=list)
+    suggested_questions: List[str] = Field(default_factory=list)

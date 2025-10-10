@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from app.core.config import get_settings
-from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_api
+from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth
 import logging
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Prefix: /api/v1 (z settings.API_V1_PREFIX)
 # Endpointy autoryzacyjne jako pierwsze (publiczne)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX, tags=["Auth"])
-app.include_router(settings_api.router, prefix=settings.API_V1_PREFIX, tags=["Settings"])
 
 # Chronione endpointy (wymagają uwierzytelnienia)
 app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["Projects"])

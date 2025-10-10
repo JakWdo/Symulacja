@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Project, Persona, FocusGroup, GraphData } from '@/types';
+import type { Project, Persona, FocusGroup, GraphData, GraphQueryResponse } from '@/types';
 
 export type PanelKey = 'projects' | 'personas' | 'focus-groups' | 'analysis';
 
@@ -20,6 +20,7 @@ interface AppState {
   focusGroups: FocusGroup[];
   graphData: GraphData | null;
   pendingSummaries: Record<string, boolean>;
+  graphAsk: GraphAskState;
 
   // UI State
   activePanel: PanelKey | null;
@@ -53,6 +54,19 @@ interface AppState {
   setPanelPosition: (panel: PanelKey, position: Position) => void;
   setTriggerPosition: (panel: PanelKey, position: Position) => void;
   setSummaryPending: (focusGroupId: string, pending: boolean) => void;
+  setGraphAskQuestion: (question: string) => void;
+  setGraphAskResult: (result: GraphQueryResponse | null) => void;
+  setGraphAskStatus: (status: GraphAskState['status'], error?: string | null) => void;
+  setGraphAskFocusGroup: (focusGroupId: string | null) => void;
+  resetGraphAsk: (focusGroupId?: string | null) => void;
+}
+
+interface GraphAskState {
+  focusGroupId: string | null;
+  question: string;
+  status: 'idle' | 'loading' | 'success' | 'error';
+  result: GraphQueryResponse | null;
+  error: string | null;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -65,6 +79,13 @@ export const useAppStore = create<AppState>((set) => ({
   focusGroups: [],
   graphData: null,
   pendingSummaries: {},
+  graphAsk: {
+    focusGroupId: null,
+    question: '',
+    status: 'idle',
+    result: null,
+    error: null,
+  },
   activePanel: null,
   isLoading: false,
   error: null,
@@ -127,7 +148,47 @@ export const useAppStore = create<AppState>((set) => ({
         };
       }
 
-      const { [focusGroupId]: _removed, ...rest } = state.pendingSummaries;
+      const rest = { ...state.pendingSummaries };
+      delete rest[focusGroupId];
       return { pendingSummaries: rest };
     }),
+  setGraphAskQuestion: (question) =>
+    set((state) => ({
+      graphAsk: {
+        ...state.graphAsk,
+        question,
+      },
+    })),
+  setGraphAskResult: (result) =>
+    set((state) => ({
+      graphAsk: {
+        ...state.graphAsk,
+        result,
+      },
+    })),
+  setGraphAskStatus: (status, error = null) =>
+    set((state) => ({
+      graphAsk: {
+        ...state.graphAsk,
+        status,
+        error,
+      },
+    })),
+  setGraphAskFocusGroup: (focusGroupId) =>
+    set((state) => ({
+      graphAsk: {
+        ...state.graphAsk,
+        focusGroupId,
+      },
+    })),
+  resetGraphAsk: (focusGroupId = null) =>
+    set(() => ({
+      graphAsk: {
+        focusGroupId,
+        question: '',
+        status: 'idle',
+        result: null,
+        error: null,
+      },
+    })),
 }));

@@ -1,361 +1,567 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Ten plik zawiera instrukcje dla Claude Code (claude.ai/code) podczas pracy z kodem w tym repozytorium.
 
-## Project Overview
+## Przegląd Projektu
 
-Market Research SaaS - AI-powered virtual focus group platform using Google Gemini to generate synthetic personas and simulate market research discussions. Minimalist version focusing on core functionality.
+Market Research SaaS - Platforma do wirtualnych grup fokusowych z AI wykorzystująca Google Gemini do generowania syntetycznych person i symulacji dyskusji badawczych. Wersja produkcyjna z pełną funkcjonalnością.
 
-**Tech Stack:**
-- Backend: FastAPI (Python 3.11+), PostgreSQL + pgvector, Redis, Neo4j (graph DB)
+**Stack Technologiczny:**
+- Backend: FastAPI (Python 3.11+), PostgreSQL + pgvector, Redis, Neo4j
 - Frontend: React 18 + TypeScript, Vite, TanStack Query, Tailwind CSS
 - AI: Google Gemini 2.5 (Flash/Pro) via LangChain
-- Infrastructure: Docker + Docker Compose
+- Infrastruktura: Docker + Docker Compose
 
-## Development Commands
+## Polecenia Deweloperskie
 
-### Docker Operations (Primary Development Method)
+### Operacje Docker (Podstawowa Metoda Deweloperska)
 
 ```bash
-# Start all services
+# Uruchom wszystkie serwisy
 docker-compose up -d
 
-# View logs
-docker-compose logs -f backend
+# Logi
+docker-compose logs -f api
 docker-compose logs -f frontend
 
-# Restart services
-docker-compose restart backend
+# Restart serwisów
+docker-compose restart api
 docker-compose restart frontend
 
-# Rebuild containers
+# Przebuduj kontenery
 docker-compose up --build -d
 
-# Stop all services
+# Zatrzymaj wszystkie serwisy
 docker-compose down
 
-# Stop and remove volumes (DELETES DATA)
+# Zatrzymaj i usuń wolumeny (USUWA DANE!)
 docker-compose down -v
 ```
 
-### Database Migrations (Alembic)
+### Migracje Bazy Danych (Alembic)
 
 ```bash
-# Run migrations
+# Wykonaj migracje
 docker-compose exec api alembic upgrade head
 
-# Create new migration
-docker-compose exec api alembic revision --autogenerate -m "description"
+# Utwórz nową migrację
+docker-compose exec api alembic revision --autogenerate -m "opis"
 
-# Rollback one migration
+# Rollback jednej migracji
 docker-compose exec api alembic downgrade -1
 
-# View migration history
+# Historia migracji
 docker-compose exec api alembic history
 ```
 
-### Testing
+### Testowanie
 
 ```bash
-# Run all tests
+# Wszystkie testy
 python -m pytest tests/ -v
 
-# Run with coverage
-python -m pytest tests/ -v --tb=short
+# Z coverage
+python -m pytest tests/ -v --cov=app --cov-report=html
 
-# Run specific test file
+# Konkretny plik testowy
 python -m pytest tests/test_persona_generator.py -v
 
-# List all tests
+# Lista wszystkich testów
 python -m pytest tests/ --collect-only
 ```
 
-### Frontend Development
+### Rozwój Frontendu
 
 ```bash
 cd frontend
 
-# Install dependencies
+# Instalacja zależności
 npm install
 
-# Run dev server (standalone)
+# Serwer deweloperski (standalone)
 npm run dev
 
-# Build for production
+# Build produkcyjny
 npm run build
 
-# Preview production build
+# Podgląd build produkcyjnego
 npm run preview
 
 # Lint TypeScript
 npm run lint
 ```
 
-## Architecture Overview
+## Architektura
 
-### Service Layer Pattern (Backend)
+### Wzorzec Service Layer (Backend)
 
-The backend uses a **service-oriented architecture** where business logic is separated from API endpoints:
+Backend wykorzystuje **architekturę zorientowaną na serwisy**, gdzie logika biznesowa jest oddzielona od endpointów API:
 
 ```
-API Endpoints (app/api/*.py)
+Endpointy API (app/api/*.py)
     ↓
-Service Layer (app/services/*_langchain.py)
+Warstwa Serwisów (app/services/*_langchain.py)
     ↓
-Models/DB (app/models/*.py)
+Modele/DB (app/models/*.py)
 ```
 
-**Key Services:**
-- `PersonaGeneratorLangChain` - Generates statistically representative personas using Gemini + statistical sampling (chi-square validation)
-- `FocusGroupServiceLangChain` - Orchestrates focus group discussions, processes responses in parallel
-- `MemoryServiceLangChain` - Event sourcing system with semantic search using Google embeddings
-- `DiscussionSummarizerService` - AI-powered summaries using Gemini Pro
-- `PersonaValidator` - Statistical validation of persona distributions
+**Kluczowe Serwisy:**
+- `PersonaGeneratorLangChain` - Generuje statystycznie reprezentatywne persony używając Gemini + statistical sampling (walidacja chi-kwadrat)
+- `FocusGroupServiceLangChain` - Orkiestruje dyskusje grup fokusowych, przetwarza odpowiedzi równolegle
+- `MemoryServiceLangChain` - System event sourcing z semantic search używając Google embeddings
+- `DiscussionSummarizerService` - Podsumowania AI używając Gemini Pro
+- `PersonaValidator` - Walidacja statystyczna rozkładów person
+- `GraphService` - Analiza grafów wiedzy w Neo4j (koncepty, emocje, relacje)
+- `SurveyResponseGenerator` - Generator odpowiedzi na ankiety syntetyczne
 
-### Memory & Context System
+### System Pamięci i Kontekstu
 
-The platform uses **event sourcing** for persona memory:
-1. Every persona action/response is stored as immutable `PersonaEvent`
-2. Events have embeddings (via Google Gemini) for semantic search
-3. When answering questions, relevant past context is retrieved using similarity search
-4. Ensures consistency across multi-question discussions
+Platforma używa **event sourcing** dla pamięci person:
+1. Każda akcja/odpowiedź persony jest zapisywana jako niezmienny `PersonaEvent`
+2. Eventy mają embeddingi (via Google Gemini) dla semantic search
+3. Przy odpowiadaniu na pytania, pobierany jest kontekst z przeszłości via similarity search
+4. Zapewnia spójność w wielopytaniowych dyskusjach
 
-### Parallel Processing Architecture
+### Architektura Równoległego Przetwarzania
 
-Focus groups process persona responses **in parallel** using asyncio:
-- Each persona gets its own async task
-- ~20 personas × 4 questions completes in ~2-5 minutes (vs 40+ minutes sequential)
+Grupy fokusowe przetwarzają odpowiedzi person **równolegle** używając asyncio:
+- Każda persona ma własny async task
+- ~20 person × 4 pytania = ~2-5 minut (vs 40+ minut sekwencyjnie)
 - Target: <3s per persona response, <30s total focus group time
 
-### Database Schema
+### Schemat Bazy Danych
 
-Core models:
-- `Project` - Research project container
-- `Persona` - Synthetic persona with demographics + psychology (Big Five, Hofstede)
-- `FocusGroup` - Discussion session linking personas to questions
-- `PersonaResponse` - Individual persona answers
-- `PersonaEvent` - Event sourcing log with embeddings
+Główne modele:
+- `User` - Użytkownicy systemu (autoryzacja JWT)
+- `Project` - Kontener projektu badawczego
+- `Persona` - Syntetyczna persona z demografią + psychologią (Big Five, Hofstede)
+- `FocusGroup` - Sesja dyskusyjna łącząca persony z pytaniami
+- `PersonaResponse` - Indywidualne odpowiedzi person
+- `PersonaEvent` - Log event sourcing z embeddingami
+- `Survey` - Ankiety z pytaniami (single/multiple choice, rating scale, open text)
+- `SurveyResponse` - Odpowiedzi person na ankiety
 
-## Configuration & Environment
+## Konfiguracja i Środowisko
 
-**Required Environment Variables (.env):**
+**Wymagane Zmienne Środowiskowe (.env):**
 
 ```bash
-# Database
+# Baza danych
 DATABASE_URL=postgresql+asyncpg://market_research:password@postgres:5432/market_research_db
 
-# AI (REQUIRED)
+# AI (WYMAGANE!)
 GOOGLE_API_KEY=your_gemini_api_key_here
 
-# Models
+# Modele
 PERSONA_GENERATION_MODEL=gemini-2.5-flash
 ANALYSIS_MODEL=gemini-2.5-pro
 DEFAULT_MODEL=gemini-2.5-flash
 
-# Redis & Neo4j (used by services)
+# Redis & Neo4j
 REDIS_URL=redis://redis:6379/0
 NEO4J_URI=bolt://neo4j:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=dev_password_change_in_prod
 
-# Security (CHANGE IN PRODUCTION!)
+# Bezpieczeństwo (ZMIEŃ W PRODUKCJI!)
 SECRET_KEY=change-me
 ENVIRONMENT=development
 DEBUG=true
 ```
 
-**Important Settings ([app/core/config.py](app/core/config.py)):**
-- `TEMPERATURE=0.7` - LLM creativity (0.0-1.0)
-- `MAX_TOKENS=8000` - Max response length
-- `RANDOM_SEED=42` - For reproducibility
-- `MAX_RESPONSE_TIME_PER_PERSONA=3` - Performance target (seconds)
-- `MAX_FOCUS_GROUP_TIME=30` - Total execution target (seconds)
+**Ważne Ustawienia ([app/core/config.py](app/core/config.py)):**
+- `TEMPERATURE=0.7` - Kreatywność LLM (0.0-1.0)
+- `MAX_TOKENS=8000` - Maksymalna długość odpowiedzi (gemini-2.5 używa reasoning tokens!)
+- `RANDOM_SEED=42` - Dla powtarzalności
+- `MAX_RESPONSE_TIME_PER_PERSONA=3` - Cel wydajnościowy (sekundy)
+- `MAX_FOCUS_GROUP_TIME=30` - Cel czasu całkowitego (sekundy)
 
-## API Access Points
+## Punkty Dostępu API
 
 - Backend API: http://localhost:8000
 - API Docs (Swagger): http://localhost:8000/docs
 - Frontend: http://localhost:5173
 - Neo4j Browser: http://localhost:7474
 
-## Common Development Workflows
+## Typowe Workflow Deweloperskie
 
-### Testing Gemini API Connection
+### Testowanie Połączenia z Gemini API
 
 ```bash
-# Check API key is set
+# Sprawdź API key
 docker-compose exec api printenv GOOGLE_API_KEY
 
-# Test Gemini API directly
-bash -c 'API_KEY=$(docker-compose exec api printenv GOOGLE_API_KEY) && curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}" -H "Content-Type: application/json" -d "{\"contents\":[{\"parts\":[{\"text\":\"Hi\"}]}]}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(\"✅ API works!\" if \"candidates\" in d else \"❌ Error: \" + d.get(\"error\", {}).get(\"message\", \"Unknown\"))"'
+# Testuj Gemini API bezpośrednio
+curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"contents":[{"parts":[{"text":"Hi"}]}]}'
 ```
 
-### Creating Test Projects via API
+### Tworzenie Testowych Projektów via API
 
 ```bash
-# Create project
+# Utwórz projekt
 PROJECT_ID=$(curl -X POST http://localhost:8000/api/v1/projects \
   -H "Content-Type: application/json" \
-  -d '{"name": "Test", "description": "Test project", "target_demographics": {"age_group": {"18-24": 0.5, "25-34": 0.5}, "gender": {"Male": 0.5, "Female": 0.5}}, "target_sample_size": 10}' \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+  -d '{
+    "name": "Test",
+    "description": "Projekt testowy",
+    "target_demographics": {
+      "age_group": {"18-24": 0.5, "25-34": 0.5},
+      "gender": {"Male": 0.5, "Female": 0.5}
+    },
+    "target_sample_size": 10
+  }' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
-# Generate personas
-curl -X POST http://localhost:8000/api/v1/projects/$PROJECT_ID/personas/generate \
+# Generuj persony
+curl -X POST "http://localhost:8000/api/v1/projects/$PROJECT_ID/personas/generate" \
   -H "Content-Type: application/json" \
   -d '{"num_personas": 10, "adversarial_mode": false}'
 
-# List personas
-curl http://localhost:8000/api/v1/projects/$PROJECT_ID/personas
+# Listuj persony
+curl "http://localhost:8000/api/v1/projects/$PROJECT_ID/personas"
 ```
 
-### Persona Generation Process
+### Proces Generowania Person
 
-The persona generation uses **hybrid AI + statistical sampling**:
-1. Sample demographics from target distributions (chi-square validated)
-2. Sample Big Five personality traits (normal distribution around population means)
-3. Sample Hofstede cultural dimensions (based on location)
-4. Use Gemini to generate realistic profile narrative, background, values
-5. Validate statistical fit of final cohort
+Generowanie person używa **hybrydowego AI + statistical sampling**:
+1. Sample demografii z rozkładów docelowych (walidacja chi-kwadrat)
+2. Sample Big Five personality traits (rozkład normalny wokół średnich populacyjnych)
+3. Sample Hofstede cultural dimensions (bazowane na lokalizacji)
+4. Użyj Gemini do generacji realistycznej narracji profilu, tła, wartości
+5. Waliduj dopasowanie statystyczne finalnej kohorty
 
-**Performance:** ~30-60s for 20 personas (Gemini Flash)
+**Wydajność:** ~30-60s dla 20 person (Gemini Flash)
 
-## Graph Analysis System (Knowledge Graph)
+## System Analizy Grafowej (Graf Wiedzy)
 
-The platform includes an **automated knowledge graph** built with Neo4j that provides deep insights into focus group discussions. After each focus group completes, the system automatically extracts concepts, emotions, and relationships using LLM-powered analysis.
+Platforma zawiera **automatyczny graf wiedzy** zbudowany w Neo4j, który dostarcza głębokich insightów z dyskusji grup fokusowych. Po zakończeniu każdej grupy fokusowej, system automatycznie ekstraktuje koncepty, emocje i relacje używając LLM.
 
-### Architecture
+### Architektura
 
-**Data Flow:**
-1. Focus group completes → Automatic graph build triggered
-2. LLM (Gemini Flash) extracts concepts, emotions, sentiment from each response
-3. Neo4j graph created with nodes: Personas, Concepts, Emotions
-4. Relationships: MENTIONS, FEELS, AGREES_WITH, DISAGREES_WITH
-5. Frontend fetches and visualizes graph with advanced analytics
+**Przepływ Danych:**
+1. Grupa fokusowa kończy się → Automatyczne budowanie grafu
+2. LLM (Gemini Flash) ekstraktuje koncepty, emocje, sentiment z każdej odpowiedzi
+3. Graf Neo4j tworzony z nodami: Personas, Concepts, Emotions
+4. Relacje: MENTIONS, FEELS, AGREES_WITH, DISAGREES_WITH
+5. Frontend pobiera i wizualizuje graf z zaawansowaną analityką
 
-**Key Components:**
-- **Backend:** [app/services/graph_service.py](app/services/graph_service.py) - Neo4j integration with LangChain
-- **API:** [app/api/graph_analysis.py](app/api/graph_analysis.py) - RESTful endpoints
-- **Frontend:** [frontend/src/components/panels/GraphAnalysisPanel.tsx](frontend/src/components/panels/GraphAnalysisPanel.tsx) - 3D visualization + insights
+**Kluczowe Komponenty:**
+- **Backend:** [app/services/graph_service.py](app/services/graph_service.py) - Integracja Neo4j z LangChain
+- **API:** [app/api/graph_analysis.py](app/api/graph_analysis.py) - Endpointy RESTful
+- **Frontend:** [frontend/src/components/panels/GraphAnalysisPanel.tsx](frontend/src/components/panels/GraphAnalysisPanel.tsx) - Wizualizacja 3D + insighty
 
-### Available Graph Insights
+### Dostępne Insighty Grafowe
 
-**1. Key Concepts** - Most frequently mentioned topics with sentiment
+**1. Kluczowe Koncepty** - Najczęściej wspomniane tematy z sentimentem
 ```bash
 GET /api/v1/graph/{focus_group_id}/concepts
 ```
 
-**2. Controversial Concepts** - Polarizing topics (high sentiment variance)
+**2. Kontrowersyjne Koncepty** - Polaryzujące tematy (wysoka wariancja sentymentu)
 ```bash
 GET /api/v1/graph/{focus_group_id}/controversial
-# Returns concepts with supporters vs critics breakdown
+# Zwraca koncepty z podziałem na zwolenników vs krytyków
 ```
 
-**3. Trait-Opinion Correlations** - Age/demographic differences in opinions
+**3. Korelacje Trait-Opinion** - Różnice wiekowe/demograficzne w opiniach
 ```bash
 GET /api/v1/graph/{focus_group_id}/correlations
-# Shows how young vs senior participants feel about concepts
+# Pokazuje jak młodzi vs starsi uczestnicy czują o konceptach
 ```
 
-**4. Emotion Distribution** - Emotional responses across participants
+**4. Rozkład Emocji** - Emocjonalne odpowiedzi uczestników
 ```bash
 GET /api/v1/graph/{focus_group_id}/emotions
 ```
 
-**5. Influential Personas** - Most connected participants (thought leaders)
+**5. Wpływowe Persony** - Najbardziej połączeni uczestnicy (thought leaders)
 ```bash
 GET /api/v1/graph/{focus_group_id}/influential
 ```
 
-### Example: Finding Polarizing Topics
+### Przykład: Znajdowanie Polaryzujących Tematów
 
 ```bash
-# Run focus group
+# Uruchom grupę fokusową
 curl -X POST http://localhost:8000/api/v1/focus-groups/{id}/run
 
-# Graph is automatically built after completion
+# Graf jest automatycznie budowany po zakończeniu
 
-# Query controversial concepts
+# Odpytaj kontrowersyjne koncepty
 curl http://localhost:8000/api/v1/graph/{focus_group_id}/controversial
 ```
 
-**Sample Response:**
+**Przykładowa Odpowiedź:**
 ```json
 {
   "controversial_concepts": [
     {
-      "concept": "Pricing",
+      "concept": "Cena",
       "avg_sentiment": 0.1,
       "polarization": 0.85,
-      "supporters": ["Alice Johnson", "Bob Smith"],
-      "critics": ["Charlie Davis", "Diana Evans"],
+      "supporters": ["Anna Kowalska", "Jan Nowak"],
+      "critics": ["Maria Wiśniewska", "Piotr Zieliński"],
       "total_mentions": 12
     }
   ]
 }
 ```
 
-### Advanced Cypher Queries
+### Zaawansowane Zapytania Cypher
 
-The system includes pre-built analytics queries in [app/services/graph_service.py](app/services/graph_service.py):
+System zawiera gotowe zapytania analityczne w [app/services/graph_service.py](app/services/graph_service.py):
 
-- **Controversial Concepts:** `get_controversial_concepts()` - Uses standard deviation to find polarizing topics
-- **Trait Correlations:** `get_trait_opinion_correlations()` - Age-based opinion segmentation
-- **Influence Analysis:** `get_influential_personas()` - PageRank-style connection counting
+- **Kontrowersyjne Koncepty:** `get_controversial_concepts()` - Używa odchylenia standardowego do znajdowania polaryzujących tematów
+- **Korelacje Trait:** `get_trait_opinion_correlations()` - Segmentacja opinii bazowana na wieku
+- **Analiza Wpływu:** `get_influential_personas()` - Liczenie połączeń w stylu PageRank
 
-### Frontend Usage
+### Użycie na Frontendzie
 
-The Graph Analysis tab appears automatically after focus group completion:
+Zakładka Graph Analysis pojawia się automatycznie po zakończeniu grupy fokusowej:
 
-1. Navigate to Focus Group → "Graph Analysis" tab
-2. Interactive 3D visualization with color-coded nodes:
-   - 🔵 Blue = Personas
-   - 🟣 Purple = Concepts
-   - 🟠 Amber = Emotions
-   - 🟢 Green = Positive sentiment
-   - 🔴 Red = Negative sentiment
-3. Sidebar shows: Key Concepts, Influential Personas, Controversial Topics, Emotions, Age Correlations
-4. Click nodes to explore details
-5. Use filters: All, Positive, Negative, High Influence
+1. Nawiguj do Focus Group → zakładka "Graph Analysis"
+2. Interaktywna wizualizacja 3D z kolorowanymi nodami:
+   - 🔵 Niebieski = Persony
+   - 🟣 Fioletowy = Koncepty
+   - 🟠 Bursztynowy = Emocje
+   - 🟢 Zielony = Pozytywny sentiment
+   - 🔴 Czerwony = Negatywny sentiment
+3. Sidebar pokazuje: Kluczowe Koncepty, Wpływowe Persony, Kontrowersyjne Tematy, Emocje, Korelacje Wiekowe
+4. Kliknij nody aby eksplorować szczegóły
+5. Użyj filtrów: Wszystkie, Pozytywne, Negatywne, Wysoki Wpływ
 
-### Performance & Optimization
+### Wydajność i Optymalizacja
 
-- **LLM Extraction:** ~0.5-1s per response (Gemini Flash)
-- **Graph Build:** ~30-60s for 20 personas × 4 questions
-- **Frontend:** Limits to 100 strongest connections for performance
-- **Caching:** 5-minute stale time on frontend queries
+- **Ekstrakcja LLM:** ~0.5-1s per response (Gemini Flash)
+- **Budowa Grafu:** ~30-60s dla 20 person × 4 pytania
+- **Frontend:** Limit 100 najsilniejszych połączeń dla wydajności
+- **Caching:** 5-minutowy stale time na zapytania frontendowe
 
-### Manual Graph Build (if needed)
+### Ręczna Budowa Grafu (jeśli potrzeba)
 
 ```bash
-# Force rebuild graph
+# Wymuś przebudowę grafu
 curl -X POST http://localhost:8000/api/v1/graph/build/{focus_group_id}
 ```
 
-## Code Style Notes
+## Konwencje Kodu
 
-- All services use **async/await** pattern (FastAPI + SQLAlchemy async)
-- LangChain abstractions used throughout (`ChatGoogleGenerativeAI`, `ChatPromptTemplate`, etc.)
-- Comprehensive docstrings in Polish (existing convention)
-- Type hints required for all functions
-- Constants defined in [app/core/constants.py](app/core/constants.py)
+- Wszystkie serwisy używają **async/await** pattern (FastAPI + SQLAlchemy async)
+- Abstrakcje LangChain używane wszędzie (`ChatGoogleGenerativeAI`, `ChatPromptTemplate`, etc.)
+- Docstringi w języku polskim (istniejąca konwencja)
+- Type hints wymagane dla wszystkich funkcji
+- Stałe zdefiniowane w [app/core/constants.py](app/core/constants.py)
 
-## Troubleshooting
+## Rozwiązywanie Problemów
 
-### Backend won't start
+### Backend nie startuje
 ```bash
-docker-compose logs backend  # Check for errors
-docker-compose restart backend db
+docker-compose logs api  # Sprawdź błędy
+docker-compose restart api postgres
 ```
 
-### Empty persona responses
-Check [app/services/focus_group_service_langchain.py](app/services/focus_group_service_langchain.py) - ensure `max_tokens` is high enough for gemini-2.5 reasoning tokens (should be 2048+)
+### Puste odpowiedzi person
+Sprawdź [app/services/focus_group_service_langchain.py](app/services/focus_group_service_langchain.py) - upewnij się że `max_tokens` jest wystarczająco wysoki dla gemini-2.5 reasoning tokens (powinno być 2048+)
 
-### Database connection errors
+### Błędy połączenia z bazą
 ```bash
-docker-compose ps  # Verify postgres is healthy
-docker-compose down -v && docker-compose up -d  # Nuclear option (deletes data)
+docker-compose ps  # Weryfikuj że postgres jest healthy
+docker-compose down -v && docker-compose up -d  # Opcja nuklearna (usuwa dane)
 docker-compose exec api alembic upgrade head
 ```
 
-### Frontend API calls failing
-Check that Vite proxy is configured correctly in [frontend/vite.config.ts](frontend/vite.config.ts) - should proxy `/api` to `http://api:8000`
+### Wywołania API frontendu failują
+Sprawdź że Vite proxy jest poprawnie skonfigurowane w [frontend/vite.config.ts](frontend/vite.config.ts) - powinno proxy `/api` do `http://api:8000`
+
+### Neo4j nie startuje
+```bash
+docker-compose logs neo4j
+docker-compose restart neo4j
+curl http://localhost:7474  # Sprawdź połączenie
+```
+
+## Struktura Plików
+
+```
+market-research-saas/
+├── app/                              # Backend (FastAPI)
+│   ├── api/                          # Endpointy REST API
+│   │   ├── auth.py                  # Autoryzacja JWT
+│   │   ├── projects.py              # Zarządzanie projektami
+│   │   ├── personas.py              # Generowanie person
+│   │   ├── focus_groups.py          # Grupy fokusowe
+│   │   ├── surveys.py               # Ankiety syntetyczne
+│   │   ├── analysis.py              # Analizy AI
+│   │   ├── graph_analysis.py        # Analiza grafowa Neo4j
+│   │   └── dependencies.py          # Zależności FastAPI
+│   ├── core/                         # Konfiguracja
+│   │   ├── config.py                # Ustawienia aplikacji
+│   │   ├── constants.py             # Stałe
+│   │   └── security.py              # Bezpieczeństwo i JWT
+│   ├── db/                           # Baza danych
+│   │   ├── session.py               # Sesje SQLAlchemy
+│   │   └── base.py                  # Base model
+│   ├── models/                       # Modele SQLAlchemy (ORM)
+│   │   ├── user.py                  # Model użytkownika
+│   │   ├── project.py               # Model projektu
+│   │   ├── persona.py               # Model persony
+│   │   ├── focus_group.py           # Model grupy fokusowej
+│   │   ├── survey.py                # Model ankiety
+│   │   └── persona_events.py        # Model eventów
+│   ├── schemas/                      # Pydantic schemas (API validation)
+│   │   ├── project.py
+│   │   ├── persona.py
+│   │   ├── focus_group.py
+│   │   ├── survey.py
+│   │   └── graph.py
+│   ├── services/                     # Logika biznesowa
+│   │   ├── persona_generator_langchain.py       # Generator person
+│   │   ├── focus_group_service_langchain.py     # Orkiestracja dyskusji
+│   │   ├── survey_response_generator.py         # Generator odpowiedzi ankiet
+│   │   ├── discussion_summarizer.py             # AI podsumowania
+│   │   ├── memory_service_langchain.py          # System pamięci
+│   │   ├── persona_validator.py                 # Walidacja statystyczna
+│   │   └── graph_service.py                     # Graf wiedzy Neo4j
+│   └── main.py                       # Aplikacja FastAPI
+├── frontend/                         # Frontend (React + TypeScript)
+│   ├── src/
+│   │   ├── components/              # Komponenty React
+│   │   │   ├── layout/             # Layout i nawigacja
+│   │   │   ├── panels/             # Panele funkcjonalne
+│   │   │   └── ui/                 # Komponenty UI (shadcn/ui)
+│   │   ├── contexts/               # React Context (auth)
+│   │   ├── hooks/                  # Custom hooks
+│   │   ├── lib/                    # API client
+│   │   ├── store/                  # Zustand store
+│   │   ├── types/                  # TypeScript types
+│   │   └── App.tsx
+│   ├── vite.config.ts
+│   └── package.json
+├── alembic/                          # Migracje bazy danych
+│   └── versions/                    # Pliki migracji
+├── tests/                            # Testy
+│   ├── test_persona_generator.py
+│   ├── test_focus_group_service.py
+│   ├── test_graph_service.py
+│   ├── test_survey_response_generator.py
+│   ├── test_critical_paths.py
+│   ├── test_api_integration.py
+│   └── conftest.py
+├── scripts/                          # Skrypty pomocnicze
+│   └── init_db.py                   # Inicjalizacja bazy
+├── docker-compose.yml                # Konfiguracja Docker
+├── Dockerfile                        # Backend Dockerfile
+├── requirements.txt                  # Zależności Python
+├── README.md                         # Dokumentacja użytkownika
+└── CLAUDE.md                         # Ten plik
+```
+
+## Funkcjonalności
+
+### 1. Generowanie Person
+- Rozkłady demograficzne (wiek, płeć, edukacja, dochód, lokalizacja)
+- Cechy psychologiczne (Big Five personality traits)
+- Wymiary kulturowe (Hofstede dimensions)
+- Walidacja statystyczna (test chi-kwadrat)
+- Wydajność: ~30-60s dla 20 person
+
+### 2. Grupy Fokusowe
+- Równoległe przetwarzanie odpowiedzi person (asyncio)
+- System pamięci (kontekst rozmowy, event sourcing)
+- Spójność odpowiedzi między pytaniami
+- Semantic search w historii (pgvector)
+- Wydajność: ~2-5 min dla 20 person × 4 pytania
+
+### 3. Ankiety Syntetyczne
+- 4 typy pytań: Single choice, Multiple choice, Rating scale, Open text
+- Drag & drop builder ankiet
+- AI-powered responses (Gemini)
+- Równoległe przetwarzanie
+- Analiza demograficzna (podział według wieku, płci, wykształcenia, dochodu)
+- Wizualizacje (bar charts, pie charts)
+- Wydajność: ~1-3s per persona, <60s total
+
+### 4. Analiza Grafowa (Neo4j)
+- Graf wiedzy: Personas, Concepts, Emotions
+- Relacje: MENTIONS, FEELS, AGREES_WITH, DISAGREES_WITH
+- Kluczowe koncepty z sentimentem
+- Kontrowersyjne tematy (wysoka polaryzacja)
+- Wpływowe persony (PageRank-style)
+- Korelacje demograficzne (wiek vs opinie)
+- Rozkład emocji
+- Wizualizacja 3D (React Three Fiber)
+- Wydajność: ~30-60s dla 20 person × 4 pytania
+
+### 5. Analizy AI
+- Executive summaries (Gemini 2.5 Pro/Flash)
+- Key insights i recommendations
+- Sentiment analysis
+- Idea score (0-100)
+- Consensus level (0-1)
+
+## Testowanie
+
+```bash
+# Wszystkie testy
+python -m pytest tests/ -v
+
+# Z coverage
+python -m pytest tests/ -v --cov=app --cov-report=html
+
+# Konkretny test
+python -m pytest tests/test_persona_generator.py -v
+
+# Critical paths
+python -m pytest tests/test_critical_paths.py -v
+```
+
+**Dostępne testy:**
+- `test_persona_generator.py` - generowanie person
+- `test_focus_group_service.py` - orkiestracja grup fokusowych
+- `test_graph_service.py` - analiza grafowa Neo4j
+- `test_survey_response_generator.py` - ankiety syntetyczne
+- `test_memory_service_langchain.py` - system pamięci
+- `test_discussion_summarizer_service.py` - AI podsumowania
+- `test_persona_validator_service.py` - walidacja statystyczna
+- `test_critical_paths.py` - end-to-end critical paths
+- `test_api_integration.py` - integracja API
+- `test_auth_api.py` - autoryzacja
+- `test_main_api.py` - główne endpointy
+
+## Bezpieczeństwo
+
+- **JWT Authentication** - wszystkie chronione endpointy wymagają tokena
+- **Password hashing** - bcrypt dla haseł użytkowników
+- **CORS** - konfigurowalny via ALLOWED_ORIGINS
+- **Secret key** - MUSI być zmieniony w produkcji
+- **Environment-based config** - różne ustawienia dla dev/prod
+
+## Produkcja
+
+### Ważne Zmiany dla Produkcji
+
+1. **Zmień SECRET_KEY** - wygeneruj bezpieczny klucz
+2. **Zmień hasła baz danych** - PostgreSQL, Neo4j
+3. **Skonfiguruj ALLOWED_ORIGINS** - tylko zaufane domeny
+4. **Wyłącz DEBUG** - ustaw DEBUG=false
+5. **Użyj HTTPS** - dla wszystkich połączeń
+6. **Backup bazy** - regularny backup PostgreSQL i Neo4j
+7. **Monitoring** - logi, metryki, alerty
+8. **Rate limiting** - ogranicz requests per IP
+9. **Google API quota** - monitoruj użycie Gemini API
+
+### Generowanie Secret Key
+
+```bash
+# Wygeneruj bezpieczny secret key
+openssl rand -hex 32
+```
+
+## Wsparcie
+
+W razie problemów:
+1. Sprawdź logi: `docker-compose logs -f api`
+2. Sprawdź dokumentację API: http://localhost:8000/docs
+3. Przeczytaj README.md
+4. Otwórz issue w repozytorium

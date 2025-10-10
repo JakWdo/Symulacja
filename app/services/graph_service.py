@@ -1212,6 +1212,377 @@ Emocje w języku angielskim."""),
 
             return personas
 
+    async def answer_question(
+        self,
+        focus_group_id: str,
+        question: str,
+        db: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """
+        Wykonuje proste zapytanie w języku naturalnym na podstawie metryk grafu.
+
+        Analiza wykorzystuje heurystyki, aby dopasować pytanie do gotowych analiz:
+        - Najbardziej wpływowe persony
+        - Kontrowersyjne koncepty
+        - Emocje powiązane z konkretnym tematem
+        - Najbardziej pozytywne/negatywne koncepty
+        - Ogólne podsumowanie top tematów
+        """
+        question_text = (question or "").strip()
+        if not question_text:
+            raise ValueError("Question cannot be empty")
+
+        normalized = question_text.lower()
+
+        # Zapewnij istnienie grafu w pamięci
+        _, metrics = await self._ensure_memory_graph(focus_group_id, db)
+
+        persona_metadata: Dict[str, Dict[str, Any]] = metrics.get("persona_metadata", {})
+        persona_concepts: Dict[str, Dict[str, List[float]]] = metrics.get("persona_concepts", {})
+        persona_emotions: Dict[str, Dict[str, List[float]]] = metrics.get("persona_emotions", {})
+        concept_aggregates: Dict[str, Dict[str, Any]] = metrics.get("concept_aggregates", {})
+        persona_sentiments: Dict[str, float] = metrics.get("persona_sentiments", {})
+
+        influential_personas = await self.get_influential_personas(focus_group_id, db)
+        key_concepts = await self.get_key_concepts(focus_group_id, db)
+        controversial_concepts = await self.get_controversial_concepts(focus_group_id, db)
+        emotion_distribution = await self.get_emotion_distribution(focus_group_id, db)
+
+        suggested_questions = [
+            "Who influences others the most?",
+            "Show me controversial topics.",
+            "Which emotions dominate the discussion?",
+            "Which concepts are rated most positively?",
+            "Where do participants disagree the most?"
+        ]
+
+        insights: List[Dict[str, Any]] = []
+
+        concept_lookup = {concept.lower(): concept for concept in concept_aggregates.keys()}
+        matched_concept: Optional[str] = None
+        for key, original in concept_lookup.items():
+            if key and key in normalized:
+                matched_concept = original
+                break
+
+        influence_tokens = {"influence", "influences", "influential", "impact", "influencers", "connections"}
+        controversial_tokens = {"controversial", "disagree", "disagreement", "polarized", "polarising", "conflict", "split"}
+        emotion_tokens = {"emotion", "feel", "feeling", "feelings", "mood", "sentiment"}
+        sentiment_tokens = {"sentiment", "positive", "negative", "happy", "unhappy", "satisfied", "satisfaction"}
+        topic_tokens = {"topic", "topics", "concept", "concepts", "talking", "discussion", "discuss"}
+        opinion_tokens = {"think", "opinion", "opinions", "feel", "view", "perceive", "perception", "feedback"}
+
+        def persona_label(persona_id: str, fallback: str) -> str:
+            meta = persona_metadata.get(persona_id)
+            if not meta:
+                return fallback
+            name = meta.get("name") or fallback
+            occupation = meta.get("occupation")
+            age = meta.get("age")
+            if occupation and age:
+                return f"{name} ({occupation}, {age}y)"
+            if occupation:
+                return f"{name} ({occupation})"
+            if age:
+                return f"{name} ({age}y)"
+            return name
+
+        def format_percentage(value: float) -> str:
+            return f"{value * 100:.0f}%" if abs(value) <= 1 else f"{value:.1f}"
+
+        # === 1. Pytania o wpływ ===
+        if "who" in normalized and any(token in normalized for token in influence_tokens):
+            if not influential_personas:
+                answer = "I couldn't find influence metrics yet. Build the graph after the focus group completes."
+            else:
+                top_persona = influential_personas[0]
+                answer = (
+                    f"{top_persona['name']} is the most influential persona with "
+                    f"{top_persona['connections']} connections and an influence score of "
+                    f"{top_persona['influence']}/100."
+                )
+                for persona in influential_personas[:3]:
+                    insights.append({
+                        "title": persona["name"],
+                        "detail": (
+                            f"Influence {persona['influence']}/100 • "
+                            f"Connections {persona['connections']} • "
+                            f"Avg sentiment {persona['sentiment']:.2f}"
+                        ),
+                        "metadata": {"persona_id": persona["id"]}
+                    })
+            return {
+                "answer": answer,
+                "insights": insights,
+                "suggested_questions": suggested_questions,
+            }
+
+        # === 2. Kontrowersyjne tematy ===
+        if any(token in normalized for token in controversial_tokens):
+            if not controversial_concepts:
+                answer = "I didn't detect any highly polarized topics yet. Most discussions stayed aligned."
+            else:
+                top_concept = controversial_concepts[0]
+                supporters = ", ".join(top_concept["supporters"][:3]) or "no clear supporters"
+                critics = ", ".join(top_concept["critics"][:3]) or "no strong critics"
+                answer = (
+                    f"'{top_concept['concept']}' is the most controversial topic with high sentiment variance "
+                    f"({top_concept['polarization']:.2f}). Supporters include {supporters}, while critics highlight {critics}."
+                )
+                for concept in controversial_concepts[:3]:
+                    insights.append({
+                        "title": concept["concept"],
+                        "detail": (
+                            f"Polarization {concept['polarization']:.2f} • Avg sentiment {concept['avg_sentiment']:.2f} • "
+                            f"Mentions {concept['total_mentions']}"
+                        ),
+                        "metadata": {
+                            "supporters": concept["supporters"],
+                            "critics": concept["critics"],
+                        }
+                    })
+            return {
+                "answer": answer,
+                "insights": insights,
+                "suggested_questions": suggested_questions,
+            }
+
+        # === 3. Emocje ===
+        if any(token in normalized for token in emotion_tokens):
+            if matched_concept:
+                emotion_totals: Dict[str, List[float]] = defaultdict(list)
+                emotion_personas: Dict[str, set] = defaultdict(set)
+
+                for persona_id, concepts in persona_concepts.items():
+                    if matched_concept not in concepts:
+                        continue
+                    for emotion, intensities in persona_emotions.get(persona_id, {}).items():
+                        if not intensities:
+                            continue
+                        emotion_totals[emotion].extend(intensities)
+                        emotion_personas[emotion].add(persona_id)
+
+                if not emotion_totals:
+                    answer = f"Personas talking about {matched_concept} did not express strong emotional cues."
+                else:
+                    emotion_rank = sorted(
+                        (
+                            (
+                                emotion,
+                                mean(intensities) if intensities else 0.0,
+                                len(emotion_personas[emotion])
+                            )
+                            for emotion, intensities in emotion_totals.items()
+                        ),
+                        key=lambda item: item[1],
+                        reverse=True
+                    )
+                    top_emotion, top_intensity, persona_count = emotion_rank[0]
+                    answer = (
+                        f"The dominant emotion around {matched_concept} is {top_emotion} "
+                        f"(intensity {top_intensity:.2f}) expressed by {persona_count} personas."
+                    )
+                    for emotion, avg_intensity, count in emotion_rank[:3]:
+                        insights.append({
+                            "title": emotion,
+                            "detail": (
+                                f"Average intensity {avg_intensity:.2f} • {count} personas referencing {matched_concept}"
+                            ),
+                            "metadata": {"personas": [persona_label(pid, pid) for pid in emotion_personas[emotion]]}
+                        })
+                return {
+                    "answer": answer,
+                    "insights": insights,
+                    "suggested_questions": suggested_questions,
+                }
+
+            if not emotion_distribution:
+                answer = "I couldn't derive an emotion distribution yet."
+            else:
+                top_emotion = emotion_distribution[0]
+                answer = (
+                    f"{top_emotion['emotion']} is the leading emotion, expressed by "
+                    f"{top_emotion['personas_count']} personas (avg intensity {top_emotion['avg_intensity']:.2f})."
+                )
+                for emotion in emotion_distribution[:3]:
+                    insights.append({
+                        "title": emotion["emotion"],
+                        "detail": (
+                            f"{emotion['personas_count']} personas • Avg intensity {emotion['avg_intensity']:.2f}"
+                        ),
+                        "metadata": {"percentage": emotion.get("percentage", 0)}
+                    })
+            return {
+                "answer": answer,
+                "insights": insights,
+                "suggested_questions": suggested_questions,
+            }
+
+        # === 4. Opinie o konkretnym koncepcie ===
+        if matched_concept and any(token in normalized for token in opinion_tokens):
+            concept_data = concept_aggregates.get(matched_concept)
+            if not concept_data or concept_data["mentions"] == 0:
+                answer = f"I don't have enough mentions about {matched_concept} yet."
+            else:
+                avg_sentiment = mean(concept_data["sentiments"]) if concept_data["sentiments"] else 0.0
+                supporters: List[str] = []
+                critics: List[str] = []
+
+                for persona_id, concepts in persona_concepts.items():
+                    values = concepts.get(matched_concept, [])
+                    if not values:
+                        continue
+                    persona_avg = mean(values)
+                    label = persona_label(persona_id, persona_id)
+                    if persona_avg > 0.3:
+                        supporters.append(label)
+                    elif persona_avg < -0.3:
+                        critics.append(label)
+
+                supporters_display = ", ".join(supporters[:3]) or "nobody strongly in favour yet"
+                critics_display = ", ".join(critics[:3]) or "nobody strongly opposed yet"
+                answer = (
+                    f"Overall sentiment toward {matched_concept} is {avg_sentiment:.2f}. "
+                    f"Supporters include {supporters_display}, while critics mention {critics_display}."
+                )
+                insights.append({
+                    "title": matched_concept,
+                    "detail": (
+                        f"Mentions {concept_data['mentions']} • Avg sentiment {avg_sentiment:.2f}"
+                    ),
+                    "metadata": {
+                        "supporters": supporters[:5],
+                        "critics": critics[:5]
+                    }
+                })
+            return {
+                "answer": answer,
+                "insights": insights,
+                "suggested_questions": suggested_questions,
+            }
+
+        # === 5. Zapytania o ogólną polaryzację / sentyment ===
+        if any(token in normalized for token in sentiment_tokens):
+            if not key_concepts:
+                answer = "I don't have sentiment data yet. Run and build the graph first."
+            else:
+                positive = [concept for concept in key_concepts if concept["sentiment"] >= 0.3]
+                negative = [concept for concept in key_concepts if concept["sentiment"] <= -0.2]
+
+                if positive:
+                    best = positive[0]
+                    positive_msg = (
+                        f"Most positive concept: {best['name']} ({best['sentiment']:.2f} sentiment across "
+                        f"{best['frequency']} mentions)."
+                    )
+                    insights.append({
+                        "title": f"Positive · {best['name']}",
+                        "detail": f"Sentiment {best['sentiment']:.2f} • Mentions {best['frequency']}",
+                        "metadata": {"personas": best["personas"]}
+                    })
+                else:
+                    positive_msg = "No strongly positive concepts detected."
+
+                if negative:
+                    worst = sorted(negative, key=lambda item: item["sentiment"])[0]
+                    negative_msg = (
+                        f"Biggest pain point: {worst['name']} ({worst['sentiment']:.2f} sentiment)."
+                    )
+                    insights.append({
+                        "title": f"Negative · {worst['name']}",
+                        "detail": f"Sentiment {worst['sentiment']:.2f} • Mentions {worst['frequency']}",
+                        "metadata": {"personas": worst["personas"]}
+                    })
+                else:
+                    negative_msg = "No strongly negative concepts detected."
+
+                answer = f"{positive_msg} {negative_msg}"
+            return {
+                "answer": answer,
+                "insights": insights,
+                "suggested_questions": suggested_questions,
+            }
+
+        # === 6. Tematy / top koncepcje ===
+        if any(token in normalized for token in topic_tokens):
+            if not key_concepts:
+                answer = "No dominant topics yet. Once personas respond, I'll highlight the main themes."
+            else:
+                top_items = key_concepts[:3]
+                topics = ", ".join(f"{item['name']} ({format_percentage(item['sentiment'])})" for item in top_items)
+                answer = f"Top themes right now: {topics}."
+                for concept in top_items:
+                    insights.append({
+                        "title": concept["name"],
+                        "detail": (
+                            f"Mentions {concept['frequency']} • Avg sentiment {concept['sentiment']:.2f}"
+                        ),
+                        "metadata": {"personas": concept["personas"]}
+                    })
+            return {
+                "answer": answer,
+                "insights": insights,
+                "suggested_questions": suggested_questions,
+            }
+
+        # === 7. Domyślna odpowiedź - syntetyczne podsumowanie ===
+        if key_concepts:
+            top_concept = key_concepts[0]
+            top_concept_text = (
+                f"The discussion centers on {top_concept['name']} "
+                f"(sentiment {top_concept['sentiment']:.2f}, {top_concept['frequency']} mentions)."
+            )
+            insights.append({
+                "title": f"Focus · {top_concept['name']}",
+                "detail": (
+                    f"Mentions {top_concept['frequency']} • Avg sentiment {top_concept['sentiment']:.2f}"
+                ),
+                "metadata": {"personas": top_concept["personas"]}
+            })
+        else:
+            top_concept_text = "I couldn't determine a dominant concept yet."
+
+        if influential_personas:
+            top_persona = influential_personas[0]
+            influence_text = (
+                f"{top_persona['name']} leads the conversation with "
+                f"{top_persona['connections']} connections (influence {top_persona['influence']}/100)."
+            )
+            insights.append({
+                "title": f"Leader · {top_persona['name']}",
+                "detail": (
+                    f"Influence {top_persona['influence']}/100 • Connections {top_persona['connections']} • "
+                    f"Avg sentiment {top_persona['sentiment']:.2f}"
+                ),
+                "metadata": {"persona_id": top_persona["id"]}
+            })
+        else:
+            influence_text = "I have limited information about persona influence so far."
+
+        negative_concepts = [
+            concept for concept in key_concepts if concept["sentiment"] <= -0.2
+        ]
+        if negative_concepts:
+            worst = sorted(negative_concepts, key=lambda item: item["sentiment"])[0]
+            risk_text = f"Watch out for {worst['name']} (sentiment {worst['sentiment']:.2f})."
+            insights.append({
+                "title": f"Risk · {worst['name']}",
+                "detail": (
+                    f"{worst['frequency']} mentions • Avg sentiment {worst['sentiment']:.2f}"
+                ),
+                "metadata": {"personas": worst["personas"]}
+            })
+        else:
+            risk_text = ""
+
+        answer_parts = [part for part in [top_concept_text, influence_text, risk_text] if part]
+        answer = " ".join(answer_parts) if answer_parts else "I need more data before I can summarize this focus group."
+
+        return {
+            "answer": answer,
+            "insights": insights,
+            "suggested_questions": suggested_questions,
+        }
     async def get_key_concepts(
         self,
         focus_group_id: str,

@@ -14,8 +14,8 @@ Pydantic automatycznie:
 
 Pliki:
 - project.py - schematy dla projektów badawczych
-- persona.py - schematy dla person (v1)
-- persona_v2.py - ulepszone schematy person (v2) z mapperami kompatybilności
+- persona.py - schematy dla person
 - focus_group.py - schematy dla grup fokusowych
 - survey.py - schematy dla ankiet syntetycznych
+- graph.py - schematy dla analizy grafowej
 """

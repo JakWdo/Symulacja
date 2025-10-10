@@ -14,6 +14,7 @@ import type {
   Survey,
   SurveyResults,
   Question,
+  GraphQueryResponse,
 } from '@/types';
 
 // === AUTH TYPES ===
@@ -426,6 +427,11 @@ export const graphApi = {
   getEmotionDistribution: async (focusGroupId: string): Promise<any[]> => {
     const { data } = await api.get(`/graph/${focusGroupId}/emotions`);
     return data.emotions || [];
+  },
+
+  askQuestion: async (focusGroupId: string, question: string): Promise<GraphQueryResponse> => {
+    const { data } = await api.post(`/graph/${focusGroupId}/ask`, { question });
+    return data;
   },
 };
 

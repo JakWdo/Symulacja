@@ -15,7 +15,9 @@ from app.schemas.graph import (
     GraphDataResponse,
     GraphStatsResponse,
     InfluentialPersonasResponse,
-    KeyConceptsResponse
+    KeyConceptsResponse,
+    GraphQueryRequest,
+    GraphQueryResponse
 )
 
 router = APIRouter(prefix="/graph", tags=["graph"])
@@ -79,6 +81,10 @@ async def get_graph(
     try:
         data = await service.get_graph_data(str(focus_group_id), filter_type, db)
         return GraphDataResponse(**data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -105,6 +111,43 @@ async def get_influential_personas(
     try:
         personas = await service.get_influential_personas(str(focus_group_id), db)
         return InfluentialPersonasResponse(personas=personas)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await service.close()
+
+@router.post("/{focus_group_id}/ask", response_model=GraphQueryResponse)
+async def ask_graph_question(
+    focus_group_id: UUID,
+    payload: GraphQueryRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Odpowiada na pytanie w języku naturalnym dotyczące grafu wiedzy
+
+    **Args:**
+    - focus_group_id: UUID grupy fokusowej
+    - payload: Pytanie zadane przez użytkownika
+
+    **Returns:**
+    - answer: Tekstowa odpowiedź
+    - insights: Lista kluczowych insightów wspierających odpowiedź
+    - suggested_questions: Podpowiedzi kolejnych zapytań
+    """
+    await get_focus_group_for_user(focus_group_id, current_user, db)
+    service = GraphService()
+    try:
+        result = await service.answer_question(str(focus_group_id), payload.question, db)
+        return GraphQueryResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -131,6 +174,10 @@ async def get_key_concepts(
     try:
         concepts = await service.get_key_concepts(str(focus_group_id), db)
         return KeyConceptsResponse(concepts=concepts)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -157,6 +204,10 @@ async def get_controversial_concepts(
     try:
         controversial = await service.get_controversial_concepts(str(focus_group_id), db)
         return {"controversial_concepts": controversial}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -186,6 +237,10 @@ async def get_trait_correlations(
     try:
         correlations = await service.get_trait_opinion_correlations(str(focus_group_id), db)
         return {"correlations": correlations}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -212,6 +267,10 @@ async def get_emotion_distribution(
     try:
         emotions = await service.get_emotion_distribution(str(focus_group_id), db)
         return {"emotions": emotions}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

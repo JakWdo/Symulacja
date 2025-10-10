@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,27 +8,80 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import {
-  Network,
-  Users,
-  MessageCircle,
-  Brain,
-  Search,
-  Filter,
-  Eye,
-} from 'lucide-react';
+import { Network, Users, MessageCircle, Brain, Search, Filter, Eye, RefreshCcw } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { NetworkGraph } from '@/components/analysis/NetworkGraph';
-import { projectsApi, graphApi } from '@/lib/api';
+import { projectsApi, graphApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { toast } from '@/components/ui/toastStore';
+import type { GraphQueryResponse } from '@/types';
 
 export function GraphAnalysis() {
-  const { selectedProject, setSelectedProject } = useAppStore();
-  const [searchQuery, setSearchQuery] = useState('');
+  const {
+    selectedProject,
+    setSelectedProject,
+    selectedFocusGroup,
+    setSelectedFocusGroup,
+    setGraphData,
+    graphAsk,
+    setGraphAskQuestion,
+    setGraphAskResult,
+    setGraphAskStatus,
+    setGraphAskFocusGroup,
+    resetGraphAsk,
+  } = useAppStore();
   const [selectedConcept, setSelectedConcept] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [graphFilter, setGraphFilter] = useState('all');
+  const queryClient = useQueryClient();
+  const question = graphAsk.question;
+  const askResult = graphAsk.result;
+  const askErrorMessage = graphAsk.error;
+  const suggestedQueries = useMemo(
+    () => [
+      'Who influences others the most?',
+      'Show me controversial topics.',
+      'Which emotions dominate the discussion?',
+      'Which concepts are rated most positively?',
+    ],
+    []
+  );
+  const {
+    mutate: runAskQuestion,
+    isPending: mutationPending,
+    reset: resetAskMutation,
+  } = useMutation<GraphQueryResponse, unknown, string>({
+    mutationKey: ['graph-ask', selectedFocusGroup?.id],
+    mutationFn: async (queryText: string) => {
+      if (!selectedFocusGroup) {
+        throw new Error('Select a completed focus group first.');
+      }
+      return graphApi.askQuestion(selectedFocusGroup.id, queryText);
+    },
+    onSuccess: (data: GraphQueryResponse) => {
+      setGraphAskResult(data);
+      setGraphAskStatus('success', null);
+    },
+    onError: (error: unknown) => {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.detail || error.message
+        : error instanceof Error
+          ? error.message
+          : 'Unknown error';
+      setGraphAskStatus('error', message);
+    },
+  });
+  const isAskPending = graphAsk.status === 'loading' || mutationPending;
+  const canSubmitQuestion =
+    question.trim().length > 0 && !!selectedFocusGroup && !isAskPending;
+  const combinedSuggestions = useMemo(() => {
+    if (!askResult?.suggested_questions?.length) {
+      return suggestedQueries;
+    }
+    const deduped = new Set<string>([...suggestedQueries, ...askResult.suggested_questions]);
+    return Array.from(deduped);
+  }, [askResult?.suggested_questions, suggestedQueries]);
 
   // Fetch projects
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
@@ -43,26 +97,170 @@ export function GraphAnalysis() {
 
   const activeProjectId = selectedProject?.id ?? null;
 
-  // Fetch graph data
-  const { data: graphData, isLoading: graphLoading } = useQuery({
-    queryKey: ['graph-data', activeProjectId, graphFilter],
-    queryFn: () => graphApi.getGraph(activeProjectId!, graphFilter),
+  const {
+    data: focusGroups = [],
+    isLoading: focusGroupsLoading,
+  } = useQuery({
+    queryKey: ['focus-groups', activeProjectId],
+    queryFn: () => focusGroupsApi.getByProject(activeProjectId!),
     enabled: !!activeProjectId,
   });
 
-  // Fetch influential personas
+  const completedFocusGroups = useMemo(
+    () => focusGroups.filter((group) => group.status === 'completed'),
+    [focusGroups]
+  );
+
+  useEffect(() => {
+    if (!activeProjectId) {
+      if (selectedFocusGroup) {
+        setSelectedFocusGroup(null);
+      }
+      return;
+    }
+
+    if (focusGroups.length === 0) {
+      if (selectedFocusGroup) {
+        setSelectedFocusGroup(null);
+      }
+      return;
+    }
+
+    if (selectedFocusGroup) {
+      const updatedSelection = completedFocusGroups.find(
+        (group) => group.id === selectedFocusGroup.id
+      );
+
+      if (updatedSelection) {
+        if (updatedSelection !== selectedFocusGroup) {
+          setSelectedFocusGroup(updatedSelection);
+        }
+        return;
+      }
+    }
+
+    if (completedFocusGroups.length > 0) {
+      const nextGroup = completedFocusGroups[0];
+      if (nextGroup.id !== selectedFocusGroup?.id) {
+        setSelectedFocusGroup(nextGroup);
+      }
+    } else if (selectedFocusGroup) {
+      setSelectedFocusGroup(null);
+    }
+  }, [
+    activeProjectId,
+    focusGroups,
+    completedFocusGroups,
+    selectedFocusGroup,
+    setSelectedFocusGroup,
+  ]);
+
+  useEffect(() => {
+    const currentId = selectedFocusGroup?.id ?? null;
+    if (graphAsk.focusGroupId === currentId) {
+      return;
+    }
+    setSelectedConcept(null);
+    setGraphFilter('all');
+    resetGraphAsk(currentId);
+    resetAskMutation();
+  }, [graphAsk.focusGroupId, selectedFocusGroup?.id, resetGraphAsk, resetAskMutation]);
+
+  const handleAskQuestion = () => {
+    if (!question.trim()) {
+      return;
+    }
+    if (!selectedFocusGroup) {
+      toast.info('Select a focus group', 'Choose a completed focus group to analyze questions.');
+      return;
+    }
+    if (isAskPending) {
+      return;
+    }
+    const trimmed = question.trim();
+    setGraphAskQuestion(trimmed);
+    setGraphAskFocusGroup(selectedFocusGroup.id);
+    setGraphAskStatus('loading', null);
+    setGraphAskResult(null);
+    runAskQuestion(trimmed);
+  };
+
+  // Fetch graph data for the selected focus group
+  const {
+    data: graphQueryData,
+    isLoading: graphLoading,
+    error: graphError,
+    isFetching: isGraphFetching,
+    refetch: refetchGraph,
+  } = useQuery({
+    queryKey: ['graph-data', selectedFocusGroup?.id, graphFilter],
+    queryFn: () =>
+      graphApi.getGraph(
+        selectedFocusGroup!.id,
+        graphFilter === 'all' ? undefined : graphFilter
+      ),
+    enabled: !!selectedFocusGroup,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (!selectedFocusGroup || !graphQueryData) {
+      setGraphData(null);
+      return;
+    }
+
+    const hasNodes =
+      Array.isArray(graphQueryData.nodes) && graphQueryData.nodes.length > 0;
+
+    if (hasNodes) {
+      setGraphData(graphQueryData);
+    } else {
+      setGraphData(null);
+    }
+  }, [graphQueryData, selectedFocusGroup, setGraphData]);
+
+  // Fetch influential personas scoped to the selected focus group
   const { data: influentialPersonas = [] } = useQuery({
-    queryKey: ['influential-personas', activeProjectId],
-    queryFn: () => graphApi.getInfluentialPersonas(activeProjectId!),
-    enabled: !!activeProjectId,
+    queryKey: ['influential-personas', selectedFocusGroup?.id],
+    queryFn: () => graphApi.getInfluentialPersonas(selectedFocusGroup!.id),
+    enabled: !!selectedFocusGroup,
   });
 
-  // Fetch key concepts
+  // Fetch key concepts scoped to the selected focus group
   const { data: keyConcepts = [] } = useQuery({
-    queryKey: ['key-concepts', activeProjectId],
-    queryFn: () => graphApi.getKeyConcepts(activeProjectId!),
-    enabled: !!activeProjectId,
+    queryKey: ['key-concepts', selectedFocusGroup?.id],
+    queryFn: () => graphApi.getKeyConcepts(selectedFocusGroup!.id),
+    enabled: !!selectedFocusGroup,
   });
+
+  const buildGraphMutation = useMutation({
+    mutationFn: () => graphApi.buildGraph(selectedFocusGroup!.id),
+    onSuccess: (stats) => {
+      toast.success('Graph rebuilt', `Created ${stats.relationships_created} relations`);
+      queryClient.invalidateQueries({ queryKey: ['graph-data', selectedFocusGroup?.id] });
+      queryClient.invalidateQueries({ queryKey: ['key-concepts', selectedFocusGroup?.id] });
+      queryClient.invalidateQueries({ queryKey: ['influential-personas', selectedFocusGroup?.id] });
+    },
+    onError: (error: unknown) => {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.detail || error.message
+        : error instanceof Error
+          ? error.message
+          : 'Unknown error';
+      toast.error('Failed to build graph', message);
+    },
+  });
+
+  const graphErrorMessage = graphError
+    ? axios.isAxiosError(graphError)
+      ? graphError.response?.data?.detail || graphError.message
+      : graphError instanceof Error
+        ? graphError.message
+        : 'Unknown error'
+    : null;
+
+  const hasGraphData =
+    !!graphQueryData && Array.isArray(graphQueryData.nodes) && graphQueryData.nodes.length > 0;
 
   const getSentimentColor = (sentiment: number) => {
     if (sentiment >= 0.7) return 'text-green-600';
@@ -78,7 +276,9 @@ export function GraphAnalysis() {
 
   const handleNodeClick = (node: any) => {
     if (node.type === 'concept') {
-      setSelectedConcept(node.id);
+      const normalized =
+        typeof node.name === 'string' ? node.name.toLowerCase() : String(node.id);
+      setSelectedConcept((current) => (current === normalized ? null : normalized));
     }
   };
 
@@ -134,6 +334,50 @@ export function GraphAnalysis() {
                 )}
               </SelectContent>
             </Select>
+            <Select
+              value={selectedFocusGroup?.id || ''}
+              onValueChange={(value) => {
+                const focusGroup = focusGroups.find((group) => group.id === value);
+                if (focusGroup) {
+                  setSelectedFocusGroup(focusGroup);
+                }
+              }}
+              disabled={!activeProjectId || focusGroupsLoading || completedFocusGroups.length === 0}
+            >
+              <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
+                <SelectValue
+                  placeholder={
+                    focusGroupsLoading
+                      ? 'Loading focus groups...'
+                      : completedFocusGroups.length === 0
+                        ? 'No completed focus groups'
+                        : 'Select focus group'
+                  }
+                  className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {focusGroupsLoading ? (
+                  <div className="flex items-center justify-center p-2">
+                    <SpinnerLogo className="w-4 h-4" />
+                  </div>
+                ) : completedFocusGroups.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">
+                    Run or complete a focus group to unlock graph insights
+                  </div>
+                ) : (
+                  completedFocusGroups.map((group) => (
+                    <SelectItem
+                      key={group.id}
+                      value={group.id}
+                      className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                    >
+                      {group.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -157,6 +401,15 @@ export function GraphAnalysis() {
                       Knowledge Network
                     </CardTitle>
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!selectedFocusGroup || buildGraphMutation.isPending}
+                        onClick={() => buildGraphMutation.mutate()}
+                      >
+                        <RefreshCcw className="w-4 h-4 mr-2" />
+                        {buildGraphMutation.isPending ? 'Building...' : 'Build Graph'}
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -184,26 +437,69 @@ export function GraphAnalysis() {
                 <CardContent>
                   {/* Interactive Graph Visualization */}
                   <div className="h-[500px] bg-muted/30 rounded-lg border border-border relative overflow-hidden">
-                    {graphLoading ? (
+                    {!selectedFocusGroup ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                        <Network className="w-10 h-10 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">
+                          Select a completed focus group to explore its knowledge graph.
+                        </p>
+                      </div>
+                    ) : (graphLoading && !graphQueryData) ? (
                       <div className="flex items-center justify-center h-full">
                         <SpinnerLogo className="w-8 h-8" />
                       </div>
-                    ) : graphData ? (
+                    ) : graphErrorMessage ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center px-6 space-y-3">
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            {graphErrorMessage}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Try rebuilding the graph or rerun the focus group.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => refetchGraph()}>
+                            Retry
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => buildGraphMutation.mutate()}
+                            disabled={buildGraphMutation.isPending}
+                          >
+                            <RefreshCcw className="w-4 h-4 mr-2" />
+                            {buildGraphMutation.isPending ? 'Building...' : 'Build Graph'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : hasGraphData ? (
                       <NetworkGraph
-                        data={graphData}
+                        data={graphQueryData}
                         filter={graphFilter}
                         selectedConcept={selectedConcept}
                         onNodeClick={handleNodeClick}
                         className="w-full h-full"
                       />
                     ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <p className="text-muted-foreground">No graph data available. Run a focus group first.</p>
+                      <div className="flex flex-col items-center justify-center h-full text-center px-6 space-y-3">
+                        <p className="text-muted-foreground">
+                          No graph data available yet. Run a focus group or rebuild the graph to generate insights.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => buildGraphMutation.mutate()}
+                          disabled={buildGraphMutation.isPending}
+                        >
+                          <RefreshCcw className="w-4 h-4 mr-2" />
+                          {buildGraphMutation.isPending ? 'Building...' : 'Build Graph'}
+                        </Button>
                       </div>
                     )}
 
                     {/* Active Filters */}
-                    {(selectedConcept || graphFilter !== 'all') && (
+                    {(selectedConcept || graphFilter !== 'all') && hasGraphData && (
                       <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
                         <Badge variant="secondary" className="bg-primary/10 text-primary">
                           {selectedConcept ? `Filtered: ${selectedConcept}` : `Filter: ${graphFilter}`}
@@ -231,26 +527,124 @@ export function GraphAnalysis() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                      <Input
-                        placeholder="Ask a question about your research data... (e.g., 'Who was most concerned about pricing?')"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                        <Input
+                          placeholder="Ask a question about your research data (e.g., 'Who was most concerned about pricing?')"
+                          value={question}
+                          onChange={(e) => {
+                            setGraphAskQuestion(e.target.value);
+                            if (graphAsk.status === 'error') {
+                              setGraphAskStatus('idle', null);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleAskQuestion();
+                            }
+                          }}
+                          className="pl-10"
+                          disabled={!selectedFocusGroup}
+                        />
+                      </div>
+                      <Button
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                        disabled={!canSubmitQuestion}
+                        onClick={handleAskQuestion}
+                      >
+                        {isAskPending ? (
+                          <>
+                            <SpinnerLogo className="mr-2 h-4 w-4" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <Brain className="w-4 h-4 mr-2" />
+                            Analyze
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                      disabled={!searchQuery.trim()}
-                    >
-                      <Brain className="w-4 h-4 mr-2" />
-                      Analyze
-                    </Button>
-                  </div>
-                  <div className="mt-4 text-sm text-muted-foreground">
-                    Try: "Show me controversial topics" • "Who influences others the most?" • "What emotions are linked to pricing?"
+
+                    <div className="flex flex-wrap gap-2">
+                      {combinedSuggestions.map((suggestion) => (
+                        <Button
+                          key={suggestion}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-3 text-xs"
+                          disabled={!selectedFocusGroup || isAskPending}
+                          onClick={() => {
+                            setGraphAskQuestion(suggestion);
+                            if (!selectedFocusGroup) {
+                              toast.info('Select a focus group', 'Choose a completed focus group to analyze questions.');
+                              return;
+                            }
+                            if (!isAskPending) {
+                              setGraphAskFocusGroup(selectedFocusGroup.id);
+                              setGraphAskStatus('loading', null);
+                              setGraphAskResult(null);
+                              runAskQuestion(suggestion.trim());
+                            }
+                          }}
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
+                    </div>
+
+                    {isAskPending && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <SpinnerLogo className="h-4 w-4" />
+                        Analyzing graph relationships...
+                      </div>
+                    )}
+
+                    {askErrorMessage && !isAskPending && (
+                      <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                        {askErrorMessage}
+                      </div>
+                    )}
+
+                    {askResult && !isAskPending && (
+                      <div className="space-y-3">
+                        <div className="rounded-lg border border-border bg-muted/30 p-4">
+                          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Answer
+                          </h4>
+                          <p className="text-sm leading-relaxed text-card-foreground">
+                            {askResult.answer}
+                          </p>
+                        </div>
+
+                        {askResult.insights.length > 0 && (
+                          <div className="space-y-2">
+                            <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Supporting insights
+                            </h5>
+                            <div className="grid gap-2 md:grid-cols-2">
+                              {askResult.insights.map((insight, index) => (
+                                <div
+                                  key={`${insight.title}-${index}`}
+                                  className="rounded-md border border-border bg-background/80 p-3"
+                                >
+                                  <p className="text-sm font-medium text-card-foreground">
+                                    {insight.title}
+                                  </p>
+                                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                    {insight.detail}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -279,7 +673,15 @@ export function GraphAnalysis() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {keyConcepts.length === 0 ? (
+                      {!selectedFocusGroup ? (
+                        <p className="text-muted-foreground text-sm">
+                          Select a completed focus group to see extracted concepts.
+                        </p>
+                      ) : graphLoading || isGraphFetching ? (
+                        <div className="flex items-center justify-center py-6">
+                          <SpinnerLogo className="w-6 h-6" />
+                        </div>
+                      ) : keyConcepts.length === 0 ? (
                         <p className="text-muted-foreground text-sm">No concepts extracted yet</p>
                       ) : (
                         keyConcepts.map((concept: any) => (
@@ -327,7 +729,15 @@ export function GraphAnalysis() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {influentialPersonas.length === 0 ? (
+                      {!selectedFocusGroup ? (
+                        <p className="text-muted-foreground text-sm">
+                          Select a completed focus group to review persona influence.
+                        </p>
+                      ) : graphLoading || isGraphFetching ? (
+                        <div className="flex items-center justify-center py-6">
+                          <SpinnerLogo className="w-6 h-6" />
+                        </div>
+                      ) : influentialPersonas.length === 0 ? (
                         <p className="text-muted-foreground text-sm">No personas analyzed yet</p>
                       ) : (
                         influentialPersonas.map((persona: any, index: number) => (
