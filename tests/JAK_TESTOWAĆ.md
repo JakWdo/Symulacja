@@ -28,7 +28,7 @@ pip install pytest pytest-asyncio pytest-cov email-validator
 
 ### Uruchom WSZYSTKIE działające testy jedną komendą
 ```bash
-# Opcja 1: Tylko testy jednostkowe (bez środowiska) - 78 testów
+# Opcja 1: Tylko testy jednostkowe (bez środowiska) - 95 testów
 python -m pytest tests/ -v
 
 # Opcja 2: Z coverage
@@ -73,6 +73,8 @@ tests/
 ├── test_persona_validator_service.py ✅ 4 testy - Walidacja person
 ├── test_memory_service_langchain.py ✅ 4 testy - Event sourcing
 ├── test_discussion_summarizer_service.py ✅ 4 testy - AI summaries
+├── test_analysis_api.py          ✅ 6 testów - Insights API (nowe)
+├── test_graph_analysis_api.py    ✅ 11 testów - Graph analytics API (nowe)
 ├── test_auth_api.py              ✅ 30 testów - Autentykacja
 ├── test_main_api.py              ✅ 3 testy - Podstawowe API
 ├── test_api_integration.py       ✅ 7 testów - Walidacja payloadów
@@ -85,7 +87,7 @@ tests/
 ```
 
 **Legenda:**
-- ✅ = Działają bez dodatkowej konfiguracji (78 testów)
+- ✅ = Działają bez dodatkowej konfiguracji (95 testów)
 - ⚠️ = Niektóre failują, wymagają fixów
 - 🔧 = Wymagają dopasowania do API serwisów
 - 📋 = Szkielety dokumentacyjne (skipped)
@@ -95,8 +97,8 @@ tests/
 ## 📊 Obecne wyniki
 
 ### Statystyki
-- **Łącznie testów:** 185
-- **Przechodzących:** 78 (100% unit tests)
+- **Łącznie testów:** 202
+- **Przechodzących:** 95 (100% unit tests, w tym analityka API)
 - **Skipped:** 56 (integracyjne/E2E)
 - **Do dopasowania:** 51 (serwisy)
 - **Coverage:** ~85% core functionality
@@ -109,6 +111,7 @@ tests/
 | **Core services** | 24 | ✅ 100% | PersonaGenerator, Memory, Summarizer |
 | **Security & Auth** | 36 | ✅ 100% | Hasła, JWT, walidacja |
 | **API basics** | 10 | ✅ 100% | Root, health, validation |
+| **Analityka & Graph API** | 17 | ✅ 100% | Generowanie insightów i grafów |
 | **Models** | 26 | ⚠️ 70% | DB models (niektóre failują) |
 | **Services** | 45 | 🔧 0% | Focus groups, graph, survey |
 | **E2E** | 20 | 📋 Docs | Pełne scenariusze (skipped) |
@@ -146,6 +149,21 @@ tests/
 - ✅ Cosine similarity
 - ✅ Event ordering (sequence numbers)
 
+#### 5. **Analityka i Graph API** (`test_analysis_api.py`, `test_graph_analysis_api.py`)
+- ✅ Generowanie insightów z pełną obsługą błędów (404 dla brakujących danych, 500 dla błędów serwera)
+- ✅ Wykorzystanie cache (pobieranie zapisanych podsumowań bez ponownego liczenia)
+- ✅ Grupowanie transkryptów odpowiedzi po pytaniach z zachowaniem kolejności
+- ✅ Budowa grafu i wszystkie widoki analityczne (kluczowe persony, koncepty, kontrowersje, korelacje cech, emocje)
+- ✅ Obsługa zapytań w języku naturalnym do grafu wraz z zamykaniem połączeń z serwisem
+- ✅ Mapowanie wyjątków `ValueError`/`ConnectionError` na odpowiednio 400/503 oraz wymuszenie nagłówka autoryzacyjnego
+
+### 🔍 Co jeszcze warto przetestować
+- 🔒 Scenariusze autoryzacji/uwierzytelnienia dla użytkowników bez dostępu do danej grupy fokusowej (obecnie testujemy tylko brak tokena)
+- ♻️ Inwalidacja cache po ponownym wygenerowaniu insightów oraz konkurencyjne wywołania POST/GET
+- ⚙️ Parametry zapytań (np. `include_recommendations=False`, różne `filter_type` dla grafu) i walidacja payloadów zapytań `ask`
+- 🚨 Mapowanie niespodziewanych wyjątków GraphService na `500` oraz logowanie (przetestować ścieżkę `Exception`)
+- 📊 Integracja z realną bazą danych w celu zweryfikowania, że struktura odpowiedzi zgadza się z modelami (testy integracyjne, gdy środowisko będzie gotowe)
+
 ---
 
 ## 🎯 Uruchamianie testów
@@ -153,7 +171,7 @@ tests/
 ### Podstawowe komendy
 
 ```bash
-# Wszystkie testy jednostkowe (78 testów przechodzi)
+# Wszystkie testy jednostkowe (95 testów przechodzi)
 python -m pytest tests/ -v
 
 # Z krótszym output
@@ -911,15 +929,15 @@ async def test_async_function():
 ## 📈 Metryki sukcesu
 
 ### Obecne
-- ✅ 78 testów przechodzi (100% unit tests)
-- ✅ 185 testów total
+- ✅ 95 testów przechodzi (100% unit tests)
+- ✅ 202 testy total
 - ✅ ~85% coverage core functionality
 - ✅ 21 critical path tests
 - ✅ 0 bezpieczeństwa issues
 
 ### Cele
 - [ ] 90%+ coverage
-- [ ] Wszystkie 185 testów przechodzi
+- [ ] Wszystkie 202 testy przechodzą
 - [ ] <5s execution time (unit tests)
 - [ ] CI/CD integration
 - [ ] 10+ E2E scenarios

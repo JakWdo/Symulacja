@@ -20,6 +20,8 @@ UNIT_TESTS = [
     "test_persona_validator_service",
     "test_memory_service_langchain",
     "test_discussion_summarizer_service",
+    "test_analysis_api",
+    "test_graph_analysis_api",
     "test_auth_api",
     "test_main_api",
     "test_api_integration",
