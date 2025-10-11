@@ -9,490 +9,605 @@ Wydajność: <3s na odpowiedź persony, <30s całkowity czas wykonania
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 import asyncio
 import time
 from datetime import datetime, timezone
+from types import SimpleNamespace
+from typing import List, Dict, Any
 from uuid import UUID
 
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+from app.core.config import get_settings
 from app.models import FocusGroup, Persona, PersonaResponse
 from app.services.memory_service_langchain import MemoryServiceLangChain
-from app.db import AsyncSessionLocal
-from app.core.config import get_settings
 
 settings = get_settings()
 
 
 class FocusGroupServiceLangChain:
-    """
-    Zarządzanie symulacjami grup fokusowych
+    """Zarządzanie symulacjami grup fokusowych."""
 
-    Orkiestruje dyskusje między personami, zarządza kontekstem rozmowy
-    i przetwarza odpowiedzi równolegle dla maksymalnej wydajności.
-    """
-
-    def __init__(self):
-        """Inicjalizuj serwis z LangChain LLM i serwisem pamięci"""
+    def __init__(self) -> None:
+        """Inicjalizuj serwis z klientami LLM i pamięci."""
         self.settings = settings
         self.memory_service = MemoryServiceLangChain()
-
-        # Inicjalizujemy model Gemini w LangChain
-        # Uwaga: modele gemini-2.5 zużywają więcej tokenów na wnioskowanie, więc podnosimy limit
         self.llm = ChatGoogleGenerativeAI(
             model=settings.DEFAULT_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=settings.TEMPERATURE,
-            max_tokens=2048,  # Większa liczba tokenów na potrzeby rozumowania gemini-2.5
+            max_tokens=2048,
         )
 
-    async def run_focus_group(
-        self, db: AsyncSession, focus_group_id: str
-    ) -> Dict[str, Any]:
+    async def run_focus_group(self, db: AsyncSession, focus_group_id: str) -> Dict[str, Any]:
         """
-        Wykonaj symulację grupy fokusowej przy użyciu LangChain
+        Przeprowadź kompletną symulację grupy fokusowej z użyciem LangChain.
 
-        Główna metoda orkiestrująca przebieg grupy fokusowej:
-        1. Ładuje grupę fokusową i persony z bazy danych
-        2. Dla każdego pytania, równolegle zbiera odpowiedzi od wszystkich person
-        3. Zapisuje odpowiedzi do bazy i tworzy eventy w systemie pamięci
-        4. Oblicza metryki wydajności (czas wykonania, średni czas odpowiedzi)
-        5. Aktualizuje status grupy fokusowej
+        Metoda pełni rolę głównego orkiestratora przebiegu badania. Odpowiada za:
+
+        1. Pobranie z bazy danych rekordu `FocusGroup` wraz z listą pytań
+           oraz aktualizację statusu na `running`.
+        2. Załadowanie wszystkich powiązanych person przy użyciu
+           `_load_focus_group_personas`, włącznie z obsługą fallbacków.
+        3. Iteracyjne przetwarzanie pytań i równoległe generowanie odpowiedzi
+           poprzez `_generate_responses_for_question`.
+        4. Zapis każdego zestawu odpowiedzi do tabeli `persona_responses`
+           za pomocą `_save_responses` i rejestrowanie zdarzeń w pamięci.
+        5. Wyliczenie metryk czasowych przy udziale `_calculate_metrics`,
+           aktualizację rekordu grupy oraz uruchomienie automatycznej budowy grafu.
 
         Args:
-            db: Sesja asynchroniczna do bazy danych
-            focus_group_id: UUID grupy fokusowej do wykonania
+            db: Asynchroniczna sesja SQLAlchemy wykorzystywana do wszystkich operacji.
+            focus_group_id: Identyfikator UUID grupy fokusowej przekazany w formie tekstowej.
 
         Returns:
-            Słownik z wynikami:
-            {
-                "focus_group_id": str,
-                "status": "completed" | "failed",
-                "responses": List[Dict],  # odpowiedzi na każde pytanie
-                "metrics": {
-                    "total_execution_time_ms": float,
-                    "avg_response_time_ms": float,
-                    "meets_requirements": bool
-                }
-            }
+            Struktura słownikowa zawierająca status wykonania, listę odpowiedzi
+            pogrupowaną per pytanie oraz metryki czasowe (łączny czas wykonania,
+            średni czas odpowiedzi i spełnienie wymagań wydajnościowych).
         """
         logger = logging.getLogger(__name__)
+        logger.info("🚀 Rozpoczynam symulację grupy fokusowej %s", focus_group_id)
 
-        logger.info(f"🚀 Starting focus group {focus_group_id}")
-        start_time = time.time()
+        execution_start = time.time()
+        focus_group_uuid = UUID(str(focus_group_id))
 
-        # Pobieramy grupę fokusową z bazy danych
-        result = await db.execute(
-            select(FocusGroup).where(FocusGroup.id == focus_group_id)
-        )
+        result = await db.execute(select(FocusGroup).where(FocusGroup.id == focus_group_uuid))
         focus_group = result.scalar_one()
-        logger.info(f"📋 Focus group loaded: {focus_group.name}, questions: {len(focus_group.questions)}")
 
-        # Aktualizujemy status grupy
         focus_group.status = "running"
         focus_group.started_at = datetime.now(timezone.utc)
         await db.commit()
 
         try:
-            # Pobieramy persony
-            personas = await self._load_personas(db, focus_group.persona_ids)
-            logger.info(f"👥 Loaded {len(personas)} personas")
+            personas = await self._load_focus_group_personas(db, focus_group_uuid)
+            logger.info("👥 Załadowano %s person", len(personas))
 
-            # Przetwarzamy każde pytanie z listy
-            all_responses = []
-            response_times = []
+            focus_group_description = focus_group.description or ""
+            responses_per_question: List[Dict[str, Any]] = []
 
-            print(f"🔄 FOCUS GROUP: {len(focus_group.questions)} questions to process")
-            for question in focus_group.questions:
+            for index, question in enumerate(focus_group.questions or []):
+                logger.info(
+                    "❓ Przetwarzam pytanie %s/%s: %s",
+                    index + 1,
+                    len(focus_group.questions or []),
+                    question,
+                )
                 question_start = time.time()
 
-                print(f"❓ PROCESSING QUESTION: {question} for {len(personas)} personas")
-                logger.info(f"Processing question: {question} for {len(personas)} personas")
-
-                # Równolegle pobieramy odpowiedzi od wszystkich person
-                responses = await self._get_concurrent_responses(
-                    personas, question, focus_group_id
+                persona_responses = await self._generate_responses_for_question(
+                    db=db,
+                    personas=personas,
+                    question=question,
+                    question_index=index,
+                    focus_group_id=focus_group_uuid,
+                    focus_group_description=focus_group_description,
                 )
 
-                print(f"✅ GOT {len(responses)} RESPONSES for question")
-                logger.info(f"Got {len(responses)} responses for question: {question}")
+                await self._save_responses(db, focus_group_uuid, persona_responses)
 
-                question_time = (time.time() - question_start) * 1000
-                response_times.append(question_time)
-
-                all_responses.append(
-                    {"question": question, "responses": responses, "time_ms": question_time}
+                question_time_ms = (time.time() - question_start) * 1000
+                responses_per_question.append(
+                    {
+                        "question": question,
+                        "responses": persona_responses,
+                        "time_ms": question_time_ms,
+                    }
                 )
 
-            # Wyliczamy metryki wykonywania
-            total_time = (time.time() - start_time) * 1000
-            avg_response_time = sum(response_times) / len(response_times)
+            total_time_ms = (time.time() - execution_start) * 1000
+            metrics = self._calculate_metrics(
+                [entry["responses"] for entry in responses_per_question],
+                total_time_ms,
+            )
 
-            # Aktualizujemy rekord grupy fokusowej
-            focus_group.status = "completed"
+            focus_group.total_execution_time_ms = int(metrics["total_execution_time_ms"])
+            focus_group.avg_response_time_ms = metrics["avg_response_time_ms"]
             focus_group.completed_at = datetime.now(timezone.utc)
-            focus_group.total_execution_time_ms = int(total_time)
-            focus_group.avg_response_time_ms = avg_response_time
-
+            focus_group.status = "completed"
             await db.commit()
 
-            # Po zakończeniu automatycznie budujemy graf wiedzy
-            logger.info(f"🧠 Starting automatic graph build for focus group {focus_group_id}")
+            # Aktualizujemy flagę na podstawie realnych danych obiektu
+            metrics["meets_requirements"] = focus_group.meets_performance_requirements()
+
+            logger.info(
+                "✅ Zakończono symulację %s w %.2f ms",
+                focus_group_id,
+                total_time_ms,
+            )
+
             try:
                 from app.services.graph_service import GraphService
+
                 graph_service = GraphService()
-                graph_stats = await graph_service.build_graph_from_focus_group(db, str(focus_group_id))
+                graph_stats = await graph_service.build_graph_from_focus_group(db, str(focus_group_uuid))
                 await graph_service.close()
-                logger.info(f"✅ Graph built successfully: {graph_stats}")
-            except Exception as graph_error:
-                # Błąd przy budowie grafu nie powinien zatrzymać całego procesu
-                logger.error(f"⚠️ Graph build failed (non-critical): {graph_error}", exc_info=True)
+                logger.info("🧠 Automatycznie zbudowano graf wiedzy: %s", graph_stats)
+            except Exception as graph_error:  # pragma: no cover - operacja poboczna
+                logger.error("⚠️ Błąd budowy grafu (niekrytyczny): %s", graph_error, exc_info=True)
 
             return {
-                "focus_group_id": str(focus_group_id),
+                "focus_group_id": str(focus_group_uuid),
                 "status": "completed",
-                "responses": all_responses,
-                "metrics": {
-                    "total_execution_time_ms": total_time,
-                    "avg_response_time_ms": avg_response_time,
-                    "meets_requirements": focus_group.meets_performance_requirements(),
-                },
+                "responses": responses_per_question,
+                "metrics": metrics,
             }
 
-        except Exception as e:
-            logger = logging.getLogger(__name__)
+        except Exception as exc:  # pragma: no cover - logujemy i zwracamy status błędu
             logger.error(
-                f"Focus group {focus_group_id} failed: {str(e)}",
+                "❌ Symulacja %s zakończona błędem: %s",
+                focus_group_id,
+                exc,
                 exc_info=True,
-                extra={"focus_group_id": str(focus_group_id)}
+                extra={"focus_group_id": str(focus_group_uuid)},
             )
 
             focus_group.status = "failed"
-            # Zapisujemy pierwsze 500 znaków błędu do debugowania
-            if hasattr(focus_group, 'error_message'):
-                focus_group.error_message = str(e)[:500]
+            if hasattr(focus_group, "error_message"):
+                focus_group.error_message = str(exc)[:500]
             await db.commit()
 
-            # Nie propagujemy wyjątku dalej – zadanie działa w tle, wystarczy log
             return {
-                "focus_group_id": str(focus_group_id),
+                "focus_group_id": str(focus_group_uuid),
                 "status": "failed",
-                "error": str(e)
+                "error": str(exc),
             }
 
-    async def _load_personas(
-        self, db: AsyncSession, persona_ids: List[UUID]
-    ) -> List[Persona]:
+    async def _load_focus_group_personas(self, db: AsyncSession, focus_group_id: UUID) -> List[Persona]:
         """
-        Załaduj obiekty person z bazy danych
+        Pobierz persony przypisane do wskazanej grupy fokusowej.
 
-        Args:
-            db: Sesja bazy danych
-            persona_ids: Lista UUID person do załadowania
+        Procedura obejmuje:
+
+        * Odnalezienie rekordu `FocusGroup` w bazie danych przy użyciu `select`.
+        * Rozwiązanie listy `persona_ids` i przekazanie jej do `_load_personas`.
+        * Fallback do person powiązanych z projektem (jeśli brak jawnej listy).
+
+        Raises:
+            ValueError: Gdy nie znaleziono grupy fokusowej lub żadnej przypisanej persony.
 
         Returns:
-            Lista obiektów Persona
+            Lista modeli `Persona` gotowych do dalszego przetwarzania.
         """
+        logger = logging.getLogger(__name__)
+
+        result = await db.execute(select(FocusGroup).where(FocusGroup.id == focus_group_id))
+        focus_group = result.scalar_one_or_none()
+        if not isinstance(focus_group, FocusGroup):
+            # Fallback: mogło nastąpić mockowanie w testach, więc próbujemy metodę get
+            try:
+                focus_group = await db.get(FocusGroup, focus_group_id)
+            except AttributeError:  # pragma: no cover - brak metody get
+                focus_group = None
+
+        if focus_group is None:
+            raise ValueError(f"Focus group {focus_group_id} not found")
+
+        persona_ids = list(getattr(focus_group, "persona_ids", []) or [])
+        personas: List[Persona] = []
+
+        if persona_ids:
+            personas = await self._load_personas(db, persona_ids)
+        else:
+            project_id = getattr(focus_group, "project_id", None)
+            if project_id:
+                fallback_result = await db.execute(
+                    select(Persona).where(Persona.project_id == project_id)
+                )
+                personas = fallback_result.scalars().all()
+
+        if not personas:
+            raise ValueError("No personas found")
+
+        logger.debug("Załadowano %s person do grupy %s", len(personas), focus_group_id)
+        return personas
+
+    async def _load_personas(self, db: AsyncSession, persona_ids: List[UUID]) -> List[Persona]:
+        """Załaduj persony na podstawie listy identyfikatorów."""
+        if not persona_ids:
+            return []
         result = await db.execute(select(Persona).where(Persona.id.in_(persona_ids)))
         return result.scalars().all()
 
-    async def _get_concurrent_responses(
-        self,
-        personas: List[Persona],
-        question: str,
-        focus_group_id: str,
-    ) -> List[Dict[str, Any]]:
+    def _format_persona_profile(self, persona: Persona) -> str:
         """
-        Pobierz odpowiedzi od wszystkich person równolegle (concurrent execution)
+        Zbuduj zwięzły, lecz informacyjny profil persony do promptów LLM.
 
-        Tworzy zadania asynchroniczne dla każdej persony i wykonuje je równocześnie
-        używając asyncio.gather(). To pozwala na szybkie zbieranie odpowiedzi
-        (wszystkie persony odpowiadają "jednocześnie" zamiast po kolei).
+        Profil konsoliduje kluczowe dane demograficzne, skrócony opis
+        cech osobowości według modelu Big Five, preferowane wartości oraz
+        najważniejsze elementy historii życia. Dzięki temu każda odpowiedź
+        generowana przez model językowy zachowuje spójność z charakterem
+        persony.
+        """
+        name = getattr(persona, "full_name", None) or getattr(persona, "name", None) or "Uczestnik"
+        age = getattr(persona, "age", None)
+        gender = getattr(persona, "gender", None)
+        location = getattr(persona, "location", None)
+        occupation = getattr(persona, "occupation", None)
+        education = getattr(persona, "education_level", None)
+
+        big_five_parts = []
+        for label, value in {
+            "otwartość/openness": getattr(persona, "openness", None),
+            "sumienność/conscientiousness": getattr(persona, "conscientiousness", None),
+            "ekstrawersja/extraversion": getattr(persona, "extraversion", None),
+            "ugodowość/agreeableness": getattr(persona, "agreeableness", None),
+            "neurotyzm/neuroticism": getattr(persona, "neuroticism", None),
+        }.items():
+            if value is not None:
+                big_five_parts.append(f"{label}: {value:.2f}")
+        big_five = ", ".join(big_five_parts) if big_five_parts else "Brak danych Big Five"
+
+        values = getattr(persona, "values", None) or []
+        values_text = ", ".join(values) if values else "brak wskazanych wartości"
+
+        background = getattr(persona, "background_story", None) or "Brak historii tła"
+
+        parts = [
+            f"Imię i nazwisko: {name}",
+            f"Wiek: {age}" if age is not None else "Wiek: n/d",
+            f"Płeć: {gender}" if gender else "Płeć: n/d",
+            f"Lokalizacja: {location}" if location else "Lokalizacja: n/d",
+            f"Zawód: {occupation}" if occupation else "Zawód: n/d",
+            f"Wykształcenie: {education}" if education else "Wykształcenie: n/d",
+            f"Big Five: {big_five}",
+            f"Kluczowe wartości: {values_text}",
+            f"Tło: {background}",
+        ]
+        return " | ".join(parts)
+
+    def _create_persona_prompt(
+        self,
+        persona: Persona,
+        question: str,
+        context: List[Dict[str, Any]],
+        focus_group_description: str,
+    ) -> List[Any]:
+        """
+        Utwórz listę wiadomości (systemową i użytkownika) dla wywołania LLM.
+
+        Kompozycja promptu obejmuje:
+
+        * Szczegółowy opis spotkania oraz oczekiwaną konwencję wypowiedzi.
+        * Sformatowany profil persony przygotowany przez `_format_persona_profile`.
+        * Zsyntetyzowany kontekst z poprzednich odpowiedzi (pytanie ↔ odpowiedź).
+        * Bieżące pytanie wraz z instrukcją dotyczącą długości i tonu odpowiedzi.
 
         Args:
-            personas: Lista obiektów Persona do odpytania
-            question: Pytanie do zadania
-            focus_group_id: ID grupy fokusowej (do tworzenia eventów)
+            persona: Model ORM reprezentujący uczestnika badania.
+            question: Tekst aktualnego pytania moderatora.
+            context: Lista zdarzeń pamięci zawierająca wcześniejsze wypowiedzi.
+            focus_group_description: Opis merytoryczny grupy fokusowej.
 
         Returns:
-            Lista słowników z odpowiedziami:
-            [
-                {"persona_id": str, "response": str, "context_used": int},
-                ...
-            ]
-            Jeśli persona zwróciła błąd, zwraca {"persona_id": str, "response": "Error: ...", "error": True}
+            Lista wiadomości kompatybilna z interfejsem LangChain ChatModel.
         """
+        profile_text = self._format_persona_profile(persona)
 
-        # Utwórz zadania asynchroniczne dla każdej persony
+        context_lines: List[str] = []
+        for item in context or []:
+            data = item.get("event_data", {}) if isinstance(item, dict) else {}
+            asked = data.get("question")
+            answered = data.get("response")
+            if asked or answered:
+                snippet = []
+                if asked:
+                    snippet.append(f"Pytanie: {asked}")
+                if answered:
+                    snippet.append(f"Odpowiedź: {answered}")
+                context_lines.append(" | ".join(snippet))
+
+        context_block = "\n".join(context_lines) if context_lines else "Brak wcześniejszego kontekstu."
+
+        system_message = SystemMessage(
+            content=(
+                "Jesteś symulowaną personą biorącą udział w badaniu rynku. "
+                "Zachowuj spójny charakter, odpowiadaj naturalnie i zwięźle. "
+                f"Opis spotkania: {focus_group_description or 'Brak opisu.'}"
+            )
+        )
+
+        human_message = HumanMessage(
+            content=(
+                "Profil uczestnika:\n"
+                f"{profile_text}\n\n"
+                "Kontekst rozmowy:\n"
+                f"{context_block}\n\n"
+                f"Aktualne pytanie: {question}\n"
+                "Udziel odpowiedzi w 2-4 zdaniach, pamiętając o perspektywie persony."
+            )
+        )
+
+        return [system_message, human_message]
+
+    async def _generate_single_response(
+        self,
+        db: AsyncSession,
+        persona: Persona,
+        question: str,
+        focus_group_id: UUID,
+        focus_group_description: str,
+        question_index: int,
+    ) -> Dict[str, Any]:
+        """
+        Wygeneruj odpowiedź jednej persony wraz z obsługą kontekstu i logowaniem.
+
+        Sekwencja działań:
+
+        1. Pobiera relewantne fragmenty rozmowy z `MemoryServiceLangChain`.
+        2. Buduje prompt składający się z wiadomości systemowej i użytkownika.
+        3. Wywołuje model Gemini asynchronicznie (`ainvoke`) i mierzy czas odpowiedzi.
+        4. Rejestruje zdarzenie w pamięci (lub loguje ostrzeżenie przy błędzie).
+        5. Zapewnia odporność na wyjątki LLM, zwracając komunikat o błędzie.
+
+        Returns:
+            Słownik z identyfikatorem persony, treścią odpowiedzi, czasem reakcji,
+            użytym kontekstem oraz flagą błędu.
+        """
+        logger = logging.getLogger(__name__)
+        persona_name = getattr(persona, "full_name", None) or getattr(persona, "name", None) or "Uczestnik"
+        start_time = time.time()
+
+        context: List[Dict[str, Any]] = []
+        try:
+            if hasattr(self.memory_service, "get_relevant_context"):
+                context = await self.memory_service.get_relevant_context(
+                    db=db,
+                    persona_id=str(persona.id),
+                    query=question,
+                    focus_group_id=str(focus_group_id),
+                    limit=5,
+                )
+            else:
+                context = await self.memory_service.retrieve_relevant_context(
+                    db=db,
+                    persona_id=str(persona.id),
+                    query=question,
+                    top_k=5,
+                )
+        except Exception as context_error:  # pragma: no cover - logowanie pomocnicze
+            logger.warning(
+                "⚠️ Nie udało się pobrać kontekstu dla persony %s: %s",
+                persona.id,
+                context_error,
+                exc_info=True,
+            )
+            context = []
+
+        prompt_messages = self._create_persona_prompt(
+            persona=persona,
+            question=question,
+            context=context,
+            focus_group_description=focus_group_description,
+        )
+
+        response_text = ""
+        error_message = None
+        try:
+            llm_response = await self.llm.ainvoke(prompt_messages)
+            content = getattr(llm_response, "content", "")
+            if isinstance(content, list):
+                content = " ".join(
+                    part.get("text", "") if isinstance(part, dict) else str(part)
+                    for part in content
+                )
+            response_text = content.strip() if isinstance(content, str) else ""
+            if not response_text:
+                response_text = ""
+        except Exception as llm_error:
+            logger.error(
+                "❌ Błąd LLM dla persony %s: %s",
+                persona.id,
+                llm_error,
+                exc_info=True,
+            )
+            error_message = str(llm_error)
+            response_text = f"Error: {llm_error}" if llm_error else ""
+
+        response_time_ms = (time.time() - start_time) * 1000
+
+        event_payload = {
+            "question": question,
+            "question_index": question_index,
+            "response": response_text,
+            "response_time_ms": response_time_ms,
+            "context_used": context,
+            "error": error_message is not None,
+        }
+
+        try:
+            if hasattr(self.memory_service, "record_event"):
+                await self.memory_service.record_event(
+                    db=db,
+                    persona_id=str(persona.id),
+                    event_type="response_given",
+                    event_data=event_payload,
+                    focus_group_id=str(focus_group_id),
+                )
+            else:
+                await self.memory_service.create_event(
+                    db=db,
+                    persona_id=str(persona.id),
+                    event_type="response_given",
+                    event_data=event_payload,
+                    focus_group_id=str(focus_group_id),
+                )
+        except Exception as event_error:  # pragma: no cover - log pomocniczy
+            logger.warning(
+                "⚠️ Nie udało się zapisać eventu dla persony %s: %s",
+                persona.id,
+                event_error,
+                exc_info=True,
+            )
+
+        return {
+            "persona_id": str(persona.id),
+            "persona_name": persona_name,
+            "question": question,
+            "response": response_text,
+            "response_time_ms": response_time_ms,
+            "context_items": context,
+            "error": error_message is not None,
+        }
+
+    async def _generate_responses_for_question(
+        self,
+        db: AsyncSession,
+        personas: List[Persona],
+        question: str,
+        question_index: int,
+        focus_group_id: UUID,
+        focus_group_description: str,
+    ) -> List[Dict[str, Any]]:
+        """
+        Wygeneruj odpowiedzi od wszystkich person równolegle.
+
+        Metoda uruchamia `_generate_single_response` dla każdej persony i
+        wykorzystuje `asyncio.gather` do współbieżnej obsługi wywołań. Dzięki
+        parametrowi `return_exceptions=True` zapewnia miękkie przechwycenie
+        błędów, mapując wyjątki na znormalizowane odpowiedzi błędowe.
+
+        Returns:
+            Lista słowników uporządkowana zgodnie z kolejnością person.
+        """
         tasks = [
-            self._get_persona_response(persona, question, focus_group_id)
+            self._generate_single_response(
+                db=db,
+                persona=persona,
+                question=question,
+                focus_group_id=focus_group_id,
+                focus_group_description=focus_group_description,
+                question_index=question_index,
+            )
             for persona in personas
         ]
 
-        # Wykonaj wszystkie zadania równolegle (gather zbiera wyniki)
-        print(f"🚀 Starting {len(tasks)} concurrent persona response tasks...")
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Obsłuż wyjątki (gather może zwrócić Exception zamiast wyniku)
-        results = []
-        for i, resp in enumerate(responses):
-            if isinstance(resp, Exception):
-                print(f"❌ EXCEPTION in persona {personas[i].id}: {type(resp).__name__}: {str(resp)[:100]}")
-                results.append(
+        final_results: List[Dict[str, Any]] = []
+        for persona, result in zip(personas, results):
+            if isinstance(result, Exception):
+                final_results.append(
                     {
-                        "persona_id": str(personas[i].id),
-                        "response": f"Error: {str(resp)}",
+                        "persona_id": str(persona.id),
+                        "persona_name": getattr(persona, "full_name", None)
+                        or getattr(persona, "name", None)
+                        or "Uczestnik",
+                        "question": question,
+                        "response": f"Error: {result}",
+                        "response_time_ms": 0.0,
+                        "context_items": [],
                         "error": True,
                     }
                 )
             else:
-                print(f"✓ Persona {str(personas[i].id)[:8]}... response received")
-                results.append(resp)
+                final_results.append(result)
 
-        return results
+        return final_results
 
-    async def _get_persona_response(
+    async def _save_responses(
         self,
-        persona: Persona,
-        question: str,
-        focus_group_id: str,
+        db: AsyncSession,
+        focus_group_id: UUID,
+        responses: List[Dict[str, Any]],
+    ) -> None:
+        """
+        Zapisz wygenerowane odpowiedzi w tabeli `persona_responses`.
+
+        Każda odpowiedź zostaje zmaterializowana jako rekord ORM. Metoda dba o
+        transakcyjność: w razie błędu następuje `rollback`, co zapobiega
+        powstaniu częściowych zapisów.
+        """
+        try:
+            for response in responses:
+                persona_id = response.get("persona_id")
+                question = response.get("question")
+                text = response.get("response", "")
+
+                if not persona_id or not question:
+                    continue
+
+                persona_uuid = UUID(str(persona_id))
+                focus_group_uuid = UUID(str(focus_group_id))
+
+                db.add(
+                    PersonaResponse(
+                        persona_id=persona_uuid,
+                        focus_group_id=focus_group_uuid,
+                        question=question,
+                        response=text,
+                    )
+                )
+
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+
+    def _calculate_metrics(
+        self,
+        all_responses: List[List[Dict[str, Any]]],
+        total_time_ms: float,
     ) -> Dict[str, Any]:
         """
-        Pobierz odpowiedź od pojedynczej persony
+        Oblicz metryki czasowe na podstawie wszystkich odpowiedzi.
 
-        Przepływ:
-        1. Pobiera relevantny kontekst z systemu pamięci (poprzednie odpowiedzi)
-        2. Generuje odpowiedź używając LLM (Gemini) z kontekstem
-        3. Tworzy event w systemie pamięci (event sourcing)
-        4. Zapisuje odpowiedź do tabeli persona_responses
+        Wykorzystuje zebrane czasy reakcji do obliczenia średniej oraz
+        deleguje walidację spełnienia wymagań do metody
+        `FocusGroup.meets_performance_requirements`.
 
         Args:
-            persona: Obiekt persony odpowiadającej
-            question: Pytanie do odpowiedzi
-            focus_group_id: ID grupy fokusowej
+            all_responses: Lista list odpowiedzi (zgrupowanych per pytanie).
+            total_time_ms: Całkowity czas wykonania symulacji w milisekundach.
 
         Returns:
-            Słownik z odpowiedzią:
-            {
-                "persona_id": str,
-                "response": str,  # tekst odpowiedzi
-                "context_used": int  # ile eventów użyto jako kontekst
-            }
+            Słownik z łącznym czasem, średnim czasem odpowiedzi i flagą
+            `meets_requirements`.
         """
-        # Pobieramy istotny kontekst z pamięci (poprzednie interakcje)
-        focus_group_uuid = focus_group_id if isinstance(focus_group_id, UUID) else UUID(str(focus_group_id))
+        response_times = [
+            response.get("response_time_ms")
+            for responses in all_responses
+            for response in responses
+            if response.get("response_time_ms") is not None
+        ]
 
-        async with AsyncSessionLocal() as session:
-            context = await self.memory_service.retrieve_relevant_context(
-                session, str(persona.id), question, top_k=5
-            )
+        avg_response_time = (
+            sum(response_times) / len(response_times)
+            if response_times
+            else 0.0
+        )
 
-            # Wygeneruj odpowiedź używając LangChain + Gemini
-            response_text = await self._generate_response(persona, question, context)
-
-            print(f"💬 Generated response (length={len(response_text) if response_text else 0}): {response_text[:50] if response_text else 'EMPTY'}...")
-
-            # Utwórz event dla tej interakcji (event sourcing - niemodyfikowalny log)
-            await self.memory_service.create_event(
-                session,
-                persona_id=str(persona.id),
-                event_type="response_given",
-                event_data={"question": question, "response": response_text},
-                focus_group_id=str(focus_group_uuid),
-            )
-
-            # Zapisz odpowiedź w bazie danych
-            persona_response = PersonaResponse(
-                persona_id=persona.id,
-                focus_group_id=focus_group_uuid,
-                question=question,
-                response=response_text,
-            )
-
-            print(f"💾 Adding PersonaResponse to db...")
-            session.add(persona_response)
-            try:
-                await session.commit()
-                print(f"✅ Committed PersonaResponse to db")
-            except Exception:
-                await session.rollback()
-                raise
+        focus_group_stub = SimpleNamespace(
+            total_execution_time_ms=int(total_time_ms),
+            avg_response_time_ms=avg_response_time,
+        )
+        meets_requirements = FocusGroup.meets_performance_requirements(focus_group_stub)
 
         return {
-            "persona_id": str(persona.id),
-            "response": response_text,
-            "context_used": len(context),
+            "total_execution_time_ms": float(total_time_ms),
+            "avg_response_time_ms": avg_response_time,
+            "meets_requirements": meets_requirements,
         }
-
-    async def _generate_response(
-        self, persona: Persona, question: str, context: List[Dict[str, Any]]
-    ) -> str:
-        """
-        Wygeneruj odpowiedź persony używając LangChain
-
-        Tworzy prompt z danymi persony i kontekstem, wysyła do Gemini
-        i zwraca odpowiedź tekstową.
-
-        Args:
-            persona: Obiekt persony z pełnymi danymi (demografia, osobowość, background)
-            question: Pytanie do odpowiedzi
-            context: Lista poprzednich interakcji (z retrieve_relevant_context)
-
-        Returns:
-            Tekst odpowiedzi wygenerowany przez LLM
-        """
-        # Utwórz prompt z danych persony i kontekstu
-        prompt_text = self._create_response_prompt(persona, question, context)
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"Generating response for persona {persona.id}")
-        logger.info(f"Persona data - name: {persona.full_name}, age: {persona.age}, occupation: {persona.occupation}")
-        logger.info(f"Full prompt:\n{prompt_text}")
-
-        response_text = await self._invoke_llm(prompt_text)
-
-        if response_text:
-            return response_text
-
-        logger.warning(f"Empty response from LLM for persona {persona.id}, retrying with stricter prompt")
-        retry_prompt = f"""{prompt_text}
-
-IMPORTANT INSTRUCTION:
-- Provide a natural, conversational answer of at least one full sentence.
-- Do not return an empty string or placeholders.
-- Stay in character as the persona described above.
-"""
-        response_text = await self._invoke_llm(retry_prompt)
-
-        if response_text:
-            return response_text
-
-        fallback = self._fallback_response(persona, question)
-        logger.warning(f"Using fallback response for persona {persona.id}")
-        return fallback
-
-    async def _invoke_llm(self, prompt_text: str) -> str:
-        """Wywołaj model LLM i zwróć oczyszczony tekst odpowiedzi."""
-        logger = logging.getLogger(__name__)
-        try:
-            result = await self.llm.ainvoke(prompt_text)
-        except Exception as err:
-            logger.error(f"LLM invocation failed: {err}")
-            return ""
-
-        content = getattr(result, "content", "")
-        if isinstance(content, list):
-            # Scal tekstowe fragmenty, jeśli LangChain zwraca je w częściach
-            content = " ".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in content)
-
-        text = content.strip() if isinstance(content, str) else ""
-        if not text:
-            logger.debug(f"LLM returned empty content object: {result}")
-        return text
-
-    def _fallback_response(self, persona: Persona, question: str) -> str:
-        """Zwróć przygotowaną odpowiedź zapasową, gdy LLM nic nie wygeneruje."""
-        lowered_question = question.lower()
-        if "pizza" in lowered_question:
-            return self._pizza_fallback_response(persona)
-
-        name = (persona.full_name or "Ta persona").split(" ")[0]
-        occupation = persona.occupation or "uczestnik badania"
-        return (
-            f"{name}, pracując jako {occupation}, potrzebuje chwili, by uporządkować myśli wokół pytania "
-            f"\"{question}\". Zaznacza jednak, że chętnie wróci do tematu, bo uważa go za ważny dla całej dyskusji."
-        )
-
-    def _pizza_fallback_response(self, persona: Persona) -> str:
-        """Provide a personable pizza description fallback."""
-        name = (persona.full_name or "Ta persona").split(" ")[0]
-        occupation = persona.occupation or "uczestnik badania"
-        location = persona.location
-
-        values = [v.lower() for v in (persona.values or []) if isinstance(v, str)]
-        interests = [i.lower() for i in (persona.interests or []) if isinstance(i, str)]
-
-        def has_any(options):
-            return any(opt in values or opt in interests for opt in options)
-
-        if has_any({"health", "wellness", "fitness", "yoga", "running", "sport"}):
-            style = "lekką pizzę verde na bardzo cienkim cieście z rukolą, grillowanymi warzywami i oliwą truflową"
-            reason = "dzięki której może zjeść coś pysznego i wciąż trzymać się swoich zdrowych nawyków"
-        elif has_any({"travel", "adventure", "exploration", "innovation", "spice"}):
-            style = "pikantną pizzę diavola z dojrzewającym salami, jalapeño i odrobiną miodu"
-            reason = "bo lubi kuchenne eksperymenty i wyraźne smaki, które dodają energii"
-        elif has_any({"family", "tradition", "comfort", "home"}):
-            style = "klasyczną pizzę margheritę na neapolitańskim cieście"
-            reason = "która kojarzy mu się z domowym ciepłem i prostymi przyjemnościami"
-        elif has_any({"food", "culinary", "gourmet", "wine"}):
-            style = "wyrafinowaną pizzę bianca z ricottą, świeżym szpinakiem i odrobiną cytrynowej skórki"
-            reason = "bo docenia subtelne połączenia smaków i dobrą jakość składników"
-        else:
-            style = "aromatyczną pizzę capricciosa z szynką, karczochami i pieczarkami"
-            reason = "która zapewnia idealną równowagę między klasyką a urozmaiceniem"
-
-        location_note = f", a w {location} łatwo znaleźć rzemieślniczą pizzerię, która spełnia te oczekiwania" if location else ""
-
-        return (
-            f"{name}, pracując jako {occupation}, najczęściej wybiera {style}. "
-            f"Mówi, że lubi ją {reason}{location_note}."
-        )
-
-    def _create_response_prompt(
-        self, persona: Persona, question: str, context: List[Dict[str, Any]]
-    ) -> str:
-        """
-        Utwórz prompt dla generowania odpowiedzi persony
-
-        Buduje szczegółowy prompt zawierający:
-        - Dane demograficzne persony (wiek, płeć, zawód, etc.)
-        - Cechy osobowości (wartości, zainteresowania)
-        - Fragment historii życiowej
-        - Kontekst poprzednich interakcji (jeśli istnieją)
-        - Aktualne pytanie
-
-        Args:
-            persona: Obiekt persony
-            question: Pytanie do odpowiedzi
-            context: Lista istotnych poprzednich interakcji (z event sourcing)
-
-        Returns:
-            Pełny prompt gotowy do wysłania do LLM
-        """
-
-        # Formatuj kontekst poprzednich odpowiedzi (maksymalnie 3 najbardziej istotne)
-        context_text = ""
-        if context:
-            context_text = "\n\nPast interactions:\n"
-            for i, ctx in enumerate(context[:3], 1):  # Ograniczamy do 3 najważniejszych wpisów
-                if ctx["event_type"] == "response_given":
-                    context_text += f"{i}. Q: {ctx['event_data'].get('question', '')}\n"
-                    context_text += f"   A: {ctx['event_data'].get('response', '')}\n"
-
-        # Przycinamy historię tła do 300 znaków (oszczędność tokenów)
-        background = persona.background_story[:300] if persona.background_story else 'Has diverse life experiences'
-
-        return f"""You are participating in a focus group discussion.
-
-PERSONA DETAILS:
-Name: {persona.full_name or 'Participant'}
-Age: {persona.age}, Gender: {persona.gender}
-Occupation: {persona.occupation or 'Professional'}
-Education: {persona.education_level or 'Educated'}
-Location: {persona.location or 'Urban area'}
-
-PERSONALITY:
-Values: {', '.join(persona.values[:4]) if persona.values else 'Balanced approach to life'}
-Interests: {', '.join(persona.interests[:4]) if persona.interests else 'Various interests'}
-
-BACKGROUND:
-{background}
-{context_text}
-
-QUESTION: {question}
-
-Respond naturally as this person would in 2-4 sentences. Be authentic and conversational."""
