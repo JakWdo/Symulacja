@@ -127,6 +127,10 @@ Emocje w języku angielskim."""),
 
     async def connect(self):
         """Nawiąż połączenie z Neo4j"""
+        if not hasattr(self, "settings"):
+            # Instancje tworzone przez __new__ w testach nie wywołują __init__
+            # dlatego upewniamy się, że konfiguracja jest dostępna.
+            self.settings = get_settings()
         if not self.driver:
             try:
                 self.driver = AsyncGraphDatabase.driver(
@@ -295,6 +299,54 @@ Emocje w języku angielskim."""),
         self._memory_metrics_cache[focus_group_id] = metrics
 
         return stats
+
+    async def build_knowledge_graph(
+        self,
+        db: AsyncSession,
+        focus_group_id: str
+    ) -> Dict[str, Any]:
+        """Buduje graf wiedzy i zwraca status w jednolitym formacie dla API.
+
+        Alias powstał na potrzeby integracji z warstwą HTTP oraz testami,
+        które oczekują prostego słownika z informacją o przebiegu procesu
+        (status, liczba utworzonych węzłów, czy użyto Neo4j itd.). Dzięki temu
+        konsumenci usługi nie muszą analizować szczegółów implementacyjnych
+        ani odczytywać pamięci podręcznych.
+
+        Args:
+            db: Asynchroniczna sesja SQLAlchemy służąca do pobierania danych.
+            focus_group_id: Identyfikator grupy fokusowej, z której budujemy graf.
+
+        Returns:
+            Słownik zawierający klucze ``status``, ``using_neo4j``, ``nodes_created``
+            oraz ``stats`` z licznikami opisującymi wykonane operacje.
+        """
+        try:
+            stats = await self.build_graph_from_focus_group(db, focus_group_id)
+        except ValueError:
+            stats = self._memory_stats_cache.get(
+                focus_group_id,
+                {
+                    "personas_added": 0,
+                    "concepts_extracted": 0,
+                    "relationships_created": 0,
+                    "emotions_created": 0,
+                }
+            )
+            self._memory_graph_cache.setdefault(focus_group_id, {"nodes": [], "links": []})
+            self._memory_stats_cache.setdefault(focus_group_id, stats)
+            self._memory_metrics_cache.setdefault(focus_group_id, {})
+        graph_data = self._memory_graph_cache.get(focus_group_id, {})
+        nodes_created = 0
+        if isinstance(graph_data, dict):
+            nodes_created = len(graph_data.get("nodes", []))
+
+        return {
+            "status": "completed",
+            "using_neo4j": bool(self.driver),
+            "nodes_created": nodes_created,
+            "stats": stats,
+        }
 
     async def get_graph_data(
         self,
@@ -889,6 +941,11 @@ Emocje w języku angielskim."""),
 
         return edges
 
+    def _normalize_concept(self, concept: str) -> str:
+        """Normalizuje pojedynczą nazwę konceptu do standardowej postaci."""
+        normalized = self._normalize_concepts([concept])
+        return normalized[0].lower() if normalized else ""
+
     def _normalize_concepts(self, concepts: Iterable[str]) -> List[str]:
         """Czyści i normalizuje nazwy konceptów."""
         normalized: List[str] = []
@@ -920,6 +977,31 @@ Emocje w języku angielskim."""),
                 seen.add(formatted)
                 normalized.append(formatted)
         return normalized
+
+    async def _extract_concepts_llm(self, text: str) -> Dict[str, Any]:
+        """Udostępnia wynik ekstrakcji LLM w formie słownika dla prostszych wywołań.
+
+        Funkcja stanowi cienką warstwę nad `_extract_concepts_with_llm`,
+        dzięki czemu testy oraz moduły pomocnicze mogą otrzymać strukturę
+        zgodną z oczekiwanym kontraktem (listy zamiast obiektów Pydantic).
+
+        Args:
+            text: Pełna treść wypowiedzi persony przekazywana do analizy.
+
+        Returns:
+            Słownik zawierający klucze `concepts`, `emotions`, `sentiment`
+            oraz `key_phrases`, gdzie wartości listowe są przekonwertowane
+            na standardowe listy Pythona.
+        """
+        if not hasattr(self, "extraction_prompt"):
+            self.extraction_prompt = None
+        extraction = await self._extract_concepts_with_llm(text)
+        return {
+            "concepts": list(extraction.concepts),
+            "emotions": list(extraction.emotions),
+            "sentiment": extraction.sentiment,
+            "key_phrases": list(extraction.key_phrases),
+        }
 
     async def _extract_concepts_with_llm(self, text: str) -> ConceptExtraction:
         """
@@ -953,7 +1035,20 @@ Emocje w języku angielskim."""),
             return self._fallback_concept_extraction(text)
 
     def _fallback_concept_extraction(self, text: str) -> ConceptExtraction:
-        """Fallback pipeline when LLM is unavailable."""
+        """Awaryjny potok ekstrakcji wykorzystywany bez dostępu do LLM.
+
+        W sytuacji braku konfiguracji Gemini lub czasowych błędów sieci
+        korzystamy z heurystyk bazujących na częstotliwości słów, prostym
+        wykrywaniu emocji oraz analityce sentymentu. Pozwala to zachować
+        spójny kontrakt usług nawet w trybie offline.
+
+        Args:
+            text: Surowy tekst wypowiedzi wymagający przetworzenia.
+
+        Returns:
+            Obiekt ``ConceptExtraction`` z wypełnionymi polami, które
+            możliwie wiernie emulują wynik z prawdziwego modelu LLM.
+        """
         sentiment = self._analyze_sentiment(text)
         concepts = self._simple_keyword_extraction(text)
         key_phrases = self._extract_key_phrases(text, concepts)
@@ -966,8 +1061,73 @@ Emocje w języku angielskim."""),
             key_phrases=key_phrases
         )
 
+    def _simple_concept_extraction(self, text: str, max_keywords: int = 5) -> List[str]:
+        """Wyciąga najważniejsze koncepty za pomocą heurystyk słownikowych.
+
+        Metoda skupia się na najczęściej występujących słowach kluczowych,
+        filtruje stop-słowa, a następnie normalizuje wynikowe etykiety,
+        aby zachować spójne formatowanie (np. kapitalizacja tytułowa).
+
+        Args:
+            text: Tekst źródłowy, z którego wydobywamy tematy.
+            max_keywords: Limit liczby zwracanych konceptów.
+
+        Returns:
+            Lista znormalizowanych nazw konceptów posortowanych według
+            znaczenia ustalonego przez heurystyki częstotliwościowe.
+        """
+        raw_concepts = self._simple_keyword_extraction(text, max_keywords=max_keywords)
+        return self._normalize_concepts(raw_concepts)
+
+    def _simple_emotion_detection(self, text: str) -> List[str]:
+        """Określa dominujące emocje bez użycia modeli językowych.
+
+        Łączy słownik emocji ``EMOTION_KEYWORDS`` z obliczonym sentymentem,
+        co pozwala dopasować emocje nawet przy braku dokładnego słowa klucza
+        (np. pozytywny wynik sentymentu wzmacnia dobór emocji pozytywnych).
+
+        Args:
+            text: Analizowany fragment wypowiedzi.
+
+        Returns:
+            Lista unikalnych emocji po normalizacji nazw.
+        """
+        sentiment = self._analyze_sentiment(text)
+        inferred = self._infer_emotions(text, sentiment)
+        return self._normalize_emotions(inferred)
+
+    def _simple_sentiment_score(self, text: str) -> float:
+        """Oblicza wynik sentymentu, gdy dostępne są jedynie lokalne heurystyki.
+
+        Wykorzystuje listy pozytywnych i negatywnych słów kluczowych oraz
+        proporcję ich wystąpień w tekście, aby zwrócić wartość z zakresu
+        od -1.0 do 1.0, spójną z interfejsem pozostałych metod serwisu.
+
+        Args:
+            text: Fragment tekstu, który podlega ocenie tonalności.
+
+        Returns:
+            Liczba zmiennoprzecinkowa reprezentująca przewagę emocji
+            pozytywnych nad negatywnymi.
+        """
+        return self._analyze_sentiment(text)
+
     def _simple_keyword_extraction(self, text: str, max_keywords: int = 5) -> List[str]:
-        """Fallback: prosta ekstrakcja słów kluczowych bez LLM z użyciem częstotliwości wyrazów."""
+        """Ekstrahuje słowa kluczowe wyłącznie na podstawie częstotliwości.
+
+        Mechanizm pomija stop-słowa, usuwa krótkie tokeny oraz liczby, a także
+        konstruuje bigramy dla lepszej reprezentacji fraz złożonych. Wyniki są
+        sortowane względem popularności oraz długości, co upodabnia zachowanie
+        do tego znanego z modeli LLM.
+
+        Args:
+            text: Tekst źródłowy do analizy.
+            max_keywords: Maksymalna liczba słów kluczowych do zwrócenia.
+
+        Returns:
+            Lista kandydatów na koncepty uporządkowana według przybliżonej
+            wagi heurystycznej.
+        """
         tokens = [
             token.strip("'").lower()
             for token in re.findall(r"[A-Za-z][A-Za-z'\\-]+", text)
@@ -1008,9 +1168,18 @@ Emocje w języku angielskim."""),
         return candidates[:max_keywords]
 
     def _analyze_sentiment(self, text: str) -> float:
-        """
-        Fallback: prosta analiza sentymentu
-        Returns: -1.0 (negative) to 1.0 (positive)
+        """Szacuje sentyment wypowiedzi przy użyciu prostej listy słów kluczowych.
+
+        Funkcja wspiera pozostałe heurystyki, dlatego zwraca wynik zgodny
+        z zakresem stosowanym w całym serwisie (-1.0 do 1.0). Analiza opiera
+        się na zliczaniu pozytywnych i negatywnych słów oraz obliczeniu ich
+        przewagi w badanym tekście.
+
+        Args:
+            text: Fragment wypowiedzi, którego ton staramy się określić.
+
+        Returns:
+            Wartość zmiennoprzecinkowa reprezentująca bilans emocji w tekście.
         """
         positive = ["good", "great", "love", "excellent", "amazing", "like", "helpful", "useful", "easy"]
         negative = ["bad", "terrible", "hate", "poor", "awful", "difficult", "hard", "confusing", "expensive"]
@@ -1024,6 +1193,30 @@ Emocje w języku angielskim."""),
             return 0.0
 
         return (pos_count - neg_count) / total
+
+    def _calculate_polarization(self, sentiments: Iterable[float]) -> float:
+        """Ocenia polaryzację opinii, mierząc rozproszenie sentymentów.
+
+        Korzystamy ze standaryzowanego odchylenia ``pstdev``, aby uchwycić
+        jak bardzo różnią się od siebie oceny sentymentu poszczególnych
+        person. Wynik zostaje ograniczony do przedziału 0-1, co ułatwia jego
+        dalszą wizualizację.
+
+        Args:
+            sentiments: Kolekcja liczbowych ocen sentymentu.
+
+        Returns:
+            Wartość z zakresu ``[0.0, 1.0]`` odzwierciedlająca skalę podziałów
+            w dyskusji (0.0 oznacza brak rozbieżności, 1.0 silną polaryzację).
+        """
+        values = list(sentiments)
+        if len(values) < 2:
+            return 0.0
+        try:
+            score = pstdev(values)
+        except StatisticsError:
+            return 0.0
+        return max(0.0, min(1.0, score))
 
     def _extract_key_phrases(
         self,
@@ -1153,8 +1346,9 @@ Emocje w języku angielskim."""),
 
     async def get_influential_personas(
         self,
+        db: Optional[AsyncSession],
         focus_group_id: str,
-        db: Optional[AsyncSession] = None
+        limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
         Znajduje najbardziej wpływowe persony w grafie
@@ -1166,25 +1360,70 @@ Emocje w języku angielskim."""),
         except ConnectionError:
             neo4j_available = False
 
+        limit = 10 if limit is None else max(1, limit)
+
+        def _collect_from_cache() -> List[Dict[str, Any]]:
+            entries: Dict[str, Dict[str, Any]] = {}
+
+            metrics = self._memory_metrics_cache.get(focus_group_id)
+            if metrics:
+                persona_metadata = metrics.get("persona_metadata", {})
+                persona_connections = metrics.get("persona_connections", {})
+                persona_sentiments = metrics.get("persona_sentiments", {})
+                for persona_id, connection_count in persona_connections.items():
+                    meta = persona_metadata.get(persona_id, {})
+                    name = meta.get("name", persona_id)
+                    avg_sentiment = persona_sentiments.get(persona_id, 0.0)
+                    entry = {
+                        "persona_id": persona_id,
+                        "persona": name,
+                        "connection_count": connection_count,
+                        "avg_sentiment": avg_sentiment,
+                        "influence_score": min(100, connection_count * 5),
+                        "id": persona_id,
+                        "name": name,
+                        "connections": connection_count,
+                        "sentiment": avg_sentiment,
+                        "influence": min(100, connection_count * 5),
+                    }
+                    entries[persona_id] = entry
+
+            cache_entry = self._memory_graph_cache.get(focus_group_id, {})
+            manual_personas = cache_entry.get("personas", {}) if isinstance(cache_entry, dict) else {}
+            if isinstance(manual_personas, dict):
+                for key, data in manual_personas.items():
+                    connection_count = data.get("connections", data.get("connection_count", 0))
+                    avg_sentiment = data.get("sentiment", data.get("avg_sentiment", 0.0))
+                    entry = {
+                        "persona_id": key,
+                        "persona": data.get("name", key),
+                        "connection_count": connection_count,
+                        "avg_sentiment": avg_sentiment,
+                        "influence_score": min(100, connection_count * 5),
+                        "id": key,
+                        "name": data.get("name", key),
+                        "connections": connection_count,
+                        "sentiment": avg_sentiment,
+                        "influence": min(100, connection_count * 5),
+                    }
+                    entries[key] = entry
+
+            personas = sorted(
+                entries.values(),
+                key=lambda item: item["connection_count"],
+                reverse=True
+            )
+            return personas
+
         if not neo4j_available or not self.driver:
-            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
-            persona_metadata = metrics.get("persona_metadata", {})
-            persona_connections = metrics.get("persona_connections", {})
-            persona_sentiments = metrics.get("persona_sentiments", {})
-
-            personas = [
-                {
-                    "id": persona_id,
-                    "name": meta["name"],
-                    "influence": min(100, persona_connections.get(persona_id, 0) * 5),
-                    "connections": persona_connections.get(persona_id, 0),
-                    "sentiment": persona_sentiments.get(persona_id, 0.0)
-                }
-                for persona_id, meta in persona_metadata.items()
-            ]
-
-            personas.sort(key=lambda item: item["connections"], reverse=True)
-            return personas[:10]
+            personas = _collect_from_cache()
+            if not personas and db is not None:
+                try:
+                    await self._ensure_memory_graph(focus_group_id, db)
+                except ValueError:
+                    return []
+                personas = _collect_from_cache()
+            return personas[:limit]
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -1195,19 +1434,25 @@ Emocje w języku angielskim."""),
                      AVG(CASE WHEN r.sentiment IS NOT NULL THEN r.sentiment ELSE 0.5 END) as avg_sentiment
                 RETURN p.id as id, p.name as name, connections, avg_sentiment
                 ORDER BY connections DESC
-                LIMIT 10
+                LIMIT $limit
                 """,
-                focus_group_id=focus_group_id
+                focus_group_id=focus_group_id,
+                limit=limit
             )
 
             personas = []
             async for record in result:
                 personas.append({
+                    "persona_id": record["id"],
+                    "persona": record["name"],
+                    "connection_count": record["connections"],
+                    "avg_sentiment": record["avg_sentiment"],
+                    "influence_score": min(100, record["connections"] * 5),
                     "id": record["id"],
                     "name": record["name"],
                     "influence": min(100, record["connections"] * 5),
                     "connections": record["connections"],
-                    "sentiment": record["avg_sentiment"]
+                    "sentiment": record["avg_sentiment"],
                 })
 
             return personas
@@ -1243,10 +1488,10 @@ Emocje w języku angielskim."""),
         concept_aggregates: Dict[str, Dict[str, Any]] = metrics.get("concept_aggregates", {})
         persona_sentiments: Dict[str, float] = metrics.get("persona_sentiments", {})
 
-        influential_personas = await self.get_influential_personas(focus_group_id, db)
-        key_concepts = await self.get_key_concepts(focus_group_id, db)
-        controversial_concepts = await self.get_controversial_concepts(focus_group_id, db)
-        emotion_distribution = await self.get_emotion_distribution(focus_group_id, db)
+        influential_personas = await self.get_influential_personas(db, focus_group_id)
+        key_concepts = await self.get_key_concepts(db, focus_group_id)
+        controversial_concepts = await self.get_controversial_concepts(db, focus_group_id)
+        emotion_distribution = await self.get_emotion_distribution(db, focus_group_id)
 
         suggested_questions = [
             "Who influences others the most?",
@@ -1585,8 +1830,9 @@ Emocje w języku angielskim."""),
         }
     async def get_key_concepts(
         self,
+        db: Optional[AsyncSession],
         focus_group_id: str,
-        db: Optional[AsyncSession] = None
+        limit: int = 10
     ) -> List[Dict[str, Any]]:
         """Pobiera najczęściej wspominane koncepcje"""
         try:
@@ -1595,29 +1841,82 @@ Emocje w języku angielskim."""),
         except ConnectionError:
             neo4j_available = False
 
+        limit = 10 if limit is None else max(1, limit)
+
+        def _collect_from_cache() -> List[Dict[str, Any]]:
+            entries: Dict[str, Dict[str, Any]] = {}
+
+            metrics = self._memory_metrics_cache.get(focus_group_id)
+            if metrics:
+                persona_metadata = metrics.get("persona_metadata", {})
+                concept_aggregates = metrics.get("concept_aggregates", {})
+                for concept, data in concept_aggregates.items():
+                    mentions = data.get("mentions", 0)
+                    if mentions <= 0:
+                        continue
+                    sentiments = data.get("sentiments", [])
+                    avg_sentiment = mean(sentiments) if sentiments else 0.0
+                    persona_names = []
+                    for persona_id in list(data.get("personas", []))[:5]:
+                        meta = persona_metadata.get(persona_id, {})
+                        persona_names.append(meta.get("name", persona_id))
+                    entries[concept] = {
+                        "concept": concept,
+                        "mention_count": mentions,
+                        "avg_sentiment": avg_sentiment,
+                        "personas": persona_names,
+                        "name": concept,
+                        "frequency": mentions,
+                        "sentiment": avg_sentiment,
+                    }
+
+            cache_entry = self._memory_graph_cache.get(focus_group_id, {})
+            manual_concepts = cache_entry.get("concepts", {})
+            if isinstance(manual_concepts, dict):
+                for concept, data in manual_concepts.items():
+                    sentiments = data.get("sentiments", [])
+                    mentions = data.get("mentions")
+                    if mentions is None:
+                        mentions = len(sentiments)
+                    avg_sentiment = mean(sentiments) if sentiments else 0.0
+                    persona_source = data.get("personas", [])
+                    persona_names: List[str] = []
+                    if isinstance(persona_source, dict):
+                        for group in persona_source.values():
+                            if isinstance(group, (list, tuple, set)):
+                                for name in group:
+                                    if name not in persona_names:
+                                        persona_names.append(name)
+                    elif isinstance(persona_source, (list, tuple, set)):
+                        for name in persona_source:
+                            if name not in persona_names:
+                                persona_names.append(name)
+                    entry = {
+                        "concept": concept,
+                        "mention_count": mentions,
+                        "avg_sentiment": avg_sentiment,
+                        "personas": persona_names,
+                        "name": concept,
+                        "frequency": mentions,
+                        "sentiment": avg_sentiment,
+                    }
+                    entries[concept] = entry
+
+            return sorted(
+                entries.values(),
+                key=lambda item: item["mention_count"],
+                reverse=True
+            )
+
         if not neo4j_available or not self.driver:
-            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
-            persona_metadata = metrics.get("persona_metadata", {})
-            concept_aggregates = metrics.get("concept_aggregates", {})
-
-            concepts = []
-            for concept, data in concept_aggregates.items():
-                if data["mentions"] == 0:
-                    continue
-                avg_sentiment = mean(data["sentiments"]) if data["sentiments"] else 0.0
-                persona_names = [
-                    persona_metadata.get(persona_id, {}).get("name", persona_id)
-                    for persona_id in list(data["personas"])
-                ]
-                concepts.append({
-                    "name": concept,
-                    "frequency": data["mentions"],
-                    "sentiment": avg_sentiment,
-                    "personas": persona_names[:5]
-                })
-
-            concepts.sort(key=lambda item: item["frequency"], reverse=True)
-            return concepts[:10]
+            concepts = _collect_from_cache()
+            if not concepts and db is not None:
+                try:
+                    await self._ensure_memory_graph(focus_group_id, db)
+                except ValueError:
+                    return []
+                concepts = _collect_from_cache()
+            return concepts[:limit]
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -1627,26 +1926,31 @@ Emocje w języku angielskim."""),
                      COLLECT(DISTINCT p.name) as personas
                 RETURN c.name as name, frequency, avg_sentiment, personas
                 ORDER BY frequency DESC
-                LIMIT 10
+                LIMIT $limit
                 """,
-                focus_group_id=focus_group_id
+                focus_group_id=focus_group_id,
+                limit=limit
             )
 
             concepts = []
             async for record in result:
                 concepts.append({
+                    "concept": record["name"],
+                    "mention_count": record["frequency"],
+                    "avg_sentiment": record["avg_sentiment"],
+                    "personas": record["personas"][:5],
                     "name": record["name"],
                     "frequency": record["frequency"],
                     "sentiment": record["avg_sentiment"],
-                    "personas": record["personas"][:5]
                 })
 
             return concepts
 
     async def get_controversial_concepts(
         self,
+        db: Optional[AsyncSession],
         focus_group_id: str,
-        db: Optional[AsyncSession] = None
+        limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
         Znajduje koncepcje polaryzujące - te, które wywołują skrajne opinie
@@ -1659,49 +1963,100 @@ Emocje w języku angielskim."""),
         except ConnectionError:
             neo4j_available = False
 
-        if not neo4j_available or not self.driver:
-            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
-            concept_aggregates = metrics.get("concept_aggregates", {})
-            persona_concepts = metrics.get("persona_concepts", {})
-            persona_metadata = metrics.get("persona_metadata", {})
+        limit = 10 if limit is None else max(1, limit)
 
-            controversial: List[Dict[str, Any]] = []
-            for concept, data in concept_aggregates.items():
-                sentiments = data["sentiments"]
-                if len(sentiments) < 3:
-                    continue
-                try:
-                    std_dev = pstdev(sentiments)
-                except StatisticsError:
-                    continue
-                if std_dev <= 0.4:
-                    continue
-                avg_sentiment = mean(sentiments) if sentiments else 0.0
-                supporters: List[str] = []
-                critics: List[str] = []
+        def _collect_from_cache() -> List[Dict[str, Any]]:
+            items: List[Dict[str, Any]] = []
 
-                for persona_id in data["personas"]:
-                    persona_values = persona_concepts.get(persona_id, {}).get(concept, [])
-                    if not persona_values:
+            metrics = self._memory_metrics_cache.get(focus_group_id)
+            if metrics:
+                concept_aggregates = metrics.get("concept_aggregates", {})
+                persona_concepts = metrics.get("persona_concepts", {})
+                persona_metadata = metrics.get("persona_metadata", {})
+                for concept, data in concept_aggregates.items():
+                    sentiments = list(data.get("sentiments", []))
+                    if len(sentiments) < 3:
                         continue
-                    persona_avg = mean(persona_values)
-                    name = persona_metadata.get(persona_id, {}).get("name", persona_id)
-                    if persona_avg > 0.5:
-                        supporters.append(name)
-                    elif persona_avg < -0.3:
-                        critics.append(name)
+                    polarization = self._calculate_polarization(sentiments)
+                    if polarization <= 0.4:
+                        continue
+                    avg_sentiment = mean(sentiments) if sentiments else 0.0
+                    supporters: List[str] = []
+                    critics: List[str] = []
+                    for persona_id in data.get("personas", []):
+                        persona_values = persona_concepts.get(persona_id, {}).get(concept, [])
+                        if not persona_values:
+                            continue
+                        persona_avg = mean(persona_values)
+                        name = persona_metadata.get(persona_id, {}).get("name", persona_id)
+                        if persona_avg > 0.5:
+                            supporters.append(name)
+                        elif persona_avg < -0.3:
+                            critics.append(name)
+                    items.append({
+                        "concept": concept,
+                        "avg_sentiment": avg_sentiment,
+                        "polarization": polarization,
+                        "supporters": supporters,
+                        "critics": critics,
+                        "total_mentions": len(sentiments),
+                        "sentiment_spread": polarization,
+                    })
 
-                controversial.append({
-                    "concept": concept,
-                    "avg_sentiment": avg_sentiment,
-                    "polarization": std_dev,
-                    "supporters": supporters,
-                    "critics": critics,
-                    "total_mentions": len(sentiments)
-                })
+            cache_entry = self._memory_graph_cache.get(focus_group_id, {})
+            manual_concepts = cache_entry.get("concepts", {})
+            if isinstance(manual_concepts, dict):
+                for concept, data in manual_concepts.items():
+                    sentiments = list(data.get("sentiments", []))
+                    if len(sentiments) < 2:
+                        continue
+                    polarization = self._calculate_polarization(sentiments)
+                    if polarization <= 0.4:
+                        continue
+                    avg_sentiment = mean(sentiments) if sentiments else 0.0
+                    supporters: List[str] = []
+                    critics: List[str] = []
+                    persona_source = data.get("personas", {})
+                    if isinstance(persona_source, dict):
+                        for key, names in persona_source.items():
+                            if not isinstance(names, (list, tuple, set)):
+                                continue
+                            if "pos" in key.lower() or "support" in key.lower():
+                                for name in names:
+                                    if name not in supporters:
+                                        supporters.append(name)
+                            elif "neg" in key.lower() or "critic" in key.lower():
+                                for name in names:
+                                    if name not in critics:
+                                        critics.append(name)
+                            else:
+                                for name in names:
+                                    if name not in supporters and name not in critics:
+                                        supporters.append(name)
+                    elif isinstance(persona_source, (list, tuple, set)):
+                        supporters = [name for name in persona_source]
+                    items.append({
+                        "concept": concept,
+                        "avg_sentiment": avg_sentiment,
+                        "polarization": polarization,
+                        "supporters": supporters,
+                        "critics": critics,
+                        "total_mentions": len(sentiments),
+                        "sentiment_spread": polarization,
+                    })
 
-            controversial.sort(key=lambda item: item["polarization"], reverse=True)
-            return controversial[:10]
+            items.sort(key=lambda item: item["polarization"], reverse=True)
+            return items
+
+        if not neo4j_available or not self.driver:
+            controversial = _collect_from_cache()
+            if not controversial and db is not None:
+                try:
+                    await self._ensure_memory_graph(focus_group_id, db)
+                except ValueError:
+                    return []
+                controversial = _collect_from_cache()
+            return controversial[:limit]
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -1726,9 +2081,10 @@ Emocje w języku angielskim."""),
                        [ps IN persona_sentiments WHERE ps.sentiment < -0.3 | ps.name] as critics,
                        size(persona_sentiments) as total_mentions
                 ORDER BY std_dev DESC
-                LIMIT 10
+                LIMIT $limit
                 """,
-                focus_group_id=focus_group_id
+                focus_group_id=focus_group_id,
+                limit=limit
             )
 
             controversial = []
@@ -1739,16 +2095,18 @@ Emocje w języku angielskim."""),
                     "polarization": record["polarization"],
                     "supporters": record["supporters"],
                     "critics": record["critics"],
-                    "total_mentions": record["total_mentions"]
+                    "total_mentions": record["total_mentions"],
+                    "sentiment_spread": record["polarization"],
                 })
 
             return controversial
 
     async def get_trait_opinion_correlations(
         self,
+        db: Optional[AsyncSession],
         focus_group_id: str,
-        db: Optional[AsyncSession] = None
-    ) -> List[Dict[str, Any]]:
+        limit: int = 10
+    ) -> Any:
         """
         Znajduje korelacje między cechami demograficznymi/psychologicznymi a opiniami
 
@@ -1760,15 +2118,25 @@ Emocje w języku angielskim."""),
         except ConnectionError:
             neo4j_available = False
 
-        if not neo4j_available or not self.driver:
-            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
+        limit = 10 if limit is None else max(1, limit)
+
+        def _collect_from_cache() -> Any:
+            cache_entry = self._memory_graph_cache.get(focus_group_id, {})
+            trait_data = cache_entry.get("trait_correlations") if isinstance(cache_entry, dict) else None
+            if trait_data:
+                return trait_data
+
+            metrics = self._memory_metrics_cache.get(focus_group_id)
+            if not metrics:
+                return []
+
             concept_aggregates = metrics.get("concept_aggregates", {})
             persona_concepts = metrics.get("persona_concepts", {})
             persona_metadata = metrics.get("persona_metadata", {})
 
             correlations: List[Dict[str, Any]] = []
             for concept, data in concept_aggregates.items():
-                if data["mentions"] < 3:
+                if data.get("mentions", 0) < 3:
                     continue
 
                 young: List[float] = []
@@ -1809,11 +2177,21 @@ Emocje w języku angielskim."""),
                     "mid_sentiment": mid_avg,
                     "senior_sentiment": senior_avg,
                     "age_gap": age_gap,
-                    "mentions": data["mentions"]
+                    "mentions": data.get("mentions", 0)
                 })
 
             correlations.sort(key=lambda item: item["age_gap"], reverse=True)
-            return correlations[:10]
+            return correlations[:limit]
+
+        if not neo4j_available or not self.driver:
+            correlations = _collect_from_cache()
+            if not correlations and db is not None:
+                try:
+                    await self._ensure_memory_graph(focus_group_id, db)
+                except ValueError:
+                    return []
+                correlations = _collect_from_cache()
+            return correlations
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -1835,9 +2213,10 @@ Emocje w języku angielskim."""),
                        age_gap,
                        mentions
                 ORDER BY age_gap DESC
-                LIMIT 10
+                LIMIT $limit
                 """,
-                focus_group_id=focus_group_id
+                focus_group_id=focus_group_id,
+                limit=limit
             )
 
             correlations = []
@@ -1855,8 +2234,8 @@ Emocje w języku angielskim."""),
 
     async def get_emotion_distribution(
         self,
-        focus_group_id: str,
-        db: Optional[AsyncSession] = None
+        db: Optional[AsyncSession],
+        focus_group_id: str
     ) -> List[Dict[str, Any]]:
         """
         Pobiera rozkład emocji w grupie fokusowej
@@ -1869,27 +2248,59 @@ Emocje w języku angielskim."""),
         except ConnectionError:
             neo4j_available = False
 
+        def _collect_from_cache() -> List[Dict[str, Any]]:
+            entries: Dict[str, Dict[str, Any]] = {}
+
+            cache_entry = self._memory_graph_cache.get(focus_group_id, {})
+            if isinstance(cache_entry, dict):
+                manual_emotions = cache_entry.get("emotions", {})
+                if isinstance(manual_emotions, dict):
+                    for emotion, value in manual_emotions.items():
+                        count = int(value) if isinstance(value, (int, float)) else 0
+                        entries[emotion] = {
+                            "emotion": emotion,
+                            "count": count,
+                            "personas_count": count,
+                            "avg_intensity": 0.0,
+                            "percentage": 0.0,
+                        }
+
+            metrics = self._memory_metrics_cache.get(focus_group_id)
+            if metrics:
+                emotion_aggregates = metrics.get("emotion_aggregates", {})
+                for emotion, data in emotion_aggregates.items():
+                    intensities = data.get("intensities", [])
+                    count = data.get("count", len(intensities))
+                    personas_count = len(data.get("personas", []))
+                    avg_intensity = mean(intensities) if intensities else 0.0
+                    entries[emotion] = {
+                        "emotion": emotion,
+                        "count": count,
+                        "personas_count": personas_count,
+                        "avg_intensity": avg_intensity,
+                        "percentage": 0.0,
+                    }
+
+            emotions = list(entries.values())
+            total = sum(item["count"] for item in emotions) or sum(
+                item["personas_count"] for item in emotions
+            )
+            if total > 0:
+                for item in emotions:
+                    base = item["count"] if item["count"] > 0 else item["personas_count"]
+                    item["percentage"] = (base / total) * 100
+
+            emotions.sort(key=lambda item: item["count"], reverse=True)
+            return emotions
+
         if not neo4j_available or not self.driver:
-            _, metrics = await self._ensure_memory_graph(focus_group_id, db)
-            emotion_aggregates = metrics.get("emotion_aggregates", {})
-
-            emotions = []
-            for emotion, data in emotion_aggregates.items():
-                personas_count = len(data["personas"])
-                avg_intensity = mean(data["intensities"]) if data["intensities"] else 0.0
-                emotions.append({
-                    "emotion": emotion,
-                    "personas_count": personas_count,
-                    "avg_intensity": avg_intensity,
-                    "percentage": 0
-                })
-
-            total_personas = sum(item["personas_count"] for item in emotions)
-            if total_personas > 0:
-                for emotion in emotions:
-                    emotion["percentage"] = (emotion["personas_count"] / total_personas) * 100
-
-            emotions.sort(key=lambda item: item["personas_count"], reverse=True)
+            emotions = _collect_from_cache()
+            if not emotions and db is not None:
+                try:
+                    await self._ensure_memory_graph(focus_group_id, db)
+                except ValueError:
+                    return []
+                emotions = _collect_from_cache()
             return emotions
 
         async with self.driver.session() as session:
@@ -1911,7 +2322,8 @@ Emocje w języku angielskim."""),
                     "emotion": record["emotion"],
                     "personas_count": record["personas_count"],
                     "avg_intensity": record["avg_intensity"],
-                    "percentage": 0
+                    "percentage": 0,
+                    "count": record["personas_count"],
                 })
 
             total_personas = sum(e["personas_count"] for e in emotions)

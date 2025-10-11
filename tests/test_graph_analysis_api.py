@@ -124,19 +124,19 @@ class DummyGraphService:
     async def get_graph_data(self, focus_group_id, filter_type, db):
         return await self._resolve("get_graph_data")
 
-    async def get_influential_personas(self, focus_group_id, db):
+    async def get_influential_personas(self, db, focus_group_id, limit=10):
         return await self._resolve("get_influential_personas")
 
-    async def get_key_concepts(self, focus_group_id, db):
+    async def get_key_concepts(self, db, focus_group_id, limit=10):
         return await self._resolve("get_key_concepts")
 
-    async def get_controversial_concepts(self, focus_group_id, db):
+    async def get_controversial_concepts(self, db, focus_group_id, limit=10):
         return await self._resolve("get_controversial_concepts")
 
-    async def get_trait_opinion_correlations(self, focus_group_id, db):
+    async def get_trait_opinion_correlations(self, db, focus_group_id, limit=10):
         return await self._resolve("get_trait_opinion_correlations")
 
-    async def get_emotion_distribution(self, focus_group_id, db):
+    async def get_emotion_distribution(self, db, focus_group_id):
         return await self._resolve("get_emotion_distribution")
 
     async def answer_question(self, focus_group_id, question, db):
