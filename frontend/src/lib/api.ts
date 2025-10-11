@@ -50,18 +50,12 @@ export interface TokenResponse {
 }
 
 // === SETTINGS TYPES ===
-export interface NotificationSettings {
-  email_notifications_enabled: boolean;
-  discussion_complete_notifications: boolean;
-  weekly_reports_enabled: boolean;
-  system_updates_notifications: boolean;
-}
-
 export interface AccountStats {
   plan: string;
   projects_count: number;
   personas_count: number;
   focus_groups_count: number;
+  surveys_count: number;
 }
 
 export interface CreateProjectPayload {
@@ -469,13 +463,18 @@ export const settingsApi = {
     return data;
   },
 
-  getNotifications: async (): Promise<NotificationSettings> => {
-    const { data } = await api.get<NotificationSettings>('/settings/notifications');
+  uploadAvatar: async (formData: FormData): Promise<{ message: string; avatar_url: string }> => {
+    const { data } = await api.post('/settings/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return data;
   },
 
-  updateNotifications: async (settings: Partial<NotificationSettings>): Promise<void> => {
-    await api.put('/settings/notifications', settings);
+  deleteAvatar: async (): Promise<{ message: string }> => {
+    const { data } = await api.delete('/settings/avatar');
+    return data;
   },
 
   getStats: async (): Promise<AccountStats> => {

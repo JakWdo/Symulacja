@@ -16,6 +16,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Logo } from '@/components/ui/Logo';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { getAvatarUrl, getInitials } from '@/lib/avatar';
 
 interface AppSidebarProps {
   currentView: string;
@@ -158,9 +159,9 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
 
         <div className="flex items-center gap-3 mt-6 p-3 rounded-[10px] bg-sidebar-accent border border-sidebar-border min-h-[62px]">
           <Avatar className="w-8 h-8 flex-shrink-0">
-            {user?.avatar_url && <AvatarImage src={user.avatar_url} />}
+            {user?.avatar_url && <AvatarImage src={getAvatarUrl(user.avatar_url)} />}
             <AvatarFallback className="text-white text-[14px] bg-brand-orange rounded-full shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]">
-              {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+              {getInitials(user?.full_name)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">

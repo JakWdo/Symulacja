@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from app.core.config import get_settings
-from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth
+from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_router
 import logging
 
 logger = logging.getLogger(__name__)
@@ -75,6 +75,7 @@ app.include_router(focus_groups.router, prefix=settings.API_V1_PREFIX, tags=["Fo
 app.include_router(surveys.router, prefix=settings.API_V1_PREFIX, tags=["Surveys"])
 app.include_router(analysis.router, prefix=settings.API_V1_PREFIX, tags=["Analysis"])
 app.include_router(graph_analysis.router, prefix=settings.API_V1_PREFIX, tags=["Graph Analysis"])
+app.include_router(settings_router.router, prefix=settings.API_V1_PREFIX, tags=["Settings"])
 
 
 @app.get("/")

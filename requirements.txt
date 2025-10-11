@@ -62,6 +62,8 @@ email-validator
 python-dateutil
 pytz
 tenacity
+aiofiles
+Pillow
 
 # Development
 pytest
