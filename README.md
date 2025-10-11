@@ -1,4 +1,4 @@
-# Market Research SaaS - Wirtualne Grupy Fokusowe z AI
+# sight
 
 System do przeprowadzania wirtualnych grup fokusowych i ankiet syntetycznych z wykorzystaniem Google Gemini AI. Generuje realistyczne persony i symuluje dyskusje oraz odpowiedzi ankietowe dla potrzeb badań rynkowych.
 
