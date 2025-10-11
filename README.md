@@ -308,7 +308,36 @@ curl "http://localhost:8000/api/v1/surveys/$SURVEY_ID/results"
 
 ## 📊 Funkcjonalności
 
-### 1. Generowanie Person (Persona Generator)
+### 1. Zarządzanie Kontem i Ustawienia (Settings)
+
+**Dostępne funkcje:**
+- **Profil użytkownika** - edycja danych (imię, rola, firma)
+- **Avatar** - upload i zarządzanie awatarem (JPG, PNG, WEBP, max 2MB)
+- **Statystyki konta** - liczba projektów, person, grup fokusowych, ankiet
+- **Motyw aplikacji** - tryb jasny/ciemny (Light/Dark mode)
+- **Usuwanie konta** - soft delete z potwierdzeniem
+
+**Endpointy API:**
+```bash
+# Profil
+GET /api/v1/settings/profile
+PUT /api/v1/settings/profile -d '{"full_name": "Jan Kowalski", "role": "Product Manager", "company": "TechCorp"}'
+
+# Avatar (multipart/form-data)
+POST /api/v1/settings/avatar -F "file=@avatar.jpg"
+DELETE /api/v1/settings/avatar
+
+# Statystyki
+GET /api/v1/settings/stats
+# Response: { "plan": "free", "projects_count": 5, "personas_count": 100, "focus_groups_count": 15, "surveys_count": 8 }
+
+# Usuwanie konta (soft delete)
+DELETE /api/v1/settings/account
+```
+
+**Frontend:** Panel Settings dostępny w sidebarz, pełna integracja z systemem uwierzytelniania
+
+### 2. Generowanie Person (Persona Generator)
 
 **Technologia:** Google Gemini 2.5 Flash + statystyczne sampling
 
@@ -319,8 +348,6 @@ curl "http://localhost:8000/api/v1/surveys/$SURVEY_ID/results"
 4. LLM generuje realistyczną narrację (background, wartości, zainteresowania)
 5. Walidacja statystyczna całej kohorty
 
-**Wydajność:** ~30-60s dla 20 person
-
 **Features:**
 - Rozkłady demograficzne (wiek, płeć, edukacja, dochód, lokalizacja)
 - Psychologia (Big Five: openness, conscientiousness, extraversion, agreeableness, neuroticism)
@@ -328,7 +355,9 @@ curl "http://localhost:8000/api/v1/surveys/$SURVEY_ID/results"
 - Walidacja statystyczna (test chi-kwadrat)
 - Tryb adversarial (generuje "trudnych" uczestników)
 
-### 2. Grupy Fokusowe (Focus Groups)
+**Wydajność:** ~30-60s dla 20 person
+
+### 3. Grupy Fokusowe (Focus Groups)
 
 **Technologia:** LangChain + Google Gemini + równoległe przetwarzanie (asyncio)
 
@@ -339,8 +368,6 @@ curl "http://localhost:8000/api/v1/surveys/$SURVEY_ID/results"
 4. Embeddingi Google używane do semantic search w historii
 5. Finalne agregowanie i analiza
 
-**Wydajność:** ~2-5 min dla 20 person × 4 pytania
-
 **Features:**
 - Równoległe przetwarzanie odpowiedzi (do 20x szybsze)
 - System pamięci (kontekst rozmowy między pytaniami)
@@ -348,7 +375,9 @@ curl "http://localhost:8000/api/v1/surveys/$SURVEY_ID/results"
 - Semantic search w historii (pgvector)
 - Target: <3s per persona response
 
-### 3. Ankiety Syntetyczne (Surveys)
+**Wydajność:** ~2-5 min dla 20 person × 4 pytania
+
+### 4. Ankiety Syntetyczne (Surveys)
 
 **Typy pytań:**
 - **Single choice** - jedno z wielu
@@ -366,7 +395,7 @@ curl "http://localhost:8000/api/v1/surveys/$SURVEY_ID/results"
 
 **Wydajność:** ~1-3s na odpowiedź persony, pełna ankieta <60s
 
-### 4. Analiza Grafowa (Graph Analysis)
+### 5. Analiza Grafowa (Graph Analysis)
 
 **Technologia:** Neo4j + LLM-powered concept extraction
 
@@ -394,7 +423,7 @@ curl "http://localhost:8000/api/v1/surveys/$SURVEY_ID/results"
 
 **Wydajność:** ~30-60s dla 20 person × 4 pytania (~80 responses)
 
-### 5. Analizy AI (Analysis)
+### 6. Analizy AI (Analysis)
 
 **Features:**
 - **Executive Summary** - streszczenie dyskusji (Gemini Pro/Flash)
@@ -459,13 +488,20 @@ python -m pytest tests/ -v --cov=app --cov-report=html
 python -m pytest tests/test_critical_paths.py -v
 ```
 
-**Dostępne testy:**
+**Dostępne testy (134 testy):**
+- `test_core_config_security.py` - konfiguracja i bezpieczeństwo (6 testów)
 - `test_persona_generator.py` - generowanie person
 - `test_focus_group_service.py` - orkiestracja grup fokusowych
 - `test_graph_service.py` - analiza grafowa Neo4j
 - `test_survey_response_generator.py` - ankiety syntetyczne
-- `test_critical_paths.py` - end-to-end critical paths
+- `test_memory_service_langchain.py` - system pamięci
+- `test_discussion_summarizer_service.py` - podsumowania AI
+- `test_persona_validator_service.py` - walidacja statystyczna
+- `test_critical_paths.py` - end-to-end critical paths (9 testów)
 - `test_api_integration.py` - integracja API
+- `test_auth_api.py` - autoryzacja i JWT
+- `test_main_api.py` - główne endpointy
+- `test_models.py` - modele bazy danych
 
 ## 🐛 Troubleshooting
 

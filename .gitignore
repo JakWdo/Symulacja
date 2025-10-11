@@ -80,3 +80,9 @@ checkpoints/
 # Allow application ORM models package
 !app/models/
 !app/models/**/*.py
+
+# Temporary and backup files
+*.old
+*.bak
+*.backup
+*.tmp

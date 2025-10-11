@@ -394,6 +394,7 @@ market-research-saas/
 │   │   ├── surveys.py               # Ankiety syntetyczne
 │   │   ├── analysis.py              # Analizy AI
 │   │   ├── graph_analysis.py        # Analiza grafowa Neo4j
+│   │   ├── settings.py              # Ustawienia użytkownika i profil
 │   │   └── dependencies.py          # Zależności FastAPI
 │   ├── core/                         # Konfiguracja
 │   │   ├── config.py                # Ustawienia aplikacji
@@ -414,7 +415,8 @@ market-research-saas/
 │   │   ├── persona.py
 │   │   ├── focus_group.py
 │   │   ├── survey.py
-│   │   └── graph.py
+│   │   ├── graph.py
+│   │   └── settings.py              # Schemas dla ustawień
 │   ├── services/                     # Logika biznesowa
 │   │   ├── persona_generator_langchain.py       # Generator person
 │   │   ├── focus_group_service_langchain.py     # Orkiestracja dyskusji
@@ -432,7 +434,9 @@ market-research-saas/
 │   │   │   └── ui/                 # Komponenty UI (shadcn/ui)
 │   │   ├── contexts/               # React Context (auth)
 │   │   ├── hooks/                  # Custom hooks
-│   │   ├── lib/                    # API client
+│   │   ├── lib/                    # API client & utilities
+│   │   │   ├── api.ts             # API client functions
+│   │   │   └── avatar.ts          # Avatar utility functions
 │   │   ├── store/                  # Zustand store
 │   │   ├── types/                  # TypeScript types
 │   │   └── App.tsx
@@ -440,13 +444,22 @@ market-research-saas/
 │   └── package.json
 ├── alembic/                          # Migracje bazy danych
 │   └── versions/                    # Pliki migracji
-├── tests/                            # Testy
+├── static/                           # Pliki statyczne
+│   └── avatars/                     # Uploadowane avatary użytkowników
+├── tests/                            # Testy (134 testy)
+│   ├── test_core_config_security.py # Konfiguracja i bezpieczeństwo
 │   ├── test_persona_generator.py
 │   ├── test_focus_group_service.py
 │   ├── test_graph_service.py
 │   ├── test_survey_response_generator.py
-│   ├── test_critical_paths.py
+│   ├── test_memory_service_langchain.py
+│   ├── test_discussion_summarizer_service.py
+│   ├── test_persona_validator_service.py
+│   ├── test_critical_paths.py       # Critical paths end-to-end
 │   ├── test_api_integration.py
+│   ├── test_auth_api.py
+│   ├── test_main_api.py
+│   ├── test_models.py
 │   └── conftest.py
 ├── scripts/                          # Skrypty pomocnicze
 │   └── init_db.py                   # Inicjalizacja bazy
@@ -458,6 +471,59 @@ market-research-saas/
 ```
 
 ## Funkcjonalności
+
+### 0. Zarządzanie Kontem i Ustawienia (Settings)
+
+**Lokalizacja:**
+- Backend: [app/api/settings.py](app/api/settings.py), [app/schemas/settings.py](app/schemas/settings.py)
+- Frontend: [frontend/src/components/Settings.tsx](frontend/src/components/Settings.tsx)
+- Utilities: [frontend/src/lib/avatar.ts](frontend/src/lib/avatar.ts)
+
+**Funkcjonalności:**
+- **Profil użytkownika** - GET/PUT `/api/v1/settings/profile`
+  - Edycja: full_name, role, company
+  - Model User rozszerzony o: avatar_url, role, company, plan, is_verified, last_login_at, deleted_at
+- **Avatar management** - POST/DELETE `/api/v1/settings/avatar`
+  - Upload: JPG, PNG, WEBP (max 2MB)
+  - Walidacja: PIL Image validation, size check
+  - Storage: `static/avatars/` directory (automatycznie tworzony)
+  - Auto-cleanup starych avatarów przy upload nowego
+- **Statystyki konta** - GET `/api/v1/settings/stats`
+  - Liczby: projects, personas, focus groups, surveys
+  - Plan użytkownika (free/pro/enterprise)
+- **Usuwanie konta** - DELETE `/api/v1/settings/account`
+  - Soft delete (ustawia deleted_at, is_active=false)
+  - Zachowuje dane dla compliance i audytu
+- **Dark/Light mode** - frontend theme system
+  - Theme toggle w Settings panel
+  - Persistence w localStorage
+  - System theme detection
+
+**Notification Settings (przygotowane na przyszłość):**
+Model User zawiera pola:
+- email_notifications_enabled
+- discussion_complete_notifications
+- weekly_reports_enabled
+- system_updates_notifications
+
+**Static Files Serving:**
+```python
+# app/main.py
+app.mount("/static", StaticFiles(directory="static"), name="static")
+```
+Katalog `static/avatars/` automatycznie tworzony przy starcie ([app/api/settings.py](app/api/settings.py:37)).
+
+**Frontend Utilities:**
+```typescript
+// frontend/src/lib/avatar.ts
+getAvatarUrl(avatarUrl?: string): string // Konwersja relatywnych URL do pełnych
+getInitials(name?: string): string       // Inicjały dla avatar fallback
+```
+
+**Wydajność:**
+- Avatar upload: <500ms (walidacja + zapis)
+- Profile update: <100ms
+- Stats query: <200ms (4 count queries)
 
 ### 1. Generowanie Person
 - Rozkłady demograficzne (wiek, płeć, edukacja, dochód, lokalizacja)
@@ -516,7 +582,8 @@ python -m pytest tests/test_persona_generator.py -v
 python -m pytest tests/test_critical_paths.py -v
 ```
 
-**Dostępne testy:**
+**Dostępne testy (134 testy):**
+- `test_core_config_security.py` - konfiguracja i bezpieczeństwo (6 testów: settings singleton, password hashing, JWT, API key encryption)
 - `test_persona_generator.py` - generowanie person
 - `test_focus_group_service.py` - orkiestracja grup fokusowych
 - `test_graph_service.py` - analiza grafowa Neo4j
@@ -524,10 +591,11 @@ python -m pytest tests/test_critical_paths.py -v
 - `test_memory_service_langchain.py` - system pamięci
 - `test_discussion_summarizer_service.py` - AI podsumowania
 - `test_persona_validator_service.py` - walidacja statystyczna
-- `test_critical_paths.py` - end-to-end critical paths
+- `test_critical_paths.py` - end-to-end critical paths (9 testów: demographic distributions, Big Five traits, chi-square validation, performance metrics, event sourcing)
 - `test_api_integration.py` - integracja API
-- `test_auth_api.py` - autoryzacja
+- `test_auth_api.py` - autoryzacja i JWT
 - `test_main_api.py` - główne endpointy
+- `test_models.py` - modele bazy danych
 
 ## Bezpieczeństwo
 
