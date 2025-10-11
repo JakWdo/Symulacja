@@ -12,7 +12,7 @@ import uuid
 from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from app.db.base import Base
 
@@ -58,13 +58,13 @@ class Project(Base):
     target_sample_size = Column(Integer, nullable=False)
     chi_square_statistic = Column(JSON, nullable=True)  # {"age": 2.34, "gender": 1.12, ...}
     p_values = Column(JSON, nullable=True)              # {"age": 0.67, "gender": 0.89, ...}
-    is_statistically_valid = Column(Boolean, nullable=False, default=False)
+    is_statistically_valid = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     validation_date = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    is_active = Column(Boolean, nullable=False, default=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
 
     # Relacje (cascade="all, delete-orphan" = usunięcie projektu usuwa persony i grupy)
     owner = relationship("User", back_populates="projects")

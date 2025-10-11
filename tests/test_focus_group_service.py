@@ -37,6 +37,7 @@ class DummyPersona:
     def __init__(self, name="John Doe"):
         self.id = str(uuid4())
         self.name = name
+        self.full_name = name  # Dodane dla zgodności z kodem produkcyjnym
         self.age = 30
         self.gender = "male"
         self.location = "Warsaw"
@@ -45,6 +46,7 @@ class DummyPersona:
         self.occupation = "Software Engineer"
         self.background_story = "A tech enthusiast who loves innovation."
         self.values = ["Innovation", "Quality"]
+        self.interests = []  # Dodane dla zgodności z kodem produkcyjnym
         self.openness = 0.8
         self.conscientiousness = 0.7
         self.extraversion = 0.6
@@ -80,195 +82,9 @@ def mock_db():
     return db
 
 
-@pytest.mark.asyncio
-async def test_load_focus_group_personas(service, mock_db):
-    """Test ładowania person przypisanych do grupy fokusowej."""
-    focus_group = DummyFocusGroup()
-    personas = [DummyPersona("Alice"), DummyPersona("Bob"), DummyPersona("Charlie")]
-
-    # Mock wyniku query
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.all.return_value = personas
-    mock_db.execute.return_value = mock_result
-
-    loaded_personas = await service._load_focus_group_personas(mock_db, focus_group.id)
-
-    assert len(loaded_personas) == 3
-    assert loaded_personas[0].name == "Alice"
-    assert loaded_personas[1].name == "Bob"
-    assert loaded_personas[2].name == "Charlie"
-
-
-@pytest.mark.asyncio
-async def test_create_persona_prompt_includes_context(service):
-    """Test tworzenia promptu dla persony z kontekstem rozmowy."""
-    persona = DummyPersona("Alice")
-    question = "What do you think about the product?"
-    context = [
-        {
-            "event_type": "question_asked",
-            "event_data": {"question": "Previous question?"},
-            "timestamp": "2024-01-01T00:00:00"
-        }
-    ]
-
-    messages = service._create_persona_prompt(
-        persona=persona,
-        question=question,
-        context=context,
-        focus_group_description="Product feedback session"
-    )
-
-    # Sprawdzamy czy prompt zawiera kluczowe elementy
-    prompt_text = str(messages)
-    assert "Alice" in prompt_text or persona.name in str(messages)
-    assert question in prompt_text
-    assert "Product feedback session" in prompt_text
-
-
-@pytest.mark.asyncio
-async def test_generate_single_response_structure(service, mock_db):
-    """Test generowania pojedynczej odpowiedzi persony."""
-    persona = DummyPersona("Alice")
-    question = "What do you think?"
-    focus_group = DummyFocusGroup()
-
-    response = await service._generate_single_response(
-        db=mock_db,
-        persona=persona,
-        question=question,
-        focus_group_id=focus_group.id,
-        focus_group_description=focus_group.description,
-        question_index=0
-    )
-
-    assert response["persona_id"] == persona.id
-    assert response["persona_name"] == persona.name
-    assert response["question"] == question
-    assert "response" in response
-    assert isinstance(response["response"], str)
-    assert len(response["response"]) > 0
-    assert "response_time_ms" in response
-
-
-@pytest.mark.asyncio
-async def test_parallel_response_generation(service, mock_db):
-    """Test równoległego generowania odpowiedzi od wielu person."""
-    personas = [DummyPersona(f"Person{i}") for i in range(5)]
-    question = "What's your opinion?"
-    focus_group = DummyFocusGroup()
-
-    responses = await service._generate_responses_for_question(
-        db=mock_db,
-        personas=personas,
-        question=question,
-        question_index=0,
-        focus_group_id=focus_group.id,
-        focus_group_description=focus_group.description
-    )
-
-    assert len(responses) == 5
-    assert all("persona_id" in r for r in responses)
-    assert all("response" in r for r in responses)
-    assert all(len(r["response"]) > 0 for r in responses)
-
-
-@pytest.mark.asyncio
-async def test_error_handling_in_response_generation(service, mock_db):
-    """Test obsługi błędów podczas generowania odpowiedzi."""
-
-    # Mock LLM który rzuca wyjątek
-    async def failing_invoke(messages):
-        raise Exception("API Error")
-
-    service.llm.ainvoke = failing_invoke
-
-    persona = DummyPersona("Alice")
-    question = "What do you think?"
-    focus_group = DummyFocusGroup()
-
-    response = await service._generate_single_response(
-        db=mock_db,
-        persona=persona,
-        question=question,
-        focus_group_id=focus_group.id,
-        focus_group_description=focus_group.description,
-        question_index=0
-    )
-
-    # Serwis powinien zwrócić error response zamiast crashować
-    assert response["persona_id"] == persona.id
-    assert "response" in response
-    assert "error" in response["response"].lower() or response["response"] == ""
-
-
-@pytest.mark.asyncio
-async def test_save_responses_to_db(service, mock_db):
-    """Test zapisywania odpowiedzi person do bazy danych."""
-    focus_group = DummyFocusGroup()
-    responses = [
-        {
-            "persona_id": str(uuid4()),
-            "persona_name": "Alice",
-            "question": "What do you think?",
-            "response": "I think it's great!",
-            "response_time_ms": 1500
-        },
-        {
-            "persona_id": str(uuid4()),
-            "persona_name": "Bob",
-            "question": "What do you think?",
-            "response": "I'm not sure about this.",
-            "response_time_ms": 1800
-        }
-    ]
-
-    await service._save_responses(mock_db, focus_group.id, responses)
-
-    # Sprawdzamy czy add został wywołany dla każdej odpowiedzi
-    assert mock_db.add.call_count == len(responses)
-    assert mock_db.commit.called
-
-
-def test_format_persona_profile(service):
-    """Test formatowania profilu persony do promptu."""
-    persona = DummyPersona("Alice")
-
-    profile = service._format_persona_profile(persona)
-
-    # Sprawdzamy czy profil zawiera kluczowe informacje
-    assert "Alice" in profile
-    assert str(persona.age) in profile or "30" in profile
-    assert persona.gender in profile or "male" in profile
-    assert persona.occupation in profile
-    assert persona.background_story in profile
-
-
-def test_calculate_metrics(service):
-    """Test obliczania metryk wydajności grupy fokusowej."""
-    all_responses = [
-        [
-            {"response_time_ms": 1500},
-            {"response_time_ms": 1800},
-            {"response_time_ms": 1200}
-        ],
-        [
-            {"response_time_ms": 2000},
-            {"response_time_ms": 1600},
-            {"response_time_ms": 1400}
-        ]
-    ]
-
-    total_time_ms = 10000  # 10 sekund
-
-    metrics = service._calculate_metrics(all_responses, total_time_ms)
-
-    assert "total_execution_time_ms" in metrics
-    assert "avg_response_time_ms" in metrics
-    assert "meets_requirements" in metrics
-    assert metrics["total_execution_time_ms"] == total_time_ms
-    assert isinstance(metrics["avg_response_time_ms"], (int, float))
-    assert isinstance(metrics["meets_requirements"], bool)
+# USUNIĘTO: 10 testów testujących nieistniejące prywatne metody
+# Te testy były "sztuczne" - testowały API które nie istnieje w kodzie produkcyjnym
+# Zamiast tego należy testować publiczne API (run_focus_group, _get_persona_response, etc.)
 
 
 @pytest.mark.asyncio
@@ -299,35 +115,159 @@ async def test_context_retrieval_for_multi_question(service, mock_db):
     assert context[0]["event_type"] == "response_given"
 
 
-@pytest.mark.asyncio
-async def test_empty_personas_raises_error(service, mock_db):
-    """Test obsługi przypadku gdy brak person w grupie fokusowej."""
-    focus_group = DummyFocusGroup()
+# USUNIĘTO: test_empty_personas_raises_error - testował nieistniejącą metodę _load_focus_group_personas
+# USUNIĘTO: test_prompt_includes_personality_traits - testował nieistniejącą metodę _create_persona_prompt
 
-    # Mock zwracający pustą listę person
+
+# ============================================================================
+# NOWE TESTY ZACHOWANIA - Testujące Publiczne API i Faktyczną Funkcjonalność
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_load_personas_from_ids(service, mock_db):
+    """Test ładowania person z listy UUID - testuje _load_personas (ISTNIEJĄCĄ metodę)."""
+    from uuid import uuid4
+    persona_ids = [uuid4(), uuid4(), uuid4()]
+    personas = [DummyPersona("Alice"), DummyPersona("Bob"), DummyPersona("Charlie")]
+
+    # Mock wyniku query
     mock_result = MagicMock()
-    mock_result.scalars.return_value.all.return_value = []
+    mock_result.scalars.return_value.all.return_value = personas
     mock_db.execute.return_value = mock_result
 
-    with pytest.raises(ValueError, match="No personas"):
-        personas = await service._load_focus_group_personas(mock_db, focus_group.id)
-        if len(personas) == 0:
-            raise ValueError("No personas found")
+    loaded = await service._load_personas(mock_db, persona_ids)
+
+    assert len(loaded) == 3
+    # Sprawdź że execute został wywołany
+    assert mock_db.execute.called
 
 
-def test_prompt_includes_personality_traits(service):
-    """Test czy prompt zawiera cechy osobowości persony."""
-    persona = DummyPersona("Alice")
-    persona.openness = 0.9
-    persona.conscientiousness = 0.3
+@pytest.mark.asyncio
+async def test_get_concurrent_responses_handles_exceptions(service, mock_db):
+    """Test czy _get_concurrent_responses obsługuje wyjątki gracefully."""
+    personas = [DummyPersona("Alice"), DummyPersona("Bob")]
 
-    messages = service._create_persona_prompt(
-        persona=persona,
-        question="What do you think?",
-        context=[],
-        focus_group_description="Test"
+    # Mock _get_persona_response aby rzucał wyjątek dla drugiej persony
+    original_get_response = service._get_persona_response
+
+    async def mock_get_response(persona, question, focus_group_id):
+        if persona.name == "Bob":
+            raise Exception("Network error")
+        return {
+            "persona_id": str(persona.id),
+            "response": "Test response",
+            "context_used": 0
+        }
+
+    service._get_persona_response = mock_get_response
+
+    responses = await service._get_concurrent_responses(
+        personas=personas,
+        question="Test?",
+        focus_group_id=str(uuid4())
     )
 
-    prompt_text = str(messages)
-    # Prompt powinien zawierać informacje o wysokiej otwartości i niskiej sumienności
-    assert "openness" in prompt_text.lower() or "open" in prompt_text.lower()
+    # Powinny być 2 odpowiedzi, jedna normalna, jedna z errorem
+    assert len(responses) == 2
+
+    # Znajdź odpowiedź Boba (error)
+    bob_response = next(r for r in responses if "error" in r or "Error" in r.get("response", ""))
+    assert bob_response is not None
+
+    service._get_persona_response = original_get_response
+
+
+@pytest.mark.asyncio
+async def test_create_response_prompt_includes_demographics(service):
+    """Test czy _create_response_prompt (ISTNIEJĄCA metoda) zawiera dane demograficzne."""
+    persona = DummyPersona("Alice")
+    persona.age = 28
+    persona.gender = "female"
+    persona.occupation = "Designer"
+    persona.location = "Warsaw"
+
+    prompt = service._create_response_prompt(
+        persona=persona,
+        question="What do you think about the product?",
+        context=[]
+    )
+
+    # Sprawdź czy prompt zawiera kluczowe dane persony
+    assert "Alice" in prompt or persona.name in prompt
+    assert "28" in prompt or str(persona.age) in prompt
+    assert "Designer" in prompt or persona.occupation in prompt
+    assert "What do you think about the product?" in prompt
+
+
+def test_fallback_response_for_empty_llm(service):
+    """Test czy _fallback_response generuje sensowną odpowiedź."""
+    persona = DummyPersona("Alice")
+    persona.occupation = "Designer"
+    persona.full_name = "Alice Johnson"
+
+    fallback = service._fallback_response(persona, "What's your opinion on the new feature?")
+
+    # Fallback powinien zawierać nazwę i ocupation
+    assert "Alice" in fallback
+    assert "Designer" in fallback or persona.occupation.lower() in fallback.lower()
+    assert len(fallback) > 20  # Sensowna długość
+
+
+def test_pizza_fallback_response_personalized(service):
+    """Test czy _pizza_fallback_response generuje spersonalizowaną odpowiedź."""
+    persona = DummyPersona("Alice")
+    persona.full_name = "Alice Johnson"
+    persona.occupation = "Fitness Coach"
+    persona.values = ["Health", "Wellness"]
+    persona.interests = ["Yoga", "Running"]
+    persona.location = "Warsaw"
+
+    response = service._pizza_fallback_response(persona)
+
+    # Powinna wybrać zdrową pizzę bazując na values
+    assert "Alice" in response
+    # "pizza" może być odmieniona (pizzę, pizzy, etc.) więc sprawdzamy "pizz"
+    assert "pizz" in response.lower()
+    assert len(response) > 50  # Szczegółowa odpowiedź
+    # Powinno wspomnieć o zdrowiu bazując na values
+    assert any(word in response.lower() for word in ["lekką", "lekka", "cienkim", "rukolą", "rukola", "warzywami", "zdrowych"])
+
+
+@pytest.mark.asyncio
+async def test_invoke_llm_handles_empty_response(service):
+    """Test czy _invoke_llm prawidłowo obsługuje puste odpowiedzi."""
+
+    # Mock LLM zwracający pusty content
+    class EmptyLLM:
+        async def ainvoke(self, messages):
+            return SimpleNamespace(content="")
+
+    service.llm = EmptyLLM()
+
+    result = await service._invoke_llm("Test prompt")
+
+    # Powinien zwrócić pusty string, nie None
+    assert result == ""
+    assert isinstance(result, str)
+
+
+@pytest.mark.asyncio
+async def test_invoke_llm_handles_list_content(service):
+    """Test czy _invoke_llm scala fragmenty gdy content jest listą."""
+
+    class ListLLM:
+        async def ainvoke(self, messages):
+            return SimpleNamespace(content=[
+                {"text": "Hello "},
+                {"text": "world"},
+                "!"
+            ])
+
+    service.llm = ListLLM()
+
+    result = await service._invoke_llm("Test")
+
+    # Powinien scalić fragmenty
+    assert "Hello" in result
+    assert "world" in result
+    assert len(result) > 0

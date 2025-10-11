@@ -22,7 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from app.db.base import Base
 
@@ -69,8 +69,8 @@ class FocusGroup(Base):
     project_context = Column(Text, nullable=True)
     persona_ids = Column(ARRAY(PGUUID(as_uuid=True)), nullable=False)  # [uuid1, uuid2, ...]
     questions = Column(ARRAY(Text), nullable=False)  # ["Question 1?", "Question 2?", ...]
-    mode = Column(String(50), nullable=False, default="normal")  # "normal" lub "adversarial"
-    status = Column(String(50), nullable=False, default="pending")  # Możliwe statusy: pending/running/completed/failed
+    mode = Column(String(50), nullable=False, default="normal", server_default=text("'normal'"))  # "normal" lub "adversarial"
+    status = Column(String(50), nullable=False, default="pending", server_default=text("'pending'"))  # Możliwe statusy: pending/running/completed/failed
     target_participants = Column(Integer, nullable=True, default=10)  # Docelowa liczba uczestników
 
     # Metryki wydajności
