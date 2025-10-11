@@ -9,17 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    JSON,
-    String,
-    Text,
-)
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -69,8 +59,18 @@ class FocusGroup(Base):
     project_context = Column(Text, nullable=True)
     persona_ids = Column(ARRAY(PGUUID(as_uuid=True)), nullable=False)  # [uuid1, uuid2, ...]
     questions = Column(ARRAY(Text), nullable=False)  # ["Question 1?", "Question 2?", ...]
-    mode = Column(String(50), nullable=False, default="normal")  # "normal" lub "adversarial"
-    status = Column(String(50), nullable=False, default="pending")  # Możliwe statusy: pending/running/completed/failed
+    mode = Column(
+        String(50),
+        nullable=False,
+        default="normal",
+        server_default="normal",
+    )  # "normal" lub "adversarial"
+    status = Column(
+        String(50),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+    )  # Możliwe statusy: pending/running/completed/failed
     target_participants = Column(Integer, nullable=True, default=10)  # Docelowa liczba uczestników
 
     # Metryki wydajności
@@ -124,3 +124,14 @@ class FocusGroup(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<FocusGroup id={self.id} project_id={self.project_id}>"
+
+    def __init__(self, **kwargs):
+        """Ustaw tryb i status z domyślnymi wartościami biznesowymi."""
+
+        status = kwargs.pop("status", "pending")
+        mode = kwargs.pop("mode", "normal")
+
+        super().__init__(**kwargs)
+
+        self.status = status
+        self.mode = mode

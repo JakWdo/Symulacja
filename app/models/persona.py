@@ -21,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, expression
 
 from app.db.base import Base
 
@@ -130,7 +130,12 @@ class Persona(Base):
     updated_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    is_active = Column(Boolean, nullable=False, default=True)
+    is_active = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=expression.true(),
+    )
 
     # Relacje
     project = relationship("Project", back_populates="personas")
@@ -150,3 +155,12 @@ class Persona(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Persona id={self.id} project_id={self.project_id}>"
+
+    def __init__(self, **kwargs):
+        """Wymuś aktywny status jako domyślny bez nadpisywania danych wejściowych."""
+
+        is_active = kwargs.pop("is_active", True)
+
+        super().__init__(**kwargs)
+
+        self.is_active = is_active

@@ -5,11 +5,12 @@ Umożliwia tworzenie ankiet i zbieranie odpowiedzi od syntetycznych person.
 """
 
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean
-from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSON
+from typing import Any, Dict
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSON, UUID as PGUUID
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, expression
 from app.db.base import Base
 
 
@@ -56,7 +57,12 @@ class Survey(Base):
     avg_response_time_ms = Column(Integer, nullable=True)
 
     # Miękkie usunięcie
-    is_active = Column(Boolean, default=True, nullable=False)
+    is_active = Column(
+        Boolean,
+        default=True,
+        nullable=False,
+        server_default=expression.true(),
+    )
 
     # Relacje
     project = relationship("Project", back_populates="surveys")
@@ -69,6 +75,26 @@ class SurveyResponse(Base):
 
     Każda persona w projekcie może odpowiedzieć na ankietę.
     Odpowiedzi są generowane przez AI na podstawie profilu persony.
+
+    Wersja rozszerzona o pola pomocnicze do pracy na pojedynczych pytaniach:
+
+    Attributes:
+        id: UUID odpowiedzi (klucz główny)
+        survey_id: UUID ankiety, której dotyczy odpowiedź
+        persona_id: UUID persony udzielającej odpowiedzi
+
+        # === DANE MERYTORYCZNE ===
+        question_id: Opcjonalne ID pojedynczego pytania używane w prostych formularzach
+        answer: Opcjonalna odpowiedź dla `question_id` (string/liczba/lista w zależności od pytania)
+        answers: Kompletny słownik odpowiedzi `{question_id: answer}` dla całej ankiety
+
+        # === METADANE ===
+        completed_at: Timestamp zakończenia udzielania odpowiedzi
+        response_time_ms: Łączny czas potrzebny personie na odpowiedź (ms)
+
+    Logika modelu synchronizuje `question_id` i `answer` ze strukturą `answers`,
+    aby aplikacja mogła wygodnie obsługiwać zarówno pojedyncze, jak i wielopytaniowe
+    ankiety bez duplikacji kodu.
     """
     __tablename__ = "survey_responses"
 
@@ -77,11 +103,15 @@ class SurveyResponse(Base):
     persona_id = Column(PGUUID(as_uuid=True), ForeignKey("personas.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Odpowiedzi na pytania
-    # Format: {"question_id": "answer_value", ...}
+    # Format `answers`: {"question_id": "answer_value", ...}
     # Dla single-choice: {"q1": "Option 1"}
     # Dla multiple-choice: {"q1": ["Option 1", "Option 2"]}
     # Dla rating-scale: {"q1": 4}
     # Dla open-text: {"q1": "Free text response..."}
+    # Pola `question_id` i `answer` przechowują pojedynczą parę
+    # i są synchronizowane z `answers` (np. na potrzeby starszych formularzy).
+    question_id = Column(String, nullable=True)
+    answer = Column(JSON, nullable=True)
     answers = Column(JSON, nullable=False)
 
     # Znacznik czasu
@@ -93,3 +123,52 @@ class SurveyResponse(Base):
     # Relacje
     survey = relationship("Survey", back_populates="responses")
     persona = relationship("Persona")
+
+    def __init__(self, **kwargs):
+        """
+        Obsłuż zarówno pojedyncze, jak i zbiorcze odpowiedzi.
+
+        Konstruktor akceptuje te same parametry co wcześniej (`answers`),
+        ale dodatkowo wspiera przekazanie `question_id` i `answer`. Jeżeli
+        użytkownik poda wyłącznie te dwa pola, model automatycznie zbuduje
+        słownik `answers`. Gdy dostarczony jest pełny słownik odpowiedzi,
+        `question_id` i `answer` zostaną z nim zsynchronizowane (o ile tylko
+        jedna odpowiedź jest dostępna) lub pozostaną puste przy ankietach
+        wielopytaniowych.
+        """
+
+        single_question_id = kwargs.pop("question_id", None)
+        single_answer = kwargs.pop("answer", None)
+
+        answers = kwargs.get("answers")
+        if single_question_id is not None:
+            if answers is None:
+                kwargs["answers"] = {single_question_id: single_answer}
+            else:
+                normalized_answers: Dict[str, Any] = dict(answers)
+                normalized_answers.setdefault(single_question_id, single_answer)
+                kwargs["answers"] = normalized_answers
+        elif answers is None:
+            kwargs["answers"] = {}
+
+        super().__init__(**kwargs)
+
+        self.question_id = single_question_id
+        self.answer = single_answer
+
+        if (
+            self.question_id is not None
+            and self.answer is None
+            and isinstance(self.answers, dict)
+        ):
+            self.answer = self.answers.get(self.question_id)
+
+        if (
+            self.question_id is None
+            and isinstance(self.answers, dict)
+            and len(self.answers) == 1
+        ):
+            only_question_id, only_answer = next(iter(self.answers.items()))
+            self.question_id = only_question_id
+            if self.answer is None:
+                self.answer = only_answer

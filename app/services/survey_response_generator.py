@@ -189,11 +189,20 @@ class SurveyResponseGenerator:
 
         # Zapisujemy odpowiedzi ankietowe w bazie danych
         async with AsyncSessionLocal() as session:
+            single_question_kwargs = {}
+            if len(answers) == 1:
+                question_id, question_answer = next(iter(answers.items()))
+                single_question_kwargs = {
+                    "question_id": question_id,
+                    "answer": question_answer,
+                }
+
             survey_response = SurveyResponse(
                 survey_id=survey_id if isinstance(survey_id, UUID) else UUID(str(survey_id)),
                 persona_id=persona.id,
                 answers=answers,
                 response_time_ms=int((time.time() - start_time) * 1000),
+                **single_question_kwargs,
             )
 
             session.add(survey_response)

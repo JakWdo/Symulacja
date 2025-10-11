@@ -399,6 +399,21 @@ class TestSurveyResponseModel:
 
         assert response.question_id == "q1"
         assert response.answer == "5"
+        assert response.answers == {"q1": "5"}
+
+    def test_survey_response_multi_question_mapping(self):
+        """Test odwzorowania wielu odpowiedzi w dodatkowych polach."""
+
+        response = SurveyResponse(
+            id=uuid4(),
+            survey_id=uuid4(),
+            persona_id=uuid4(),
+            answers={"q1": "A", "q2": "B"}
+        )
+
+        assert response.question_id is None
+        assert response.answer is None
+        assert response.answers == {"q1": "A", "q2": "B"}
 
 
 class TestModelRelationships:
