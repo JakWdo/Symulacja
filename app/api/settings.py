@@ -5,7 +5,7 @@ Endpointy do zarządzania ustawieniami użytkownika i kontem.
 Wszystkie wymagają uwierzytelnienia JWT.
 """
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -26,9 +26,42 @@ from app.schemas.settings import (
 )
 import uuid
 from pathlib import Path
-import aiofiles
+try:
+    import aiofiles  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - fallback for environments without aiofiles
+    aiofiles = None
+import asyncio
 from PIL import Image
 import io
+
+
+class _AsyncFileWrapper:
+    """Minimal async context manager when aiofiles is unavailable."""
+
+    def __init__(self, path: Union[str, Path], mode: str, *args, **kwargs):
+        self._path = path
+        self._mode = mode
+        self._args = args
+        self._kwargs = kwargs
+        self._file = None
+
+    async def __aenter__(self):
+        self._file = open(self._path, self._mode, *self._args, **self._kwargs)
+        return self
+
+    async def write(self, data):
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._file.write, data)
+
+    async def __aexit__(self, exc_type, exc, tb):
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._file.close)
+
+
+def _open_async(path: Union[str, Path], mode: str, *args, **kwargs):
+    if aiofiles is not None:
+        return aiofiles.open(path, mode, *args, **kwargs)
+    return _AsyncFileWrapper(path, mode, *args, **kwargs)
 
 settings = get_settings()
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -165,7 +198,7 @@ async def upload_avatar(
     file_path = AVATAR_DIR / unique_filename
 
     # Zapisz plik
-    async with aiofiles.open(file_path, 'wb') as f:
+    async with _open_async(file_path, 'wb') as f:
         await f.write(contents)
 
     # Zaktualizuj URL w bazie
