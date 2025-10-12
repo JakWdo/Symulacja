@@ -159,10 +159,10 @@ async def get_focus_group_responses(
 
     grouped = defaultdict(list)
     for response in responses:
-        grouped[response.question].append(
+        grouped[response.question_text].append(
             {
                 "persona_id": str(response.persona_id),
-                "response": response.response,
+                "response": response.response_text,
                 "created_at": response.created_at.isoformat(),
             }
         )

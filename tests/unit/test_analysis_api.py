@@ -34,9 +34,10 @@ class StubPersonaResponse:
 
     persona_id: UUID
     focus_group_id: UUID
-    question: str
-    response: str
-    created_at: datetime
+    question_text: str
+    response_text: str
+    response_time_ms: int | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class _ScalarResultStub:
@@ -263,22 +264,25 @@ def test_get_focus_group_responses_returns_grouped_data(analysis_test_context):
         StubPersonaResponse(
             persona_id=uuid4(),
             focus_group_id=focus_group_id,
-            question="Question A",
-            response="Answer 1",
+            question_text="Question A",
+            response_text="Answer 1",
+            response_time_ms=2000,
             created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
         ),
         StubPersonaResponse(
             persona_id=uuid4(),
             focus_group_id=focus_group_id,
-            question="Question C",
-            response="Answer 2",
+            question_text="Question C",
+            response_text="Answer 2",
+            response_time_ms=2500,
             created_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
         ),
         StubPersonaResponse(
             persona_id=uuid4(),
             focus_group_id=other_focus_group_id,
-            question="Other",
-            response="Ignore me",
+            question_text="Other",
+            response_text="Ignore me",
+            response_time_ms=3000,
             created_at=datetime(2024, 1, 3, tzinfo=timezone.utc),
         ),
     ]

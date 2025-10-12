@@ -41,8 +41,9 @@ class DummyPersonaResponse:
     def __init__(self, persona_id, question, response, persona_name="John"):
         self.id = str(uuid4())
         self.persona_id = persona_id
-        self.question = question
-        self.response = response
+        self.question_text = question
+        self.response_text = response
+        self.response_time_ms = 2000
         self.persona = DummyPersona(persona_name, persona_id)
 
 

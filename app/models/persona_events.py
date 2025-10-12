@@ -82,8 +82,9 @@ class PersonaResponse(Base):
         id: UUID odpowiedzi (klucz główny)
         persona_id: UUID persony która odpowiedziała
         focus_group_id: UUID grupy fokusowej
-        question: Treść pytania
-        response: Treść odpowiedzi persony
+        question_text: Treść pytania
+        response_text: Treść odpowiedzi persony
+        response_time_ms: Czas generowania odpowiedzi w milisekundach
         created_at: Czas utworzenia odpowiedzi
 
     Relations:
@@ -99,8 +100,9 @@ class PersonaResponse(Base):
     focus_group_id = Column(
         PGUUID(as_uuid=True), ForeignKey("focus_groups.id", ondelete="CASCADE"), nullable=False
     )
-    question = Column(Text, nullable=False)
-    response = Column(Text, nullable=False)
+    question_text = Column(Text, nullable=False)
+    response_text = Column(Text, nullable=False)
+    response_time_ms = Column(Integer, nullable=True)  # Czas wykonania w ms (metryki wydajności)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Relacje

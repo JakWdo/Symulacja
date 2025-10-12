@@ -306,6 +306,197 @@ def mock_datetime():
 
 
 # ============================================================================
+# ADVANCED INTEGRATION FIXTURES
+# ============================================================================
+
+@pytest.fixture
+async def authenticated_client(db_session):
+    """
+    Zwraca TestClient + authenticated user + auth headers.
+
+    Usage:
+        async def test_something(authenticated_client):
+            client, user, headers = authenticated_client
+            response = client.get("/api/v1/projects", headers=headers)
+            assert response.status_code == 200
+    """
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.models.user import User
+    from app.core.security import get_password_hash, create_access_token
+    from uuid import uuid4
+
+    # Create test user in database
+    test_user = User(
+        id=uuid4(),
+        email="test@example.com",
+        hashed_password=get_password_hash("SecurePass123"),
+        full_name="Test User",
+        is_active=True,
+    )
+
+    db_session.add(test_user)
+    await db_session.commit()
+    await db_session.refresh(test_user)
+
+    # Create auth token
+    token = create_access_token({"sub": str(test_user.id)})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Create test client
+    client = TestClient(app, raise_server_exceptions=False)
+
+    return client, test_user, headers
+
+
+@pytest.fixture
+async def project_with_personas(db_session, authenticated_client):
+    """
+    Zwraca project z 10 wygenerowanymi personami.
+
+    Usage:
+        async def test_focus_group(project_with_personas):
+            project, personas, client, headers = project_with_personas
+            # project ma 10 person gotowych do użycia
+    """
+    from app.models.project import Project
+    from app.models.persona import Persona
+    from uuid import uuid4
+
+    client, user, headers = authenticated_client
+
+    # Create project
+    project = Project(
+        id=uuid4(),
+        owner_id=user.id,
+        name="Test Project with Personas",
+        description="Project for testing",
+        target_demographics={
+            "age_group": {"18-24": 0.3, "25-34": 0.4, "35-44": 0.3},
+            "gender": {"male": 0.5, "female": 0.5}
+        },
+        target_sample_size=10,
+    )
+
+    db_session.add(project)
+    await db_session.commit()
+    await db_session.refresh(project)
+
+    # Create 10 test personas
+    personas = []
+    for i in range(10):
+        persona = Persona(
+            id=uuid4(),
+            project_id=project.id,
+            age=25 + (i * 3),  # Ages from 25 to 52
+            gender="male" if i % 2 == 0 else "female",
+            full_name=f"Test Persona {i+1}",
+            location="Warsaw" if i < 5 else "Krakow",
+            education_level="bachelors" if i < 7 else "masters",
+            income_bracket="30k-60k" if i < 5 else "60k-100k",
+            occupation=f"Professional {i+1}",
+            background_story=f"Persona {i+1} is a professional interested in innovation.",
+            values=["Quality", "Innovation"],
+            interests=["Technology", "Business"],
+            openness=0.7 + (i * 0.02),
+            conscientiousness=0.6 + (i * 0.02),
+            extraversion=0.5 + (i * 0.02),
+            agreeableness=0.65 + (i * 0.02),
+            neuroticism=0.4 - (i * 0.01),
+        )
+        personas.append(persona)
+        db_session.add(persona)
+
+    await db_session.commit()
+
+    # Refresh all personas
+    for persona in personas:
+        await db_session.refresh(persona)
+
+    return project, personas, client, headers
+
+
+@pytest.fixture
+async def completed_focus_group(db_session, project_with_personas):
+    """
+    Zwraca completed focus group z responses.
+
+    Usage:
+        async def test_results(completed_focus_group):
+            focus_group, responses, client, headers = completed_focus_group
+            # focus_group.status == "completed"
+            # responses = 15 (5 personas × 3 questions)
+    """
+    from app.models.focus_group import FocusGroup
+    from app.models.persona_response import PersonaResponse
+    from uuid import uuid4
+    from datetime import datetime, timezone, timedelta
+
+    project, personas, client, headers = project_with_personas
+
+    # Select 5 personas for focus group
+    selected_personas = personas[:5]
+    persona_ids = [str(p.id) for p in selected_personas]
+
+    # Create focus group
+    questions = [
+        "What do you think about this product?",
+        "Would you recommend it to friends?",
+        "What improvements would you suggest?"
+    ]
+
+    focus_group = FocusGroup(
+        id=uuid4(),
+        project_id=project.id,
+        name="Test Focus Group",
+        description="Completed focus group for testing",
+        persona_ids=persona_ids,
+        questions=questions,
+        mode="normal",
+        status="completed",
+        started_at=datetime.now(timezone.utc) - timedelta(minutes=5),
+        completed_at=datetime.now(timezone.utc),
+        total_execution_time_ms=120000,  # 2 minutes
+        avg_response_time_ms=2400.0,     # 2.4s per response
+    )
+
+    db_session.add(focus_group)
+    await db_session.commit()
+    await db_session.refresh(focus_group)
+
+    # Create responses (5 personas × 3 questions = 15 responses)
+    responses = []
+    response_texts = [
+        "I think this is a great product with innovative features.",
+        "Yes, I would definitely recommend it to my colleagues.",
+        "I would suggest adding more customization options.",
+        "The product looks promising but needs better documentation.",
+        "I'm not sure yet, need to see more features.",
+    ]
+
+    for question_idx, question in enumerate(questions):
+        for persona_idx, persona in enumerate(selected_personas):
+            response = PersonaResponse(
+                id=uuid4(),
+                focus_group_id=focus_group.id,
+                persona_id=persona.id,
+                question_text=question,
+                response_text=response_texts[persona_idx % len(response_texts)],
+                response_time_ms=2000 + (persona_idx * 200),
+            )
+            responses.append(response)
+            db_session.add(response)
+
+    await db_session.commit()
+
+    # Refresh all responses
+    for response in responses:
+        await db_session.refresh(response)
+
+    return focus_group, responses, client, headers
+
+
+# ============================================================================
 # CLEANUP FIXTURES
 # ============================================================================
 

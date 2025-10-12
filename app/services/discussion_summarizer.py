@@ -252,13 +252,13 @@ IMPORTANT GUIDELINES:
         # Grupuj odpowiedzi po pytaniach
         responses_by_question = {}
         for response in responses:
-            if response.question not in responses_by_question:
-                responses_by_question[response.question] = []
+            if response.question_text not in responses_by_question:
+                responses_by_question[response.question_text] = []
 
             persona = personas.get(str(response.persona_id))
             response_data = {
-                "response": response.response,
-                "sentiment": _simple_sentiment_score(response.response),  # -1.0 do 1.0
+                "response": response.response_text,
+                "sentiment": _simple_sentiment_score(response.response_text),  # -1.0 do 1.0
             }
 
             # Dodaj demografię jeśli włączona
@@ -270,7 +270,7 @@ IMPORTANT GUIDELINES:
                     "occupation": persona.occupation,
                 }
 
-            responses_by_question[response.question].append(response_data)
+            responses_by_question[response.question_text].append(response_data)
 
         # Agreguj statystyki demograficzne całej grupy
         demographic_summary = None

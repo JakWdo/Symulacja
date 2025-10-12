@@ -313,12 +313,14 @@ class TestPersonaResponseModel:
             id=uuid4(),
             focus_group_id=uuid4(),
             persona_id=uuid4(),
-            question="What do you think?",
-            response="I think it's a great idea with innovative features."
+            question_text="What do you think?",
+            response_text="I think it's a great idea with innovative features.",
+            response_time_ms=2500
         )
 
-        assert response.question == "What do you think?"
-        assert "great idea" in response.response
+        assert response.question_text == "What do you think?"
+        assert "great idea" in response.response_text
+        assert response.response_time_ms == 2500
 
 
 class TestPersonaEventModel:

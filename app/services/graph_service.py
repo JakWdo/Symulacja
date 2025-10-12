@@ -517,7 +517,7 @@ Emocje w języku angielskim."""),
         total_emotion_links = 0
 
         for response in responses:
-            text = response.response or ""
+            text = response.response_text or ""
             persona_id = str(response.persona_id)
             extraction = await self._extract_concepts_with_llm(text)
 

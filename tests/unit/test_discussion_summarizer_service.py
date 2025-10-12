@@ -43,13 +43,15 @@ def test_prepare_discussion_data_builds_structure():
     focus_group = DummyFocusGroup()
     responses = [
         SimpleNamespace(
-            question="Co sądzisz o produkcie?",
-            response="I love the sleek design",
+            question_text="Co sądzisz o produkcie?",
+            response_text="I love the sleek design",
+            response_time_ms=2000,
             persona_id="1",
         ),
         SimpleNamespace(
-            question="Co sądzisz o produkcie?",
-            response="I dislike the price point",
+            question_text="Co sądzisz o produkcie?",
+            response_text="I dislike the price point",
+            response_time_ms=2500,
             persona_id="2",
         ),
     ]

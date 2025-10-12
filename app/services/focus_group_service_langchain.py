@@ -309,8 +309,9 @@ class FocusGroupServiceLangChain:
             persona_response = PersonaResponse(
                 persona_id=persona.id,
                 focus_group_id=focus_group_uuid,
-                question=question,
-                response=response_text,
+                question_text=question,
+                response_text=response_text,
+                response_time_ms=int(response_time * 1000),  # Konwersja sekund na milisekundy
             )
 
             print(f"💾 Adding PersonaResponse to db...")
