@@ -1,57 +1,51 @@
-"""
-API Endpoints dla RAG (Retrieval-Augmented Generation)
+"""Router FastAPI obsługujący operacje na bazie wiedzy RAG oraz Graph RAG."""
 
-System bazy wiedzy do generowania person opartych na rzeczywistych danych.
+from __future__ import annotations
 
-Endpointy:
-- POST /rag/documents/upload - Upload i przetwórz dokument PDF/DOCX
-- GET /rag/documents - Lista przetworzonych dokumentów
-- POST /rag/query - Test RAG retrieval (developer tool)
-- DELETE /rag/documents/{doc_id} - Usuń dokument z bazy wiedzy
-"""
-
-import shutil
 import logging
+import shutil
+import uuid
 from pathlib import Path
 from typing import List
-from uuid import UUID
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
-    UploadFile,
     File,
     Form,
-    BackgroundTasks,
     HTTPException,
+    UploadFile,
     status,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_db, AsyncSessionLocal
-from app.models import User, RAGDocument
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, get_db
+from app.core.config import get_settings
+from app.db.session import AsyncSessionLocal
+from app.models.rag_document import RAGDocument
+from app.models.user import User
 from app.schemas.rag import (
+    GraphRAGQuestionRequest,
+    GraphRAGQuestionResponse,
+    RAGCitation,
     RAGDocumentResponse,
     RAGQueryRequest,
     RAGQueryResponse,
-    RAGCitation,
 )
 from app.services.rag_service import RAGDocumentService, PolishSocietyRAG
-from app.core.config import get_settings
 
 settings = get_settings()
 router = APIRouter(prefix="/rag", tags=["RAG Knowledge Base"])
 logger = logging.getLogger(__name__)
 
-
-# Singleton instances (cache)
 _rag_document_service: RAGDocumentService | None = None
 _polish_society_rag: PolishSocietyRAG | None = None
 
 
 def get_rag_document_service() -> RAGDocumentService:
-    """Pobierz singleton RAGDocumentService"""
+    """Zwraca singleton serwisu dokumentów RAG."""
+
     global _rag_document_service
     if _rag_document_service is None:
         _rag_document_service = RAGDocumentService()
@@ -59,71 +53,53 @@ def get_rag_document_service() -> RAGDocumentService:
 
 
 def get_polish_society_rag() -> PolishSocietyRAG:
-    """Pobierz singleton PolishSocietyRAG"""
+    """Zwraca singleton odpowiedzialny za hybrydowe wyszukiwanie."""
+
     global _polish_society_rag
     if _polish_society_rag is None:
         _polish_society_rag = PolishSocietyRAG()
     return _polish_society_rag
 
 
-async def _process_document_background(
-    doc_id: UUID,
-    file_path: str,
-    metadata: dict,
-):
-    """
-    Background task do przetwarzania dokumentu
+async def _process_document_background(doc_id: uuid.UUID, file_path: str, metadata: dict) -> None:
+    """Przetwarza dokument w tle i aktualizuje status w bazie danych."""
 
-    Wykonuje:
-    1. Parsing dokumentu (PDF/DOCX)
-    2. Chunking tekstu
-    3. Generowanie embeddingów
-    4. Zapis w Neo4j
-    5. Update statusu w PostgreSQL
-
-    Args:
-        doc_id: UUID dokumentu w PostgreSQL
-        file_path: Ścieżka do pliku
-        metadata: Metadane dokumentu
-    """
     async with AsyncSessionLocal() as db:
         try:
-            logger.info(f"Starting background processing for document {doc_id}")
-
-            # Ingest document
+            logger.info("Rozpoczynam przetwarzanie dokumentu %s w tle", doc_id)
             service = get_rag_document_service()
             result = await service.ingest_document(file_path, metadata)
 
-            # Update status w PostgreSQL
             doc = await db.get(RAGDocument, doc_id)
             if doc:
-                doc.status = result['status']
-                doc.num_chunks = result['num_chunks']
-                if result.get('error'):
-                    doc.error_message = result['error']
+                doc.status = result["status"]
+                doc.num_chunks = result.get("num_chunks", 0)
+                doc.error_message = result.get("error")
                 await db.commit()
-
                 logger.info(
-                    f"Document {doc_id} processing completed: "
-                    f"status={result['status']}, chunks={result['num_chunks']}"
+                    "Przetwarzanie dokumentu %s zakończone: status=%s, chunks=%s",
+                    doc_id,
+                    result["status"],
+                    result.get("num_chunks"),
                 )
-
-        except Exception as e:
-            logger.error(f"Document {doc_id} processing failed: {e}", exc_info=True)
-
-            # Update status na failed
+        except Exception as exc:  # pragma: no cover - logujemy awarię background taska
+            logger.error("Błąd podczas przetwarzania dokumentu %s: %s", doc_id, exc, exc_info=True)
             try:
                 async with AsyncSessionLocal() as error_db:
                     doc = await error_db.get(RAGDocument, doc_id)
                     if doc:
-                        doc.status = 'failed'
-                        doc.error_message = str(e)
+                        doc.status = "failed"
+                        doc.error_message = str(exc)
                         await error_db.commit()
-            except Exception as update_error:
-                logger.error(f"Failed to update error status: {update_error}")
+            except Exception as update_exc:
+                logger.error(
+                    "Nie udało się zaktualizować statusu błędu dla dokumentu %s: %s",
+                    doc_id,
+                    update_exc,
+                )
 
 
-@router.post("/documents/upload", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/documents/upload", response_model=RAGDocumentResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -132,105 +108,56 @@ async def upload_document(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Upload dokumentu PDF lub DOCX do bazy wiedzy
+    """Przyjmuje dokument, zapisuje go na dysku i uruchamia asynchroniczne przetwarzanie."""
 
-    Dokument jest przetwarzany w tle (background task).
-    Endpoint zwraca 202 Accepted natychmiast.
-
-    Proces:
-    1. Walidacja typu pliku (PDF, DOCX)
-    2. Zapis pliku na dysk
-    3. Utworzenie rekordu w PostgreSQL (status='processing')
-    4. Background task: parsing → chunking → embedding → Neo4j
-    5. Update statusu na 'ready' lub 'failed'
-
-    Args:
-        file: Plik do uploadu (PDF lub DOCX)
-        title: Tytuł dokumentu (nadany przez użytkownika)
-        country: Kraj którego dotyczy dokument (default: Poland)
-        current_user: Zalogowany użytkownik
-        db: Sesja bazy danych
-
-    Returns:
-        Dict z id dokumentu i komunikatem o przetwarzaniu w tle
-
-    Raises:
-        HTTPException 400: Nieobsługiwany typ pliku
-        HTTPException 500: Błąd zapisu pliku
-    """
-    # Walidacja typu pliku
     if not file.filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Filename is required"
+            detail="Nazwa pliku jest wymagana.",
         )
 
-    file_extension = Path(file.filename).suffix.lower()
-    if file_extension not in ['.pdf', '.docx']:
+    extension = Path(file.filename).suffix.lower()
+    if extension not in {".pdf", ".docx"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type: {file_extension}. Supported: PDF, DOCX"
+            detail=f"Nieobsługiwany typ pliku: {extension}. Dozwolone: PDF, DOCX.",
         )
 
-    logger.info(f"Received upload request: {file.filename} (type: {file_extension})")
-
-    # Utwórz folder jeśli nie istnieje
     storage_path = Path(settings.DOCUMENT_STORAGE_PATH)
     storage_path.mkdir(parents=True, exist_ok=True)
 
-    # Zapisz plik z unikalną nazwą (używamy UUID)
-    import uuid
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = storage_path / unique_filename
+    stored_filename = f"{uuid.uuid4()}{extension}"
+    stored_path = storage_path / stored_filename
 
     try:
-        # Zapisz plik na dysk
-        with file_path.open("wb") as buffer:
+        with stored_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        logger.info(f"File saved to: {file_path}")
+        logger.info("Plik %s zapisany jako %s", file.filename, stored_path)
+    except Exception as exc:
+        logger.error("Nie udało się zapisać pliku: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Nie udało się zapisać pliku na dysku.")
 
-    except Exception as e:
-        logger.error(f"Failed to save file: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save file: {str(e)}"
-        )
-
-    # Utwórz rekord w PostgreSQL
-    doc = RAGDocument(
+    document = RAGDocument(
         title=title,
         filename=file.filename,
-        file_path=str(file_path),
-        file_type=file_extension[1:],  # Bez kropki: 'pdf', 'docx'
+        file_path=str(stored_path),
+        file_type=extension.lstrip("."),
         country=country,
-        status='processing',
+        status="processing",
         num_chunks=0,
     )
-
-    db.add(doc)
+    db.add(document)
     await db.commit()
-    await db.refresh(doc)
+    await db.refresh(document)
 
-    logger.info(f"Created RAGDocument record: {doc.id}")
-
-    # Dodaj background task do przetworzenia dokumentu
     background_tasks.add_task(
         _process_document_background,
-        doc.id,
-        str(file_path),
-        {
-            'doc_id': str(doc.id),
-            'title': title,
-            'country': country,
-        }
+        document.id,
+        str(stored_path),
+        {"doc_id": str(document.id), "title": title, "country": country},
     )
 
-    return {
-        "id": doc.id,
-        "message": "Dokument jest przetwarzany w tle. Sprawdź status za chwilę.",
-        "status": "processing"
-    }
+    return document
 
 
 @router.get("/documents", response_model=List[RAGDocumentResponse])
@@ -238,31 +165,11 @@ async def list_documents(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Lista wszystkich przetworzonych dokumentów RAG
+    """Zwraca listę aktywnych dokumentów dostępnych w bazie wiedzy."""
 
-    Zwraca tylko aktywne dokumenty (is_active=True).
-    Posortowane od najnowszych.
-
-    Returns:
-        Lista dokumentów z metadanymi i statusami
-
-    Response fields:
-        - id: UUID dokumentu
-        - title: Tytuł nadany przez użytkownika
-        - filename: Oryginalna nazwa pliku
-        - file_type: 'pdf' lub 'docx'
-        - country: Kraj
-        - num_chunks: Liczba chunków (0 jeśli processing/failed)
-        - status: 'processing', 'ready', 'failed'
-        - error_message: Komunikat błędu (jeśli failed)
-        - created_at: Data uploadu
-    """
     service = get_rag_document_service()
     documents = await service.list_documents(db)
-
-    logger.info(f"Listed {len(documents)} RAG documents for user {current_user.id}")
-
+    logger.info("Użytkownik %s pobrał listę %s dokumentów RAG", current_user.id, len(documents))
     return documents
 
 
@@ -271,122 +178,72 @@ async def query_rag(
     request: RAGQueryRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Test RAG retrieval - developer tool
-
-    Wykonuje semantic search w bazie wiedzy i zwraca top-K wyników.
-    Używane do testowania jakości retrieval.
-
-    Args:
-        request: Query + top_k (liczba wyników)
-        current_user: Zalogowany użytkownik
-
-    Returns:
-        Query response z wynikami i kontekstem
-
-    Response fields:
-        - query: Zapytanie użytkownika
-        - results: Lista chunków (text, score, metadata)
-        - context: Sklejony tekst z top wyników
-        - num_results: Liczba znalezionych wyników
-    """
-    logger.info(f"RAG query request: '{request.query[:100]}...' (top_k={request.top_k})")
+    """Wykonuje klasyczne zapytanie RAG (wyszukiwanie semantyczne lub hybrydowe)."""
 
     rag = get_polish_society_rag()
-
-    # Simple search (nie demographic-specific, tylko raw query)
-    try:
-        if not rag.vector_store:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="RAG vector store is not available"
-            )
-
-        # Semantic search
-        results = await rag.vector_store.asimilarity_search_with_score(
-            request.query,
-            k=request.top_k
+    if not rag.vector_store:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Vector store nie jest dostępny.",
         )
 
-        # Build response
-        context_chunks = []
-        citations = []
-
+    try:
+        results = await rag.vector_store.asimilarity_search_with_score(request.query, k=request.top_k)
+        context_chunks: List[str] = []
+        citations: List[RAGCitation] = []
         for doc, score in results:
-            chunk_text = doc.page_content
-            context_chunks.append(chunk_text)
-
-            # Dodaj document_title z metadata
-            metadata = doc.metadata.copy()
-            doc_title = metadata.get("document_title", "Unknown Document")
-
-            citations.append(RAGCitation(
-                document_title=doc_title,
-                chunk_text=chunk_text,
-                relevance_score=float(score)
-            ))
+            context_chunks.append(doc.page_content)
+            citations.append(
+                RAGCitation(
+                    document_title=doc.metadata.get("title", "Nieznany dokument"),
+                    chunk_text=doc.page_content,
+                    relevance_score=float(score),
+                )
+            )
 
         context = "\n\n---\n\n".join(context_chunks)
-
-        logger.info(f"RAG query returned {len(results)} results")
-
         return RAGQueryResponse(
             query=request.query,
             context=context,
             citations=citations,
-            num_results=len(results)
+            num_results=len(results),
         )
+    except Exception as exc:
+        logger.error("Błąd podczas zapytania RAG: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Zapytanie RAG nie powiodło się.")
 
-    except Exception as e:
-        logger.error(f"RAG query failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"RAG query failed: {str(e)}"
-        )
+
+@router.post("/query/graph", response_model=GraphRAGQuestionResponse)
+async def query_graph_rag(
+    request: GraphRAGQuestionRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Zadaje pytanie do grafu wiedzy i zwraca wynik Graph RAG."""
+
+    service = get_rag_document_service()
+    try:
+        result = await service.answer_question(request.question)
+        return GraphRAGQuestionResponse(**result)
+    except Exception as exc:
+        logger.error("Błąd podczas zapytania Graph RAG: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Nie udało się uzyskać odpowiedzi Graph RAG.")
 
 
 @router.delete("/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
-    doc_id: UUID,
+    doc_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Usuń dokument z bazy wiedzy
-
-    Wykonuje:
-    1. Soft delete w PostgreSQL (is_active=False)
-    2. Usunięcie chunków z Neo4j
-
-    Args:
-        doc_id: UUID dokumentu do usunięcia
-        current_user: Zalogowany użytkownik
-        db: Sesja bazy danych
-
-    Returns:
-        HTTP 204 No Content (success)
-
-    Raises:
-        HTTPException 404: Dokument nie istnieje
-    """
-    logger.info(f"Delete request for document {doc_id} by user {current_user.id}")
+    """Usuwa dokument z bazy wiedzy oraz czyści powiązane dane w Neo4j."""
 
     service = get_rag_document_service()
-
     try:
         await service.delete_document(doc_id, db)
-        logger.info(f"Document {doc_id} deleted successfully")
-        return None
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.error("Błąd podczas usuwania dokumentu %s: %s", doc_id, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Nie udało się usunąć dokumentu.")
 
-    except ValueError as e:
-        logger.warning(f"Document not found: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Failed to delete document: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete document: {str(e)}"
-        )
+    return None

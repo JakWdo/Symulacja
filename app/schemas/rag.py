@@ -1,99 +1,80 @@
-"""
-Schematy Pydantic dla API RAG (Retrieval-Augmented Generation)
++37
+-59
 
-Definiują strukturę requestów i responses dla endpointów RAG.
-"""
+"""Schematy Pydantic wykorzystywane przez API RAG oraz Graph RAG."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
-from datetime import datetime
-from uuid import UUID
 
 
 class RAGDocumentResponse(BaseModel):
-    """
-    Response schema dla dokumentu RAG
+    """Model odpowiedzi opisujący dokument przechowywany w bazie wiedzy."""
 
-    Zwracane przy listowaniu dokumentów i po uploadzie.
-    """
     id: UUID
     title: str
     filename: str
-    file_type: str  # 'pdf' lub 'docx'
+    file_path: str
+    file_type: str
     country: Optional[str] = None
     num_chunks: int
-    status: str  # 'processing', 'ready', 'failed'
+    status: str
     error_message: Optional[str] = None
     created_at: datetime
+    is_active: bool
 
     class Config:
-        from_attributes = True  # Umożliwia konwersję z ORM models
-
-
-class RAGUploadRequest(BaseModel):
-    """
-    Request schema dla uploadu dokumentu
-
-    Używane jako Form data (nie JSON).
-    """
-    title: str = Field(..., min_length=1, max_length=255, description="Tytuł dokumentu")
-    country: str = Field(
-        default="Poland",
-        max_length=100,
-        description="Kraj którego dotyczy dokument"
-    )
+        from_attributes = True
 
 
 class RAGQueryRequest(BaseModel):
-    """
-    Request schema dla testowego query RAG
+    """Schemat zapytania deweloperskiego do klasycznego RAG."""
 
-    Używane w developer tools do testowania retrieval.
-    """
-    query: str = Field(..., min_length=1, description="Zapytanie tekstowe")
+    query: str = Field(..., min_length=1, description="Zapytanie tekstowe użytkownika.")
     top_k: int = Field(
         default=5,
         ge=1,
         le=20,
-        description="Liczba wyników do zwrócenia (1-20)"
+        description="Liczba wyników do zwrócenia w klasycznym wyszukiwaniu wektorowym.",
     )
 
 
 class RAGCitation(BaseModel):
-    """
-    Schema dla cytowania źródła RAG
+    """Cytowanie pojedynczego fragmentu zwróconego przez wyszukiwanie RAG."""
 
-    Przechowywane w JSONB w modelu Persona jako rag_citations.
-    """
-    document_title: str = Field(..., description="Tytuł dokumentu źródłowego")
-    chunk_text: str = Field(..., description="Fragment tekstu")
-    relevance_score: float = Field(..., description="Score similarity (0-1)")
+    document_title: str = Field(..., description="Tytuł dokumentu źródłowego.")
+    chunk_text: str = Field(..., description="Treść fragmentu wykorzystanego w odpowiedzi.")
+    relevance_score: float = Field(..., description="Ocena trafności (0-1).")
 
 
 class RAGQueryResponse(BaseModel):
-    """
-    Response schema dla query RAG
+    """Ustrukturyzowana odpowiedź z klasycznego zapytania RAG."""
 
-    Zawiera znalezione fragmenty i skonstruowany kontekst.
-    """
     query: str
-    context: str  # Sklejony tekst z top wyników
-    citations: List[RAGCitation]  # Lista cytowań z scores i metadata
+    context: str
+    citations: List[RAGCitation]
     num_results: int
 
 
-class PersonaGenerateRequestWithRAG(BaseModel):
-    """
-    Rozszerzony request do generowania person z opcją RAG
+class GraphRAGQuestionRequest(BaseModel):
+    """Schemat zapytania użytkownika do zaawansowanego Graph RAG."""
 
-    Dodaje parametr use_rag do istniejącego PersonaGenerateRequest.
-    """
-    num_personas: int = Field(..., ge=1, le=100, description="Liczba person do wygenerowania")
-    use_rag: bool = Field(
-        default=True,
-        description="Czy użyć RAG dla polskiej bazy wiedzy"
+    question: str = Field(
+        ...,
+        min_length=1,
+        description="Pytanie analityczne, które ma zostać rozpatrzone w oparciu o graf wiedzy.",
+        example="Jak zmieniało się zaufanie do rządu wśród młodych Polaków?",
     )
-    adversarial_mode: bool = Field(
-        default=False,
-        description="Tryb adversarial (większa różnorodność)"
-    )
+
+
+class GraphRAGQuestionResponse(BaseModel):
+    """Odpowiedź Graph RAG obejmująca wynik, kontekst i zapytanie Cypher."""
+
+    answer: str
+    graph_context: List[Dict[str, Any]]
+    vector_context: List[Any]
+    cypher_query: str

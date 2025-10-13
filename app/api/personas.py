@@ -25,6 +25,7 @@ import json
 import logging
 import random
 import re
+import unicodedata
 from typing import Dict, List, Any, Optional, Tuple
 from uuid import UUID
 from functools import lru_cache
@@ -50,12 +51,13 @@ from app.core.constants import (
     DEFAULT_INCOME_BRACKETS,
     DEFAULT_LOCATIONS,
     DEFAULT_OCCUPATIONS,
-    DEFAULT_VALUES,
-    DEFAULT_INTERESTS,
     # Polskie stałe (preferowane jako fallback)
     POLISH_LOCATIONS,
     POLISH_INCOME_BRACKETS,
     POLISH_EDUCATION_LEVELS,
+    POLISH_VALUES,
+    POLISH_INTERESTS,
+    POLISH_OCCUPATIONS,
 )
 
 router = APIRouter()
@@ -91,6 +93,221 @@ _POLISH_AGE_PATTERNS = [
     re.compile(r"(?P<age>\d{1,2})-letni[aey]?", re.IGNORECASE),  # "32-letnia"
     re.compile(r"(?P<age>\d{1,2})\s+lat", re.IGNORECASE),  # "32 lat"
 ]
+
+
+# Mapowania i pomocnicze słowniki dla polonizacji danych
+_POLISH_CHARACTERS = set("ąćęłńóśźż")
+_POLISH_CITY_LOOKUP = {
+    # Normalizujemy nazwy miast aby móc dopasować różne warianty zapisu
+    "".join(ch for ch in unicodedata.normalize("NFD", city) if not unicodedata.combining(ch)).lower(): city
+    for city in POLISH_LOCATIONS.keys()
+}
+
+_EN_TO_PL_GENDER = {
+    "female": "Kobieta",
+    "kobieta": "Kobieta",
+    "male": "Mężczyzna",
+    "mężczyzna": "Mężczyzna",
+    "man": "Mężczyzna",
+    "woman": "Kobieta",
+    "non-binary": "Osoba niebinarna",
+    "nonbinary": "Osoba niebinarna",
+    "other": "Osoba niebinarna",
+}
+
+_EN_TO_PL_EDUCATION = {
+    "high school": "Średnie ogólnokształcące",
+    "some college": "Policealne",
+    "bachelor's degree": "Wyższe licencjackie",
+    "masters degree": "Wyższe magisterskie",
+    "master's degree": "Wyższe magisterskie",
+    "doctorate": "Doktorat",
+    "phd": "Doktorat",
+    "technical school": "Średnie techniczne",
+    "trade school": "Zasadnicze zawodowe",
+    "vocational": "Zasadnicze zawodowe",
+}
+
+_EN_TO_PL_INCOME = {
+    "< $25k": "< 3 000 zł",
+    "$25k-$50k": "3 000 - 5 000 zł",
+    "$50k-$75k": "5 000 - 7 500 zł",
+    "$75k-$100k": "7 500 - 10 000 zł",
+    "$100k-$150k": "10 000 - 15 000 zł",
+    "> $150k": "> 15 000 zł",
+    "$150k+": "> 15 000 zł",
+}
+
+_ADDITIONAL_CITY_ALIASES = {
+    "warsaw": "Warszawa",
+    "krakow": "Kraków",
+    "wroclaw": "Wrocław",
+    "poznan": "Poznań",
+    "lodz": "Łódź",
+    "gdansk": "Gdańsk",
+    "gdynia": "Gdynia",
+    "szczecin": "Szczecin",
+    "lublin": "Lublin",
+    "bialystok": "Białystok",
+    "bydgoszcz": "Bydgoszcz",
+    "katowice": "Katowice",
+    "czestochowa": "Częstochowa",
+    "torun": "Toruń",
+    "radom": "Radom",
+}
+
+
+def _normalize_text(value: Optional[str]) -> str:
+    """Usuń diakrytyki i sprowadź tekst do małych liter – pomocne przy dopasowaniach."""
+    if not value:
+        return ""
+    normalized = unicodedata.normalize("NFD", value)
+    stripped = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return stripped.lower().strip()
+
+
+def _select_weighted(distribution: Dict[str, float]) -> Optional[str]:
+    """Wybierz losowy element z podanego rozkładu prawdopodobieństwa."""
+    if not distribution:
+        return None
+    options = list(distribution.keys())
+    weights = list(distribution.values())
+    return random.choices(options, weights=weights, k=1)[0]
+
+
+def _extract_polish_location_from_story(story: Optional[str]) -> Optional[str]:
+    """Spróbuj znaleźć polską lokalizację wewnątrz historii tła persony."""
+    if not story:
+        return None
+    normalized_story = _normalize_text(story)
+    for normalized_city, original_city in _POLISH_CITY_LOOKUP.items():
+        if normalized_city and normalized_city in normalized_story:
+            return original_city
+        # Obsługa odmian fleksyjnych (np. Wrocławiu, Gdańsku)
+        if normalized_city.endswith("a") and normalized_city + "ch" in normalized_story:
+            return original_city
+        if normalized_city + "iu" in normalized_story or normalized_city + "u" in normalized_story:
+            return original_city
+        if normalized_city + "ie" in normalized_story:
+            return original_city
+    return None
+
+
+def _ensure_polish_location(location: Optional[str], story: Optional[str]) -> str:
+    """Zadbaj aby lokalizacja była polska – użyj historii lub losowania z listy."""
+    normalized = _normalize_text(location)
+    if normalized:
+        if normalized in _POLISH_CITY_LOOKUP:
+            return _POLISH_CITY_LOOKUP[normalized]
+        if normalized in _ADDITIONAL_CITY_ALIASES:
+            return _ADDITIONAL_CITY_ALIASES[normalized]
+        # Usuń przyrostki typu ", ca" itp.
+        stripped_parts = re.split(r"[,/\\]", normalized)
+        for part in stripped_parts:
+            part = part.strip()
+            if part in _POLISH_CITY_LOOKUP:
+                return _POLISH_CITY_LOOKUP[part]
+            if part in _ADDITIONAL_CITY_ALIASES:
+                return _ADDITIONAL_CITY_ALIASES[part]
+    story_city = _extract_polish_location_from_story(story)
+    if story_city:
+        return story_city
+    fallback = _select_weighted(POLISH_LOCATIONS) or "Warszawa"
+    return fallback
+
+
+def _polishify_gender(raw_gender: Optional[str]) -> str:
+    """Przekonwertuj nazwy płci na polskie odpowiedniki."""
+    normalized = _normalize_text(raw_gender)
+    return _EN_TO_PL_GENDER.get(normalized, raw_gender.title() if raw_gender else "Kobieta")
+
+
+def _polishify_education(raw_education: Optional[str]) -> str:
+    """Przekonwertuj poziom wykształcenia na polską etykietę."""
+    normalized = _normalize_text(raw_education)
+    if normalized in _EN_TO_PL_EDUCATION:
+        return _EN_TO_PL_EDUCATION[normalized]
+    if raw_education:
+        return raw_education
+    return _select_weighted(POLISH_EDUCATION_LEVELS) or "Średnie ogólnokształcące"
+
+
+def _polishify_income(raw_income: Optional[str]) -> str:
+    """Przekonwertuj przedział dochodowy na złotówki."""
+    normalized = raw_income.strip() if isinstance(raw_income, str) else None
+    if normalized:
+        normalized_key = normalized.replace(" ", "")
+        if normalized in _EN_TO_PL_INCOME:
+            return _EN_TO_PL_INCOME[normalized]
+        if normalized_key in _EN_TO_PL_INCOME:
+            return _EN_TO_PL_INCOME[normalized_key]
+    return raw_income if raw_income else (_select_weighted(POLISH_INCOME_BRACKETS) or "5 000 - 7 500 zł")
+
+
+def _looks_polish_phrase(text: Optional[str]) -> bool:
+    """Sprawdź heurystycznie czy tekst wygląda na polski (znaki diakrytyczne, słowa kluczowe)."""
+    if not text:
+        return False
+    lowered = text.strip().lower()
+    if any(char in text for char in _POLISH_CHARACTERS):
+        return True
+    keywords = ["specjalista", "menedżer", "koordynator", "student", "uczeń", "właściciel", "kierownik", "logistyk"]
+    return any(keyword in lowered for keyword in keywords)
+
+
+def _format_job_title(job: str) -> str:
+    """Ujednolicenie formatowania tytułu zawodowego."""
+    job = job.strip()
+    if not job:
+        return job
+    return job[0].upper() + job[1:]
+
+
+_BACKGROUND_JOB_PATTERNS = [
+    re.compile(r"pracuje jako (?P<job>[^\.,]+)", re.IGNORECASE),
+    re.compile(r"jest (?P<job>[^\.,]+) w", re.IGNORECASE),
+    re.compile(r"na stanowisku (?P<job>[^\.,]+)", re.IGNORECASE),
+    re.compile(r"pełni funkcję (?P<job>[^\.,]+)", re.IGNORECASE),
+]
+
+
+def _infer_polish_occupation(
+    education_level: Optional[str],
+    income_bracket: Optional[str],
+    age: int,
+    personality: Dict[str, Any],
+    background_story: Optional[str],
+) -> str:
+    """Ustal możliwie polski tytuł zawodowy bazując na dostępnych danych."""
+    candidate = personality.get("persona_title") or personality.get("occupation")
+    if candidate and _looks_polish_phrase(candidate):
+        return _format_job_title(candidate)
+
+    if background_story:
+        for pattern in _BACKGROUND_JOB_PATTERNS:
+            match = pattern.search(background_story)
+            if match:
+                job = match.group("job").strip()
+                if job:
+                    return _format_job_title(job)
+
+    # Jeżeli AI nie zwróciło spójnego polskiego zawodu – losuj realistyczny zawód z rozkładu
+    occupation = _select_weighted(POLISH_OCCUPATIONS)
+    if occupation:
+        return occupation
+
+    # Fallback na wylosowaną angielską listę (ostatnia linia obrony)
+    return random.choice(DEFAULT_OCCUPATIONS) if DEFAULT_OCCUPATIONS else "Specjalista"
+
+
+def _fallback_polish_list(source: Optional[List[str]], fallback_pool: List[str]) -> List[str]:
+    """Zapewnij, że listy wartości i zainteresowań mają polskie elementy."""
+    if source:
+        return [item for item in source if isinstance(item, str) and item.strip()]
+    if not fallback_pool:
+        return []
+    sample_size = min(5, len(fallback_pool))
+    return random.sample(fallback_pool, k=sample_size)
 
 
 def _infer_full_name(background_story: Optional[str]) -> Optional[str]:
@@ -163,12 +380,11 @@ def _get_consistent_occupation(
     education_level: Optional[str],
     income_bracket: Optional[str],
     age: int,
-    occupations_list: List[str]
+    personality: Dict[str, Any],
+    background_story: Optional[str],
 ) -> str:
-    """Prosta wersja get_consistent_occupation - wybiera losowy zawód z listy"""
-    if not occupations_list:
-        return "Professional"
-    return random.choice(occupations_list)
+    """Zapewnij polski, spójny zawód bazując na danych kontekstowych."""
+    return _infer_polish_occupation(education_level, income_bracket, age, personality, background_story)
 
 
 def _ensure_story_alignment(
@@ -579,6 +795,13 @@ async def _generate_personas_task(
                     demographic = demographic_profiles[idx]
                     psychological = psychological_profiles[idx]
 
+                    background_story = (personality.get("background_story") or "").strip()
+                    if not background_story:
+                        logger.warning(
+                            f"Missing background_story for persona {idx}",
+                            extra={"project_id": str(project_id), "index": idx},
+                        )
+
                     # Wyliczamy wiek na podstawie przedziału wiekowego
                     age_group = demographic.get("age_group", "25-34")
                     age = random.randint(25, 34)
@@ -595,45 +818,12 @@ async def _generate_personas_task(
                         except ValueError:
                             pass
 
-                    occupation = _get_consistent_occupation(
-                        demographic.get("education_level"),
-                        demographic.get("income_bracket"),
-                        age,
-                        DEFAULT_OCCUPATIONS
-                    )
-
-                    # Sprytne wartości domyślne dla brakujących pól
                     full_name = personality.get("full_name")
                     if not full_name or full_name == "N/A":
                         inferred_name = _infer_full_name(personality.get("background_story"))
                         full_name = inferred_name or _fallback_full_name(demographic.get("gender"), age)
                         logger.warning(
                             f"Missing full_name for persona {idx}, using fallback: {full_name}",
-                            extra={"project_id": str(project_id), "index": idx}
-                        )
-
-                    persona_title = personality.get("persona_title")
-                    if not persona_title or persona_title == "N/A":
-                        persona_title = occupation or f"{demographic.get('gender', 'Person')} {age}"
-                        logger.warning(
-                            f"Missing persona_title for persona {idx}, using fallback: {persona_title}",
-                            extra={"project_id": str(project_id), "index": idx}
-                        )
-
-                    headline = personality.get("headline")
-                    if not headline or headline == "N/A":
-                        headline = _compose_headline(
-                            full_name, persona_title, occupation, demographic.get("location")
-                        )
-                        logger.warning(
-                            f"Missing headline for persona {idx}, using generated: {headline}",
-                            extra={"project_id": str(project_id), "index": idx}
-                        )
-
-                    background_story = personality.get("background_story", "")
-                    if not background_story:
-                        logger.warning(
-                            f"Missing background_story for persona {idx}",
                             extra={"project_id": str(project_id), "index": idx}
                         )
 
@@ -666,20 +856,51 @@ async def _generate_personas_task(
                             # Brak przedziału - użyj extracted_age
                             age = extracted_age
 
-                    values = personality.get("values", [])
-                    if not values:
-                        values = random.sample(DEFAULT_VALUES, k=min(5, len(DEFAULT_VALUES)))
+                    occupation = _get_consistent_occupation(
+                        demographic.get("education_level"),
+                        demographic.get("income_bracket"),
+                        age,
+                        personality,
+                        background_story,
+                    )
+
+                    persona_title = personality.get("persona_title")
+                    if persona_title:
+                        persona_title = persona_title.strip()
+                    if not persona_title or persona_title == "N/A" or not _looks_polish_phrase(persona_title):
+                        persona_title = occupation or f"Persona {age}"
+                        logger.info(
+                            "Persona title zaktualizowany na polski zawód",
+                            extra={"project_id": str(project_id), "index": idx},
+                        )
+
+                    gender_value = _polishify_gender(demographic.get("gender"))
+                    education_value = _polishify_education(demographic.get("education_level"))
+                    income_value = _polishify_income(demographic.get("income_bracket"))
+                    location_value = _ensure_polish_location(demographic.get("location"), background_story)
+
+                    headline = personality.get("headline")
+                    if not headline or headline == "N/A":
+                        headline = _compose_headline(
+                            full_name, persona_title, occupation, location_value
+                        )
                         logger.warning(
-                            f"Missing values for persona {idx}, using defaults",
+                            f"Missing headline for persona {idx}, using generated: {headline}",
                             extra={"project_id": str(project_id), "index": idx}
                         )
 
-                    interests = personality.get("interests", [])
-                    if not interests:
-                        interests = random.sample(DEFAULT_INTERESTS, k=min(5, len(DEFAULT_INTERESTS)))
+                    values = _fallback_polish_list(personality.get("values"), POLISH_VALUES)
+                    if not personality.get("values"):
                         logger.warning(
-                            f"Missing interests for persona {idx}, using defaults",
-                            extra={"project_id": str(project_id), "index": idx}
+                            f"Missing values for persona {idx}, using Polish defaults",
+                            extra={"project_id": str(project_id), "index": idx},
+                        )
+
+                    interests = _fallback_polish_list(personality.get("interests"), POLISH_INTERESTS)
+                    if not personality.get("interests"):
+                        logger.warning(
+                            f"Missing interests for persona {idx}, using Polish defaults",
+                            extra={"project_id": str(project_id), "index": idx},
                         )
 
                     # Ekstrakcja RAG citations (jeśli były używane)
@@ -692,10 +913,10 @@ async def _generate_personas_task(
                         "persona_title": persona_title,
                         "headline": headline,
                         "age": age,
-                        "gender": demographic.get("gender"),
-                        "location": demographic.get("location"),
-                        "education_level": demographic.get("education_level"),
-                        "income_bracket": demographic.get("income_bracket"),
+                        "gender": gender_value,
+                        "location": location_value,
+                        "education_level": education_value,
+                        "income_bracket": income_value,
                         "occupation": occupation,
                         "background_story": background_story,
                         "values": values,

@@ -1,30 +1,36 @@
+"""Serwisy RAG odpowiedzialne za budowę grafu wiedzy i hybrydowe wyszukiwanie.
+
+Moduł udostępnia dwie komplementarne klasy:
+
+* :class:`RAGDocumentService` – odpowiada za pełny pipeline przetwarzania
+  dokumentów (ingest), utrzymanie indeksu wektorowego oraz grafu wiedzy w Neo4j
+  i obsługę zapytań Graph RAG.
+* :class:`PolishSocietyRAG` – realizuje hybrydowe wyszukiwanie kontekstu
+  (vector + keyword + RRF) wykorzystywane w generatorze person.
+
+Dokumentacja i komentarze pozostają po polsku, aby ułatwić współpracę zespołu.
 """
-Serwis RAG (Retrieval-Augmented Generation) z LangChain
 
-Zarządza bazą wiedzy dokumentów PDF/DOCX dla generowania realistycznych person.
-Wykorzystuje LangChain do pełnego pipeline'u: loading → chunking → embedding → storing → retrieval.
+from __future__ import annotations
 
-Komponenty:
-- RAGDocumentService: Zarządzanie dokumentami (ingest, list, delete)
-- PolishSocietyRAG: Retrieval kontekstu dla person z hybrid search
-"""
-
-import logging
-import os
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-from uuid import UUID
 import asyncio
+import logging
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# LangChain imports
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain_experimental.graph_transformers.llm import LLMGraphTransformer
+from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader
+from langchain_community.graphs import Neo4jGraph
 from langchain_community.vectorstores import Neo4jVector
 from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_experimental.graph_transformers.llm import LLMGraphTransformer
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.core.config import get_settings
 from app.models.rag_document import RAGDocument
@@ -32,33 +38,53 @@ from app.models.rag_document import RAGDocument
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-# Neo4j driver będziemy pobierać z vector_store._driver
-# aby nie duplikować połączeń
+
+class GraphRAGQuery(BaseModel):
+    """Struktura odpowiedzi z LLM przekształcająca pytanie w zapytanie Cypher."""
+
+    entities: List[str] = Field(
+        default_factory=list,
+        description="Lista najważniejszych encji z pytania użytkownika.",
+    )
+    cypher_query: str = Field(
+        description="Zapytanie Cypher, które ma zostać wykonane na grafie wiedzy.",
+    )
 
 
 class RAGDocumentService:
-    """
-    Serwis zarządzania dokumentami RAG z LangChain
+    """Serwis zarządzający dokumentami, grafem wiedzy i zapytaniami Graph RAG.
 
-    Odpowiedzialny za:
-    - Parsing dokumentów (PDF, DOCX) używając LangChain DocumentLoaders
-    - Chunking tekstu z RecursiveCharacterTextSplitter
-    - Generowanie embeddingów z Google Gemini
-    - Przechowywanie w Neo4j Vector Store
-    - Zarządzanie metadanymi w PostgreSQL
+    Zakres odpowiedzialności:
+
+    1. Wczytywanie dokumentów PDF/DOCX i dzielenie ich na fragmenty.
+    2. Generowanie embeddingów i zapis chunków w indeksie wektorowym Neo4j.
+    3. Budowa uniwersalnego grafu wiedzy na bazie `LLMGraphTransformer`.
+    4. Odpowiadanie na pytania użytkowników z wykorzystaniem Graph RAG
+       (połączenie kontekstu grafowego i semantycznego).
+    5. Zarządzanie dokumentami w bazie PostgreSQL (lista, usuwanie z czyszczeniem
+       danych w Neo4j).
     """
 
-    def __init__(self):
-        """Inicjalizuj serwis z embeddingami i vector store"""
+    def __init__(self) -> None:
+        """Inicjalizuje wszystkie niezbędne komponenty LangChain i Neo4j."""
+
         self.settings = settings
 
-        # Google Gemini Embeddings
+        # Model konwersacyjny wykorzystywany zarówno do budowy grafu, jak i
+        # generowania finalnych odpowiedzi Graph RAG.
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-pro",
+            google_api_key=self.settings.GOOGLE_API_KEY,
+            temperature=0,
+        )
+
+        # Embeddingi Google Gemini wykorzystywane przez indeks wektorowy Neo4j.
         self.embeddings = GoogleGenerativeAIEmbeddings(
             model=settings.EMBEDDING_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
         )
 
-        # Neo4j Vector Store
+        # Inicjalizacja Neo4j Vector Store – krytyczna dla działania RAG.
         try:
             self.vector_store = Neo4jVector(
                 url=settings.NEO4J_URI,
@@ -70,241 +96,327 @@ class RAGDocumentService:
                 text_node_property="text",
                 embedding_node_property="embedding",
             )
-            logger.info("Neo4j Vector Store initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize Neo4j Vector Store: {e}")
+            logger.info("Neo4j Vector Store został poprawnie zainicjalizowany.")
+        except Exception as exc:  # pragma: no cover - logujemy problem konfiguracyjny
+            logger.error("Nie udało się zainicjalizować Neo4j Vector Store: %s", exc)
             self.vector_store = None
 
-    async def ingest_document(
-        self,
-        file_path: str,
-        metadata: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """
-        Przetwarza dokument przez pipeline LangChain
+        # Inicjalizacja Neo4j Graph – może się nie udać, ale wtedy Graph RAG
+        # zostanie tymczasowo wyłączony (pozostanie klasyczne RAG).
+        try:
+            self.graph_store = Neo4jGraph(
+                url=settings.NEO4J_URI,
+                username=settings.NEO4J_USER,
+                password=settings.NEO4J_PASSWORD,
+            )
+            logger.info("Neo4j Graph Store został poprawnie zainicjalizowany.")
+        except Exception as exc:  # pragma: no cover - logujemy problem konfiguracyjny
+            logger.error("Nie udało się zainicjalizować Neo4j Graph Store: %s", exc)
+            self.graph_store = None
 
-        Pipeline:
-        1. Load document (PyPDFLoader lub Docx2txtLoader)
-        2. Split into chunks (RecursiveCharacterTextSplitter)
-        3. Generate embeddings (GoogleGenerativeAIEmbeddings)
-        4. Store in Neo4j (Neo4jVector)
+    async def ingest_document(self, file_path: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Przetwarza dokument przez pełny pipeline: load → chunk → graph → vector.
 
         Args:
-            file_path: Ścieżka do pliku PDF lub DOCX
-            metadata: Metadane dokumentu (doc_id, title, country, etc.)
+            file_path: Ścieżka do pliku PDF lub DOCX zapisanej kopii dokumentu.
+            metadata: Metadane dokumentu (doc_id, title, country, itp.).
 
         Returns:
-            Dict z kluczami:
-            - num_chunks: liczba wygenerowanych chunków
-            - status: 'ready' lub 'failed'
-            - error: opcjonalny komunikat błędu
+            Słownik zawierający liczbę chunków oraz status zakończenia procesu.
 
         Raises:
-            ValueError: Jeśli typ pliku nie jest obsługiwany
-            Exception: Błędy parsingu lub embeddingu
+            RuntimeError: Gdy brakuje połączenia z Neo4j (vector store jest kluczowy).
+            FileNotFoundError: Jeśli plik nie istnieje.
+            ValueError: Przy nieobsługiwanym rozszerzeniu lub braku treści.
         """
+
         if not self.vector_store:
-            raise Exception("Neo4j Vector Store is not available")
+            raise RuntimeError("Brak połączenia z Neo4j Vector Store – ingest niemożliwy.")
 
         path = Path(file_path)
         if not path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
+            raise FileNotFoundError(f"Nie znaleziono pliku: {file_path}")
 
-        logger.info(f"Starting ingestion of document: {path.name}")
+        logger.info("Rozpoczynam przetwarzanie dokumentu: %s", path.name)
 
         try:
-            # 1. LOAD - wybór loadera na podstawie rozszerzenia
+            # 1. LOAD – wybór loadera zależnie od rozszerzenia pliku.
             file_extension = path.suffix.lower()
-
-            if file_extension == '.pdf':
+            if file_extension == ".pdf":
                 loader = PyPDFLoader(str(path))
-                logger.info(f"Using PyPDFLoader for {path.name}")
-            elif file_extension == '.docx':
+                logger.info("Używam PyPDFLoader dla pliku %s", path.name)
+            elif file_extension == ".docx":
                 loader = Docx2txtLoader(str(path))
-                logger.info(f"Using Docx2txtLoader for {path.name}")
+                logger.info("Używam Docx2txtLoader dla pliku %s", path.name)
             else:
                 raise ValueError(
-                    f"Unsupported file type: {file_extension}. "
-                    "Supported: .pdf, .docx"
+                    f"Nieobsługiwany typ pliku: {file_extension}. Dozwolone: PDF, DOCX."
                 )
 
-            # Load documents (może zwrócić wiele Document objects dla PDF z wieloma stronami)
             documents = await asyncio.to_thread(loader.load)
-            logger.info(f"Loaded {len(documents)} document pages/sections")
-
             if not documents:
-                raise ValueError("No content extracted from document")
+                raise ValueError("Nie udało się odczytać zawartości dokumentu.")
+            logger.info("Wczytano %s segmentów dokumentu źródłowego.", len(documents))
 
-            # 2. SPLIT - chunking z overlap
+            # 2. SPLIT – dzielenie tekstu na fragmenty z kontrolowanym overlapem.
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=settings.RAG_CHUNK_SIZE,
                 chunk_overlap=settings.RAG_CHUNK_OVERLAP,
                 separators=["\n\n", "\n", ". ", " ", ""],
                 length_function=len,
             )
-
             chunks = text_splitter.split_documents(documents)
-            logger.info(
-                f"Split into {len(chunks)} chunks "
-                f"(size={settings.RAG_CHUNK_SIZE}, overlap={settings.RAG_CHUNK_OVERLAP})"
-            )
-
             if not chunks:
-                raise ValueError("No chunks generated from document")
-
-            # 3. ADD METADATA - dodaj metadane do każdego chunku
-            doc_id = metadata.get('doc_id')
-            for i, chunk in enumerate(chunks):
-                chunk.metadata.update({
-                    'doc_id': str(doc_id),
-                    'chunk_index': i,
-                    'title': metadata.get('title', 'Unknown'),
-                    'country': metadata.get('country', 'Poland'),
-                    'source_file': path.name,
-                })
-
-            # 4. EMBED & STORE - wygeneruj embeddingi i zapisz w Neo4j
-            logger.info(f"Generating embeddings and storing in Neo4j...")
-
-            # 5. CREATE NODES & RELS - Tworzenie relacji za pomocą LLMGraphTransformer oraz LLM
-            llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=settings.GOOGLE_API_KEY)
-
-            transformer = LLMGraphTransformer(
-                llm=llm,
-                node_properties=['name', 'summary', 'topics'],
-                strict_mode=True,
-                additional_instructions="""
-                Twoim zadaniem jest analiza fragmentów tekstu i przekształcenie ich w struktury grafowe.
-                1.  W polu 'summary' utwórz zwięzłe podsumowanie fragmentu, nie dłuższe niż 100 znaków.
-                2.  W polu 'topics' wymień od 3 do 5 kluczowych tematów w formie listy.
-                """
-                )
-            
-            graph_chunks = await transformer.aconvert_to_graph_documents(chunks)
-
-            # Neo4jVector.aadd_documents automatycznie generuje embeddingi i zapisuje
-            await self.vector_store.aadd_documents(graph_chunks)
-
+                raise ValueError("Nie wygenerowano żadnych fragmentów tekstu.")
             logger.info(
-                f"Successfully ingested {len(chunks)} chunks for document {doc_id}"
+                "Podzielono dokument na %s fragmentów (chunk_size=%s, overlap=%s)",
+                len(chunks),
+                settings.RAG_CHUNK_SIZE,
+                settings.RAG_CHUNK_OVERLAP,
             )
 
-            return {
-                "num_chunks": len(chunks),
-                "status": "ready"
-            }
+            # 3. METADATA – wzbogacenie każdego chunku o metadane identyfikujące.
+            doc_id = metadata.get("doc_id")
+            for index, chunk in enumerate(chunks):
+                chunk.metadata.update(
+                    {
+                        "doc_id": str(doc_id),
+                        "chunk_index": index,
+                        "title": metadata.get("title", "Nieznany dokument"),
+                        "country": metadata.get("country", "Poland"),
+                        "source_file": path.name,
+                    }
+                )
 
-        except Exception as e:
-            logger.error(f"Failed to ingest document {file_path}: {str(e)}", exc_info=True)
-            return {
-                "num_chunks": 0,
-                "status": "failed",
-                "error": str(e)
-            }
+            # 4. GRAPH – próbujemy zbudować graf wiedzy, jeśli Neo4j Graph jest dostępny.
+            if self.graph_store:
+                try:
+                    logger.info("Generuję strukturę grafową na podstawie uniwersalnego modelu.")
+                    transformer = LLMGraphTransformer(
+                        llm=self.llm,
+                        allowed_nodes=[
+                            "Observation",
+                            "Indicator",
+                            "Demographic",
+                            "Trend",
+                            "Location",
+                            "Cause",
+                            "Effect",
+                        ],
+                        allowed_relationships=[
+                            "DESCRIBES",
+                            "APPLIES_TO",
+                            "SHOWS_TREND",
+                            "LOCATED_IN",
+                            "CAUSED_BY",
+                            "LEADS_TO",
+                            "COMPARES_TO",
+                        ],
+                        additional_instructions="""
+                        Dla każdego fragmentu utwórz węzły opisujące obserwacje, wskaźniki
+                        oraz zależności przyczynowo-skutkowe. Zachowaj metadane doc_id i
+                        chunk_index w wygenerowanych węzłach, aby umożliwić późniejsze
+                        usuwanie danych powiązanych z dokumentem.
+                        """.strip(),
+                    )
+                    graph_documents = await transformer.aconvert_to_graph_documents(chunks)
+                    self.graph_store.add_graph_documents(graph_documents, include_source=True)
+                    logger.info("Zapisano strukturę grafową dla dokumentu %s", doc_id)
+                except Exception as graph_exc:  # pragma: no cover - logujemy, ale nie przerywamy
+                    logger.error(
+                        "Nie udało się wygenerować grafu wiedzy dla dokumentu %s: %s",
+                        doc_id,
+                        graph_exc,
+                        exc_info=True,
+                    )
+
+            else:
+                logger.warning(
+                    "Neo4j Graph Store nie jest dostępny – dokument zostanie przetworzony "
+                    "bez struktury grafowej."
+                )
+
+            # 5. VECTOR – zapis chunków do indeksu wektorowego w Neo4j.
+            logger.info("Generuję embeddingi i zapisuję je w indeksie wektorowym...")
+            await self.vector_store.aadd_documents(chunks)
+            logger.info(
+                "Zakończono przetwarzanie %s fragmentów dokumentu %s",
+                len(chunks),
+                doc_id,
+            )
+
+            return {"num_chunks": len(chunks), "status": "ready"}
+
+        except Exception as exc:  # pragma: no cover - logujemy pełną diagnostykę
+            logger.error(
+                "Błąd podczas przetwarzania dokumentu %s: %s",
+                file_path,
+                exc,
+                exc_info=True,
+            )
+            return {"num_chunks": 0, "status": "failed", "error": str(exc)}
+
+    def _generate_cypher_query(self, question: str) -> GraphRAGQuery:
+        """Używa LLM do przełożenia pytania użytkownika na zapytanie Cypher."""
+
+        if not self.graph_store:
+            raise RuntimeError("Graph RAG nie jest dostępny – brak połączenia z Neo4j Graph.")
+
+        graph_schema = self.graph_store.get_schema()
+        cypher_prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """
+                    Jesteś analitykiem badań społecznych. Twoim zadaniem jest zamiana pytania
+                    użytkownika na zapytanie Cypher korzystające z poniższego schematu grafu.
+                    Skup się na odnajdywaniu ścieżek do głębokości 3 pomiędzy kluczowymi encjami
+                    (Observation, Indicator, Demographic, Trend, Location, Cause, Effect).
+                    Zwracaj zapytania, które dostarczą pełnych właściwości węzłów oraz relacji.
+                    Schemat grafu: {graph_schema}
+                    """.strip(),
+                ),
+                ("human", "Pytanie użytkownika: {question}"),
+            ]
+        )
+
+        chain = cypher_prompt | self.llm.with_structured_output(GraphRAGQuery)
+        return chain.invoke({"question": question, "graph_schema": graph_schema})
+
+    async def answer_question(self, question: str) -> Dict[str, Any]:
+        """Realizuje pełen przepływ Graph RAG i zwraca ustrukturyzowaną odpowiedź."""
+
+        if not self.graph_store or not self.vector_store:
+            raise ConnectionError(
+                "Graph RAG wymaga jednoczesnego dostępu do grafu i indeksu wektorowego."
+            )
+
+        logger.info("Generuję zapytanie Cypher dla pytania: %s", question)
+        rag_query = self._generate_cypher_query(question)
+        logger.info("Wygenerowane zapytanie Cypher: %s", rag_query.cypher_query)
+
+        # 1. Kontekst grafowy – zapytanie Cypher wygenerowane przez LLM.
+        try:
+            graph_context = self.graph_store.query(rag_query.cypher_query)
+        except Exception as exc:  # pragma: no cover - logujemy i kontynuujemy
+            logger.error("Błąd wykonania zapytania Cypher: %s", exc, exc_info=True)
+            graph_context = []
+
+        # 2. Kontekst wektorowy – semantyczne wyszukiwanie po encjach.
+        vector_context_docs: List[Document] = []
+        if rag_query.entities:
+            search_query = " ".join(rag_query.entities)
+            vector_context_docs = await self.vector_store.asimilarity_search(search_query, k=5)
+
+        # 3. Agregacja kontekstu i wygenerowanie odpowiedzi końcowej.
+        final_context = "KONTEKST Z GRAFU WIEDZY:\n" + str(graph_context)
+        final_context += "\n\nFRAGMENTY Z DOKUMENTÓW:\n"
+        for doc in vector_context_docs:
+            final_context += f"- {doc.page_content}\n"
+
+        answer_prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """
+                    Jesteś ekspertem od analiz społecznych. Odpowiadasz wyłącznie na
+                    podstawie dostarczonego kontekstu z grafu i dokumentów. Udzielaj
+                    precyzyjnych, zweryfikowalnych odpowiedzi po polsku.
+                    """.strip(),
+                ),
+                ("human", "Pytanie: {question}\n\nKontekst:\n{context}"),
+            ]
+        )
+
+        response = await (answer_prompt | self.llm).ainvoke(
+            {"question": question, "context": final_context}
+        )
+
+        return {
+            "answer": response.content,
+            "graph_context": graph_context,
+            "vector_context": [doc.to_json() for doc in vector_context_docs],
+            "cypher_query": rag_query.cypher_query,
+        }
 
     async def list_documents(self, db: AsyncSession) -> List[RAGDocument]:
-        """
-        Lista wszystkich aktywnych dokumentów RAG
+        """Zwraca listę aktywnych dokumentów posortowanych malejąco po dacie."""
 
-        Args:
-            db: Sesja bazy danych
-
-        Returns:
-            Lista obiektów RAGDocument (tylko is_active=True)
-        """
         result = await db.execute(
             select(RAGDocument)
-            .where(RAGDocument.is_active == True)
+            .where(RAGDocument.is_active.is_(True))
             .order_by(RAGDocument.created_at.desc())
         )
         return result.scalars().all()
 
-    async def delete_document(self, doc_id: UUID, db: AsyncSession):
-        """
-        Usuwa dokument z bazy wiedzy
+    async def delete_document(self, doc_id: UUID, db: AsyncSession) -> None:
+        """Usuwa dokument z PostgreSQL i czyści powiązane dane w Neo4j."""
 
-        Wykonuje:
-        1. Soft delete w PostgreSQL (is_active=False)
-        2. Usunięcie chunków z Neo4j (DELETE nodes WHERE doc_id)
-
-        Args:
-            doc_id: UUID dokumentu
-            db: Sesja bazy danych
-
-        Raises:
-            ValueError: Jeśli dokument nie istnieje
-        """
-        # Pobierz dokument
         doc = await db.get(RAGDocument, doc_id)
         if not doc:
             raise ValueError(f"Document {doc_id} not found")
 
-        # Soft delete w PostgreSQL
         doc.is_active = False
         await db.commit()
 
-        # Usuń chunki z Neo4j
-        if self.vector_store:
+        await self._delete_chunks_from_neo4j(str(doc_id))
+
+        if self.graph_store:
             try:
-                await self._delete_chunks_from_neo4j(str(doc_id))
-                logger.info(f"Deleted chunks for document {doc_id} from Neo4j")
-            except Exception as e:
-                logger.error(f"Failed to delete chunks from Neo4j: {e}")
-                # Nie rzucamy błędu - soft delete w PostgreSQL się powiódł
+                self.graph_store.query(
+                    "MATCH (n {doc_id: $doc_id}) DETACH DELETE n",
+                    params={"doc_id": str(doc_id)},
+                )
+                logger.info("Usunięto węzły grafu dla dokumentu %s", doc_id)
+            except Exception as exc:  # pragma: no cover - logujemy, ale nie przerywamy
+                logger.error(
+                    "Nie udało się usunąć węzłów grafu dokumentu %s: %s",
+                    doc_id,
+                    exc,
+                )
 
-    async def _delete_chunks_from_neo4j(self, doc_id: str):
-        """
-        Usuwa chunki z Neo4j dla danego doc_id
+    async def _delete_chunks_from_neo4j(self, doc_id: str) -> None:
+        """Czyści wszystkie chunki dokumentu z indeksu Neo4j Vector."""
 
-        Args:
-            doc_id: UUID dokumentu jako string
-        """
         if not self.vector_store:
             return
 
-        # Neo4j Cypher query - usuń wszystkie chunki dla doc_id
-        # Neo4jVector nie ma wbudowanej metody delete, więc używamy raw Cypher
         try:
-            # Pobierz driver z vector_store (internal access)
-            # Alternatywa: stworzyć własny Neo4j driver connection
-            logger.warning(
-                f"Neo4j chunk deletion for doc_id={doc_id} - "
-                "manual implementation required (not critical for MVP)"
-            )
-            # TODO: Implementuj direct Cypher query jeśli potrzebne
-            # driver = self.vector_store._driver
-            # await driver.execute_query(
-            #     "MATCH (n:RAGChunk {doc_id: $doc_id}) DELETE n",
-            #     doc_id=doc_id
-            # )
-        except Exception as e:
-            logger.error(f"Error deleting Neo4j chunks: {e}")
+            driver = self.vector_store._driver  # Dostęp wewnętrzny – akceptowalny w serwisie.
+
+            def delete_chunks() -> None:
+                with driver.session() as session:
+                    session.execute_write(
+                        lambda tx: tx.run(
+                            "MATCH (n:RAGChunk {doc_id: $doc_id}) DETACH DELETE n",
+                            doc_id=doc_id,
+                        )
+                    )
+
+            await asyncio.to_thread(delete_chunks)
+            logger.info("Usunięto wektorowe chunki dokumentu %s", doc_id)
+        except Exception as exc:  # pragma: no cover - logujemy, ale nie przerywamy
+            logger.error("Nie udało się usunąć chunków dokumentu %s z Neo4j: %s", doc_id, exc)
 
 
 class PolishSocietyRAG:
-    """
-    Retrieval dla polskich person z hybrid search
+    """Hybrydowe wyszukiwanie kontekstu dla generatora person.
 
-    Łączy:
-    - Vector similarity search (semantic)
-    - Keyword search (lexical)
-    - RRF (Reciprocal Rank Fusion) dla kombinacji wyników
-
-    Używane przez PersonaGeneratorLangChain do wzbogacenia promptów
-    o rzeczywisty kontekst z raportów o polskim społeczeństwie.
+    Łączy wyszukiwanie semantyczne (embeddingi) oraz pełnotekstowe (fulltext index)
+    korzystając z techniki Reciprocal Rank Fusion. Klasa jest niezależna od
+    Graph RAG, ale współdzieli te same ustawienia i konwencję metadanych.
     """
 
-    def __init__(self):
-        """Inicjalizuj RAG z embeddingami i vector store"""
+    def __init__(self) -> None:
+        """Przygotowuje wektorowe i keywordowe zaplecze wyszukiwawcze."""
+
         self.settings = settings
 
-        # Google Gemini Embeddings
         self.embeddings = GoogleGenerativeAIEmbeddings(
             model=settings.EMBEDDING_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
         )
 
-        # Neo4j Vector Store
         try:
             self.vector_store = Neo4jVector(
                 url=settings.NEO4J_URI,
@@ -316,114 +428,92 @@ class PolishSocietyRAG:
                 text_node_property="text",
                 embedding_node_property="embedding",
             )
-            logger.info("PolishSocietyRAG initialized successfully")
+            logger.info("PolishSocietyRAG został poprawnie zainicjalizowany.")
 
-            # Utwórz fulltext index dla keyword search (jeśli hybrid search włączony)
             if settings.RAG_USE_HYBRID_SEARCH:
                 asyncio.create_task(self._ensure_fulltext_index())
-        except Exception as e:
-            logger.error(f"Failed to initialize PolishSocietyRAG: {e}")
+        except Exception as exc:  # pragma: no cover - logujemy, ale nie przerywamy
+            logger.error("Nie udało się zainicjalizować PolishSocietyRAG: %s", exc)
             self.vector_store = None
 
-    async def _ensure_fulltext_index(self):
-        """
-        Upewnij się że fulltext index istnieje dla keyword search
+    async def _ensure_fulltext_index(self) -> None:
+        """Tworzy indeks fulltext w Neo4j na potrzeby wyszukiwania keywordowego."""
 
-        Tworzy Neo4j fulltext index na polu 'text' w nodach RAGChunk.
-        Index nazywa się 'rag_fulltext_index'.
-        """
         if not self.vector_store:
             return
 
         try:
-            # Pobierz Neo4j driver z vector_store
             driver = self.vector_store._driver
 
-            # Sprawdź czy index już istnieje
-            def check_and_create_index(tx):
-                # Sprawdź istniejące indeksy
-                result = tx.run("SHOW INDEXES")
-                indexes = [record["name"] for record in result]
+            def check_and_create_index() -> None:
+                with driver.session() as session:
+                    def ensure(tx) -> None:
+                        indexes = [record["name"] for record in tx.run("SHOW INDEXES")]
+                        if "rag_fulltext_index" not in indexes:
+                            tx.run(
+                                """
+                                CREATE FULLTEXT INDEX rag_fulltext_index IF NOT EXISTS
+                                FOR (n:RAGChunk)
+                                ON EACH [n.text]
+                                """
+                            )
 
-                if "rag_fulltext_index" not in indexes:
-                    # Utwórz fulltext index
-                    tx.run("""
-                        CREATE FULLTEXT INDEX rag_fulltext_index IF NOT EXISTS
-                        FOR (n:RAGChunk)
-                        ON EACH [n.text]
-                    """)
-                    logger.info("Created fulltext index 'rag_fulltext_index' for RAGChunk nodes")
-                else:
-                    logger.debug("Fulltext index 'rag_fulltext_index' already exists")
+                    session.execute_write(ensure)
 
-            # Wykonaj w asyncio thread pool
-            await asyncio.to_thread(
-                lambda: driver.session().execute_write(check_and_create_index)
-            )
-
-        except Exception as e:
-            logger.warning(f"Could not create fulltext index (non-critical): {e}")
+            await asyncio.to_thread(check_and_create_index)
+            logger.info("Fulltext index 'rag_fulltext_index' jest gotowy.")
+        except Exception as exc:  # pragma: no cover - indeks nie jest krytyczny
+            logger.warning("Nie udało się utworzyć indeksu fulltext: %s", exc)
 
     async def _keyword_search(self, query: str, k: int = 5) -> List[Document]:
-        """
-        Keyword search przez Neo4j fulltext index
+        """Wykonuje wyszukiwanie pełnotekstowe w Neo4j i zwraca dokumenty LangChain."""
 
-        Używa fulltext index 'rag_fulltext_index' do wyszukiwania
-        chunków zawierających słowa kluczowe z query.
-
-        Args:
-            query: Zapytanie tekstowe
-            k: Liczba wyników do zwrócenia
-
-        Returns:
-            Lista Document obiektów z wynikami keyword search
-        """
         if not self.vector_store:
             return []
 
         try:
             driver = self.vector_store._driver
 
-            def search_fulltext(tx):
-                # Neo4j fulltext search query
-                # db.index.fulltext.queryNodes zwraca (node, score)
-                result = tx.run("""
-                    CALL db.index.fulltext.queryNodes('rag_fulltext_index', $search_query)
-                    YIELD node, score
-                    RETURN node.text AS text,
-                           node.doc_id AS doc_id,
-                           node.title AS title,
-                           node.chunk_index AS chunk_index,
-                           score
-                    ORDER BY score DESC
-                    LIMIT $search_limit
-                """, search_query=query, search_limit=k)
+            def search() -> List[Document]:
+                with driver.session() as session:
+                    def run_query(tx):
+                        result = tx.run(
+                            """
+                            CALL db.index.fulltext.queryNodes('rag_fulltext_index', $search_query)
+                            YIELD node, score
+                            RETURN node.text AS text,
+                                   node.doc_id AS doc_id,
+                                   node.title AS title,
+                                   node.chunk_index AS chunk_index,
+                                   score
+                            ORDER BY score DESC
+                            LIMIT $limit
+                            """,
+                            search_query=query,
+                            limit=k,
+                        )
+                        documents: List[Document] = []
+                        for record in result:
+                            documents.append(
+                                Document(
+                                    page_content=record["text"],
+                                    metadata={
+                                        "doc_id": record["doc_id"],
+                                        "title": record["title"],
+                                        "chunk_index": record["chunk_index"],
+                                        "keyword_score": record["score"],
+                                    },
+                                )
+                            )
+                        return documents
 
-                documents = []
-                for record in result:
-                    doc = Document(
-                        page_content=record["text"],
-                        metadata={
-                            "doc_id": record["doc_id"],
-                            "title": record["title"],
-                            "chunk_index": record["chunk_index"],
-                            "keyword_score": record["score"],
-                        }
-                    )
-                    documents.append(doc)
+                    return session.execute_read(run_query)
 
-                return documents
-
-            # Wykonaj w thread pool
-            docs = await asyncio.to_thread(
-                lambda: driver.session().execute_read(search_fulltext)
-            )
-
-            logger.info(f"Keyword search returned {len(docs)} results")
-            return docs
-
-        except Exception as e:
-            logger.warning(f"Keyword search failed (falling back to vector only): {e}")
+            documents = await asyncio.to_thread(search)
+            logger.info("Keyword search zwróciło %s wyników", len(documents))
+            return documents
+        except Exception as exc:  # pragma: no cover - fallback do vector search
+            logger.warning("Keyword search nie powiodło się, używam fallbacku: %s", exc)
             return []
 
     async def get_demographic_insights(
@@ -433,178 +523,99 @@ class PolishSocietyRAG:
         location: str,
         gender: str,
     ) -> Dict[str, Any]:
-        """
-        Pobiera kontekst z raportu dla danego profilu demograficznego
+        """Buduje kontekst raportowy dla wskazanego profilu demograficznego."""
 
-        Używa hybrid search (vector + keyword) z RRF fusion
-        do znalezienia najbardziej relevantnych fragmentów.
-
-        Args:
-            age_group: Grupa wiekowa (np. "25-34")
-            education: Poziom wykształcenia (np. "wyższe")
-            location: Lokalizacja (np. "Warszawa")
-            gender: Płeć (np. "mężczyzna", "kobieta")
-
-        Returns:
-            Dict z kluczami:
-            - context: String ze sklejonych top fragmentów
-            - citations: Lista dict z fragmentami + scores + metadata
-            - query: Użyte zapytanie
-            - num_results: Liczba znalezionych fragmentów
-        """
         if not self.vector_store:
-            logger.warning("Vector store not available, returning empty context")
-            return {
-                "context": "",
-                "citations": [],
-                "query": "",
-                "num_results": 0
-            }
+            logger.warning("Vector store niedostępny – zwracam pusty kontekst.")
+            return {"context": "", "citations": [], "query": "", "num_results": 0}
 
-        # Konstruuj query po polsku
-        query = f"""
-        Profil demograficzny: {gender}, wiek {age_group}, wykształcenie {education},
-        lokalizacja {location} w Polsce.
+        query = (
+            f"Profil demograficzny: {gender}, wiek {age_group}, wykształcenie {education}, "
+            f"lokalizacja {location} w Polsce. Jakie są typowe cechy, wartości, zainteresowania, "
+            f"style życia oraz aspiracje dla tej grupy?"
+        )
 
-        Jakie są typowe cechy, wartości życiowe, zainteresowania i style życia
-        dla tej grupy w polskim społeczeństwie? Jakie są wzorce zachowań,
-        aspiracje i charakterystyczne postawy?
-        """
-
-        logger.info(f"RAG query for demographics: {age_group}, {education}, {location}, {gender}")
+        logger.info(
+            "RAG hybrid search dla profilu: wiek=%s, edukacja=%s, lokalizacja=%s, płeć=%s",
+            age_group,
+            education,
+            location,
+            gender,
+        )
 
         try:
-            # HYBRID SEARCH: Vector + Keyword search z RRF fusion
             if settings.RAG_USE_HYBRID_SEARCH:
-                # 1. Vector search z score
                 vector_results = await self.vector_store.asimilarity_search_with_score(
                     query,
-                    k=settings.RAG_TOP_K * 2  # Pobierz więcej dla fusion
+                    k=settings.RAG_TOP_K * 2,
                 )
-                logger.info(f"Vector search returned {len(vector_results)} results")
-
-                # 2. Keyword search przez fulltext index
                 keyword_results = await self._keyword_search(
                     query,
-                    k=settings.RAG_TOP_K * 2  # Pobierz więcej dla fusion
+                    k=settings.RAG_TOP_K * 2,
                 )
-                logger.info(f"Keyword search returned {len(keyword_results)} results")
-
-                # 3. RRF Fusion - połącz wyniki
                 fused_results = self._rrf_fusion(
                     vector_results,
                     keyword_results,
-                    k=settings.RAG_RRF_K
+                    k=settings.RAG_RRF_K,
                 )
-                logger.info(f"RRF fusion produced {len(fused_results)} combined results")
-
-                # Użyj fused results
-                final_results = fused_results[:settings.RAG_TOP_K]
-
+                final_results = fused_results[: settings.RAG_TOP_K]
+                search_type = "hybrid"
             else:
-                # TYLKO VECTOR SEARCH (fallback jeśli hybrid wyłączony)
-                vector_results = await self.vector_store.asimilarity_search_with_score(
+                final_results = await self.vector_store.asimilarity_search_with_score(
                     query,
-                    k=settings.RAG_TOP_K
+                    k=settings.RAG_TOP_K,
                 )
-                logger.info(f"Vector search returned {len(vector_results)} results (hybrid disabled)")
-                final_results = vector_results
+                search_type = "vector_only"
 
-            # Build context z top wyników
-            context_chunks = []
-            citations = []
-
+            context_chunks: List[str] = []
+            citations: List[Dict[str, Any]] = []
             for doc, score in final_results:
-                # Ogranicz długość pojedynczego chunku
                 chunk_text = doc.page_content[:800] if len(doc.page_content) > 800 else doc.page_content
                 context_chunks.append(chunk_text)
-
-                # Dodaj citation
-                citations.append({
-                    "text": chunk_text,
-                    "score": float(score),
-                    "metadata": doc.metadata
-                })
-
-            # Sklejony kontekst
-            context = "\n\n---\n\n".join(context_chunks)
-
-            # Ogranicz do max_context_chars
-            if len(context) > settings.RAG_MAX_CONTEXT_CHARS:
-                context = context[:settings.RAG_MAX_CONTEXT_CHARS] + "\n\n[... kontekst obcięty]"
-                logger.info(
-                    f"Context truncated to {settings.RAG_MAX_CONTEXT_CHARS} chars"
+                citations.append(
+                    {
+                        "text": chunk_text,
+                        "score": float(score),
+                        "metadata": doc.metadata,
+                    }
                 )
 
-            search_type = "hybrid" if settings.RAG_USE_HYBRID_SEARCH else "vector_only"
-            logger.info(
-                f"RAG context built ({search_type}): {len(context)} chars, {len(citations)} citations"
-            )
+            context = "\n\n---\n\n".join(context_chunks)
+            if len(context) > settings.RAG_MAX_CONTEXT_CHARS:
+                context = context[: settings.RAG_MAX_CONTEXT_CHARS] + "\n\n[... kontekst obcięty]"
 
             return {
                 "context": context,
                 "citations": citations,
-                "query": query.strip(),
+                "query": query,
                 "num_results": len(final_results),
-                "search_type": search_type
+                "search_type": search_type,
             }
-
-        except Exception as e:
-            logger.error(f"RAG retrieval failed: {e}", exc_info=True)
-            return {
-                "context": "",
-                "citations": [],
-                "query": query.strip(),
-                "num_results": 0
-            }
+        except Exception as exc:  # pragma: no cover - zwracamy pusty kontekst
+            logger.error("Hybrydowe wyszukiwanie nie powiodło się: %s", exc, exc_info=True)
+            return {"context": "", "citations": [], "query": query, "num_results": 0}
 
     def _rrf_fusion(
         self,
         vector_results: List[Tuple[Document, float]],
         keyword_results: List[Document],
-        k: int = 60
+        k: int = 60,
     ) -> List[Tuple[Document, float]]:
-        """
-        Reciprocal Rank Fusion - łączy wyniki z vector i keyword search
+        """Łączy wyniki vector i keyword search przy pomocy Reciprocal Rank Fusion."""
 
-        RRF formula: score = sum(1 / (k + rank)) dla każdego query
-        gdzie k=60 jest typową wartością (parametr wygładzający)
-
-        Args:
-            vector_results: Lista (Document, score) z vector search
-            keyword_results: Lista Document z keyword search
-            k: Parametr RRF (default 60)
-
-        Returns:
-            Lista (Document, fused_score) posortowana po score (malejąco)
-        """
         scores: Dict[int, float] = {}
         doc_map: Dict[int, Tuple[Document, float]] = {}
 
-        # Vector search scores (rank-based)
         for rank, (doc, original_score) in enumerate(vector_results):
-            doc_hash = hash(doc.page_content)  # Prosty identyfikator
+            doc_hash = hash(doc.page_content)
             scores[doc_hash] = scores.get(doc_hash, 0.0) + 1.0 / (k + rank + 1)
             doc_map[doc_hash] = (doc, original_score)
 
-        # Keyword search scores (rank-based)
         for rank, doc in enumerate(keyword_results):
             doc_hash = hash(doc.page_content)
             scores[doc_hash] = scores.get(doc_hash, 0.0) + 1.0 / (k + rank + 1)
             if doc_hash not in doc_map:
                 doc_map[doc_hash] = (doc, 0.0)
 
-        # Sort by fused score
-        sorted_docs = sorted(
-            scores.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
-
-        # Map back to documents
-        fused_results = [
-            (doc_map[doc_hash][0], fused_score)
-            for doc_hash, fused_score in sorted_docs
-        ]
-
-        return fused_results
+        fused = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        return [(doc_map[doc_hash][0], fused_score) for doc_hash, fused_score in fused]
