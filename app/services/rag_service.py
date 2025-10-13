@@ -15,14 +15,14 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from uuid import UUID
 import asyncio
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # LangChain imports
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_experimental.graph_transformers.llm import LLMGraphTransformer
 from langchain_community.vectorstores import Neo4jVector
 from langchain_core.documents import Document
 
@@ -166,8 +166,23 @@ class RAGDocumentService:
             # 4. EMBED & STORE - wygeneruj embeddingi i zapisz w Neo4j
             logger.info(f"Generating embeddings and storing in Neo4j...")
 
+            # 5. Tworzenie relacji za pomocą LLMGraphTransformer oraz LLM
+            llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=settings.GOOGLE_API_KEY)
+
+            transformer = LLMGraphTransformer(
+                llm=llm,
+                node_properties=['name', 'summary', 'topics'],
+                strict_mode=True,
+                additional_instructions="""
+                Twórz podsumowanie kazdego chunk w summary maksymalnie 100 znaków.
+                Określaj kluczowe tematy w danym chunk w topics.
+                """
+                )
+            
+            graph_chunks = transformer.aconvert_to_graph_documents(chunks)
+
             # Neo4jVector.aadd_documents automatycznie generuje embeddingi i zapisuje
-            await self.vector_store.aadd_documents(chunks)
+            await self.vector_store.aadd_documents(graph_chunks)
 
             logger.info(
                 f"Successfully ingested {len(chunks)} chunks for document {doc_id}"
