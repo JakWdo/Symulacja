@@ -35,6 +35,7 @@ from app.schemas.rag import (
     RAGDocumentResponse,
     RAGQueryRequest,
     RAGQueryResponse,
+    RAGCitation,
 )
 from app.services.rag_service import RAGDocumentService, PolishSocietyRAG
 from app.core.config import get_settings
@@ -309,17 +310,21 @@ async def query_rag(
 
         # Build response
         context_chunks = []
-        result_list = []
+        citations = []
 
         for doc, score in results:
             chunk_text = doc.page_content
             context_chunks.append(chunk_text)
 
-            result_list.append({
-                "text": chunk_text,
-                "score": float(score),
-                "metadata": doc.metadata
-            })
+            # Dodaj document_title z metadata
+            metadata = doc.metadata.copy()
+            doc_title = metadata.get("document_title", "Unknown Document")
+
+            citations.append(RAGCitation(
+                document_title=doc_title,
+                chunk_text=chunk_text,
+                relevance_score=float(score)
+            ))
 
         context = "\n\n---\n\n".join(context_chunks)
 
@@ -327,8 +332,8 @@ async def query_rag(
 
         return RAGQueryResponse(
             query=request.query,
-            results=result_list,
             context=context,
+            citations=citations,
             num_results=len(results)
         )
 

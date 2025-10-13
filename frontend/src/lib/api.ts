@@ -101,6 +101,7 @@ export interface PersonaAdvancedOptions {
 export interface GeneratePersonasPayload {
   num_personas: number;
   adversarial_mode: boolean;
+  use_rag: boolean;
   advanced_options?: PersonaAdvancedOptions;
 }
 

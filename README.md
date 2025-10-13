@@ -161,6 +161,32 @@ docker-compose logs -f api
 docker-compose exec api alembic upgrade head
 ```
 
+### 2.1. Restart i przywracanie kontenerów
+
+Jeżeli któryś z serwisów przestanie odpowiadać, skorzystaj z poniższych kroków:
+
+```bash
+# Szybki restart wszystkich kontenerów
+docker-compose restart
+
+# Jeżeli to nie pomoże, zatrzymaj i uruchom ponownie z przebudowaniem obrazów
+docker-compose down
+docker-compose up -d --build
+
+# Głębokie czyszczenie (usuwa również wolumeny z danymi!)
+docker-compose down -v
+docker volume prune       # opcjonalnie: usuwa nieużywane wolumeny Dockera
+docker system prune -f    # opcjonalnie: usuwa dangling images/contenerów
+
+# Po ponownym uruchomieniu sprawdź status i logi
+docker-compose ps
+docker-compose logs -f api
+docker-compose logs -f frontend
+```
+
+> ⚠️  **Uwaga:** Komenda `docker-compose down -v` usunie bazy danych (Postgres, Redis, Neo4j).
+> Wykonaj ją tylko wtedy, gdy chcesz całkowicie wyczyścić środowisko.
+
 ### 3. Dostęp
 
 - **Backend API**: http://localhost:8000

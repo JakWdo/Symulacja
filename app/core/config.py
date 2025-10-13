@@ -82,13 +82,13 @@ class Settings(BaseSettings):
     # Globalny toggle dla systemu RAG
     RAG_ENABLED: bool = True
     # Rozmiar chunków tekstowych (znaki)
-    RAG_CHUNK_SIZE: int = 1000
+    RAG_CHUNK_SIZE: int = 2000
     # Overlap między chunkami (znaki)
-    RAG_CHUNK_OVERLAP: int = 200
+    RAG_CHUNK_OVERLAP: int = 400
     # Liczba top wyników z retrieval
     RAG_TOP_K: int = 5
     # Maksymalna długość kontekstu RAG (znaki)
-    RAG_MAX_CONTEXT_CHARS: int = 3000
+    RAG_MAX_CONTEXT_CHARS: int = 5000
     # Ścieżka do katalogu z dokumentami
     DOCUMENT_STORAGE_PATH: str = "data/documents"
 

@@ -3,12 +3,14 @@ Authentication endpoints: register, login, logout, me
 
 Endpointy odpowiedzialne za autentykację użytkowników.
 """
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from app.models.user import User
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.config import get_settings
@@ -18,6 +20,7 @@ import re
 
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 
 # === SCHEMAS ===
@@ -154,7 +157,16 @@ async def login(
 
     # Zaktualizuj znacznik czasu ostatniego logowania
     user.last_login_at = datetime.utcnow()
-    await db.commit()
+
+    try:
+        await db.commit()
+    except SQLAlchemyError as exc:
+        # W środowiskach z nieaktualnym schematem bazy (np. brak kolumny last_login_at)
+        # commit może się nie powieść. Zamiast zwracać 500, wycofujemy transakcję i
+        # kontynuujemy logowanie – użytkownik otrzyma token, a informacja o
+        # ostatnim logowaniu po prostu nie zostanie zapisana.
+        await db.rollback()
+        logger.warning("Nie udało się zapisać last_login_at podczas logowania: %s", exc)
 
     # Generuj JWT token
     access_token = create_access_token(

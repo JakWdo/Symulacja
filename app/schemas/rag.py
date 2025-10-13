@@ -59,6 +59,17 @@ class RAGQueryRequest(BaseModel):
     )
 
 
+class RAGCitation(BaseModel):
+    """
+    Schema dla cytowania źródła RAG
+
+    Przechowywane w JSONB w modelu Persona jako rag_citations.
+    """
+    document_title: str = Field(..., description="Tytuł dokumentu źródłowego")
+    chunk_text: str = Field(..., description="Fragment tekstu")
+    relevance_score: float = Field(..., description="Score similarity (0-1)")
+
+
 class RAGQueryResponse(BaseModel):
     """
     Response schema dla query RAG
@@ -66,23 +77,9 @@ class RAGQueryResponse(BaseModel):
     Zawiera znalezione fragmenty i skonstruowany kontekst.
     """
     query: str
-    results: List[Dict[str, Any]]  # Lista chunków z scores i metadata
     context: str  # Sklejony tekst z top wyników
+    citations: List[RAGCitation]  # Lista cytowań z scores i metadata
     num_results: int
-
-
-class RAGCitation(BaseModel):
-    """
-    Schema dla cytowania źródła RAG
-
-    Przechowywane w JSONB w modelu Persona jako rag_citations.
-    """
-    text: str = Field(..., description="Fragment tekstu źródłowego")
-    score: float = Field(..., description="Score similarity (0-1)")
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Metadata chunku (doc_id, title, etc.)"
-    )
 
 
 class PersonaGenerateRequestWithRAG(BaseModel):

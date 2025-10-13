@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Project, Persona, FocusGroup, GraphData, GraphQueryResponse } from '@/types';
 
-export type PanelKey = 'projects' | 'personas' | 'focus-groups' | 'analysis';
+export type PanelKey = 'projects' | 'personas' | 'focus-groups' | 'analysis' | 'rag';
 
 type Position = {
   x: number;
@@ -98,12 +98,14 @@ export const useAppStore = create<AppState>((set) => ({
     personas: { x: 440, y: 160 },
     'focus-groups': { x: 820, y: 180 },
     analysis: { x: 1200, y: 160 },
+    rag: { x: 1260, y: 420 },
   },
   triggerPositions: {
     projects: { x: 40, y: 200 },
     personas: { x: 40, y: 320 },
     'focus-groups': { x: 40, y: 440 },
     analysis: { x: 40, y: 560 },
+    rag: { x: 40, y: 680 },
   },
 
   // Actions

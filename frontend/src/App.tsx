@@ -18,6 +18,7 @@ import { ProjectPanel } from '@/components/panels/ProjectPanel';
 import { PersonaPanel } from '@/components/panels/PersonaPanel';
 import { FocusGroupPanel } from '@/components/panels/FocusGroupPanel';
 import { AnalysisPanel } from '@/components/panels/AnalysisPanel';
+import { RAGManagementPanel } from '@/components/panels/RAGManagementPanel';
 import { ToastContainer } from '@/components/ui/Toast';
 import { AppLoader } from '@/components/AppLoader';
 import { Login } from '@/components/auth/Login';
@@ -230,6 +231,7 @@ export default function App() {
       <PersonaPanel />
       <FocusGroupPanel />
       <AnalysisPanel />
+      <RAGManagementPanel />
     </div>
   );
 }

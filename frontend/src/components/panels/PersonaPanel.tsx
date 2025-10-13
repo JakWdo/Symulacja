@@ -9,8 +9,12 @@ import {
   User,
   Search,
   Sparkles,
+  Database,
+  Quote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { cn, getPersonalityColor } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import type { Persona } from '@/types';
@@ -76,7 +80,7 @@ function PersonaDetails({ persona }: { persona: Persona | null }) {
   if (!persona) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-slate-500">
-        Select a persona to preview the full profile.
+        Wybierz personę, aby zobaczyć jej szczegóły.
       </div>
     );
   }
@@ -85,6 +89,9 @@ function PersonaDetails({ persona }: { persona: Persona | null }) {
   const subtitle = persona.persona_title?.trim() || persona.occupation?.trim() || 'Profil persony';
   const locationLabel = formatLocation(persona.location);
   const headline = (persona.headline && persona.headline.trim()) || extractStorySummary(persona.background_story);
+  const ragCitations = persona.rag_citations ?? [];
+  const ragContextUsed = persona.rag_context_used;
+  const showRagSection = ragContextUsed || ragCitations.length > 0;
 
   const personalityTraits: Array<{ label: string; value: number | null | undefined }> = [
     { label: 'Otwartość', value: persona.openness },
@@ -193,6 +200,44 @@ function PersonaDetails({ persona }: { persona: Persona | null }) {
           </p>
         </section>
       )}
+
+      {showRagSection && (
+        <section>
+          <h5 className="text-base font-bold text-slate-900 mb-3">Źródła wiedzy (RAG)</h5>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {ragContextUsed ? (
+              <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200">Wykorzystano kontekst RAG</Badge>
+            ) : (
+              <Badge className="bg-slate-100 text-slate-600 border border-slate-200">Brak kontekstu RAG</Badge>
+            )}
+            {ragCitations.length === 0 && ragContextUsed && (
+              <span className="text-xs text-slate-500">Brak zwróconych cytowań do wyświetlenia.</span>
+            )}
+          </div>
+          {ragCitations.length > 0 && (
+            <div className="space-y-3">
+              {ragCitations.map((citation, index) => (
+                <div
+                  key={`${citation.document_title}-${index}`}
+                  className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 space-y-2"
+                >
+                  <div className="flex items-start gap-2">
+                    <Quote className="w-4 h-4 text-slate-400 mt-1" />
+                    <div className="space-y-1">
+                      <p className="text-sm text-slate-700 leading-relaxed">{citation.chunk_text}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span className="font-semibold text-slate-600">{citation.document_title}</span>
+                        <span>•</span>
+                        <span>trafność {Math.round(citation.relevance_score * 100)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -212,6 +257,7 @@ export function PersonaPanel() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [progressMeta, setProgressMeta] = useState<{ start: number; duration: number } | null>(null);
   const [activeGenerationProjectId, setActiveGenerationProjectId] = useState<string | null>(null);
+  const [useRag, setUseRag] = useState(true);
   const projectLabel = selectedProject?.name ?? 'Unknown project';
 
   const { data: personas, isLoading, isFetching } = useQuery({
@@ -330,7 +376,7 @@ export function PersonaPanel() {
       return;
     }
 
-    const payload = transformWizardConfigToPayload(config);
+    const payload = transformWizardConfigToPayload(config, useRag);
     setActiveGenerationProjectId(selectedProject.id);
     setShowWizard(false);
     setProgressMeta({ start: Date.now(), duration: estimateGenerationDuration(payload.num_personas) });
@@ -478,6 +524,39 @@ export function PersonaPanel() {
       panelKey="personas"
       size="lg"
     >
+      <div className="px-4">
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="use-rag-toggle"
+                checked={useRag}
+                disabled={!selectedProject}
+                onCheckedChange={(value) => setUseRag(Boolean(value))}
+              />
+              <div>
+                <label htmlFor="use-rag-toggle" className="text-sm font-medium text-slate-800">
+                  Wzbogacaj persony kontekstem RAG
+                </label>
+                <p className="text-xs text-slate-500">
+                  Gdy włączone, generator pobiera insighty z dokumentów o polskim społeczeństwie.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setActivePanel('rag')}
+              className="border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <Database className="w-4 h-4 mr-2" />
+              Dokumenty RAG
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {showProgressBar && (
         <div className="px-4 pt-3">
           <div className="text-xs text-slate-500 mb-2 flex items-center gap-2">

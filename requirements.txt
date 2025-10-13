@@ -84,5 +84,5 @@ openpyxl
 
 # RAG System - Document Processing
 docling>=2.0.0
-pypdf2
+pypdf
 python-docx

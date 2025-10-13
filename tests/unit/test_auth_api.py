@@ -115,6 +115,78 @@ class TestLogin:
         assert request.password == "MyPassword123"
 
 
+class TestLoginErrorHandling:
+    """Testy odporności endpointu logowania na błędy bazy danych."""
+
+    def test_login_does_not_fail_when_commit_raises(self):
+        """Sprawdza, czy błąd zapisu last_login_at nie blokuje logowania."""
+        from fastapi.testclient import TestClient
+        from uuid import uuid4
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from app.main import app
+        from app.models.user import User
+        from app.core.security import get_password_hash
+        from app.db.session import get_db
+
+        # Przygotuj testowego użytkownika z prawidłowym hasłem
+        test_user = User(
+            id=uuid4(),
+            email="resilience@example.com",
+            hashed_password=get_password_hash("VerySafe123"),
+            full_name="Resilient User",
+            is_active=True,
+        )
+
+        class FakeResult:
+            """Minimalna odpowiedź z zapytania select()."""
+
+            def __init__(self, user):
+                self._user = user
+
+            def scalar_one_or_none(self):
+                return self._user
+
+        class FakeSession:
+            """Asynchroniczna sesja udająca bazę danych z błędnym commitem."""
+
+            def __init__(self, user):
+                self.user = user
+                self.rollback_called = False
+
+            async def execute(self, _statement):
+                return FakeResult(self.user)
+
+            async def commit(self):
+                raise SQLAlchemyError("symulowany błąd zapisu")
+
+            async def rollback(self):
+                self.rollback_called = True
+
+        fake_session = FakeSession(test_user)
+
+        async def override_get_db():
+            """Zwraca testową sesję zamiast prawdziwego połączenia z DB."""
+
+            yield fake_session
+
+        client = TestClient(app, raise_server_exceptions=False)
+        app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            response = client.post(
+                "/api/v1/auth/login",
+                json={"email": "resilience@example.com", "password": "VerySafe123"},
+            )
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["user"]["email"] == "resilience@example.com"
+        assert fake_session.rollback_called is True
+
+
 class TestTokenResponse:
     """Testy schematu odpowiedzi z tokenem."""
 
