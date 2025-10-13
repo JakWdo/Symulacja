@@ -73,7 +73,7 @@ class RAGDocumentService:
         # Model konwersacyjny wykorzystywany zarówno do budowy grafu, jak i
         # generowania finalnych odpowiedzi Graph RAG.
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-pro",
+            model="gemini-2.5-flash",
             google_api_key=self.settings.GOOGLE_API_KEY,
             temperature=0,
         )
