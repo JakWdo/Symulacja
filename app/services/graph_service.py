@@ -148,6 +148,13 @@ Emocje w języku angielskim."""),
             await self.driver.close()
             self.driver = None
 
+    @staticmethod
+    async def _run_write_query(tx, query: str, params: Dict[str, Any]) -> None:
+        """Uruchamia zapytanie modyfikujące dane w transakcji i oczekuje na commit."""
+
+        result = await tx.run(query, **params)
+        await result.consume()
+
     async def build_graph_from_focus_group(
         self,
         db: AsyncSession,
@@ -193,7 +200,8 @@ Emocje w języku angielskim."""),
         if neo4j_available and self.driver:
             async with self.driver.session() as session:
                 for persona_id, persona in personas.items():
-                    await session.run(
+                    await session.execute_write(
+                        self._run_write_query,
                         """
                         MERGE (p:Persona {id: $id})
                         SET p.name = $name,
@@ -203,12 +211,14 @@ Emocje w języku angielskim."""),
                             p.focus_group_id = $focus_group_id,
                             p.updated_at = datetime()
                         """,
-                        id=persona_id,
-                        name=persona.full_name,
-                        age=persona.age,
-                        gender=persona.gender,
-                        occupation=persona.occupation,
-                        focus_group_id=focus_group_id
+                        {
+                            "id": persona_id,
+                            "name": persona.full_name,
+                            "age": persona.age,
+                            "gender": persona.gender,
+                            "occupation": persona.occupation,
+                            "focus_group_id": focus_group_id,
+                        },
                     )
 
                 for entry in entries:
@@ -216,16 +226,18 @@ Emocje w języku angielskim."""),
                     sentiment = entry["sentiment"]
 
                     for concept in entry["concepts"]:
-                        await session.run(
+                        await session.execute_write(
+                            self._run_write_query,
                             """
                             MERGE (c:Concept {name: $name})
                             ON CREATE SET c.frequency = 1, c.created_at = datetime()
                             ON MATCH SET c.frequency = c.frequency + 1
                             """,
-                            name=concept
+                            {"name": concept},
                         )
 
-                        await session.run(
+                        await session.execute_write(
+                            self._run_write_query,
                             """
                             MATCH (p:Persona {id: $persona_id})
                             MATCH (c:Concept {name: $concept})
@@ -234,22 +246,26 @@ Emocje w języku angielskim."""),
                             ON MATCH SET r.count = r.count + 1,
                                          r.sentiment = (r.sentiment + $sentiment) / 2
                             """,
-                            persona_id=persona_id,
-                            concept=concept,
-                            sentiment=sentiment
+                            {
+                                "persona_id": persona_id,
+                                "concept": concept,
+                                "sentiment": sentiment,
+                            },
                         )
 
                     for emotion in entry["emotions"]:
-                        await session.run(
+                        await session.execute_write(
+                            self._run_write_query,
                             """
                             MERGE (e:Emotion {name: $emotion})
                             ON CREATE SET e.count = 1
                             ON MATCH SET e.count = e.count + 1
                             """,
-                            emotion=emotion
+                            {"emotion": emotion},
                         )
 
-                        await session.run(
+                        await session.execute_write(
+                            self._run_write_query,
                             """
                             MATCH (p:Persona {id: $persona_id})
                             MATCH (e:Emotion {name: $emotion})
@@ -257,35 +273,43 @@ Emocje w języku angielskim."""),
                             ON CREATE SET r.intensity = $intensity
                             ON MATCH SET r.intensity = (r.intensity + $intensity) / 2
                             """,
-                            persona_id=persona_id,
-                            emotion=emotion,
-                            intensity=abs(sentiment)
+                            {
+                                "persona_id": persona_id,
+                                "emotion": emotion,
+                                "intensity": abs(sentiment),
+                            },
                         )
 
                 for edge in metrics["persona_edges"]:
                     if edge["type"] == "agrees":
-                        await session.run(
+                        await session.execute_write(
+                            self._run_write_query,
                             """
                             MATCH (p1:Persona {id: $p1_id})
                             MATCH (p2:Persona {id: $p2_id})
                             MERGE (p1)-[r:AGREES_WITH]->(p2)
                             SET r.strength = $strength
                             """,
-                            p1_id=edge["source"],
-                            p2_id=edge["target"],
-                            strength=edge["strength"]
+                            {
+                                "p1_id": edge["source"],
+                                "p2_id": edge["target"],
+                                "strength": edge["strength"],
+                            },
                         )
                     else:
-                        await session.run(
+                        await session.execute_write(
+                            self._run_write_query,
                             """
                             MATCH (p1:Persona {id: $p1_id})
                             MATCH (p2:Persona {id: $p2_id})
                             MERGE (p1)-[r:DISAGREES_WITH]->(p2)
                             SET r.strength = $strength
                             """,
-                            p1_id=edge["source"],
-                            p2_id=edge["target"],
-                            strength=edge["strength"]
+                            {
+                                "p1_id": edge["source"],
+                                "p2_id": edge["target"],
+                                "strength": edge["strength"],
+                            },
                         )
         else:
             logger.info("Neo4j unavailable. Graph data stored in memory cache.")
