@@ -166,7 +166,7 @@ class RAGDocumentService:
             # 4. EMBED & STORE - wygeneruj embeddingi i zapisz w Neo4j
             logger.info(f"Generating embeddings and storing in Neo4j...")
 
-            # 5. Tworzenie relacji za pomocą LLMGraphTransformer oraz LLM
+            # 5. CREATE NODES & RELS - Tworzenie relacji za pomocą LLMGraphTransformer oraz LLM
             llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=settings.GOOGLE_API_KEY)
 
             transformer = LLMGraphTransformer(
@@ -174,12 +174,13 @@ class RAGDocumentService:
                 node_properties=['name', 'summary', 'topics'],
                 strict_mode=True,
                 additional_instructions="""
-                Twórz podsumowanie kazdego chunk w summary maksymalnie 100 znaków.
-                Określaj kluczowe tematy w danym chunk w topics.
+                Twoim zadaniem jest analiza fragmentów tekstu i przekształcenie ich w struktury grafowe.
+                1.  W polu 'summary' utwórz zwięzłe podsumowanie fragmentu, nie dłuższe niż 100 znaków.
+                2.  W polu 'topics' wymień od 3 do 5 kluczowych tematów w formie listy.
                 """
                 )
             
-            graph_chunks = transformer.aconvert_to_graph_documents(chunks)
+            graph_chunks = await transformer.aconvert_to_graph_documents(chunks)
 
             # Neo4jVector.aadd_documents automatycznie generuje embeddingi i zapisuje
             await self.vector_store.aadd_documents(graph_chunks)
