@@ -1,6 +1,3 @@
-+37
--59
-
 """Schematy Pydantic wykorzystywane przez API RAG oraz Graph RAG."""
 
 from __future__ import annotations
