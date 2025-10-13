@@ -28,10 +28,25 @@ from app.core.constants import (
     DEFAULT_EDUCATION_LEVELS,
     DEFAULT_INCOME_BRACKETS,
     DEFAULT_LOCATIONS,
+    POLISH_LOCATIONS,
+    POLISH_VALUES,
+    POLISH_INTERESTS,
+    POLISH_COMMUNICATION_STYLES,
+    POLISH_DECISION_STYLES,
 )
 from app.models import Persona
 
 settings = get_settings()
+
+# Import RAG service (opcjonalny - tylko jeśli RAG włączony)
+try:
+    if settings.RAG_ENABLED:
+        from app.services.rag_service import PolishSocietyRAG
+        _rag_service_available = True
+    else:
+        _rag_service_available = False
+except ImportError:
+    _rag_service_available = False
 
 
 @dataclass
@@ -59,6 +74,9 @@ class PersonaGeneratorLangChain:
 
     def __init__(self):
         """Inicjalizuj generator z konfiguracją LangChain i Gemini"""
+        import logging
+        logger = logging.getLogger(__name__)
+
         self.settings = settings
         self._rng = np.random.default_rng(self.settings.RANDOM_SEED)
 
@@ -79,7 +97,7 @@ class PersonaGeneratorLangChain:
 
         # Budujemy szablon promptu do generowania person
         self.persona_prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a market research expert creating realistic synthetic personas. Always respond with valid JSON."),
+            ("system", "Jesteś ekspertem od badań rynkowych tworzącym realistyczne syntetyczne persony dla polskiego rynku. Zawsze odpowiadaj poprawnym JSONem."),
             ("user", "{prompt}")
         ])
 
@@ -89,6 +107,15 @@ class PersonaGeneratorLangChain:
             | self.llm
             | self.json_parser
         )
+
+        # Inicjalizuj RAG service (opcjonalnie - tylko jeśli włączony)
+        self.rag_service = None
+        if _rag_service_available and settings.RAG_ENABLED:
+            try:
+                self.rag_service = PolishSocietyRAG()
+                logger.info("RAG service initialized successfully in PersonaGenerator")
+            except Exception as e:
+                logger.warning(f"RAG service unavailable: {e}")
 
     def sample_demographic_profile(
         self, distribution: DemographicDistribution, n_samples: int = 1
@@ -246,39 +273,92 @@ class PersonaGeneratorLangChain:
             "indulgence": np.clip(self._rng.normal(0.5, 0.2), 0, 1),
         }
 
+    async def _get_rag_context_for_persona(
+        self, demographic: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Pobierz kontekst z RAG dla danego profilu demograficznego
+
+        Args:
+            demographic: Profil demograficzny persony
+
+        Returns:
+            Dict z kluczami: context (str), citations (list), query (str)
+            lub None jeśli RAG niedostępny
+        """
+        if not self.rag_service:
+            return None
+
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            context_data = await self.rag_service.get_demographic_insights(
+                age_group=demographic.get('age_group', '25-34'),
+                education=demographic.get('education_level', 'wyższe'),
+                location=demographic.get('location', 'Warszawa'),
+                gender=demographic.get('gender', 'mężczyzna')
+            )
+            logger.info(f"RAG context retrieved: {len(context_data.get('context', ''))} chars")
+            return context_data
+        except Exception as e:
+            logger.error(f"RAG context retrieval failed: {e}")
+            return None
+
     async def generate_persona_personality(
-        self, demographic_profile: Dict[str, Any], psychological_profile: Dict[str, Any], advanced_options: Optional[Dict[str, Any]] = None
+        self,
+        demographic_profile: Dict[str, Any],
+        psychological_profile: Dict[str, Any],
+        use_rag: bool = True,  # NOWY PARAMETR - domyślnie włączony
+        advanced_options: Optional[Dict[str, Any]] = None
     ) -> Tuple[str, Dict[str, Any]]:
         """
         Generuj osobowość persony przy użyciu LangChain + Gemini
 
         Tworzy szczegółowy prompt oparty na profilach demograficznym i psychologicznym,
-        wysyła go do Gemini przez LangChain i zwraca sparsowaną odpowiedź JSON.
+        opcjonalnie wzbogacony o kontekst RAG z bazy wiedzy o polskim społeczeństwie.
 
         Args:
             demographic_profile: Słownik z danymi demograficznymi (wiek, płeć, lokalizacja, etc.)
             psychological_profile: Słownik z cechami Big Five i wymiarami Hofstede
+            use_rag: Czy użyć kontekstu z bazy wiedzy RAG (default: True)
             advanced_options: Opcjonalne zaawansowane opcje generowania (nieużywane obecnie)
 
         Returns:
             Krotka (prompt_text, response_dict) gdzie:
             - prompt_text: Pełny tekst wysłany do LLM (do logowania/debugowania)
             - response_dict: Sparsowana odpowiedź JSON z polami persony
+                            + pole '_rag_citations' jeśli użyto RAG
 
         Raises:
             ValueError: Jeśli generowanie się nie powiedzie lub odpowiedź jest niepoprawna
         """
 
-        prompt_text = self._create_persona_prompt(demographic_profile, psychological_profile)
-
-        # Używamy łańcucha LangChain do wygenerowania strukturalnej odpowiedzi
         import logging
         logger = logging.getLogger(__name__)
+
+        # Pobierz kontekst RAG jeśli włączony
+        rag_context = None
+        rag_citations = None
+        if use_rag and self.rag_service:
+            rag_data = await self._get_rag_context_for_persona(demographic_profile)
+            if rag_data:
+                rag_context = rag_data.get('context')
+                rag_citations = rag_data.get('citations')
+                logger.info(f"Using RAG context: {len(rag_context or '')} chars, {len(rag_citations or [])} citations")
+
+        # Generuj prompt (teraz z RAG context jeśli dostępny)
+        prompt_text = self._create_persona_prompt(
+            demographic_profile,
+            psychological_profile,
+            rag_context=rag_context
+        )
 
         try:
             logger.info(
                 f"Generating persona with demographics: {demographic_profile.get('age_group')}, "
                 f"{demographic_profile.get('gender')}, {demographic_profile.get('location')}"
+                f" | RAG: {'YES' if rag_context else 'NO'}"
             )
             # Wywołaj łańcuch LangChain (prompt -> LLM -> parser JSON)
             response = await self.persona_chain.ainvoke({"prompt": prompt_text})
@@ -295,6 +375,10 @@ class PersonaGeneratorLangChain:
                     f"Response keys: {list(response.keys()) if isinstance(response, dict) else 'NOT A DICT'}"
                 )
 
+            # Dodaj RAG citations do response (jeśli były używane)
+            if rag_citations:
+                response['_rag_citations'] = rag_citations
+
             return prompt_text, response
         except Exception as e:
             logger.error(f"Failed to generate persona: {str(e)[:500]}", exc_info=True)
@@ -302,130 +386,157 @@ class PersonaGeneratorLangChain:
             raise ValueError(f"Failed to generate persona: {str(e)}")
 
     def _create_persona_prompt(
-        self, demographic: Dict[str, Any], psychological: Dict[str, Any]
+        self,
+        demographic: Dict[str, Any],
+        psychological: Dict[str, Any],
+        rag_context: Optional[str] = None  # NOWY PARAMETR
     ) -> str:
         """
-        Utwórz prompt dla LLM do generowania persony z przykładami few-shot
+        Utwórz prompt dla LLM do generowania persony - WERSJA POLSKA
 
         Tworzy szczegółowy prompt zawierający:
         - Dane demograficzne i psychologiczne
-        - Interpretację cech Big Five i Hofstede
-        - 3 przykłady few-shot pokazujące różnorodność
-        - Instrukcje jak stworzyć unikalną personę
+        - Interpretację cech Big Five i Hofstede PO POLSKU
+        - 3 przykłady few-shot z polskimi personami
+        - Opcjonalny kontekst RAG z bazy wiedzy o polskim społeczeństwie
+        - Instrukcje jak stworzyć unikalną polską personę
 
         Args:
             demographic: Profil demograficzny (wiek, płeć, edukacja, etc.)
             psychological: Profil psychologiczny (Big Five + Hofstede)
+            rag_context: Opcjonalny kontekst z RAG (fragmenty z dokumentów)
 
         Returns:
-            Pełny tekst prompta gotowy do wysłania do LLM
+            Pełny tekst prompta gotowy do wysłania do LLM (po polsku)
         """
 
         # Generuj unikalny seed dla tej persony (do różnicowania)
         persona_seed = self._rng.integers(1000, 9999)
 
-        # Wskazówki do interpretacji cech osobowości
+        # Wskazówki do interpretacji cech osobowości (PO POLSKU)
         openness_val = psychological.get('openness', 0.5)
         conscientiousness_val = psychological.get('conscientiousness', 0.5)
         extraversion_val = psychological.get('extraversion', 0.5)
         agreeableness_val = psychological.get('agreeableness', 0.5)
         neuroticism_val = psychological.get('neuroticism', 0.5)
 
-        openness_hint = "creative, curious, open to new experiences" if openness_val > 0.6 else "practical, traditional, prefers routine" if openness_val < 0.4 else "moderately adventurous"
-        conscientiousness_hint = "organized, disciplined, detail-oriented" if conscientiousness_val > 0.6 else "spontaneous, flexible, less structured" if conscientiousness_val < 0.4 else "balanced planning style"
-        extraversion_hint = "outgoing, energetic, social" if extraversion_val > 0.6 else "reserved, introspective, prefers solitude" if extraversion_val < 0.4 else "ambivert"
-        agreeableness_hint = "cooperative, compassionate, empathetic" if agreeableness_val > 0.6 else "competitive, direct, skeptical" if agreeableness_val < 0.4 else "balanced social approach"
-        neuroticism_hint = "anxious, sensitive, stress-prone" if neuroticism_val > 0.6 else "calm, resilient, emotionally stable" if neuroticism_val < 0.4 else "moderately emotional"
+        openness_hint = "kreatywna, ciekawa świata, otwarta na nowe doświadczenia" if openness_val > 0.6 else "praktyczna, tradycyjna, preferuje rutynę" if openness_val < 0.4 else "umiarkowanie otwarta"
+        conscientiousness_hint = "zorganizowana, zdyscyplinowana, skrupulatna" if conscientiousness_val > 0.6 else "spontaniczna, elastyczna, mniej uporządkowana" if conscientiousness_val < 0.4 else "zbalansowana w planowaniu"
+        extraversion_hint = "towarzyska, energiczna, lubi ludzi" if extraversion_val > 0.6 else "powściągliwa, introwertyczna, preferuje samotność" if extraversion_val < 0.4 else "ambiwertysta"
+        agreeableness_hint = "współpracująca, empatyczna, życzliwa" if agreeableness_val > 0.6 else "konkurencyjna, bezpośrednia, sceptyczna" if agreeableness_val < 0.4 else "zbalansowane podejście społeczne"
+        neuroticism_hint = "nerwowa, wrażliwa, podatna na stres" if neuroticism_val > 0.6 else "spokojna, odporna, stabilna emocjonalnie" if neuroticism_val < 0.4 else "umiarkowanie emocjonalna"
 
-        return f"""You are a world-class market research expert creating synthetic personas for behavioral research. Your personas must be UNIQUE, REALISTIC, and INTERNALLY CONSISTENT.
+        # Sekcja RAG context (jeśli dostępna)
+        rag_section = ""
+        if rag_context:
+            rag_section = f"""
+═══════════════════════════════════════════════════════════════════════════════
+KONTEKST Z BAZY WIEDZY O POLSKIM SPOŁECZEŃSTWIE:
+═══════════════════════════════════════════════════════════════════════════════
+
+{rag_context}
+
+⚠️ WAŻNE: Wykorzystaj powyższy kontekst do stworzenia realistycznej persony
+odzwierciedlającej polskie społeczeństwo. Persona powinna pasować do wzorców
+demograficznych i społecznych opisanych w kontekście.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+"""
+
+        return f"""Jesteś ekspertem od badań rynkowych tworzącym syntetyczne persony dla polskiego rynku. Twoje persony muszą być UNIKALNE, REALISTYCZNE i WEWNĘTRZNIE SPÓJNE, odzwierciedlające POLSKIE SPOŁECZEŃSTWO.
+
+{rag_section}
 
 PERSONA #{persona_seed}
 
-DEMOGRAPHICS:
-- Age Group: {demographic.get('age_group')}
-- Gender: {demographic.get('gender')}
-- Education: {demographic.get('education_level')}
-- Income: {demographic.get('income_bracket')}
-- Location: {demographic.get('location')}
+PROFIL DEMOGRAFICZNY:
+- Grupa wiekowa: {demographic.get('age_group')}
+- Płeć: {demographic.get('gender')}
+- Wykształcenie: {demographic.get('education_level')}
+- Przedział dochodowy: {demographic.get('income_bracket')}
+- Lokalizacja: {demographic.get('location')}
 
-PERSONALITY TRAITS (Big Five):
-- Openness: {openness_val:.2f} → {openness_hint}
-- Conscientiousness: {conscientiousness_val:.2f} → {conscientiousness_hint}
-- Extraversion: {extraversion_val:.2f} → {extraversion_hint}
-- Agreeableness: {agreeableness_val:.2f} → {agreeableness_hint}
-- Neuroticism: {neuroticism_val:.2f} → {neuroticism_hint}
+CECHY OSOBOWOŚCI (Big Five):
+- Otwartość: {openness_val:.2f} → {openness_hint}
+- Sumienność: {conscientiousness_val:.2f} → {conscientiousness_hint}
+- Ekstrawersja: {extraversion_val:.2f} → {extraversion_hint}
+- Ugodowość: {agreeableness_val:.2f} → {agreeableness_hint}
+- Neurotyzm: {neuroticism_val:.2f} → {neuroticism_hint}
 
-CULTURAL DIMENSIONS (Hofstede):
-- Power Distance: {psychological.get('power_distance', 0.5):.2f}
-- Individualism: {psychological.get('individualism', 0.5):.2f}
-- Uncertainty Avoidance: {psychological.get('uncertainty_avoidance', 0.5):.2f}
+WYMIARY KULTUROWE (Hofstede):
+- Dystans władzy: {psychological.get('power_distance', 0.5):.2f}
+- Indywidualizm: {psychological.get('individualism', 0.5):.2f}
+- Unikanie niepewności: {psychological.get('uncertainty_avoidance', 0.5):.2f}
 
-CRITICAL INSTRUCTIONS FOR DIVERSITY:
-1. Make this persona DISTINCTIVE - avoid generic descriptions
-2. Age matters: 25yo and 65yo have VERY different life contexts
-3. Occupation must align with education level and income
-4. Background story must reflect personality traits:
-   - High Openness → travel, creative hobbies, diverse experiences
-   - High Conscientiousness → structured career path, planning
-   - High Extraversion → social activities, networking
-   - Low Agreeableness → competitive fields, independent work
-   - High Individualism → entrepreneurial, self-reliant
-5. Be specific with details (actual city neighborhoods, specific brands, real activities)
+KRYTYCZNE INSTRUKCJE DLA POLSKIEJ PERSONY:
+1. Persona MUSI być UNIKALNA - unikaj ogólnych opisów
+2. Imię i nazwisko MUSI być POLSKIE (Jan Kowalski, Anna Nowak, Piotr Zieliński, Maria Wiśniewska)
+3. Lokalizacja MUSI być polska (Warszawa, Kraków, Wrocław, Gdańsk, inne polskie miasta)
+4. Wiek ma znaczenie: 25-latek i 65-latek mają BARDZO różne konteksty życiowe
+5. Zawód zgodny z wykształceniem i poziomem dochodów (typowe polskie zawody)
+6. Historia życiowa zgodna z cechami osobowości:
+   - Wysoka Otwartość → podróże, kreatywne hobby, różnorodne doświadczenia
+   - Wysoka Sumienność → uporządkowana ścieżka kariery, planowanie
+   - Wysoka Ekstrawersja → aktywności społeczne, networking
+   - Niska Ugodowość → zawody konkurencyjne, niezależna praca
+   - Wysoki Indywidualizm → przedsiębiorczość, samodzielność
+7. Bądź KONKRETNY: nazwij dzielnice miast, konkretne polskie marki, prawdziwe hobby
 
-FEW-SHOT EXAMPLES:
+PRZYKŁADY FEW-SHOT (POLSKIE PERSONY):
 
-Example 1 (High Openness, Mid-career professional):
+Przykład 1 (Wysoka otwartość, kreatywny zawód w średniej karierze):
 {{
-  "full_name": "Maya Chen",
+  "full_name": "Katarzyna Lewandowska",
   "persona_title": "Freelance UX Designer",
-  "headline": "Brooklyn-based UX designer experimenting with AR storytelling for museums.",
-  "background_story": "Maya is a 34-year-old UX designer in Brooklyn who left corporate life to freelance after a transformative trip to Japan. She's currently learning Japanese and building a side project exploring AR interfaces for museums. Single and loving the freedom to take on diverse clients from sustainable fashion to educational tech startups.",
-  "values": ["Creativity", "Autonomy", "Continuous Learning", "Authenticity", "Sustainability"],
-  "interests": ["Japanese language", "AR/VR Design", "Sustainable Fashion", "Museum Visits", "Meditation", "Urban Sketching"],
-  "communication_style": "enthusiastic and visual, often uses metaphors and examples from diverse fields",
-  "decision_making_style": "intuition-based with research; tests ideas quickly through prototypes",
-  "typical_concerns": ["Maintaining creative freedom while ensuring financial stability", "Finding meaningful client work", "Balancing solo work with social connection"]
+  "headline": "Krakowska designerka eksperymentująca z dostępnością cyfrową i zero waste.",
+  "background_story": "Kasia ma 32 lata i mieszka w Krakowie na Kazimierzu. Po ASP i 5 latach w agencji przeszła na freelancing 3 lata temu. Obecnie projektuje interfejsy dla polskich startupów i zagranicznych klientów, uczy się Swift, a weekendy spędza na wspinaczce w Tatrach. Singielka ciesząca się wolnością wyboru projektów od sustainable fashion po edtech.",
+  "values": ["Kreatywność", "Niezależność", "Ciągły rozwój", "Autentyczność", "Ekologia", "Równowaga praca-życie"],
+  "interests": ["Wspinaczka górska", "Design dostępny (a11y)", "Festiwale muzyczne (Opener, OFF)", "Kawiarnie specialty coffee", "Zero waste", "Sketching w plenerze"],
+  "communication_style": "entuzjastyczna i wizualna, używa metafor i przykładów z różnych dziedzin, preferuje Slack i Figma",
+  "decision_making_style": "intuicyjna z research; testuje pomysły szybko przez prototypy i MVP",
+  "typical_concerns": ["Utrzymanie wolności twórczej przy stabilności finansowej", "Znalezienie sensownych projektów", "Balansowanie samotnej pracy z potrzebą kontaktu społecznego", "Brak pewności socjalnej (ZUS, urlop)"]
 }}
 
-Example 2 (Low Openness, High Conscientiousness, approaching retirement):
+Przykład 2 (Niska otwartość, wysoka sumienność, zbliżający się do emerytury):
 {{
-  "full_name": "Robert Hayes",
-  "persona_title": "Veteran Financial Advisor",
-  "headline": "Dallas advisor meticulously planning retirement while mentoring the next generation.",
-  "background_story": "Robert is a 58-year-old financial advisor in Dallas who has worked at the same firm for 32 years. Married with two grown children, he's meticulously planning his retirement and recently purchased a lake house. He serves as treasurer of his local Rotary Club and takes pride in his predictable routine and extensive client relationships built over decades.",
-  "values": ["Stability", "Loyalty", "Family", "Responsibility", "Tradition", "Integrity"],
-  "interests": ["Golf", "Classic Cars", "Financial Planning Podcasts", "Grilling", "Rotary Club", "Lake Fishing"],
-  "communication_style": "formal and professional, prefers face-to-face meetings, uses established frameworks",
-  "decision_making_style": "methodical and risk-averse, relies on proven methods and extensive planning",
-  "typical_concerns": ["Ensuring sufficient retirement savings", "Maintaining client relationships through succession", "Health insurance in retirement", "Legacy planning for children"]
+  "full_name": "Marek Kowalczyk",
+  "persona_title": "Doświadczony Główny Księgowy",
+  "headline": "Poznański księgowy skrupulatnie planujący emeryturę i mentorujący młodsze pokolenie.",
+  "background_story": "Marek ma 56 lat i pracuje w tej samej firmie produkcyjnej od 28 lat. Żonaty, dwoje dorosłych dzieci (syn lekarz, córka nauczycielka). Kupił niedawno działkę pod Poznaniem i planuje emeryturę za 6 lat. Jest skarbnikiem parafii, dumny ze swojej przewidywalnej rutyny i relacji z klientami budowanych przez dekady.",
+  "values": ["Stabilność", "Lojalność", "Rodzina", "Odpowiedzialność", "Tradycja", "Uczciwość"],
+  "interests": ["Wędkarstwo nad Wartą", "Majsterkowanie i renowacja domu", "Podcasty o finansach osobistych", "Grillowanie", "Działalność parafialna", "Chór kościelny"],
+  "communication_style": "formalny i profesjonalny, preferuje spotkania twarzą w twarz, używa sprawdzonych schematów",
+  "decision_making_style": "metodyczny i unikający ryzyka, opiera się na sprawdzonych metodach i dokładnym planowaniu",
+  "typical_concerns": ["Zapewnienie wystarczającej emerytury", "Utrzymanie relacji z klientami przez sukcesję", "Zdrowie i opieka medyczna na emeryturze", "Planowanie spadku dla dzieci"]
 }}
 
-Example 3 (High Extraversion, High Neuroticism, recent graduate):
+Przykład 3 (Wysoka ekstrawersja, wysoki neurotyzm, świeży absolwent):
 {{
-  "full_name": "Jasmine Ortiz",
-  "persona_title": "Social Media Manager & Creator",
-  "headline": "Gen-Z marketer hustling in LA's creator economy while navigating early-career anxiety.",
-  "background_story": "Jasmine is a 23-year-old social media manager in Los Angeles who recently graduated with a marketing degree. She juggles anxiety about job security with excitement for the creator economy. Living with three roommates in Echo Park, she's always networking at industry events while building her personal brand as a Gen-Z marketing consultant. She's close to her immigrant parents who don't fully understand her career choice.",
-  "values": ["Connection", "Recognition", "Authenticity", "Innovation", "Family", "Success"],
-  "interests": ["TikTok Content Creation", "Networking Events", "Brunch Culture", "Thrifting", "Podcast Listening", "Mental Health Advocacy", "K-pop"],
-  "communication_style": "energetic and trend-aware, uses social media vernacular, highly expressive",
-  "decision_making_style": "impulsive but collaborative, seeks validation from peers before committing",
-  "typical_concerns": ["Job security in volatile industry", "Student loan debt", "Comparison anxiety from social media", "Proving career choice to family", "Building sustainable income"]
+  "full_name": "Julia Nowicka",
+  "persona_title": "Social Media Manager & Content Creator",
+  "headline": "Warszawska marketerka Z-ki walcząca z niepewnością kariery w creator economy.",
+  "background_story": "Julia ma 25 lat i niedawno skończyła marketing na SGH. Mieszka z trzema współlokatorkami na Mokotowie, pracuje jako social media manager w agencji beauty. Balansuje między lękiem o stabilność pracy a ekscytacją gospodarką twórców. Stale networkuje na eventach branżowych budując markę osobistą jako Gen-Z marketing consultant. Rodzice z Radomia nie do końca rozumieją jej wybór kariery.",
+  "values": ["Relacje", "Rozpoznawalność", "Autentyczność", "Innowacja", "Rodzina", "Sukces zawodowy"],
+  "interests": ["Tworzenie contentu TikTok/Instagram", "Eventy networkingowe", "Kultura brunchowa", "Secondhandy (Vinted, lumpeksy)", "Słuchanie podcastów", "Mental health awareness", "K-pop"],
+  "communication_style": "energiczna i świadoma trendów, używa slangu social media, bardzo ekspresywna z emoji",
+  "decision_making_style": "impulsywna ale kolaboratywna, szuka walidacji od rówieśników przed zobowiązaniem",
+  "typical_concerns": ["Pewność pracy w niestabilnej branży", "Kredyt studencki do spłaty", "Lęk porównawczy z social media", "Udowodnienie wyboru kariery rodzicom", "Budowanie zrównoważonego dochodu", "Wysokie ceny wynajmu w Warszawie"]
 }}
 
-Now generate a COMPLETELY DIFFERENT persona following the same level of specificity and consistency with the provided demographic and psychological profile.
+Teraz wygeneruj KOMPLETNIE INNĄ personę zachowując ten sam poziom szczegółowości i spójności z podanym profilem demograficznym i psychologicznym.
 
-Generate JSON ONLY (no markdown, no extra text):
+Generuj WYŁĄCZNIE JSON (bez markdown, bez dodatkowego tekstu):
 {{
-  "full_name": "<realistic first and last name aligned with location>",
-  "persona_title": "<concise professional or life-stage title>",
-  "headline": "<one sentence summary consistent with age, occupation, and motivations>",
-  "background_story": "<2-3 specific sentences about their current life, career trajectory, and unique context>",
-  "values": ["<5-7 specific values that drive their decisions>"],
-  "interests": ["<5-7 specific hobbies/activities they actually do>"],
-  "communication_style": "<how they express themselves>",
-  "decision_making_style": "<how they approach important choices>",
-  "typical_concerns": ["<3-5 specific worries or priorities in their current life stage>"]
+  "full_name": "<realistyczne polskie imię i nazwisko pasujące do lokalizacji>",
+  "persona_title": "<zwięzły tytuł zawodowy lub etapu życia>",
+  "headline": "<jedno zdanie podsumowujące spójne z wiekiem, zawodem i motywacjami>",
+  "background_story": "<2-3 konkretne zdania o ich obecnym życiu, ścieżce kariery i unikalnym kontekście>",
+  "values": ["<5-7 konkretnych wartości które kierują ich decyzjami>"],
+  "interests": ["<5-7 konkretnych hobby/aktywności które faktycznie uprawiają>"],
+  "communication_style": "<jak się wyrażają i komunikują>",
+  "decision_making_style": "<jak podchodzą do ważnych wyborów>",
+  "typical_concerns": ["<3-5 konkretnych zmartwień lub priorytetów na obecnym etapie życia>"]
 }}"""
 
     def validate_distribution(

@@ -19,7 +19,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, text
 
@@ -73,6 +73,10 @@ class Persona(Base):
         values: Lista wartości życiowych (np. ["Family", "Success", "Creativity"])
         interests: Lista zainteresowań/hobby (np. ["Yoga", "Photography", "Travel"])
 
+        # === RAG (Retrieval-Augmented Generation) ===
+        rag_context_used: Czy użyto kontekstu z bazy wiedzy RAG przy generowaniu
+        rag_citations: Lista fragmentów z dokumentów użytych jako kontekst (JSONB)
+
         # === METADANE ===
         personality_prompt: Pełny prompt wysłany do LLM (do debugowania)
         created_at: Data utworzenia
@@ -123,6 +127,10 @@ class Persona(Base):
     values = Column(ARRAY(String()), nullable=True)
     interests = Column(ARRAY(String()), nullable=True)
     background_story = Column(Text, nullable=True)
+
+    # RAG (Retrieval-Augmented Generation)
+    rag_context_used = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    rag_citations = Column(JSONB, nullable=True)
 
     # Metadane
     personality_prompt = Column(Text, nullable=True)

@@ -9,7 +9,7 @@ Definiuje struktury danych dla:
 Uwaga: To jest wersja v1. Nowsze projekty powinny używać persona_v2.py
 """
 
-from typing import List, Optional, Literal, Dict
+from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime
 from uuid import UUID
 
@@ -117,6 +117,10 @@ class PersonaGenerateRequest(BaseModel):
         default=False,
         description="Generate adversarial personas for campaign stress testing",
     )
+    use_rag: bool = Field(
+        default=True,
+        description="Use RAG (Retrieval-Augmented Generation) with Polish society knowledge base",
+    )
     advanced_options: Optional[PersonaGenerationAdvancedOptions] = Field(
         default=None,
         description="Optional advanced persona targeting controls",
@@ -198,6 +202,9 @@ class PersonaResponse(BaseModel):
     background_story: Optional[str]
     created_at: datetime
     is_active: bool
+    # RAG fields
+    rag_context_used: bool = False
+    rag_citations: Optional[List[Dict[str, Any]]] = None
 
     class Config:
         from_attributes = True

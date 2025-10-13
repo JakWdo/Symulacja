@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     # Redis do cache'owania i Celery
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # === GRAF WIEDZY (nieużywany obecnie) ===
+    # === GRAF WIEDZY ===
+    # Neo4j używany dla graph analysis i RAG vectorstore
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
     NEO4J_PASSWORD: str = "password"
@@ -76,6 +77,26 @@ class Settings(BaseSettings):
     STATISTICAL_SIGNIFICANCE_THRESHOLD: float = 0.05
     # Seed dla reproducibility (ten sam seed = te same wyniki)
     RANDOM_SEED: int = 42
+
+    # === RAG SYSTEM (Retrieval-Augmented Generation) ===
+    # Globalny toggle dla systemu RAG
+    RAG_ENABLED: bool = True
+    # Rozmiar chunków tekstowych (znaki)
+    RAG_CHUNK_SIZE: int = 1000
+    # Overlap między chunkami (znaki)
+    RAG_CHUNK_OVERLAP: int = 200
+    # Liczba top wyników z retrieval
+    RAG_TOP_K: int = 5
+    # Maksymalna długość kontekstu RAG (znaki)
+    RAG_MAX_CONTEXT_CHARS: int = 3000
+    # Ścieżka do katalogu z dokumentami
+    DOCUMENT_STORAGE_PATH: str = "data/documents"
+
+    # === EMBEDDINGS (Google Gemini) ===
+    # Model do generowania embeddingów tekstowych
+    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    # Wymiarowość wektorów embeddingowych
+    EMBEDDING_DIMENSION: int = 768
 
     # === CELERY (zadania asynchroniczne) ===
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"

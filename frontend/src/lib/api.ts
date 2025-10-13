@@ -15,6 +15,9 @@ import type {
   SurveyResults,
   Question,
   GraphQueryResponse,
+  RAGDocument,
+  RAGQueryRequest,
+  RAGQueryResponse,
 } from '@/types';
 
 // === AUTH TYPES ===
@@ -484,5 +487,56 @@ export const settingsApi = {
 
   deleteAccount: async (): Promise<void> => {
     await api.delete('/settings/account');
+  },
+};
+
+// === RAG API ===
+export const ragApi = {
+  /**
+   * Upload a document to RAG system
+   * @param file PDF or DOCX file
+   * @param title Document title
+   * @param country Country (default: Poland)
+   */
+  uploadDocument: async (
+    file: File,
+    title: string,
+    country: string = 'Poland'
+  ): Promise<RAGDocument> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', title);
+    formData.append('country', country);
+
+    const { data } = await api.post<RAGDocument>('/rag/documents/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data;
+  },
+
+  /**
+   * List all RAG documents
+   */
+  listDocuments: async (): Promise<RAGDocument[]> => {
+    const { data } = await api.get<RAGDocument[]>('/rag/documents');
+    return data;
+  },
+
+  /**
+   * Query RAG system (for testing/preview)
+   */
+  query: async (request: RAGQueryRequest): Promise<RAGQueryResponse> => {
+    const { data } = await api.post<RAGQueryResponse>('/rag/query', request);
+    return data;
+  },
+
+  /**
+   * Delete a RAG document
+   */
+  deleteDocument: async (documentId: string): Promise<{ message: string }> => {
+    const { data } = await api.delete(`/rag/documents/${documentId}`);
+    return data;
   },
 };

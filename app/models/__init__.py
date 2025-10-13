@@ -11,10 +11,11 @@ Zawiera wszystkie modele bazodanowe aplikacji (PostgreSQL):
 - PersonaResponse: Odpowiedzi person na pytania w grupach fokusowych
 - Survey: Ankiety syntetyczne (pytania + konfiguracja)
 - SurveyResponse: Odpowiedzi person na ankiety
+- RAGDocument: Dokumenty RAG - baza wiedzy (PDF/DOCX) dla generowania person
 
 Wszystkie modele używają:
 - UUID jako primary key
-- Soft delete (deleted_at)
+- Soft delete (deleted_at lub is_active)
 - Timestamps (created_at, updated_at)
 - Async SQLAlchemy relationships
 """
@@ -25,6 +26,7 @@ from .persona import Persona
 from .focus_group import FocusGroup
 from .persona_events import PersonaEvent, PersonaResponse
 from .survey import Survey, SurveyResponse
+from .rag_document import RAGDocument
 
 __all__ = [
     "User",
@@ -35,4 +37,5 @@ __all__ = [
     "PersonaResponse",
     "Survey",
     "SurveyResponse",
+    "RAGDocument",
 ]

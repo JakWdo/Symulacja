@@ -45,6 +45,8 @@ export interface Persona {
   background_story: string | null;
   created_at: string;
   is_active: boolean;
+  rag_context_used: boolean;
+  rag_citations: RAGCitation[] | null;
 }
 
 export interface FocusGroup {
@@ -582,4 +584,37 @@ export interface SurveyResults {
   demographic_breakdown: Record<string, Record<string, any>>;
   completion_rate: number;
   average_response_time_ms?: number;
+}
+
+// RAG Types
+export interface RAGDocument {
+  id: string;
+  title: string;
+  filename: string;
+  file_path: string;
+  file_type: 'pdf' | 'docx';
+  country: string;
+  num_chunks: number;
+  status: 'processing' | 'completed' | 'failed';
+  error_message?: string | null;
+  created_at: string;
+  is_active: boolean;
+}
+
+export interface RAGCitation {
+  document_title: string;
+  chunk_text: string;
+  relevance_score: number;
+}
+
+export interface RAGQueryRequest {
+  query: string;
+  top_k?: number;
+}
+
+export interface RAGQueryResponse {
+  query: string;
+  context: string;
+  citations: RAGCitation[];
+  num_results: number;
 }

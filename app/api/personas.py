@@ -350,12 +350,13 @@ async def generate_personas(
     )
 
     # Utwórz zadanie asynchroniczne
-    logger.info(f"Creating async task for persona generation (project={project_id}, personas={request.num_personas})")
+    logger.info(f"Creating async task for persona generation (project={project_id}, personas={request.num_personas}, use_rag={request.use_rag})")
     task = asyncio.create_task(_generate_personas_task(
         project_id,
         request.num_personas,
         request.adversarial_mode,
         advanced_payload,
+        request.use_rag,
     ))
 
     # Zachowujemy referencję do zadania, aby GC go nie usunął
@@ -376,6 +377,7 @@ async def _generate_personas_task(
     num_personas: int,
     adversarial_mode: bool,
     advanced_options: Optional[Dict[str, Any]] = None,
+    use_rag: bool = True,
 ):
     """
     Asynchroniczne zadanie w tle do generowania person
@@ -470,7 +472,7 @@ async def _generate_personas_task(
 
             async def create_single_persona(idx: int, demo_profile: Dict[str, Any], psych_profile: Dict[str, Any]):
                 async with semaphore:
-                    result = await generator.generate_persona_personality(demo_profile, psych_profile, advanced_options)
+                    result = await generator.generate_persona_personality(demo_profile, psych_profile, use_rag, advanced_options)
                     if (idx + 1) % max(1, batch_size) == 0 or idx == num_personas - 1:
                         logger.info(
                             "Generated personas chunk",
@@ -605,6 +607,10 @@ async def _generate_personas_task(
                             extra={"project_id": str(project_id), "index": idx}
                         )
 
+                    # Ekstrakcja RAG citations (jeśli były używane)
+                    rag_citations = personality.get("_rag_citations")
+                    rag_context_used = bool(rag_citations)
+
                     persona_payload = {
                         "project_id": project_id,
                         "full_name": full_name,
@@ -620,6 +626,8 @@ async def _generate_personas_task(
                         "values": values,
                         "interests": interests,
                         "personality_prompt": prompt,
+                        "rag_context_used": rag_context_used,
+                        "rag_citations": rag_citations,
                         **psychological
                     }
 

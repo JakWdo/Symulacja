@@ -23,6 +23,7 @@ celery[redis]
 langchain
 langchain-core
 langchain-community
+langchain-text-splitters
 
 # LangChain LLM Providers
 langchain-google-genai
@@ -80,3 +81,8 @@ prometheus-client
 reportlab
 jinja2
 openpyxl
+
+# RAG System - Document Processing
+docling>=2.0.0
+pypdf2
+python-docx
