@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     RAG_MAX_CONTEXT_CHARS: int = 5000
     # Ścieżka do katalogu z dokumentami
     DOCUMENT_STORAGE_PATH: str = "data/documents"
+    # Hybrid search: czy używać keyword search + vector search
+    RAG_USE_HYBRID_SEARCH: bool = True
+    # Hybrid search: waga vector search (0.0-1.0, reszta to keyword)
+    RAG_VECTOR_WEIGHT: float = 0.7
+    # RRF k parameter (wygładzanie rangi)
+    RAG_RRF_K: int = 60
 
     # === EMBEDDINGS (Google Gemini) ===
     # Model do generowania embeddingów tekstowych

@@ -33,6 +33,11 @@ from app.core.constants import (
     POLISH_INTERESTS,
     POLISH_COMMUNICATION_STYLES,
     POLISH_DECISION_STYLES,
+    POLISH_INCOME_BRACKETS,
+    POLISH_EDUCATION_LEVELS,
+    POLISH_MALE_NAMES,
+    POLISH_FEMALE_NAMES,
+    POLISH_SURNAMES,
 )
 from app.models import Persona
 
@@ -193,6 +198,9 @@ class PersonaGeneratorLangChain:
         Sprawdza czy rozkład jest poprawny, normalizuje go do sumy 1.0,
         lub zwraca fallback jeśli rozkład jest niepoprawny.
 
+        Dodatkowo: jeśli fallback to DEFAULT_LOCATIONS, DEFAULT_INCOME_BRACKETS
+        lub DEFAULT_EDUCATION_LEVELS, zamienia na polskie odpowiedniki.
+
         Args:
             distribution: Rozkład do znormalizowania
             fallback: Rozkład domyślny używany gdy distribution jest pusty/błędny
@@ -201,9 +209,23 @@ class PersonaGeneratorLangChain:
             Znormalizowany rozkład (suma = 1.0) lub fallback
         """
         if not distribution:
+            # Użyj polskich wartości domyślnych jeśli fallback jest anglojęzyczny
+            if fallback is DEFAULT_LOCATIONS:
+                fallback = POLISH_LOCATIONS
+            elif fallback is DEFAULT_INCOME_BRACKETS:
+                fallback = POLISH_INCOME_BRACKETS
+            elif fallback is DEFAULT_EDUCATION_LEVELS:
+                fallback = POLISH_EDUCATION_LEVELS
             return fallback
         total = sum(distribution.values())
         if total <= 0:
+            # Użyj polskich wartości domyślnych jeśli fallback jest anglojęzyczny
+            if fallback is DEFAULT_LOCATIONS:
+                fallback = POLISH_LOCATIONS
+            elif fallback is DEFAULT_INCOME_BRACKETS:
+                fallback = POLISH_INCOME_BRACKETS
+            elif fallback is DEFAULT_EDUCATION_LEVELS:
+                fallback = POLISH_EDUCATION_LEVELS
             return fallback
         # Pierwsza normalizacja - dziel przez sumę
         normalized = {key: value / total for key, value in distribution.items()}
@@ -347,11 +369,19 @@ class PersonaGeneratorLangChain:
                 rag_citations = rag_data.get('citations')
                 logger.info(f"Using RAG context: {len(rag_context or '')} chars, {len(rag_citations or [])} citations")
 
-        # Generuj prompt (teraz z RAG context jeśli dostępny)
+        # Pobierz target_audience_description z advanced_options jeśli dostępny
+        target_audience_desc = None
+        if advanced_options:
+            target_audience_desc = advanced_options.get('target_audience_description')
+            if target_audience_desc:
+                logger.info(f"Using target audience description: {target_audience_desc[:100]}...")
+
+        # Generuj prompt (teraz z RAG context i target audience description jeśli dostępne)
         prompt_text = self._create_persona_prompt(
             demographic_profile,
             psychological_profile,
-            rag_context=rag_context
+            rag_context=rag_context,
+            target_audience_description=target_audience_desc
         )
 
         try:
@@ -389,7 +419,8 @@ class PersonaGeneratorLangChain:
         self,
         demographic: Dict[str, Any],
         psychological: Dict[str, Any],
-        rag_context: Optional[str] = None  # NOWY PARAMETR
+        rag_context: Optional[str] = None,
+        target_audience_description: Optional[str] = None  # NOWY PARAMETR
     ) -> str:
         """
         Utwórz prompt dla LLM do generowania persony - WERSJA POLSKA
@@ -399,12 +430,14 @@ class PersonaGeneratorLangChain:
         - Interpretację cech Big Five i Hofstede PO POLSKU
         - 3 przykłady few-shot z polskimi personami
         - Opcjonalny kontekst RAG z bazy wiedzy o polskim społeczeństwie
+        - Opcjonalny dodatkowy opis grupy docelowej od użytkownika
         - Instrukcje jak stworzyć unikalną polską personę
 
         Args:
             demographic: Profil demograficzny (wiek, płeć, edukacja, etc.)
             psychological: Profil psychologiczny (Big Five + Hofstede)
             rag_context: Opcjonalny kontekst z RAG (fragmenty z dokumentów)
+            target_audience_description: Opcjonalny dodatkowy opis grupy docelowej
 
         Returns:
             Pełny tekst prompta gotowy do wysłania do LLM (po polsku)
@@ -412,6 +445,14 @@ class PersonaGeneratorLangChain:
 
         # Generuj unikalny seed dla tej persony (do różnicowania)
         persona_seed = self._rng.integers(1000, 9999)
+
+        # Losuj polskie imię i nazwisko dla większej różnorodności
+        gender_lower = demographic.get('gender', 'male').lower()
+        if 'female' in gender_lower or 'kobieta' in gender_lower:
+            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
+        else:
+            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
+        suggested_surname = self._rng.choice(POLISH_SURNAMES)
 
         # Wskazówki do interpretacji cech osobowości (PO POLSKU)
         openness_val = psychological.get('openness', 0.5)
@@ -444,11 +485,29 @@ demograficznych i społecznych opisanych w kontekście.
 
 """
 
+        # Sekcja dodatkowego opisu grupy docelowej (jeśli dostępny)
+        target_audience_section = ""
+        if target_audience_description and target_audience_description.strip():
+            target_audience_section = f"""
+═══════════════════════════════════════════════════════════════════════════════
+DODATKOWY OPIS GRUPY DOCELOWEJ:
+═══════════════════════════════════════════════════════════════════════════════
+
+{target_audience_description.strip()}
+
+⚠️ WAŻNE: Ta persona MUSI odpowiadać powyższemu opisowi grupy docelowej.
+Upewnij się, że cechy, zainteresowania, wartości i styl życia persony są
+zgodne z tym opisem.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+"""
+
         return f"""Jesteś ekspertem od badań rynkowych tworzącym syntetyczne persony dla polskiego rynku. Twoje persony muszą być UNIKALNE, REALISTYCZNE i WEWNĘTRZNIE SPÓJNE, odzwierciedlające POLSKIE SPOŁECZEŃSTWO.
 
-{rag_section}
-
+{rag_section}{target_audience_section}
 PERSONA #{persona_seed}
+SUGEROWANE IMIĘ I NAZWISKO: {suggested_first_name} {suggested_surname} (możesz użyć lub wybrać inne polskie)
 
 PROFIL DEMOGRAFICZNY:
 - Grupa wiekowa: {demographic.get('age_group')}

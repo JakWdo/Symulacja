@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
   MoreVertical,
   Plus,
@@ -122,7 +121,6 @@ export function Personas() {
   const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
   const [ageRange, setAgeRange] = useState<[number, number]>([18, 65]);
   const [selectedOccupations, setSelectedOccupations] = useState<string[]>([]);
-  const [useRag, setUseRag] = useState(true);
 
   // Fetch all projects
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
@@ -308,7 +306,7 @@ export function Personas() {
       return;
     }
 
-    const payload = transformWizardConfigToPayload(config, useRag);
+    const payload = transformWizardConfigToPayload(config);
     const baselineCount = apiPersonas.length;
     setActiveGenerationProjectId(selectedProject.id);
     setShowPersonaWizard(false);
@@ -338,21 +336,6 @@ export function Personas() {
           </p>
         </div>
         <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <div className="flex items-start gap-3 rounded-lg border border-border bg-card/80 px-3 py-2">
-            <Switch
-              id="rag-toggle"
-              checked={useRag}
-              onCheckedChange={(value) => setUseRag(Boolean(value))}
-            />
-            <div className="text-left">
-              <label htmlFor="rag-toggle" className="block text-sm font-medium text-card-foreground">
-                Wzbogacaj persony kontekstem RAG
-              </label>
-              <p className="text-xs text-muted-foreground">
-                Fragmenty wiedzy z dokumentów RAG trafią do promptów generatora.
-              </p>
-            </div>
-          </div>
           <Button
             type="button"
             variant="outline"

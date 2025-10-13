@@ -52,6 +52,10 @@ from app.core.constants import (
     DEFAULT_OCCUPATIONS,
     DEFAULT_VALUES,
     DEFAULT_INTERESTS,
+    # Polskie stałe (preferowane jako fallback)
+    POLISH_LOCATIONS,
+    POLISH_INCOME_BRACKETS,
+    POLISH_EDUCATION_LEVELS,
 )
 
 router = APIRouter()
@@ -81,6 +85,12 @@ _NAME_FROM_STORY_PATTERN = re.compile(
     r"^(?P<name>[A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\s+is\s+(?:an|a)\s",
 )
 _AGE_IN_STORY_PATTERN = re.compile(r"(?P<age>\d{1,3})-year-old")
+# Wzorce do ekstrakcji wieku z polskiego tekstu
+_POLISH_AGE_PATTERNS = [
+    re.compile(r"(?:ma|mam)\s+(?P<age>\d{1,2})\s+lat", re.IGNORECASE),  # "ma 32 lata"
+    re.compile(r"(?P<age>\d{1,2})-letni[aey]?", re.IGNORECASE),  # "32-letnia"
+    re.compile(r"(?P<age>\d{1,2})\s+lat", re.IGNORECASE),  # "32 lat"
+]
 
 
 def _infer_full_name(background_story: Optional[str]) -> Optional[str]:
@@ -89,6 +99,41 @@ def _infer_full_name(background_story: Optional[str]) -> Optional[str]:
     match = _NAME_FROM_STORY_PATTERN.match(background_story.strip())
     if match:
         return match.group('name')
+    return None
+
+
+def _extract_age_from_story(background_story: Optional[str]) -> Optional[int]:
+    """
+    Ekstraktuj wiek z background_story (wspiera polski i angielski tekst)
+
+    Args:
+        background_story: Historia życiowa persony
+
+    Returns:
+        Wyekstraktowany wiek lub None jeśli nie znaleziono
+    """
+    if not background_story:
+        return None
+
+    # Spróbuj angielski wzorzec "32-year-old"
+    match = _AGE_IN_STORY_PATTERN.search(background_story)
+    if match:
+        try:
+            return int(match.group('age'))
+        except (ValueError, AttributeError):
+            pass
+
+    # Spróbuj polskie wzorce
+    for pattern in _POLISH_AGE_PATTERNS:
+        match = pattern.search(background_story)
+        if match:
+            try:
+                age = int(match.group('age'))
+                if 10 <= age <= 100:  # Sanity check
+                    return age
+            except (ValueError, AttributeError):
+                continue
+
     return None
 
 
@@ -418,9 +463,10 @@ async def _generate_personas_task(
             distribution = DemographicDistribution(
                 age_groups=_normalize_distribution(target_demographics.get("age_group", {}), DEFAULT_AGE_GROUPS),
                 genders=_normalize_distribution(target_demographics.get("gender", {}), DEFAULT_GENDERS),
-                education_levels=_normalize_distribution(target_demographics.get("education_level", {}), DEFAULT_EDUCATION_LEVELS),
-                income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), DEFAULT_INCOME_BRACKETS),
-                locations=_normalize_distribution(target_demographics.get("location", {}), DEFAULT_LOCATIONS),
+                # Używaj POLSKICH wartości domyślnych dla lepszej realistyczności
+                education_levels=_normalize_distribution(target_demographics.get("education_level", {}), POLISH_EDUCATION_LEVELS),
+                income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), POLISH_INCOME_BRACKETS),
+                locations=_normalize_distribution(target_demographics.get("location", {}), POLISH_LOCATIONS),
             )
 
             # Kontrolowana współbieżność pozwala przyspieszyć generowanie bez przeciążania modelu
@@ -590,6 +636,35 @@ async def _generate_personas_task(
                             f"Missing background_story for persona {idx}",
                             extra={"project_id": str(project_id), "index": idx}
                         )
+
+                    # WALIDACJA WIEKU: Spróbuj wyekstraktować wiek z opisu i porównaj z demografią
+                    extracted_age = _extract_age_from_story(background_story)
+                    if extracted_age:
+                        # Sprawdź czy extracted_age mieści się w age_group
+                        age_group_str = demographic.get("age_group", "")
+                        if "-" in age_group_str:
+                            try:
+                                min_age, max_age = map(int, age_group_str.split("-"))
+                                if not (min_age <= extracted_age <= max_age):
+                                    logger.warning(
+                                        f"Age mismatch for persona {idx}: story says {extracted_age}, "
+                                        f"but age_group is {age_group_str}. Using story age.",
+                                        extra={"project_id": str(project_id), "index": idx}
+                                    )
+                                # Używaj wieku z opisu jeśli jest dostępny (bardziej spójne)
+                                age = extracted_age
+                            except ValueError:
+                                pass
+                        elif "+" in age_group_str:
+                            try:
+                                min_age = int(age_group_str.replace("+", ""))
+                                if extracted_age >= min_age:
+                                    age = extracted_age
+                            except ValueError:
+                                pass
+                        else:
+                            # Brak przedziału - użyj extracted_age
+                            age = extracted_age
 
                     values = personality.get("values", [])
                     if not values:

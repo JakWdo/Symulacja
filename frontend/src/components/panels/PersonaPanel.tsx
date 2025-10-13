@@ -9,11 +9,9 @@ import {
   User,
   Search,
   Sparkles,
-  Database,
   Quote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn, getPersonalityColor } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
@@ -42,6 +40,13 @@ function getPersonaDisplayName(persona: Persona) {
   return `${genderLabel} ${persona.age}`;
 }
 
+function getPersonaFirstName(persona: Persona): string {
+  const fullName = getPersonaDisplayName(persona);
+  // Wyciągnij tylko pierwsze imię (split po spacji, weź pierwszy element)
+  const firstName = fullName.split(' ')[0];
+  return firstName;
+}
+
 function extractStorySummary(story?: string | null) {
   if (!story) return null;
   const trimmed = story.trim();
@@ -57,7 +62,7 @@ function formatLocation(location?: string | null) {
 
 function PersonaListItem({ persona, isSelected }: { persona: Persona; isSelected: boolean }) {
   const { setSelectedPersona } = useAppStore();
-  const displayName = getPersonaDisplayName(persona);
+  const firstName = getPersonaFirstName(persona);
 
   return (
     <button
@@ -70,8 +75,8 @@ function PersonaListItem({ persona, isSelected }: { persona: Persona; isSelected
           : 'border-l-transparent hover:border-l-slate-300'
       )}
     >
-      <p className="font-semibold text-slate-900 text-sm">{displayName}</p>
-      <p className="text-xs text-slate-500 mt-0.5">{persona.age} lat</p>
+      <p className="font-semibold text-slate-900 text-sm">{firstName}, {persona.age} lat</p>
+      <p className="text-xs text-slate-500 mt-0.5">{persona.location || 'Polska'}</p>
     </button>
   );
 }
@@ -257,7 +262,6 @@ export function PersonaPanel() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [progressMeta, setProgressMeta] = useState<{ start: number; duration: number } | null>(null);
   const [activeGenerationProjectId, setActiveGenerationProjectId] = useState<string | null>(null);
-  const [useRag, setUseRag] = useState(true);
   const projectLabel = selectedProject?.name ?? 'Unknown project';
 
   const { data: personas, isLoading, isFetching } = useQuery({
@@ -376,7 +380,7 @@ export function PersonaPanel() {
       return;
     }
 
-    const payload = transformWizardConfigToPayload(config, useRag);
+    const payload = transformWizardConfigToPayload(config);
     setActiveGenerationProjectId(selectedProject.id);
     setShowWizard(false);
     setProgressMeta({ start: Date.now(), duration: estimateGenerationDuration(payload.num_personas) });
@@ -524,39 +528,6 @@ export function PersonaPanel() {
       panelKey="personas"
       size="lg"
     >
-      <div className="px-4">
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/70 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Switch
-                id="use-rag-toggle"
-                checked={useRag}
-                disabled={!selectedProject}
-                onCheckedChange={(value) => setUseRag(Boolean(value))}
-              />
-              <div>
-                <label htmlFor="use-rag-toggle" className="text-sm font-medium text-slate-800">
-                  Wzbogacaj persony kontekstem RAG
-                </label>
-                <p className="text-xs text-slate-500">
-                  Gdy włączone, generator pobiera insighty z dokumentów o polskim społeczeństwie.
-                </p>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setActivePanel('rag')}
-              className="border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              <Database className="w-4 h-4 mr-2" />
-              Dokumenty RAG
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {showProgressBar && (
         <div className="px-4 pt-3">
           <div className="text-xs text-slate-500 mb-2 flex items-center gap-2">

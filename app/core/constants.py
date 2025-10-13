@@ -357,26 +357,46 @@ POLISH_OCCUPATIONS = {
     "Inne": 0.18,
 }
 
-# Polskie imiona męskie (najczęstsze)
+# Polskie imiona męskie (rozszerzona lista - mix pokoleń)
 POLISH_MALE_NAMES = [
+    # Popularne we wszystkich grupach wiekowych
     "Jan", "Piotr", "Andrzej", "Krzysztof", "Stanisław", "Tomasz", "Paweł",
     "Józef", "Marcin", "Marek", "Michał", "Grzegorz", "Jerzy", "Tadeusz",
     "Adam", "Wojciech", "Zbigniew", "Ryszard", "Dariusz", "Henryk", "Mariusz",
     "Kazimierz", "Waldemar", "Mirosław", "Mateusz", "Rafał", "Robert",
     "Łukasz", "Jakub", "Szymon", "Filip", "Kamil", "Dawid", "Bartosz",
+    # Dodatkowe imiona starszych pokoleń
+    "Władysław", "Zdzisław", "Czesław", "Bolesław", "Edward", "Roman",
+    "Leszek", "Bogdan", "Stefan", "Wiesław", "Eugeniusz", "Zenon",
+    # Dodatkowe imiona młodszych pokoleń
+    "Kacper", "Mikołaj", "Wiktor", "Igor", "Maksymilian", "Dominik",
+    "Sebastian", "Oskar", "Antoni", "Maciej", "Patryk", "Adrian",
+    "Daniel", "Karol", "Damian", "Hubert", "Konrad", "Artur",
+    "Radosław", "Przemysław", "Norbert", "Emil", "Kuba", "Tymoteusz",
 ]
 
-# Polskie imiona żeńskie (najczęstsze)
+# Polskie imiona żeńskie (rozszerzona lista - mix pokoleń)
 POLISH_FEMALE_NAMES = [
+    # Popularne we wszystkich grupach wiekowych
     "Maria", "Anna", "Katarzyna", "Małgorzata", "Agnieszka", "Barbara", "Ewa",
     "Elżbieta", "Zofia", "Krystyna", "Teresa", "Joanna", "Magdalena", "Monika",
     "Jadwiga", "Danuta", "Irena", "Halina", "Helena", "Beata", "Aleksandra",
     "Natalia", "Karolina", "Paulina", "Justyna", "Ewelina", "Agata",
     "Izabela", "Wiktoria", "Julia", "Zuzanna", "Martyna", "Oliwia",
+    # Dodatkowe imiona starszych pokoleń
+    "Janina", "Genowefa", "Stanisława", "Wanda", "Stefania", "Henryka",
+    "Bronisława", "Władysława", "Marianna", "Bożena", "Grażyna", "Urszula",
+    # Dodatkowe imiona młodszych pokoleń
+    "Maja", "Lena", "Alicja", "Amelia", "Nikola", "Gabriela",
+    "Emilia", "Klaudia", "Kinga", "Dorota", "Patrycja", "Sylwia",
+    "Renata", "Marta", "Aneta", "Jolanta", "Iwona", "Lucyna",
+    "Kamila", "Weronika", "Milena", "Angelika", "Laura", "Kornelia",
+    "Natasza", "Sara", "Hanna", "Lidia", "Adrianna", "Natalia",
 ]
 
-# Polskie nazwiska (najczęstsze)
+# Polskie nazwiska (rozszerzona lista - 100+ najpopularniejszych)
 POLISH_SURNAMES = [
+    # Top 50 najczęstszych nazwisk
     "Nowak", "Kowalski", "Wiśniewski", "Wójcik", "Kowalczyk", "Kamiński",
     "Lewandowski", "Zieliński", "Szymański", "Woźniak", "Dąbrowski",
     "Kozłowski", "Jankowski", "Mazur", "Wojciechowski", "Kwiatkowski",
@@ -384,6 +404,20 @@ POLISH_SURNAMES = [
     "Michalski", "Król", "Nowakowski", "Wieczorek", "Majewski", "Olszewski",
     "Jaworski", "Wróbel", "Malinowski", "Adamczyk", "Dudek", "Stępień",
     "Górski", "Rutkowski", "Witkowski", "Walczak", "Sikora", "Baran",
+    "Zawadzki", "Chmielewski", "Borkowski", "Sokołowski", "Sawicki",
+    "Maciejewski", "Szczepański", "Kubiak", "Kalinowski", "Wysocki",
+    # Dodatkowe 50+ nazwisk
+    "Tomaszewski", "Marciniak", "Zalewski", "Jakubowski", "Pietrzak",
+    "Włodarczyk", "Laskowski", "Laskowska", "Czarnecki", "Wilk",
+    "Przybylski", "Ostrowski", "Błaszczyk", "Andrzejewski", "Wasilewski",
+    "Kołodziej", "Cieślak", "Sadowski", "Markiewicz", "Gajewski",
+    "Ziółkowski", "Czerwiński", "Zakrzewski", "Kowal", "Jabłoński",
+    "Sobczak", "Urbaniak", "Krupa", "Kucharski", "Głowacki",
+    "Szewczyk", "Krajewski", "Mróz", "Lisowski", "Adamski",
+    "Lis", "Piątek", "Borowska", "Jasiński", "Kowalska",
+    "Bednarek", "Tomczyk", "Kasprzak", "Makowski", "Baranowski",
+    "Urbański", "Przybysz", "Nowicki", "Kuchta", "Szymczak",
+    "Bielecki", "Wróblewski", "Konieczny", "Lewicki", "Mucha",
 ]
 
 # Polskie style komunikacji
@@ -413,3 +447,25 @@ POLISH_DECISION_STYLES = [
     "szuka bezpiecznych rozwiązań",
     "odważny gdy ma pewność",
 ]
+
+# Polskie przedziały dochodowe (netto miesięcznie, na podstawie danych GUS 2024)
+POLISH_INCOME_BRACKETS = {
+    "< 3 000 zł": 0.15,      # Najniższe zarobki, minimalna krajowa ~2800 zł netto
+    "3 000 - 5 000 zł": 0.25, # Poniżej średniej krajowej
+    "5 000 - 7 500 zł": 0.25, # Wokół średniej krajowej (~6500 zł netto)
+    "7 500 - 10 000 zł": 0.18, # Powyżej średniej
+    "10 000 - 15 000 zł": 0.12, # Wyższe zarobki (specjaliści, menedżerowie)
+    "> 15 000 zł": 0.05,     # Najwyższe zarobki (kadra zarządzająca, eksperci IT)
+}
+
+# Polskie poziomy wykształcenia (na podstawie danych GUS)
+POLISH_EDUCATION_LEVELS = {
+    "Podstawowe": 0.08,                    # Wykształcenie podstawowe
+    "Gimnazjalne": 0.05,                   # Gimnazjum (stary system)
+    "Zasadnicze zawodowe": 0.18,          # Szkoła zawodowa
+    "Średnie ogólnokształcące": 0.15,     # Liceum ogólnokształcące
+    "Średnie techniczne": 0.20,           # Technikum
+    "Policealne": 0.04,                   # Szkoła policealna
+    "Wyższe licencjackie": 0.12,          # Licencjat
+    "Wyższe magisterskie": 0.18,          # Magisterium
+}

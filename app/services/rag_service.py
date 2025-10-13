@@ -32,6 +32,9 @@ from app.models.rag_document import RAGDocument
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+# Neo4j driver będziemy pobierać z vector_store._driver
+# aby nie duplikować połączeń
+
 
 class RAGDocumentService:
     """
@@ -298,9 +301,114 @@ class PolishSocietyRAG:
                 embedding_node_property="embedding",
             )
             logger.info("PolishSocietyRAG initialized successfully")
+
+            # Utwórz fulltext index dla keyword search (jeśli hybrid search włączony)
+            if settings.RAG_USE_HYBRID_SEARCH:
+                asyncio.create_task(self._ensure_fulltext_index())
         except Exception as e:
             logger.error(f"Failed to initialize PolishSocietyRAG: {e}")
             self.vector_store = None
+
+    async def _ensure_fulltext_index(self):
+        """
+        Upewnij się że fulltext index istnieje dla keyword search
+
+        Tworzy Neo4j fulltext index na polu 'text' w nodach RAGChunk.
+        Index nazywa się 'rag_fulltext_index'.
+        """
+        if not self.vector_store:
+            return
+
+        try:
+            # Pobierz Neo4j driver z vector_store
+            driver = self.vector_store._driver
+
+            # Sprawdź czy index już istnieje
+            def check_and_create_index(tx):
+                # Sprawdź istniejące indeksy
+                result = tx.run("SHOW INDEXES")
+                indexes = [record["name"] for record in result]
+
+                if "rag_fulltext_index" not in indexes:
+                    # Utwórz fulltext index
+                    tx.run("""
+                        CREATE FULLTEXT INDEX rag_fulltext_index IF NOT EXISTS
+                        FOR (n:RAGChunk)
+                        ON EACH [n.text]
+                    """)
+                    logger.info("Created fulltext index 'rag_fulltext_index' for RAGChunk nodes")
+                else:
+                    logger.debug("Fulltext index 'rag_fulltext_index' already exists")
+
+            # Wykonaj w asyncio thread pool
+            await asyncio.to_thread(
+                lambda: driver.session().execute_write(check_and_create_index)
+            )
+
+        except Exception as e:
+            logger.warning(f"Could not create fulltext index (non-critical): {e}")
+
+    async def _keyword_search(self, query: str, k: int = 5) -> List[Document]:
+        """
+        Keyword search przez Neo4j fulltext index
+
+        Używa fulltext index 'rag_fulltext_index' do wyszukiwania
+        chunków zawierających słowa kluczowe z query.
+
+        Args:
+            query: Zapytanie tekstowe
+            k: Liczba wyników do zwrócenia
+
+        Returns:
+            Lista Document obiektów z wynikami keyword search
+        """
+        if not self.vector_store:
+            return []
+
+        try:
+            driver = self.vector_store._driver
+
+            def search_fulltext(tx):
+                # Neo4j fulltext search query
+                # db.index.fulltext.queryNodes zwraca (node, score)
+                result = tx.run("""
+                    CALL db.index.fulltext.queryNodes('rag_fulltext_index', $search_query)
+                    YIELD node, score
+                    RETURN node.text AS text,
+                           node.doc_id AS doc_id,
+                           node.title AS title,
+                           node.chunk_index AS chunk_index,
+                           score
+                    ORDER BY score DESC
+                    LIMIT $search_limit
+                """, search_query=query, search_limit=k)
+
+                documents = []
+                for record in result:
+                    doc = Document(
+                        page_content=record["text"],
+                        metadata={
+                            "doc_id": record["doc_id"],
+                            "title": record["title"],
+                            "chunk_index": record["chunk_index"],
+                            "keyword_score": record["score"],
+                        }
+                    )
+                    documents.append(doc)
+
+                return documents
+
+            # Wykonaj w thread pool
+            docs = await asyncio.to_thread(
+                lambda: driver.session().execute_read(search_fulltext)
+            )
+
+            logger.info(f"Keyword search returned {len(docs)} results")
+            return docs
+
+        except Exception as e:
+            logger.warning(f"Keyword search failed (falling back to vector only): {e}")
+            return []
 
     async def get_demographic_insights(
         self,
@@ -350,22 +458,47 @@ class PolishSocietyRAG:
         logger.info(f"RAG query for demographics: {age_group}, {education}, {location}, {gender}")
 
         try:
-            # Vector search z score
-            vector_results = await self.vector_store.asimilarity_search_with_score(
-                query,
-                k=settings.RAG_TOP_K
-            )
+            # HYBRID SEARCH: Vector + Keyword search z RRF fusion
+            if settings.RAG_USE_HYBRID_SEARCH:
+                # 1. Vector search z score
+                vector_results = await self.vector_store.asimilarity_search_with_score(
+                    query,
+                    k=settings.RAG_TOP_K * 2  # Pobierz więcej dla fusion
+                )
+                logger.info(f"Vector search returned {len(vector_results)} results")
 
-            logger.info(f"Vector search returned {len(vector_results)} results")
+                # 2. Keyword search przez fulltext index
+                keyword_results = await self._keyword_search(
+                    query,
+                    k=settings.RAG_TOP_K * 2  # Pobierz więcej dla fusion
+                )
+                logger.info(f"Keyword search returned {len(keyword_results)} results")
 
-            # TODO: Keyword search przez Neo4j fulltext (opcjonalnie - dla hybrid search)
-            # Na razie używamy tylko vector search (wystarczające dla MVP)
+                # 3. RRF Fusion - połącz wyniki
+                fused_results = self._rrf_fusion(
+                    vector_results,
+                    keyword_results,
+                    k=settings.RAG_RRF_K
+                )
+                logger.info(f"RRF fusion produced {len(fused_results)} combined results")
+
+                # Użyj fused results
+                final_results = fused_results[:settings.RAG_TOP_K]
+
+            else:
+                # TYLKO VECTOR SEARCH (fallback jeśli hybrid wyłączony)
+                vector_results = await self.vector_store.asimilarity_search_with_score(
+                    query,
+                    k=settings.RAG_TOP_K
+                )
+                logger.info(f"Vector search returned {len(vector_results)} results (hybrid disabled)")
+                final_results = vector_results
 
             # Build context z top wyników
             context_chunks = []
             citations = []
 
-            for doc, score in vector_results[:settings.RAG_TOP_K]:
+            for doc, score in final_results:
                 # Ogranicz długość pojedynczego chunku
                 chunk_text = doc.page_content[:800] if len(doc.page_content) > 800 else doc.page_content
                 context_chunks.append(chunk_text)
@@ -387,15 +520,17 @@ class PolishSocietyRAG:
                     f"Context truncated to {settings.RAG_MAX_CONTEXT_CHARS} chars"
                 )
 
+            search_type = "hybrid" if settings.RAG_USE_HYBRID_SEARCH else "vector_only"
             logger.info(
-                f"RAG context built: {len(context)} chars, {len(citations)} citations"
+                f"RAG context built ({search_type}): {len(context)} chars, {len(citations)} citations"
             )
 
             return {
                 "context": context,
                 "citations": citations,
                 "query": query.strip(),
-                "num_results": len(vector_results)
+                "num_results": len(final_results),
+                "search_type": search_type
             }
 
         except Exception as e:

@@ -3,11 +3,10 @@ import type { PersonaGenerationConfig } from '@/components/personas/PersonaGener
 
 /**
  * Transformuje uproszczoną konfigurację wizarda na payload API.
- * Nowa wersja - tylko ogólniki, demografia pochodzi z RAG.
+ * Nowa wersja - tylko ogólniki, demografia pochodzi z RAG (zawsze włączony).
  */
 export function transformWizardConfigToPayload(
   config: PersonaGenerationConfig,
-  _useRag: boolean = true, // RAG zawsze włączony (unused parameter for compatibility)
 ): GeneratePersonasPayload {
   const advancedOptions: Partial<PersonaAdvancedOptions> = {};
 

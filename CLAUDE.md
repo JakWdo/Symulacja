@@ -16,6 +16,13 @@ Market Research SaaS - Platforma do wirtualnych grup fokusowych z AI wykorzystuj
 
 ### Operacje Docker (Podstawowa Metoda Deweloperska)
 
+**Aktywne Kontenery:**
+- `postgres` - PostgreSQL + pgvector
+- `redis` - Redis (cache i session storage)
+- `neo4j` - Neo4j (graf wiedzy)
+- `api` - Backend FastAPI
+- `frontend` - Frontend React + Vite
+
 ```bash
 # Uruchom wszystkie serwisy
 docker-compose up -d
@@ -52,6 +59,19 @@ docker-compose exec api alembic downgrade -1
 
 # Historia migracji
 docker-compose exec api alembic history
+```
+
+### Inicjalizacja Neo4j (WYMAGANE dla RAG)
+
+```bash
+# Utwórz wymagane indeksy w Neo4j (vector + fulltext)
+python scripts/init_neo4j_indexes.py
+
+# Ten skrypt tworzy:
+# 1. Vector index (rag_document_embeddings) - dla semantic search
+# 2. Fulltext index (rag_fulltext_index) - dla keyword search
+
+# WAŻNE: Uruchom ten skrypt PRZED pierwszym użyciem RAG!
 ```
 
 ### Testowanie
@@ -176,6 +196,14 @@ DEBUG=true
 - `MAX_RESPONSE_TIME_PER_PERSONA=3` - Cel wydajnościowy (sekundy)
 - `MAX_FOCUS_GROUP_TIME=30` - Cel czasu całkowitego (sekundy)
 
+**Konfiguracja RAG Hybrid Search:**
+- `RAG_USE_HYBRID_SEARCH=True` - Włącz hybrid search (vector + keyword)
+- `RAG_VECTOR_WEIGHT=0.7` - Waga vector search w RRF (0.0-1.0)
+- `RAG_RRF_K=60` - Parametr wygładzania Reciprocal Rank Fusion
+- `RAG_TOP_K=5` - Liczba top wyników z retrieval
+- `RAG_CHUNK_SIZE=2000` - Rozmiar chunków tekstowych (znaki)
+- `RAG_CHUNK_OVERLAP=400` - Overlap między chunkami
+
 ## Punkty Dostępu API
 
 - Backend API: http://localhost:8000
@@ -224,14 +252,38 @@ curl "http://localhost:8000/api/v1/projects/$PROJECT_ID/personas"
 
 ### Proces Generowania Person
 
-Generowanie person używa **hybrydowego AI + statistical sampling**:
+Generowanie person używa **hybrydowego AI + statistical sampling + RAG**:
 1. Sample demografii z rozkładów docelowych (walidacja chi-kwadrat)
 2. Sample Big Five personality traits (rozkład normalny wokół średnich populacyjnych)
 3. Sample Hofstede cultural dimensions (bazowane na lokalizacji)
-4. Użyj Gemini do generacji realistycznej narracji profilu, tła, wartości
-5. Waliduj dopasowanie statystyczne finalnej kohorty
+4. **RAG z Hybrid Search (zawsze aktywny)**:
+   - **Vector search**: Semantic similarity przez Google Gemini embeddings
+   - **Keyword search**: Lexical matching przez Neo4j fulltext index
+   - **RRF Fusion**: Reciprocal Rank Fusion łączy oba wyniki (k=60)
+   - Pobiera najbardziej relevantny kontekst z raportów o polskim społeczeństwie
+5. Użyj Gemini do generacji realistycznej narracji profilu, tła, wartości z kontekstem RAG
+6. Waliduj dopasowanie statystyczne finalnej kohorty
+7. Waliduj zgodność wieku z opisem (ekstrakcja wieku z background_story)
+
+**Polskie Realia:**
+- Imiona i nazwiska: 60+ polskich imion męskich, 60+ żeńskich, 100+ nazwisk
+- Dochody w złotówkach (PLN): od <3000 zł do >15000 zł netto miesięcznie
+- Edukacja: polski system (podstawowe, zasadnicze zawodowe, średnie, policealne, wyższe)
+- Lokalizacje: Warszawa, Kraków, Wrocław, Gdańsk, etc.
+- Zawody: typowe dla polskiego rynku pracy
+- Wartości i zainteresowania: zgodne z polską kulturą
+
+**Dodatkowy Opis Grupy:**
+- Użytkownik może dodać opis w AI Wizard (np. "Osoby zainteresowane ekologią")
+- Opis jest przekazywany do promptu LLM i wpływa na cechy person
 
 **Wydajność:** ~30-60s dla 20 person (Gemini Flash)
+
+**Testowanie Hybrid Search:**
+```bash
+# Test RAG hybrid search (wymaga uruchomionego Neo4j + zaindeksowanych dokumentów)
+python scripts/test_hybrid_search.py
+```
 
 ## System Analizy Grafowej (Graf Wiedzy)
 

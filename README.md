@@ -159,6 +159,9 @@ docker-compose logs -f api
 
 # Wykonaj migracje bazy
 docker-compose exec api alembic upgrade head
+
+# Inicjalizuj Neo4j indexes dla RAG (WYMAGANE!)
+python scripts/init_neo4j_indexes.py
 ```
 
 ### 2.1. Restart i przywracanie kontenerów
