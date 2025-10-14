@@ -227,42 +227,27 @@ class RAGDocumentService:
                             "strength"          # Siła relacji: "strong", "moderate", "weak"
                         ],
                         additional_instructions="""
-                        INSTRUKCJE TWORZENIA GRAFU WIEDZY:
+JĘZYK: Wszystkie właściwości węzłów i relacji (streszczenie, opis, kluczowe_fakty, zrodlo, dowód) MUSZĄ być po polsku.
 
-                        1. WĘZŁY - Każdy węzeł MUSI zawierać bogate metadane:
-                           - description: Wyczerpujący opis kontekstu i znaczenia (2-3 zdania)
-                           - summary: Jednozdaniowe streszczenie najważniejszej informacji
-                           - key_facts: Lista kluczowych faktów oddzielonych średnikami (min. 2-3 fakty)
-                           - time_period: Określ okres czasu jeśli istnieje (format: "2020" lub "2018-2023")
-                           - magnitude: Dla wskaźników liczbowych podaj wartość z jednostką (np. "67%", "1.2 mln osób")
-                           - source_context: Zacytuj najważniejszy fragment źródłowy (20-50 słów)
-                           - confidence_level: Oceń pewność danych jako "high" (bezpośrednie dane),
-                             "medium" (wnioski), lub "low" (spekulacje)
+WĘZŁY - Każdy węzeł zawiera:
+- opis: Wyczerpujący opis kontekstu (2-3 zdania)
+- streszczenie: Jednozdaniowe streszczenie
+- kluczowe_fakty: Lista faktów oddzielonych średnikami (min. 2-3)
+- okres_czasu: Okres czasu (YYYY lub YYYY-YYYY)
+- skala: Wartość z jednostką (np. "67%", "1.2 mln osób")
+- zrodlo: Cytat ze źródła (20-50 słów)
+- pewnosc: "wysoka" (dane bezpośrednie), "srednia" (wnioski), "niska" (spekulacje)
 
-                        2. RELACJE - Każda relacja MUSI zawierać uzasadnienie:
-                           - confidence: Pewność relacji jako liczba 0.0-1.0 (string)
-                           - evidence: Konkretny dowód z tekstu uzasadniający relację
-                           - strength: "strong" (bezpośrednia zależność), "moderate" (prawdopodobna),
-                             "weak" (możliwa)
+RELACJE - Każda relacja zawiera:
+- pewność: Pewność 0.0-1.0 (string)
+- dowód: Dowód z tekstu uzasadniający relację
+- siła: "silna" (bezpośrednia), "umiarkowana" (prawdopodobna), "słaba" (możliwa)
 
-                        3. TYPY WĘZŁÓW - Używaj precyzyjnie:
-                           - Observation: Konkretne obserwacje, fakty z badań
-                           - Indicator: Wskaźniki liczbowe, statystyki, metryki
-                           - Demographic: Grupy demograficzne, populacje
-                           - Trend: Trendy czasowe, zmiany w czasie
-                           - Location: Miejsca geograficzne
-                           - Cause: Przyczyny zjawisk
-                           - Effect: Skutki, konsekwencje
+TYPY WĘZŁÓW (precyzyjnie):
+Observation (obserwacje), Indicator (wskaźniki liczbowe), Demographic (grupy), Trend (trendy czasowe), Location (miejsca), Cause (przyczyny), Effect (skutki)
 
-                        4. JAKOŚĆ DANYCH:
-                           - Zawsze podawaj source_context z bezpośrednim cytatem
-                           - key_facts muszą być konkretne i weryfikowalne
-                           - description powinien wyjaśniać kontekst i implikacje
-                           - Dla brakujących danych użyj "N/A" zamiast pomijać właściwość
-
-                        5. METADANE TECHNICZNE:
-                           - KRYTYCZNE: Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania
-                           - Te metadane są niezbędne do zarządzania cyklem życia dokumentów
+METADANE TECHNICZNE (KRYTYCZNE):
+Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                         """.strip(),
                     )
                     graph_documents = await transformer.aconvert_to_graph_documents(chunks)
@@ -639,6 +624,37 @@ class RAGDocumentService:
             logger.warning("Graph store nie jest dostępny - zwracam pusty kontekst grafowy")
             return []
 
+        # Mapowanie PL → EN dla dual-language search
+        # Problem: Graph nodes mogą mieć właściwości w języku angielskim (legacy data)
+        # Rozwiązanie: Dodajemy angielskie odpowiedniki polskich terminów
+        PL_TO_EN_SEARCH_TERMS = {
+            "wykształcenie wyższe": "higher education",
+            "studia": "university",
+            "uniwersytet": "university",
+            "wykształcenie średnie": "secondary education",
+            "liceum": "high school",
+            "zasadnicze zawodowe": "vocational",
+            "demografia": "demographic",
+            "społeczeństwo polskie": "Polish society",
+            "populacja": "population",
+            "kobieta": "female",
+            "mężczyzna": "male",
+            "zatrudnienie": "employment",
+            "praca": "work",
+            "dochód": "income",
+            "zarobki": "earnings",
+            "mieszkanie": "housing",
+            "edukacja": "education",
+            "zdrowie": "health",
+            "kultura": "culture",
+            "wskaźnik": "indicator",
+            "statystyka": "statistic",
+            "dane": "data",
+            "badanie": "research",
+            "raport": "report",
+            "analiza": "analysis",
+        }
+
         # Budujemy search terms dla zapytania
         # Normalizuj wartości dla lepszego matchingu
         search_terms = []
@@ -652,11 +668,13 @@ class RAGDocumentService:
         # Lokalizacja
         search_terms.append(location)
 
-        # Wykształcenie - normalizuj
+        # Wykształcenie - normalizuj + dual-language
         if "wyższe" in education.lower():
             search_terms.extend(["wykształcenie wyższe", "studia", "uniwersytet"])
         elif "średnie" in education.lower():
             search_terms.extend(["wykształcenie średnie", "liceum"])
+        elif "zawodowe" in education.lower():
+            search_terms.extend(["zasadnicze zawodowe", "zawodowe"])
         else:
             search_terms.append(education)
 
@@ -665,6 +683,21 @@ class RAGDocumentService:
 
         # Dodaj ogólne terminy demograficzne
         search_terms.extend(["demografia", "społeczeństwo polskie", "populacja"])
+
+        # DUAL-LANGUAGE: Dodaj angielskie odpowiedniki dla polskich terminów
+        # Tworzy kopię aby nie modyfikować listy podczas iteracji
+        search_terms_copy = search_terms.copy()
+        for pl_term in search_terms_copy:
+            pl_normalized = pl_term.lower().strip()
+            if pl_normalized in PL_TO_EN_SEARCH_TERMS:
+                en_term = PL_TO_EN_SEARCH_TERMS[pl_normalized]
+                if en_term not in search_terms:  # Unikaj duplikatów
+                    search_terms.append(en_term)
+
+        logger.debug(
+            "Graph context search terms (PL+EN): %s",
+            search_terms[:10]  # Log tylko pierwsze 10 aby nie zaśmiecać logów
+        )
 
         logger.info(
             "Pobieranie graph context dla: wiek=%s, lokalizacja=%s, wykształcenie=%s, płeć=%s",

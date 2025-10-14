@@ -503,6 +503,8 @@ ALLOWED_ORIGINS=*              # CORS origins (w prod: https://app.example.com)
 
 ## 🧪 Testowanie
 
+### Unit & Integration Tests
+
 ```bash
 # Wszystkie testy
 python -m pytest tests/ -v
@@ -531,6 +533,28 @@ python -m pytest tests/test_critical_paths.py -v
 - `test_auth_api.py` - autoryzacja i JWT
 - `test_main_api.py` - główne endpointy
 - `test_models.py` - modele bazy danych
+
+### RAG Testing & Optimization
+
+Narzędzia do testowania i optymalizacji systemu RAG/GraphRAG:
+
+```bash
+# Test hybrid search (basic)
+python tests/manual/test_hybrid_search.py
+
+# A/B comparison różnych konfiguracji RAG
+python tests/manual/test_rag_ab_comparison.py
+
+# Tuning parametru RRF_K (eksperymentuj z k=40,60,80)
+python tests/manual/test_rrf_k_tuning.py
+```
+
+**Co testują:**
+- **test_hybrid_search.py** - Weryfikacja działania vector + keyword search z RRF fusion
+- **test_rag_ab_comparison.py** - Porównanie performance (keyword coverage, relevance score, latency)
+- **test_rrf_k_tuning.py** - Optymalizacja RRF_K parameter dla twojego datasetu
+
+**Więcej informacji:** Zobacz [`docs/TESTING.md`](docs/TESTING.md#manual-rag-testing--optimization) dla szczegółowego guide
 
 ## 🐛 Troubleshooting
 

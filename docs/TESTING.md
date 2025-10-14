@@ -991,8 +991,197 @@ def test_something():
 
 ---
 
+---
+
+## Manual RAG Testing & Optimization
+
+Zestaw narzędzi do testowania i optymalizacji systemu RAG/GraphRAG w `tests/manual/`.
+
+### 📋 Przegląd Test Scripts
+
+#### 1. `test_hybrid_search.py` - Basic Hybrid Search Test
+
+**Cel:** Weryfikacja działania hybrydowego wyszukiwania (vector + keyword + RRF fusion).
+
+```bash
+python tests/manual/test_hybrid_search.py
+```
+
+**Co testuje:**
+- Vector search results
+- Keyword search results
+- RRF fusion results
+- Score distribution
+- Fragment kontekstu
+
+**Kiedy używać:**
+- Po zmianie konfiguracji RAG
+- Debugowanie problemów z retrieval
+- Quick sanity check że system działa
+
+---
+
+#### 2. `test_rag_ab_comparison.py` - A/B Performance Comparison
+
+**Cel:** Porównanie performance różnych konfiguracji RAG.
+
+```bash
+python tests/manual/test_rag_ab_comparison.py
+```
+
+**Co mierzy:**
+- **Keyword coverage** - % oczekiwanych keywords w wynikach
+- **Relevance score** - Aggregate quality metric
+- **Latency** - Czas retrieval
+- **Context length** - Długość zwróconego kontekstu
+
+**Test queries:**
+- Młoda kobieta w stolicy z wyższym wykształceniem
+- Senior w małym mieście z podstawowym wykształceniem
+- Osoba w średnim wieku, średnie miasto
+- Młody absolwent szukający pracy
+
+**Jak interpretować wyniki:**
+
+| Metric | Good | Warning | Action |
+|--------|------|---------|--------|
+| Keyword coverage | >70% | <70% | Zwiększ TOP_K lub zmniejsz chunk_size |
+| Relevance score | >0.50 | <0.50 | Tune RRF_K lub włącz reranking |
+| Latency | <1.5s | >1.5s | Zmniejsz TOP_K lub wyłącz reranking |
+
+---
+
+#### 3. `test_rrf_k_tuning.py` - RRF Parameter Optimization
+
+**Cel:** Znalezienie optymalnej wartości RRF_K dla twojego datasetu.
+
+```bash
+python tests/manual/test_rrf_k_tuning.py
+```
+
+**Co testuje:**
+- k=40 (elitarne) - większy wpływ top results
+- k=60 (standardowe) - balans
+- k=80 (demokratyczne) - równomierne traktowanie
+
+**Rekomendacja:**
+- **k=40** - Jeśli zależy ci na precision (lepsze top 3 results)
+- **k=60** - Jeśli chcesz balans między precision i recall
+- **k=80** - Jeśli chcesz równomierne traktowanie wszystkich results
+
+---
+
+### 🔧 Workflow Optymalizacji
+
+#### Quick Start (Nowa Konfiguracja)
+
+1. **Zmień parametry w `app/core/config.py`:**
+```python
+RAG_CHUNK_SIZE = 1000  # Eksperymentuj: 800, 1000, 1200
+RAG_TOP_K = 8          # Eksperymentuj: 5, 8, 10
+```
+
+2. **Re-ingest dokumenty** (WAŻNE przy zmianie chunk_size!):
+```bash
+# Clear old chunks
+docker-compose exec neo4j cypher-shell -u neo4j -p dev_password_change_in_prod \
+  "MATCH (n:RAGChunk) DETACH DELETE n"
+
+# Upload dokumenty ponownie przez API
+```
+
+3. **Uruchom A/B comparison:**
+```bash
+python tests/manual/test_rag_ab_comparison.py
+```
+
+4. **Porównaj z baseline** i zdecyduj czy trzymać zmiany.
+
+#### Deep Optimization (Fine-tuning)
+
+1. Tune RRF_K: `python tests/manual/test_rrf_k_tuning.py`
+2. Update `config.py` z best k
+3. Verify z A/B comparison
+4. Commit jeśli lepsze
+
+#### Continuous Monitoring
+
+Uruchamiaj co 2-4 tygodnie lub po każdej zmianie:
+```bash
+# Quick check
+python tests/manual/test_hybrid_search.py
+
+# Full comparison (co miesiąc)
+python tests/manual/test_rag_ab_comparison.py
+```
+
+---
+
+### 📊 Baseline Metrics (Reference)
+
+**Old Configuration (przed optymalizacją):**
+```
+CHUNK_SIZE: 2000, OVERLAP: 400 (20%), TOP_K: 5, MAX_CONTEXT: 5000
+Results: coverage ~65%, relevance ~0.45, latency ~0.30s, truncation 50%
+```
+
+**Current Configuration (zoptymalizowana):**
+```
+CHUNK_SIZE: 1000, OVERLAP: 300 (30%), TOP_K: 8, MAX_CONTEXT: 12000, RERANKING: True
+Expected: coverage ~75-80%, relevance ~0.55-0.60, latency ~0.35-0.40s, truncation 0%
+```
+
+---
+
+### 🐛 Troubleshooting RAG Tests
+
+**"No results returned"**
+- Sprawdź czy Neo4j działa: `docker-compose ps neo4j`
+- Sprawdź zaindeksowane dokumenty: `curl http://localhost:8000/api/v1/rag/documents`
+- Sprawdź indexes: Neo4j Browser → `SHOW INDEXES`
+
+**"Keyword coverage very low (<40%)"**
+- Zwiększ TOP_K (8 → 10)
+- Zmniejsz chunk_size (1000 → 800)
+- Sprawdź czy test queries pasują do dokumentów
+
+**"Relevance score low (<0.40)"**
+- Tune RRF_K (użyj `test_rrf_k_tuning.py`)
+- Włącz reranking (`RAG_USE_RERANKING=True`)
+- Sprawdź jakość embeddings
+
+**"Latency too high (>2s)"**
+- Zmniejsz TOP_K (8 → 5)
+- Wyłącz reranking (`RAG_USE_RERANKING=False`)
+- Zmniejsz `RAG_RERANK_CANDIDATES` (25 → 15)
+
+**"Import errors (sentence-transformers)"**
+```bash
+pip install sentence-transformers
+# Lub wyłącz reranking: RAG_USE_RERANKING=False
+```
+
+---
+
+### 💡 Best Practices
+
+1. **Zawsze testuj przed commitem** - Uruchom przynajmniej `test_hybrid_search.py`
+2. **Re-ingest po zmianie chunk_size** - Stare chunki nie będą pasować
+3. **Dokumentuj baseline** - Zapisz metrics przed zmianą dla porównania
+4. **Iteruj stopniowo** - Zmień jeden parameter na raz
+5. **Measure, don't guess** - Nie zakładaj że większe = lepsze, testuj!
+
+---
+
+**Dodatkowe zasoby:**
+- **docs/RAG.md** - Kompletna dokumentacja systemu RAG
+- **app/core/config.py** - Wszystkie parametry konfiguracji
+- **app/services/rag_service.py** - Implementacja RAG
+
+---
+
 **Koniec dokumentacji testów**
 
-Ostatnia aktualizacja: 2025-10-12
-Wersja: 2.0 (po reorganizacji struktury)
+Ostatnia aktualizacja: 2025-10-14
+Wersja: 2.1 (dodano RAG testing & optimization)
 Liczba testów: 208

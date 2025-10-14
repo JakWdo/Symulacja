@@ -1,4 +1,25 @@
-# Market Research SaaS - Roadmap & Future Improvements
+# PLAN.md - Roadmap & Task Tracking
+
+**WAŻNE:** Ten plik jest używany przez Claude Code do trackowania zadań i planowania rozwoju.
+
+---
+
+## 📋 Jak używać tego pliku?
+
+### Dla Claude Code:
+1. **Przed rozpoczęciem zadania** - Przeczytaj odpowiednią sekcję, sprawdź czy podobne zadanie nie istnieje
+2. **Po zakończeniu zadania** - Zaznacz jako zrealizowane `[x]` i dodaj datę w formacie `(2025-10-14)`
+3. **Dodawanie nowych zadań** - Grupuj według obszaru, dodaj do odpowiedniej sekcji "Priorities"
+4. **Aktualizacja** - Aktualizuj ten plik przy każdej większej zmianie w projekcie
+
+### Dla Developerów:
+- Checklisty są pogrupowane według obszarów funkcjonalnych
+- Priorytety znajdują się na końcu dokumentu (High/Medium/Low)
+- Zrealizowane zadania pozostają w dokumencie (dla historii i trackowania postępu)
+
+---
+
+## 🗺️ Roadmap & Future Improvements
 
 Plan rozwoju platformy z podziałem na obszary funkcjonalne.
 
@@ -115,17 +136,50 @@ Plan rozwoju platformy z podziałem na obszary funkcjonalne.
 
 ## RAG & Knowledge Graph
 
+### Chunking & Context Optimization (ZREALIZOWANE 2025-10-14) ✅
+- [x] Optymalizacja chunk_size (2000 → 1000 znaków) dla lepszej precyzji embeddings (2025-10-14)
+- [x] Zwiększenie overlap (20% → 30%) dla lepszej ciągłości kontekstu (2025-10-14)
+- [x] Zwiększenie TOP_K (5 → 8) dla kompensacji mniejszych chunków (2025-10-14)
+- [x] Zwiększenie MAX_CONTEXT (5000 → 12000) zapobiegające truncation (2025-10-14)
+
+### Reranking & Precision (ZREALIZOWANE 2025-10-14) ✅
+- [x] Cross-encoder reranking dla precyzyjniejszego scoringu (2025-10-14)
+- [x] Multilingual reranker (mmarco-mMiniLMv2) dla wsparcia polskiego (2025-10-14)
+- [x] A/B testing framework (test_rag_ab_comparison.py) (2025-10-14)
+- [x] RRF_K tuning tools (test_rrf_k_tuning.py) (2025-10-14)
+
 ### Hybrid Search Improvements
 - [ ] BM25 keyword search zamiast fulltext (lepsze ranking)
 - [ ] Query expansion (synonimy, related terms)
-- [ ] Re-ranking za pomocą cross-encoder
 - [ ] Multi-query retrieval (generuj wiele queries z jednego pytania)
+
+### Chunking Strategy (PRIORYTET ŚREDNI)
+- [ ] **Semantic chunking** - Split bazując na semantic similarity, nie arbitrary char count
+  - LangChain `SemanticChunker` lub custom implementation
+  - Zachowuje tematyczną spójność chunków
+  - Problem: Arbitrary char count często rozdziela ważne informacje
+  - Rozwiązanie: Chunki są naturalnie spójne semantycznie
+
+### Graph Node Enrichment (PRIORYTET ŚREDNI)
+- [ ] **Improved graph node matching** - Cosine similarity zamiast word overlap dla enrichment
+  - Obecny matching (word overlap) daje dużo false positives/negatives
+  - Cosine similarity między chunk embedding a graph node properties
+  - Albo TF-IDF scoring dla weighted matching
+  - Zwiększ próg z >=2 matches → semantic threshold (cosine >0.7)
 
 ### Graph RAG Enhancements
 - [ ] Community detection w grafie (clustery person/konceptów)
 - [ ] Graph traversal queries (find paths between concepts)
 - [ ] Temporal graph analysis (zmiany opinii w czasie)
 - [ ] Entity linking (Wikipedia, DBpedia)
+
+### Graph Prompt Optimization (PRIORYTET ŚREDNI)
+- [ ] **Graph prompt simplification** - Zmniejsz liczbę required properties dla lepszego fill-rate
+  - Problem: Validation pokazuje >30% nodes bez pełnych metadanych
+  - Obecne: 7 node properties + 3 relationship properties = LLM ma trudności
+  - Rozwiązanie: Zmniejsz do must-have only (description, summary, confidence_level)
+  - Albo two-pass approach: extract nodes → enrich properties w drugim LLM call
+  - Lepiej mniej properties, ale wypełnione quality data
 
 ### Document Management
 - [ ] Web scraping dla public reports
@@ -138,6 +192,25 @@ Plan rozwoju platformy z podziałem na obszary funkcjonalne.
 - [ ] Multi-lingual embeddings (Polish + English)
 - [ ] Fine-tuned embeddings dla domain-specific content
 - [ ] Embeddings compression (quantization) dla mniejszych storage
+
+### Advanced RAG Features (PRIORYTET NISKI - Eksperymentalne)
+- [ ] **Dynamic TOP_K** - Dostosuj k w zależności od query complexity
+  - LLM klasyfikuje query jako simple/medium/complex
+  - Simple queries → TOP_K=5 (mniej noise)
+  - Complex queries → TOP_K=12-15 (więcej kontekstu)
+  - Wymaga query complexity classifier (może być prosty heuristic lub ML model)
+
+- [ ] **Dimensionality reduction** - PCA z 3072 → 1024 wymiary dla Google embeddings
+  - Może przyspieszyć vector search (mniejsze wektory = szybsze dot product)
+  - Może obniżyć quality retrieval
+  - Wymaga EXTENSIVE testing na production data
+  - Trade-off: speed vs accuracy
+
+- [ ] **Custom Polish cross-encoder** - Trenuj domain-specific reranker na polskich tekstach demograficznych
+  - Obecny mmarco model jest multilingual ale generic
+  - Custom model trenowany na polskich social research texts
+  - Długoterminowy projekt (requires labeled query-document pairs)
+  - Wymaga: 1000+ labeled pairs (query, relevant_doc, irrelevant_doc)
 
 ---
 
@@ -316,18 +389,22 @@ Plan rozwoju platformy z podziałem na obszary funkcjonalne.
 - CI/CD Pipeline
 - Real-time focus group updates (WebSockets)
 - Test coverage improvements
+- ✅ RAG optimization (chunking, reranking, A/B testing) - DONE 2025-10-14
 
 ### Medium Priority (3-6 months)
 - Multi-model LLM support
-- Graph RAG enhancements
 - Frontend performance optimization
 - API rate limiting
+- **RAG Chunking Strategy** - Semantic chunking implementation (split by semantic similarity)
+- **Graph Node Enrichment** - Improved matching (cosine similarity vs word overlap)
+- **Graph Prompt Optimization** - Simplification dla lepszego fill-rate (zmniejsz required properties)
 
 ### Low Priority (6-12 months)
 - Kubernetes migration (jeśli potrzebne)
 - Multi-language i18n
 - Advanced analytics dashboard
 - Third-party integrations
+- **Advanced RAG Features** - Dynamic TOP_K, dimensionality reduction (PCA), custom Polish cross-encoder
 
 ---
 

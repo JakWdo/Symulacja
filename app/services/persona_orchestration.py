@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 
 class GraphInsight(BaseModel):
-    """Pojedynczy insight z grafu wiedzy (Indicator, Observation, Trend)."""
+    """Pojedynczy insight z grafu wiedzy (Wskaznik, Obserwacja, Trend)."""
 
-    type: str = Field(description="Typ węzła (Indicator, Observation, Trend, etc.)")
+    type: str = Field(description="Typ węzła (Wskaznik, Obserwacja, Trend, etc.)")
     summary: str = Field(description="Jednozdaniowe podsumowanie")
     magnitude: Optional[str] = Field(default=None, description="Wartość liczbowa jeśli istnieje (np. '78.4%')")
     confidence: str = Field(default="medium", description="Poziom pewności: high, medium, low")
@@ -63,7 +63,7 @@ class PersonaOrchestrationService:
     """Serwis orkiestracji używający Gemini 2.5 Pro do tworzenia briefów.
 
     Ten serwis:
-    1. Pobiera comprehensive Graph RAG context (Indicators, Demographics, Trends)
+    1. Pobiera comprehensive Graph RAG context (Wskazniki, Grupy_Demograficzne, Trendy)
     2. Przeprowadza głęboką socjologiczną analizę używając Gemini 2.5 Pro
     3. Tworzy szczegółowe briefe (2000-3000 znaków) dla każdej grupy person
     4. Wyjaśnia "dlaczego" (edukacyjny output style) dla wszystkich decyzji
@@ -161,7 +161,7 @@ class PersonaOrchestrationService:
             target_demographics: Rozkład demograficzny (age_group, gender, etc.)
 
         Returns:
-            Sformatowany string z Graph RAG context (Indicators, Observations, Trends)
+            Sformatowany string z Graph RAG context (Wskazniki, Obserwacje, Trendy)
         """
         # Przygotuj queries dla hybrid search
         queries = []
@@ -248,7 +248,7 @@ class PersonaOrchestrationService:
         """Buduje prompt w stylu edukacyjnym dla Gemini 2.5 Pro.
 
         Prompt instruuje LLM aby:
-        1. Przeanalizować Graph RAG context (Indicators, Observations)
+        1. Przeanalizować Graph RAG context (Wskazniki, Obserwacje)
         2. Wyjaśnić "dlaczego" dla każdej decyzji (edukacyjny styl)
         3. Utworzyć DŁUGIE (2000-3000 znaków) briefe dla każdej grupy
         4. Użyć konwersacyjnego tonu (jak kolega z zespołu)
@@ -405,7 +405,7 @@ Generuj JSON zgodny z tym schematem:
       "brief": "BARDZO DŁUGI (2000-3000 znaków) edukacyjny brief jak w przykładzie...",
       "graph_insights": [
         {{
-          "type": "Indicator",
+          "type": "Wskaznik",
           "summary": "Stopa zatrudnienia kobiet 25-34 z wyższym",
           "magnitude": "78.4%",
           "confidence": "high",

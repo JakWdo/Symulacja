@@ -82,13 +82,17 @@ class Settings(BaseSettings):
     # Globalny toggle dla systemu RAG
     RAG_ENABLED: bool = True
     # Rozmiar chunków tekstowych (znaki)
-    RAG_CHUNK_SIZE: int = 2000
+    # Mniejsze chunki dają lepszą precyzję embeddings - jeden embedding reprezentuje bardziej focused kontekst
+    RAG_CHUNK_SIZE: int = 1000
     # Overlap między chunkami (znaki)
-    RAG_CHUNK_OVERLAP: int = 400
+    # 30% overlap zapobiega rozdzielaniu ważnych informacji między chunkami
+    RAG_CHUNK_OVERLAP: int = 300
     # Liczba top wyników z retrieval
-    RAG_TOP_K: int = 5
+    # Więcej results kompensuje mniejszy rozmiar chunków, zachowując podobną ilość kontekstu
+    RAG_TOP_K: int = 8
     # Maksymalna długość kontekstu RAG (znaki)
-    RAG_MAX_CONTEXT_CHARS: int = 5000
+    # Wystarczająco duży aby pomieścić TOP_K chunków + graph context bez truncation
+    RAG_MAX_CONTEXT_CHARS: int = 12000
     # Ścieżka do katalogu z dokumentami
     DOCUMENT_STORAGE_PATH: str = "data/documents"
     # Maksymalny rozmiar uploadowanego dokumentu (50MB)
@@ -97,14 +101,18 @@ class Settings(BaseSettings):
     RAG_USE_HYBRID_SEARCH: bool = True
     # Hybrid search: waga vector search (0.0-1.0, reszta to keyword)
     RAG_VECTOR_WEIGHT: float = 0.7
-    # RRF k parameter (wygładzanie rangi)
+    # RRF k parameter (wygładzanie rangi w Reciprocal Rank Fusion)
+    # Niższe k (40) favoryzuje top results, wyższe k (80) traktuje równomiernie
+    # k=60 to sprawdzony balans - eksperymentuj używając test_rrf_k_tuning.py
     RAG_RRF_K: int = 60
-    # Reranking: włącz cross-encoder reranking dla lepszej precision
+    # Reranking: włącz cross-encoder dla precyzyjniejszego scoringu query-document pairs
     RAG_USE_RERANKING: bool = True
     # Liczba candidatów dla reranking (przed finalnym top_k)
-    RAG_RERANK_CANDIDATES: int = 20
+    # Cross-encoder jest wolniejszy, więc rerankujemy więcej niż potrzebujemy i bierzemy top
+    RAG_RERANK_CANDIDATES: int = 25
     # Cross-encoder model dla reranking
-    RAG_RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    # Multilingual model wspiera polski lepiej niż English-only ms-marco-MiniLM
+    RAG_RERANKER_MODEL: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
 
     # === GraphRAG NODE PROPERTIES ===
     # Włączanie bogatych metadanych węzłów
@@ -120,7 +128,8 @@ class Settings(BaseSettings):
     # Model do generowania embeddingów tekstowych
     EMBEDDING_MODEL: str = "gemini-embedding-001"
     # Wymiarowość wektorów embeddingowych
-    EMBEDDING_DIMENSION: int = 768
+    # gemini-embedding-001 generuje 3072-wymiarowe wektory (nie 768!)
+    EMBEDDING_DIMENSION: int = 3072
 
     # === CELERY (zadania asynchroniczne) ===
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"

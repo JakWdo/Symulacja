@@ -96,7 +96,7 @@ def init_neo4j_indexes():
                     ON n.embedding
                     OPTIONS {
                         indexConfig: {
-                            `vector.dimensions`: 768,
+                            `vector.dimensions`: 3072,
                             `vector.similarity_function`: 'cosine'
                         }
                     }
@@ -106,7 +106,7 @@ def init_neo4j_indexes():
                 print("   Index: rag_document_embeddings")
                 print("   Node: RAGChunk")
                 print("   Property: embedding")
-                print("   Dimensions: 768 (Google Gemini text-embedding-004)")
+                print("   Dimensions: 3072 (Google Gemini gemini-embedding-001)")
                 print("   Similarity: cosine")
 
         except Exception as e:

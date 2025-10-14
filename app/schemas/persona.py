@@ -219,7 +219,7 @@ class PersonaResponse(BaseModel):
 class GraphInsightResponse(BaseModel):
     """Pojedynczy insight z grafu wiedzy."""
 
-    type: str = Field(description="Typ węzła (Indicator, Observation, Trend, etc.)")
+    type: str = Field(description="Typ węzła (Wskaznik, Obserwacja, Trend, etc.)")
     summary: str = Field(description="Jednozdaniowe podsumowanie")
     magnitude: Optional[str] = Field(default=None, description="Wartość liczbowa jeśli istnieje (np. '78.4%')")
     confidence: str = Field(default="medium", description="Poziom pewności: high, medium, low")

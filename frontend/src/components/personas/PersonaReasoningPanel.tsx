@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Persona, PersonaReasoning } from '@/types';
-import { personasApi } from '@/lib/api';
+import { analysisApi } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,7 +28,7 @@ interface PersonaReasoningPanelProps {
 export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
   const { data: reasoning, isLoading, error } = useQuery<PersonaReasoning>({
     queryKey: ['persona-reasoning', persona.id],
-    queryFn: () => personasApi.getPersonaReasoning(persona.id),
+    queryFn: () => analysisApi.getPersonaReasoning(persona.id),
     staleTime: 10 * 60 * 1000, // 10 minut cache
   });
 
