@@ -30,7 +30,9 @@ from typing import Dict, List, Any, Optional, Tuple
 from uuid import UUID
 from functools import lru_cache
 
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,6 +63,7 @@ from app.core.constants import (
 )
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 logger = logging.getLogger(__name__)
 
@@ -556,9 +559,11 @@ def _normalize_distribution(
     status_code=202,
     summary="Start persona generation job",
 )
+@limiter.limit("10/hour")  # Security: Limit expensive LLM operations
 async def generate_personas(
+    request: Request,  # Required by slowapi limiter
     project_id: UUID,
-    request: PersonaGenerateRequest,
+    generate_request: PersonaGenerateRequest,
     _background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),  # Potrzebne do weryfikacji projektu przed uruchomieniem zadania
     current_user: User = Depends(get_current_user),
@@ -598,26 +603,26 @@ async def generate_personas(
         "Persona generation request received",
         extra={
             "project_id": str(project_id),
-            "num_personas": request.num_personas,
-            "adversarial_mode": request.adversarial_mode,
+            "num_personas": generate_request.num_personas,
+            "adversarial_mode": generate_request.adversarial_mode,
         },
     )
 
     # Przygotuj advanced options (konwertuj None fields)
     advanced_payload = (
-        request.advanced_options.model_dump(exclude_none=True)
-        if request.advanced_options
+        generate_request.advanced_options.model_dump(exclude_none=True)
+        if generate_request.advanced_options
         else None
     )
 
     # Utwórz zadanie asynchroniczne
-    logger.info(f"Creating async task for persona generation (project={project_id}, personas={request.num_personas}, use_rag={request.use_rag})")
+    logger.info(f"Creating async task for persona generation (project={project_id}, personas={generate_request.num_personas}, use_rag={generate_request.use_rag})")
     task = asyncio.create_task(_generate_personas_task(
         project_id,
-        request.num_personas,
-        request.adversarial_mode,
+        generate_request.num_personas,
+        generate_request.adversarial_mode,
         advanced_payload,
-        request.use_rag,
+        generate_request.use_rag,
     ))
 
     # Zachowujemy referencję do zadania, aby GC go nie usunął
@@ -628,8 +633,8 @@ async def generate_personas(
     return {
         "message": "Persona generation started in background",
         "project_id": str(project_id),
-        "num_personas": request.num_personas,
-        "adversarial_mode": request.adversarial_mode,
+        "num_personas": generate_request.num_personas,
+        "adversarial_mode": generate_request.adversarial_mode,
     }
 
 
@@ -903,8 +908,9 @@ async def _generate_personas_task(
                             extra={"project_id": str(project_id), "index": idx},
                         )
 
-                    # Ekstrakcja RAG citations (jeśli były używane)
+                    # Ekstrakcja RAG citations i details (jeśli były używane)
                     rag_citations = personality.get("_rag_citations")
+                    rag_context_details = personality.get("_rag_context_details")
                     rag_context_used = bool(rag_citations)
 
                     persona_payload = {
@@ -924,6 +930,7 @@ async def _generate_personas_task(
                         "personality_prompt": prompt,
                         "rag_context_used": rag_context_used,
                         "rag_citations": rag_citations,
+                        "rag_context_details": rag_context_details,  # NOWE POLE
                         **psychological
                     }
 

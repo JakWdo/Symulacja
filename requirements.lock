@@ -1,0 +1,21 @@
+# Requirements Lock File
+# ======================
+# Ten plik zawiera zakpinowane wersje wszystkich zależności dla reproducible builds.
+#
+# INSTRUKCJA UŻYCIA:
+# 1. Development: pip install -r requirements.txt
+# 2. Production: pip install -r requirements.lock
+# 3. Update dependencies:
+#    - pip install -U -r requirements.txt
+#    - pip freeze > requirements.lock
+#
+# UWAGA: requirements.lock będzie wygenerowany po pierwszym docker build
+# lub przez uruchomienie: docker-compose exec api pip freeze > requirements.lock
+#
+# Zalecenia bezpieczeństwa:
+# - Regularne updaty (np. co miesiąc)
+# - Sprawdzanie CVE przed updatem (pip-audit, safety)
+# - Testowanie przed wdrożeniem do produkcji
+
+# Ten plik zostanie wygenerowany automatycznie podczas pierwszego buildu
+# Placeholder - uruchom: docker-compose exec api pip freeze > requirements.lock

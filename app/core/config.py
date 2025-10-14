@@ -91,16 +91,34 @@ class Settings(BaseSettings):
     RAG_MAX_CONTEXT_CHARS: int = 5000
     # Ścieżka do katalogu z dokumentami
     DOCUMENT_STORAGE_PATH: str = "data/documents"
+    # Maksymalny rozmiar uploadowanego dokumentu (50MB)
+    MAX_DOCUMENT_SIZE_MB: int = 50
     # Hybrid search: czy używać keyword search + vector search
     RAG_USE_HYBRID_SEARCH: bool = True
     # Hybrid search: waga vector search (0.0-1.0, reszta to keyword)
     RAG_VECTOR_WEIGHT: float = 0.7
     # RRF k parameter (wygładzanie rangi)
     RAG_RRF_K: int = 60
+    # Reranking: włącz cross-encoder reranking dla lepszej precision
+    RAG_USE_RERANKING: bool = True
+    # Liczba candidatów dla reranking (przed finalnym top_k)
+    RAG_RERANK_CANDIDATES: int = 20
+    # Cross-encoder model dla reranking
+    RAG_RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+    # === GraphRAG NODE PROPERTIES ===
+    # Włączanie bogatych metadanych węzłów
+    RAG_NODE_PROPERTIES_ENABLED: bool = True
+    # Ekstrakcja summary dla każdego węzła
+    RAG_EXTRACT_SUMMARIES: bool = True
+    # Ekstrakcja key_facts dla węzłów
+    RAG_EXTRACT_KEY_FACTS: bool = True
+    # Ekstrakcja confidence dla relacji
+    RAG_RELATIONSHIP_CONFIDENCE: bool = True
 
     # === EMBEDDINGS (Google Gemini) ===
     # Model do generowania embeddingów tekstowych
-    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    EMBEDDING_MODEL: str = "gemini-embedding-001"
     # Wymiarowość wektorów embeddingowych
     EMBEDDING_DIMENSION: int = 768
 

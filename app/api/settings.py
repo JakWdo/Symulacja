@@ -189,8 +189,24 @@ async def upload_avatar(
     # Usuń stary avatar jeśli istnieje
     if current_user.avatar_url:
         old_avatar_path = Path(current_user.avatar_url.lstrip('/'))
-        if old_avatar_path.exists():
-            old_avatar_path.unlink()
+        # Security: Waliduj że path jest wewnątrz AVATAR_DIR (ochrona przed path traversal)
+        try:
+            old_avatar_path = old_avatar_path.resolve()
+            avatar_dir_resolved = AVATAR_DIR.resolve()
+            if not str(old_avatar_path).startswith(str(avatar_dir_resolved)):
+                logger.warning(
+                    "Attempt to delete file outside avatar directory: %s",
+                    current_user.avatar_url
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid avatar path"
+                )
+            if old_avatar_path.exists():
+                old_avatar_path.unlink()
+        except (ValueError, OSError) as e:
+            logger.error("Error deleting old avatar: %s", e)
+            # Kontynuuj nawet jeśli usunięcie się nie powiodło
 
     # Generuj unikalną nazwę pliku
     file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
@@ -233,8 +249,24 @@ async def delete_avatar(
 
     # Usuń plik z dysku
     avatar_path = Path(current_user.avatar_url.lstrip('/'))
-    if avatar_path.exists():
-        avatar_path.unlink()
+    # Security: Waliduj że path jest wewnątrz AVATAR_DIR (ochrona przed path traversal)
+    try:
+        avatar_path = avatar_path.resolve()
+        avatar_dir_resolved = AVATAR_DIR.resolve()
+        if not str(avatar_path).startswith(str(avatar_dir_resolved)):
+            logger.warning(
+                "Attempt to delete file outside avatar directory: %s",
+                current_user.avatar_url
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid avatar path"
+            )
+        if avatar_path.exists():
+            avatar_path.unlink()
+    except (ValueError, OSError) as e:
+        logger.error("Error deleting avatar file: %s", e)
+        # Kontynuuj - usuń URL z bazy nawet jeśli plik nie został usunięty
 
     # Usuń URL z bazy
     current_user.avatar_url = None

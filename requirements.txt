@@ -1,3 +1,16 @@
+# Requirements for Development
+# ==============================
+# Ten plik zawiera unpinned dependencies dla elastycznego developmentu.
+# Dla produkcji użyj requirements.lock z zakpinowanymi wersjami.
+#
+# Generowanie lock file:
+#   docker-compose exec api pip freeze > requirements.lock
+#
+# Zalecane narzędzia security:
+#   pip install pip-audit safety
+#   pip-audit  # Sprawdź znane CVE
+#   safety check  # Sprawdź znane vulnerabilities
+
 # Core Framework
 fastapi
 uvicorn[standard]
@@ -59,6 +72,7 @@ python-jose[cryptography]
 bcrypt
 python-dotenv
 email-validator
+slowapi  # Rate limiting for FastAPI
 
 # Utilities
 python-dateutil
@@ -87,3 +101,4 @@ openpyxl
 docling>=2.0.0
 pypdf
 python-docx
+sentence-transformers==2.7.0

@@ -16,7 +16,11 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from app.core.config import get_settings
+from app.middleware.security import SecurityHeadersMiddleware
 from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_router, rag
 import logging
 
@@ -26,11 +30,27 @@ settings = get_settings()
 
 # Walidacja krytycznych ustawień w produkcji
 if settings.ENVIRONMENT == "production":
+    # Security: Walidacja SECRET_KEY
     if settings.SECRET_KEY == "change-me":
         raise ValueError(
             "SECRET_KEY must be changed in production! "
             "Generate a secure key with: openssl rand -hex 32"
         )
+    if len(settings.SECRET_KEY) < 32:
+        raise ValueError(
+            "SECRET_KEY must be at least 32 characters in production! "
+            f"Current length: {len(settings.SECRET_KEY)}. "
+            "Generate a secure key with: openssl rand -hex 32"
+        )
+    # Warn jeśli SECRET_KEY wygląda słabo (tylko alfanumeryczne znaki)
+    if settings.SECRET_KEY.isalnum():
+        logger.warning(
+            "SECRET_KEY appears weak (only alphanumeric). "
+            "Consider using special characters for better security. "
+            "Generate with: openssl rand -hex 32"
+        )
+
+    # Security: Walidacja database passwords
     if "password" in settings.DATABASE_URL.lower() or "dev_password" in settings.DATABASE_URL.lower():
         raise ValueError(
             "Default database password detected in production! "
@@ -45,11 +65,19 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Setup Rate Limiting
+# Security: Rate limiting chroni przed brute force, DoS i abuse API
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Middleware CORS - ograniczenie origin w zależności od środowiska
-# Tryb deweloperski: wszystkie originy dozwolone (*)
+# Security: NIE używaj wildcard ["*"] z credentials nawet w development
+# Tryb deweloperski: localhost origins (frontend dev servers)
 # Tryb produkcyjny: tylko originy z ALLOWED_ORIGINS (np. https://app.example.com)
 allowed_origins = (
-    ["*"] if settings.ENVIRONMENT == "development"
+    ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"]
+    if settings.ENVIRONMENT == "development"
     else settings.ALLOWED_ORIGINS.split(",")
 )
 app.add_middleware(
@@ -59,6 +87,11 @@ app.add_middleware(
     allow_methods=["*"],  # Wszystkie metody HTTP (GET, POST, PUT, DELETE itp.)
     allow_headers=["*"],  # Wszystkie nagłówki
 )
+
+# Security Headers Middleware
+# Dodaje OWASP-recommended headers: X-Frame-Options, CSP, X-Content-Type-Options, etc.
+enable_hsts = settings.ENVIRONMENT == "production"  # HSTS tylko na HTTPS w produkcji
+app.add_middleware(SecurityHeadersMiddleware, enable_hsts=enable_hsts)
 
 # Podpinamy katalog plików statycznych (avatary)
 app.mount("/static", StaticFiles(directory="static"), name="static")

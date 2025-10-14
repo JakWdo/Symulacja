@@ -1,7 +1,5 @@
 """Router FastAPI obsługujący operacje na bazie wiedzy RAG oraz Graph RAG."""
 
-from __future__ import annotations
-
 import logging
 import shutil
 import uuid
@@ -15,9 +13,12 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Request,
     UploadFile,
     status,
 )
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user, get_db
@@ -38,6 +39,7 @@ from app.services.rag_service import RAGDocumentService, PolishSocietyRAG
 settings = get_settings()
 router = APIRouter(prefix="/rag", tags=["RAG Knowledge Base"])
 logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 
 _rag_document_service: RAGDocumentService | None = None
 _polish_society_rag: PolishSocietyRAG | None = None
@@ -100,7 +102,9 @@ async def _process_document_background(doc_id: uuid.UUID, file_path: str, metada
 
 
 @router.post("/documents/upload", response_model=RAGDocumentResponse, status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("20/hour")  # Security: Limit document uploads (expensive processing)
 async def upload_document(
+    request: Request,  # Required by slowapi limiter
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str = Form(...),
@@ -110,12 +114,14 @@ async def upload_document(
 ):
     """Przyjmuje dokument, zapisuje go na dysku i uruchamia asynchroniczne przetwarzanie."""
 
-    if not file.filename:
+    # Security: Walidacja filename
+    if not file.filename or '\0' in file.filename or len(file.filename) > 255:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Nazwa pliku jest wymagana.",
+            detail="Nazwa pliku jest wymagana i musi być prawidłowa.",
         )
 
+    # Security: Whitelist extension check
     extension = Path(file.filename).suffix.lower()
     if extension not in {".pdf", ".docx"}:
         raise HTTPException(
@@ -123,16 +129,29 @@ async def upload_document(
             detail=f"Nieobsługiwany typ pliku: {extension}. Dozwolone: PDF, DOCX.",
         )
 
+    # Security: File size limit (50MB default)
+    max_size_bytes = settings.MAX_DOCUMENT_SIZE_MB * 1024 * 1024
+    file.file.seek(0, 2)  # Seek to end
+    file_size = file.file.tell()
+    file.file.seek(0)  # Seek back to start
+
+    if file_size > max_size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Plik za duży. Maksymalny rozmiar: {settings.MAX_DOCUMENT_SIZE_MB}MB (plik ma {file_size / 1024 / 1024:.1f}MB)",
+        )
+
     storage_path = Path(settings.DOCUMENT_STORAGE_PATH)
     storage_path.mkdir(parents=True, exist_ok=True)
 
+    # UUID w nazwie zapewnia unikalność i chroni przed path traversal
     stored_filename = f"{uuid.uuid4()}{extension}"
     stored_path = storage_path / stored_filename
 
     try:
         with stored_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        logger.info("Plik %s zapisany jako %s", file.filename, stored_path)
+        logger.info("Plik %s (%d bytes) zapisany jako %s", file.filename, file_size, stored_path)
     except Exception as exc:
         logger.error("Nie udało się zapisać pliku: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Nie udało się zapisać pliku na dysku.")
