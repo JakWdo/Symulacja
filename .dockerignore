@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Frontend (nie potrzebne w backend image)
+frontend/
+node_modules/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Tests (opcjonalnie - możesz odkomentować jeśli nie chcesz testów w image)
+# tests/
+
+# Data directories (lokalnie dla dev)
+data/
+*.sqlite
+*.db
+
+# Logs
+*.log
+logs/
+
+# Static files generowane przez aplikację
+static/avatars/*
+!static/avatars/.gitkeep
+
+# Alembic compiled files (będą zregenerowane)
+alembic/__pycache__/

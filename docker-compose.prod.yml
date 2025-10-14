@@ -1,0 +1,340 @@
+# ==============================================================================
+# DOCKER COMPOSE - PRODUCTION ENVIRONMENT
+# ==============================================================================
+# Ten plik konfiguruje środowisko produkcyjne z:
+# - Frontend: Nginx serving static build (zoptymalizowane)
+# - Backend: Gunicorn z multiple workers (production ASGI server)
+# - BRAK hot reload, BRAK volume mounts
+# - Resource limits i security hardening
+# - SSL/TLS ready (dodaj certyfikaty)
+#
+# UŻYCIE:
+#   docker-compose -f docker-compose.prod.yml up -d --build
+#   docker-compose -f docker-compose.prod.yml logs -f
+#   docker-compose -f docker-compose.prod.yml down
+#
+# WAŻNE PRZED DEPLOYEM:
+#   1. Zmień SECRET_KEY w .env.production
+#   2. Zmień hasła baz danych
+#   3. Skonfiguruj ALLOWED_ORIGINS (tylko trusted domains)
+#   4. Włącz HTTPS/SSL certyfikaty
+#   5. Skonfiguruj backupy dla volumes
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # POSTGRES + pgvector - Główna baza danych (PRODUCTION)
+  # ============================================================================
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: market_research_postgres_prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-market_research}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password is required}
+      POSTGRES_DB: ${POSTGRES_DB:-market_research_db}
+    ports:
+      # NIE expose na host w produkcji (tylko internal Docker network)
+      # Odkomentuj jeśli potrzebujesz external access:
+      # - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-market_research} -d ${POSTGRES_DB:-market_research_db}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    # Resource limits (dostosuj do swoich potrzeb)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # ============================================================================
+  # REDIS - Cache i session storage (PRODUCTION)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: market_research_redis_prod
+    ports:
+      # NIE expose na host w produkcji
+      # - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # Production persistence: RDB + AOF
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  # ============================================================================
+  # NEO4J - Graf wiedzy (PRODUCTION)
+  # ============================================================================
+  neo4j:
+    image: neo4j:5.23
+    container_name: market_research_neo4j_prod
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?Neo4j password is required}
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
+      NEO4J_dbms_memory_heap_max__size: ${NEO4J_HEAP_SIZE:-2G}
+      NEO4J_dbms_memory_pagecache_size: ${NEO4J_PAGECACHE_SIZE:-1G}
+      # Security: Tylko localhost access (internal Docker network)
+      NEO4J_dbms_connector_bolt_listen__address: 0.0.0.0:7687
+      NEO4J_dbms_connector_http_listen__address: 0.0.0.0:7474
+    ports:
+      # NIE expose na host w produkcji (tylko internal access)
+      # Odkomentuj jeśli potrzebujesz Neo4j Browser:
+      # - "7474:7474"
+      # - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  # ============================================================================
+  # API - FastAPI Backend (PRODUCTION with Gunicorn)
+  # ============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        TARGET: production
+    container_name: market_research_api_prod
+    ports:
+      # NIE expose na host (nginx będzie proxy)
+      # Odkomentuj jeśli chcesz direct access:
+      # - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    environment:
+      # Database URLs (używają Docker internal network)
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-market_research}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-market_research_db}
+      - REDIS_URL=redis://redis:6379/0
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+
+      # Application config
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required in production}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:?GOOGLE_API_KEY is required}
+
+      # Security
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://yourdomain.com}
+
+      # Performance
+      - WORKERS=${GUNICORN_WORKERS:-4}
+      - MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-1000}
+      - MAX_REQUESTS_JITTER=${GUNICORN_MAX_REQUESTS_JITTER:-50}
+
+    # BRAK volume mounts - używamy kodu z image
+    # Wyjątek: static files (avatary) persist między deployami
+    volumes:
+      - api_static:/app/static
+
+    # Production ASGI server: Gunicorn z Uvicorn workers
+    command: >
+      gunicorn app.main:app
+      --worker-class uvicorn.workers.UvicornWorker
+      --workers ${GUNICORN_WORKERS:-4}
+      --bind 0.0.0.0:8000
+      --max-requests ${GUNICORN_MAX_REQUESTS:-1000}
+      --max-requests-jitter ${GUNICORN_MAX_REQUESTS_JITTER:-50}
+      --timeout 120
+      --graceful-timeout 30
+      --keep-alive 5
+      --access-logfile -
+      --error-logfile -
+      --log-level info
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    restart: always
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # ============================================================================
+  # FRONTEND - Nginx serving React static build (PRODUCTION)
+  # ============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      # PRODUCTION target: nginx + static files
+      target: production
+      args:
+        # Pass API URL dla build time (env var w Vite)
+        - VITE_API_URL=${VITE_API_URL:-http://api:8000}
+    container_name: market_research_frontend_prod
+    ports:
+      - "80:80"    # HTTP
+      # - "443:443"  # HTTPS (odkomentuj gdy dodasz SSL certs)
+    depends_on:
+      - api
+
+    # BRAK volume mounts - używamy static build z image
+    # Opcjonalnie: volume dla nginx logs
+    volumes:
+      - nginx_logs:/var/log/nginx
+      # Dla SSL certyfikatów (jeśli używasz Let's Encrypt):
+      # - ./certs:/etc/nginx/certs:ro
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    restart: always
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+        reservations:
+          cpus: '0.5'
+          memory: 128M
+
+# ==============================================================================
+# NAMED VOLUMES - Persistence dla produkcji
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+    # W produkcji rozważ external volumes z backupami:
+    # external: true
+
+  redis_data:
+    driver: local
+
+  neo4j_data:
+    driver: local
+
+  neo4j_logs:
+    driver: local
+
+  api_static:
+    driver: local
+
+  nginx_logs:
+    driver: local
+
+# ==============================================================================
+# NETWORKS (opcjonalne - dla advanced setup)
+# ==============================================================================
+# Możesz oddzielić frontend network od backend network dla security
+# networks:
+#   frontend:
+#     driver: bridge
+#   backend:
+#     driver: bridge
+#     internal: true  # No external access
+
+# ==============================================================================
+# DEPLOYMENT CHECKLIST
+# ==============================================================================
+# PRZED URUCHOMIENIEM:
+#
+# 1. SECURITY:
+#    [ ] Zmieniono SECRET_KEY na secure random string
+#    [ ] Zmieniono hasła baz danych (POSTGRES_PASSWORD, NEO4J_PASSWORD)
+#    [ ] ALLOWED_ORIGINS zawiera TYLKO trusted domains
+#    [ ] SSL/TLS certyfikaty skonfigurowane (nginx)
+#    [ ] Firewall rules ustawione (tylko 80, 443 exposed)
+#
+# 2. ENVIRONMENT:
+#    [ ] .env.production file stworzony
+#    [ ] GOOGLE_API_KEY ustawiony
+#    [ ] Database credentials bezpiecznie przechowywane (secrets manager)
+#    [ ] VITE_API_URL ustawiony na production domain
+#
+# 3. BACKUPS:
+#    [ ] Backup strategy dla postgres_data
+#    [ ] Backup strategy dla neo4j_data
+#    [ ] Backup strategy dla api_static (avatary)
+#    [ ] Backup retention policy zdefiniowany
+#
+# 4. MONITORING:
+#    [ ] Logging do external system (ELK, CloudWatch, etc.)
+#    [ ] Metrics collection (Prometheus, DataDog, etc.)
+#    [ ] Alerting skonfigurowany (email, Slack, PagerDuty)
+#    [ ] Health check endpoints działają
+#
+# 5. PERFORMANCE:
+#    [ ] Gunicorn workers dostosowane do CPU count (2-4x cores)
+#    [ ] Database connection pools skonfigurowane
+#    [ ] Redis maxmemory policy ustawiony
+#    [ ] Neo4j memory limits dostosowane do RAM
+#
+# 6. COMPLIANCE:
+#    [ ] GDPR compliance (data retention, user deletion)
+#    [ ] Privacy policy updated
+#    [ ] Terms of service updated
+#    [ ] Cookie consent implemented
+#
+# DEPLOY:
+#   docker-compose -f docker-compose.prod.yml up -d --build
+#   docker-compose -f docker-compose.prod.yml ps
+#   docker-compose -f docker-compose.prod.yml logs -f
+#
+# ROLLBACK (jeśli coś pójdzie nie tak):
+#   docker-compose -f docker-compose.prod.yml down
+#   docker-compose -f docker-compose.prod.yml up -d <previous_image_tag>
+# ==============================================================================

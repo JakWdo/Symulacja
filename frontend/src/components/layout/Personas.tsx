@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   MoreVertical,
   Plus,
@@ -21,9 +22,12 @@ import {
   Filter,
   Database,
   Quote,
+  Brain,
+  User,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
+import { PersonaReasoningPanel } from '@/components/personas/PersonaReasoningPanel';
 import { projectsApi, personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
@@ -971,104 +975,166 @@ export function Personas() {
       {/* Persona Detail Dialog */}
       <Dialog open={!!selectedPersona} onOpenChange={() => setSelectedPersona(null)}>
         <DialogContent className="bg-background border border-border text-foreground max-w-4xl max-h-[80vh] overflow-y-auto">
-          {selectedPersona && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-xl">{selectedPersona.name}</DialogTitle>
-                <DialogDescription>
-                  Szczegółowy profil persony z danymi demograficznymi, psychograficznymi i kontekstem zachowań.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6">
-                {/* Basic Info */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Wiek</p>
-                    <p className="text-foreground">{formatAge(selectedPersona.age)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Zawód</p>
-                    <p className="text-foreground">{selectedPersona.occupation}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Lokalizacja</p>
-                    <p className="text-foreground">{selectedPersona.demographics.location}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Dochód</p>
-                    <p className="text-foreground">{selectedPersona.demographics.income}</p>
-                  </div>
-                </div>
+          {selectedPersona && (() => {
+            // Znajdź odpowiednią API persona dla reasoning panel
+            const apiPersona = apiPersonas.find(p => p.id === selectedPersona.id);
 
-                {/* Background */}
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Kontekst</p>
-                  <p className="text-foreground">{selectedPersona.background}</p>
-                </div>
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-xl">{selectedPersona.name}</DialogTitle>
+                  <DialogDescription>
+                    Szczegółowy profil persony z danymi demograficznymi, psychograficznymi i kontekstem zachowań.
+                  </DialogDescription>
+                </DialogHeader>
 
-                {/* Demographics */}
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Dane demograficzne</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Płeć</p>
-                      <p className="text-foreground">{selectedPersona.demographics.gender}</p>
+                <Tabs defaultValue="profile" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="profile" className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Profil
+                    </TabsTrigger>
+                    <TabsTrigger value="reasoning" className="flex items-center gap-2">
+                      <Brain className="h-4 w-4" />
+                      Uzasadnienie
+                    </TabsTrigger>
+                    <TabsTrigger value="rag" className="flex items-center gap-2">
+                      <Database className="h-4 w-4" />
+                      Kontekst RAG
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="profile" className="space-y-6 mt-6">
+                    {/* Basic Info */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Wiek</p>
+                        <p className="text-foreground">{formatAge(selectedPersona.age)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Zawód</p>
+                        <p className="text-foreground">{selectedPersona.occupation}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Lokalizacja</p>
+                        <p className="text-foreground">{selectedPersona.demographics.location}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Dochód</p>
+                        <p className="text-foreground">{selectedPersona.demographics.income}</p>
+                      </div>
                     </div>
+
+                    {/* Background */}
                     <div>
-                      <p className="text-xs text-muted-foreground">Wykształcenie</p>
-                      <p className="text-foreground">{selectedPersona.demographics.education}</p>
+                      <p className="text-sm text-muted-foreground mb-2">Kontekst</p>
+                      <p className="text-foreground">{selectedPersona.background}</p>
                     </div>
-                  </div>
-                </div>
 
-                {/* Interests */}
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Zainteresowania</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedPersona.interests.map((interest, idx) => (
-                      <Badge key={idx} variant="secondary" className="bg-muted text-muted-foreground">
-                        {interest}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Psychographics */}
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">Psychografia</p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Demographics */}
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Osobowość</p>
-                      <div className="space-y-1">
-                        {selectedPersona.psychographics.personality.map((trait, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs mr-1">
-                            {trait}
+                      <p className="text-sm text-muted-foreground mb-2">Dane demograficzne</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Płeć</p>
+                          <p className="text-foreground">{selectedPersona.demographics.gender}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Wykształcenie</p>
+                          <p className="text-foreground">{selectedPersona.demographics.education}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Interests */}
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Zainteresowania</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedPersona.interests.map((interest, idx) => (
+                          <Badge key={idx} variant="secondary" className="bg-muted text-muted-foreground">
+                            {interest}
                           </Badge>
                         ))}
                       </div>
                     </div>
 
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Wartości</p>
-                      <div className="space-y-1">
-                        {selectedPersona.psychographics.values.map((value, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs mr-1">
-                            {value}
-                          </Badge>
-                        ))}
+                    {/* Psychographics */}
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">Psychografia</p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Osobowość</p>
+                          <div className="space-y-1">
+                            {selectedPersona.psychographics.personality.map((trait, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs mr-1">
+                                {trait}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Wartości</p>
+                          <div className="space-y-1">
+                            {selectedPersona.psychographics.values.map((value, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs mr-1">
+                                {value}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Styl życia</p>
+                          <p className="text-xs text-foreground">{selectedPersona.psychographics.lifestyle}</p>
+                        </div>
                       </div>
                     </div>
+                  </TabsContent>
 
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Styl życia</p>
-                      <p className="text-xs text-foreground">{selectedPersona.psychographics.lifestyle}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+                  <TabsContent value="reasoning" className="mt-6">
+                    {apiPersona ? (
+                      <PersonaReasoningPanel persona={apiPersona} />
+                    ) : (
+                      <div className="text-center text-muted-foreground py-8">
+                        Ładowanie danych reasoning...
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="rag" className="mt-6">
+                    {apiPersona?.rag_context_used && apiPersona?.rag_citations ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Quote className="h-5 w-5 text-primary" />
+                          <h3 className="font-semibold">Kontekst z Bazy Wiedzy RAG</h3>
+                          <Badge variant="outline">{apiPersona.rag_citations.length} cytowań</Badge>
+                        </div>
+                        {apiPersona.rag_citations.map((citation, idx) => (
+                          <Card key={idx}>
+                            <CardContent className="pt-4">
+                              <div className="flex justify-between items-start mb-2">
+                                <p className="font-medium text-sm">{citation.document_title}</p>
+                                <Badge variant="secondary">
+                                  {(citation.relevance_score * 100).toFixed(0)}% relevance
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{citation.chunk_text}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center text-muted-foreground py-8">
+                        Brak kontekstu RAG dla tej persony
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

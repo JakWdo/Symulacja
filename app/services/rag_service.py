@@ -212,15 +212,69 @@ class RAGDocumentService:
                             "LEADS_TO",
                             "COMPARES_TO",
                         ],
+                        node_properties=[
+                            "description",      # Szczegółowy opis węzła (2-3 zdania)
+                            "summary",          # Krótkie podsumowanie (1 zdanie)
+                            "key_facts",        # Lista kluczowych faktów (string, separated by semicolons)
+                            "time_period",      # Okres czasu (jeśli dotyczy, format: "YYYY" lub "YYYY-YYYY")
+                            "magnitude",        # Wielkość/skala dla wskaźników (string z jednostką)
+                            "source_context",   # Bezpośredni cytat lub kontekst źródłowy
+                            "confidence_level"  # Poziom pewności informacji: "high", "medium", "low"
+                        ],
+                        relationship_properties=[
+                            "confidence",       # Pewność relacji (0.0-1.0 jako string)
+                            "evidence",         # Dowód/uzasadnienie relacji (cytat lub wyjaśnienie)
+                            "strength"          # Siła relacji: "strong", "moderate", "weak"
+                        ],
                         additional_instructions="""
-                        Dla każdego fragmentu utwórz węzły opisujące obserwacje, wskaźniki
-                        oraz zależności przyczynowo-skutkowe. Zachowaj metadane doc_id i
-                        chunk_index w wygenerowanych węzłach, aby umożliwić późniejsze
-                        usuwanie danych powiązanych z dokumentem.
+                        INSTRUKCJE TWORZENIA GRAFU WIEDZY:
+
+                        1. WĘZŁY - Każdy węzeł MUSI zawierać bogate metadane:
+                           - description: Wyczerpujący opis kontekstu i znaczenia (2-3 zdania)
+                           - summary: Jednozdaniowe streszczenie najważniejszej informacji
+                           - key_facts: Lista kluczowych faktów oddzielonych średnikami (min. 2-3 fakty)
+                           - time_period: Określ okres czasu jeśli istnieje (format: "2020" lub "2018-2023")
+                           - magnitude: Dla wskaźników liczbowych podaj wartość z jednostką (np. "67%", "1.2 mln osób")
+                           - source_context: Zacytuj najważniejszy fragment źródłowy (20-50 słów)
+                           - confidence_level: Oceń pewność danych jako "high" (bezpośrednie dane),
+                             "medium" (wnioski), lub "low" (spekulacje)
+
+                        2. RELACJE - Każda relacja MUSI zawierać uzasadnienie:
+                           - confidence: Pewność relacji jako liczba 0.0-1.0 (string)
+                           - evidence: Konkretny dowód z tekstu uzasadniający relację
+                           - strength: "strong" (bezpośrednia zależność), "moderate" (prawdopodobna),
+                             "weak" (możliwa)
+
+                        3. TYPY WĘZŁÓW - Używaj precyzyjnie:
+                           - Observation: Konkretne obserwacje, fakty z badań
+                           - Indicator: Wskaźniki liczbowe, statystyki, metryki
+                           - Demographic: Grupy demograficzne, populacje
+                           - Trend: Trendy czasowe, zmiany w czasie
+                           - Location: Miejsca geograficzne
+                           - Cause: Przyczyny zjawisk
+                           - Effect: Skutki, konsekwencje
+
+                        4. JAKOŚĆ DANYCH:
+                           - Zawsze podawaj source_context z bezpośrednim cytatem
+                           - key_facts muszą być konkretne i weryfikowalne
+                           - description powinien wyjaśniać kontekst i implikacje
+                           - Dla brakujących danych użyj "N/A" zamiast pomijać właściwość
+
+                        5. METADANE TECHNICZNE:
+                           - KRYTYCZNE: Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania
+                           - Te metadane są niezbędne do zarządzania cyklem życia dokumentów
                         """.strip(),
                     )
                     graph_documents = await transformer.aconvert_to_graph_documents(chunks)
-                    self.graph_store.add_graph_documents(graph_documents, include_source=True)
+
+                    # Wzbogacenie węzłów o metadane dokumentu
+                    enriched_graph_documents = self._enrich_graph_nodes(
+                        graph_documents,
+                        doc_id=str(doc_id),
+                        metadata=metadata
+                    )
+
+                    self.graph_store.add_graph_documents(enriched_graph_documents, include_source=True)
                     logger.info("Zapisano strukturę grafową dla dokumentu %s", doc_id)
                 except Exception as graph_exc:  # pragma: no cover - logujemy, ale nie przerywamy
                     logger.error(
@@ -256,6 +310,122 @@ class RAGDocumentService:
             )
             return {"num_chunks": 0, "status": "failed", "error": str(exc)}
 
+    def _enrich_graph_nodes(
+        self,
+        graph_documents: List[Any],
+        doc_id: str,
+        metadata: Dict[str, Any]
+    ) -> List[Any]:
+        """Wzbogaca węzły grafu o metadane dokumentu i waliduje jakość danych.
+
+        Args:
+            graph_documents: Lista GraphDocument z LLMGraphTransformer
+            doc_id: UUID dokumentu źródłowego
+            metadata: Metadane dokumentu (title, country, itp.)
+
+        Returns:
+            Lista wzbogaconych GraphDocument z pełnymi metadanymi
+
+        Proces wzbogacania:
+            1. Dodaje doc_id, chunk_index do każdego węzła
+            2. Dodaje metadane dokumentu: title, country, date
+            3. Waliduje jakość metadanych węzłów (sprawdza czy summary i description nie są puste)
+            4. Dodaje timestamp przetwarzania
+            5. Normalizuje formaty danych (confidence, magnitude)
+        """
+        from datetime import datetime, timezone
+
+        logger.info(
+            "Wzbogacam %s dokumentów grafu o metadane doc_id=%s",
+            len(graph_documents),
+            doc_id
+        )
+
+        enriched_count = 0
+        validation_warnings = 0
+
+        for graph_doc in graph_documents:
+            # Pobierz chunk_index z source document jeśli dostępny
+            chunk_index = graph_doc.source.metadata.get("chunk_index", 0) if graph_doc.source else 0
+
+            # Wzbogacenie węzłów
+            for node in graph_doc.nodes:
+                # 1. METADANE TECHNICZNE (krytyczne dla usuwania dokumentów)
+                if not hasattr(node, 'properties'):
+                    node.properties = {}
+
+                node.properties['doc_id'] = doc_id
+                node.properties['chunk_index'] = chunk_index
+                node.properties['processed_at'] = datetime.now(timezone.utc).isoformat()
+
+                # 2. METADANE DOKUMENTU (kontekst źródłowy)
+                node.properties['document_title'] = metadata.get('title', 'Unknown')
+                node.properties['document_country'] = metadata.get('country', 'Poland')
+                if metadata.get('date'):
+                    node.properties['document_year'] = str(metadata.get('date'))
+
+                # 3. WALIDACJA JAKOŚCI METADANYCH
+                # Sprawdź czy kluczowe właściwości są wypełnione
+                if node.properties.get('summary') in (None, '', 'N/A'):
+                    validation_warnings += 1
+                    logger.debug(
+                        "Węzeł '%s' nie ma summary - LLM może nie wyekstraktować wszystkich właściwości",
+                        node.id
+                    )
+
+                if node.properties.get('description') in (None, '', 'N/A'):
+                    validation_warnings += 1
+
+                # 4. NORMALIZACJA FORMATÓW
+                # Confidence level normalizacja
+                confidence = node.properties.get('confidence_level', '').lower()
+                if confidence not in ('high', 'medium', 'low'):
+                    node.properties['confidence_level'] = 'medium'  # default
+
+                # Magnitude - upewnij się że jest stringiem
+                if node.properties.get('magnitude') and not isinstance(node.properties['magnitude'], str):
+                    node.properties['magnitude'] = str(node.properties['magnitude'])
+
+                enriched_count += 1
+
+            # Wzbogacenie relacji
+            for relationship in graph_doc.relationships:
+                if not hasattr(relationship, 'properties'):
+                    relationship.properties = {}
+
+                # Metadane techniczne
+                relationship.properties['doc_id'] = doc_id
+                relationship.properties['chunk_index'] = chunk_index
+
+                # Normalizacja confidence (string -> float validation)
+                if relationship.properties.get('confidence'):
+                    try:
+                        conf_value = float(relationship.properties['confidence'])
+                        # Clamp do 0.0-1.0
+                        relationship.properties['confidence'] = str(max(0.0, min(1.0, conf_value)))
+                    except (ValueError, TypeError):
+                        relationship.properties['confidence'] = '0.5'  # default
+
+                # Normalizacja strength
+                strength = relationship.properties.get('strength', '').lower()
+                if strength not in ('strong', 'moderate', 'weak'):
+                    relationship.properties['strength'] = 'moderate'  # default
+
+        logger.info(
+            "Wzbogacono %s węzłów. Ostrzeżenia walidacji: %s",
+            enriched_count,
+            validation_warnings
+        )
+
+        if validation_warnings > enriched_count * 0.3:  # >30% węzłów bez summary
+            logger.warning(
+                "Wysoki odsetek węzłów (%s%%) bez pełnych metadanych. "
+                "LLM może potrzebować lepszych instrukcji lub większego kontekstu.",
+                int(validation_warnings / enriched_count * 100)
+            )
+
+        return graph_documents
+
     def _generate_cypher_query(self, question: str) -> GraphRAGQuery:
         """Używa LLM do przełożenia pytania użytkownika na zapytanie Cypher."""
 
@@ -270,9 +440,40 @@ class RAGDocumentService:
                     """
                     Jesteś analitykiem badań społecznych. Twoim zadaniem jest zamiana pytania
                     użytkownika na zapytanie Cypher korzystające z poniższego schematu grafu.
-                    Skup się na odnajdywaniu ścieżek do głębokości 3 pomiędzy kluczowymi encjami
-                    (Observation, Indicator, Demographic, Trend, Location, Cause, Effect).
-                    Zwracaj zapytania, które dostarczą pełnych właściwości węzłów oraz relacji.
+
+                    DOSTĘPNE WŁAŚCIWOŚCI WĘZŁÓW:
+                    - description: Szczegółowy opis kontekstu (2-3 zdania)
+                    - summary: Jednozdaniowe podsumowanie
+                    - key_facts: Lista kluczowych faktów (oddzielone średnikami)
+                    - time_period: Okres czasu (YYYY lub YYYY-YYYY)
+                    - magnitude: Wielkość/skala z jednostką
+                    - source_context: Cytat ze źródła
+                    - confidence_level: Pewność danych (high/medium/low)
+                    - document_title: Tytuł dokumentu źródłowego
+                    - document_country: Kraj dokumentu
+                    - document_year: Rok dokumentu
+
+                    DOSTĘPNE WŁAŚCIWOŚCI RELACJI:
+                    - confidence: Pewność relacji (0.0-1.0)
+                    - evidence: Dowód/uzasadnienie relacji
+                    - strength: Siła relacji (strong/moderate/weak)
+
+                    INSTRUKCJE TWORZENIA ZAPYTAŃ:
+                    1. Skup się na odnajdywaniu ścieżek do głębokości 3 między encjami
+                       (Observation, Indicator, Demographic, Trend, Location, Cause, Effect)
+                    2. ZAWSZE zwracaj właściwości węzłów (description, summary, key_facts, itp.)
+                    3. Filtruj po confidence_level węzłów jeśli użytkownik pyta o pewne fakty
+                    4. Filtruj po strength relacji jeśli użytkownik pyta o silne zależności
+                    5. Sortuj po magnitude dla pytań o największe/najmniejsze wskaźniki
+                    6. Filtruj po time_period dla pytań czasowych
+                    7. Używaj source_context w odpowiedziach dla weryfikowalności
+
+                    PRZYKŁADY ZAPYTAŃ:
+                    - "Jakie są największe wskaźniki?" -> sortuj po magnitude
+                    - "Jakie są pewne fakty o X?" -> filtruj confidence_level = 'high'
+                    - "Jak X wpływa na Y?" -> filtruj strength = 'strong' w relacjach LEADS_TO
+                    - "Co się zmieniło w latach 2020-2023?" -> filtruj time_period
+
                     Schemat grafu: {graph_schema}
                     """.strip(),
                 ),
@@ -398,6 +599,198 @@ class RAGDocumentService:
         except Exception as exc:  # pragma: no cover - logujemy, ale nie przerywamy
             logger.error("Nie udało się usunąć chunków dokumentu %s z Neo4j: %s", doc_id, exc)
 
+    def get_demographic_graph_context(
+        self,
+        age_group: str,
+        location: str,
+        education: str,
+        gender: str
+    ) -> List[Dict[str, Any]]:
+        """Pobiera strukturalny kontekst z grafu wiedzy dla profilu demograficznego.
+
+        Wykonuje zapytania Cypher na grafie aby znaleźć:
+        1. Indicators (wskaźniki) - z magnitude, confidence_level
+        2. Observations (obserwacje) - z key_facts
+        3. Trends (trendy) - z time_period
+        4. Demographics nodes powiązane z profilem
+
+        Args:
+            age_group: Grupa wiekowa (np. "25-34")
+            location: Lokalizacja (np. "Warszawa")
+            education: Poziom wykształcenia (np. "wyższe")
+            gender: Płeć (np. "kobieta")
+
+        Returns:
+            Lista słowników z węzłami grafu i ich właściwościami:
+            [
+                {
+                    "type": "Indicator" | "Observation" | "Trend" | "Demographic",
+                    "summary": str,
+                    "key_facts": str,
+                    "magnitude": str,
+                    "confidence_level": str,
+                    "time_period": str,
+                    "source_context": str
+                },
+                ...
+            ]
+        """
+        if not self.graph_store:
+            logger.warning("Graph store nie jest dostępny - zwracam pusty kontekst grafowy")
+            return []
+
+        # Budujemy search terms dla zapytania
+        # Normalizuj wartości dla lepszego matchingu
+        search_terms = []
+
+        # Wiek - ekstrakcja liczb z zakresu
+        if "-" in age_group:
+            age_parts = age_group.split("-")
+            search_terms.extend(age_parts)
+        search_terms.append(age_group)
+
+        # Lokalizacja
+        search_terms.append(location)
+
+        # Wykształcenie - normalizuj
+        if "wyższe" in education.lower():
+            search_terms.extend(["wykształcenie wyższe", "studia", "uniwersytet"])
+        elif "średnie" in education.lower():
+            search_terms.extend(["wykształcenie średnie", "liceum"])
+        else:
+            search_terms.append(education)
+
+        # Płeć
+        search_terms.append(gender)
+
+        # Dodaj ogólne terminy demograficzne
+        search_terms.extend(["demografia", "społeczeństwo polskie", "populacja"])
+
+        logger.info(
+            "Pobieranie graph context dla: wiek=%s, lokalizacja=%s, wykształcenie=%s, płeć=%s",
+            age_group, location, education, gender
+        )
+
+        try:
+            # Zapytanie Cypher: Znajdź węzły które pasują do search terms
+            # confidence_level jest opcjonalny - preferujemy 'high' ale akceptujemy wszystkie
+            cypher_query = """
+            // Parametry: $search_terms - lista słów kluczowych do matchingu
+
+            // 1. Znajdź Indicators (preferuj high confidence jeśli istnieje)
+            MATCH (ind:Indicator)
+            WHERE ANY(term IN $search_terms WHERE
+                ind.summary CONTAINS term OR
+                ind.description CONTAINS term OR
+                ind.key_facts CONTAINS term
+            )
+            WITH ind
+            ORDER BY
+                CASE WHEN ind.confidence_level = 'high' THEN 0
+                     WHEN ind.confidence_level = 'medium' THEN 1
+                     ELSE 2 END,
+                size(coalesce(ind.key_facts, '')) DESC
+            LIMIT 3
+            WITH collect({
+                type: 'Indicator',
+                summary: ind.summary,
+                key_facts: ind.key_facts,
+                magnitude: ind.magnitude,
+                confidence_level: coalesce(ind.confidence_level, 'unknown'),
+                time_period: ind.time_period,
+                source_context: ind.source_context,
+                description: ind.description
+            }) AS indicators
+
+            // 2. Znajdź Observations (preferuj high confidence jeśli istnieje)
+            MATCH (obs:Observation)
+            WHERE ANY(term IN $search_terms WHERE
+                obs.summary CONTAINS term OR
+                obs.description CONTAINS term OR
+                obs.key_facts CONTAINS term
+            )
+            WITH indicators, obs
+            ORDER BY
+                CASE WHEN obs.confidence_level = 'high' THEN 0
+                     WHEN obs.confidence_level = 'medium' THEN 1
+                     ELSE 2 END,
+                size(coalesce(obs.key_facts, '')) DESC
+            LIMIT 3
+            WITH indicators, collect({
+                type: 'Observation',
+                summary: obs.summary,
+                key_facts: obs.key_facts,
+                confidence_level: coalesce(obs.confidence_level, 'unknown'),
+                time_period: obs.time_period,
+                source_context: obs.source_context,
+                description: obs.description
+            }) AS observations
+
+            // 3. Znajdź Trends
+            MATCH (trend:Trend)
+            WHERE ANY(term IN $search_terms WHERE
+                trend.summary CONTAINS term OR
+                trend.description CONTAINS term
+            )
+            WITH indicators, observations, trend
+            ORDER BY size(coalesce(trend.key_facts, '')) DESC
+            LIMIT 2
+            WITH indicators, observations, collect({
+                type: 'Trend',
+                summary: trend.summary,
+                key_facts: trend.key_facts,
+                time_period: trend.time_period,
+                source_context: trend.source_context,
+                description: trend.description
+            }) AS trends
+
+            // 4. Znajdź Demographics nodes
+            MATCH (demo:Demographic)
+            WHERE ANY(term IN $search_terms WHERE
+                demo.summary CONTAINS term OR
+                demo.description CONTAINS term
+            )
+            WITH indicators, observations, trends, demo
+            ORDER BY
+                CASE WHEN demo.confidence_level = 'high' THEN 0
+                     WHEN demo.confidence_level = 'medium' THEN 1
+                     ELSE 2 END
+            LIMIT 2
+            WITH indicators, observations, trends, collect({
+                type: 'Demographic',
+                summary: demo.summary,
+                key_facts: demo.key_facts,
+                confidence_level: coalesce(demo.confidence_level, 'unknown'),
+                source_context: demo.source_context,
+                description: demo.description
+            }) AS demographics
+
+            // 5. Połącz wszystkie wyniki
+            RETURN indicators + observations + trends + demographics AS graph_context
+            """
+
+            result = self.graph_store.query(
+                cypher_query,
+                params={"search_terms": search_terms}
+            )
+
+            if not result or not result[0].get('graph_context'):
+                logger.info("Brak wyników z grafu dla podanego profilu demograficznego")
+                return []
+
+            graph_context = result[0]['graph_context']
+            logger.info("Pobrano %s węzłów grafu z kontekstem demograficznym", len(graph_context))
+
+            return graph_context
+
+        except Exception as exc:
+            logger.error(
+                "Błąd podczas pobierania graph context: %s",
+                exc,
+                exc_info=True
+            )
+            return []
+
 
 class PolishSocietyRAG:
     """Hybrydowe wyszukiwanie kontekstu dla generatora person.
@@ -432,9 +825,45 @@ class PolishSocietyRAG:
 
             if settings.RAG_USE_HYBRID_SEARCH:
                 asyncio.create_task(self._ensure_fulltext_index())
+
+            # Inicjalizuj RAGDocumentService dla dostępu do graph context
+            # Używamy leniwej inicjalizacji aby uniknąć circular dependency
+            self._rag_doc_service = None
+
+            # Inicjalizuj cross-encoder dla reranking (opcjonalny)
+            self.reranker = None
+            if settings.RAG_USE_RERANKING:
+                try:
+                    from sentence_transformers import CrossEncoder
+                    self.reranker = CrossEncoder(
+                        settings.RAG_RERANKER_MODEL,
+                        max_length=512
+                    )
+                    logger.info(
+                        "Cross-encoder reranker zainicjalizowany: %s",
+                        settings.RAG_RERANKER_MODEL
+                    )
+                except ImportError:
+                    logger.warning(
+                        "sentence-transformers nie jest zainstalowany - reranking wyłączony. "
+                        "Zainstaluj: pip install sentence-transformers"
+                    )
+                except Exception as rerank_exc:
+                    logger.warning(
+                        "Nie udało się załadować reranker: %s - kontynuacja bez rerankingu",
+                        rerank_exc
+                    )
+
         except Exception as exc:  # pragma: no cover - logujemy, ale nie przerywamy
             logger.error("Nie udało się zainicjalizować PolishSocietyRAG: %s", exc)
             self.vector_store = None
+
+    @property
+    def rag_doc_service(self) -> RAGDocumentService:
+        """Leniwą inicjalizacja RAGDocumentService dla dostępu do graph context."""
+        if self._rag_doc_service is None:
+            self._rag_doc_service = RAGDocumentService()
+        return self._rag_doc_service
 
     async def _ensure_fulltext_index(self) -> None:
         """Tworzy indeks fulltext w Neo4j na potrzeby wyszukiwania keywordowego."""
@@ -516,6 +945,253 @@ class PolishSocietyRAG:
             logger.warning("Keyword search nie powiodło się, używam fallbacku: %s", exc)
             return []
 
+    def _format_graph_context(self, graph_nodes: List[Dict[str, Any]]) -> str:
+        """Formatuje węzły grafu do czytelnego kontekstu tekstowego dla LLM.
+
+        Args:
+            graph_nodes: Lista węzłów z grafu z właściwościami
+
+        Returns:
+            Sformatowany string z strukturalną wiedzą z grafu
+        """
+        if not graph_nodes:
+            return ""
+
+        # Grupuj węzły po typie
+        indicators = [n for n in graph_nodes if n.get('type') == 'Indicator']
+        observations = [n for n in graph_nodes if n.get('type') == 'Observation']
+        trends = [n for n in graph_nodes if n.get('type') == 'Trend']
+        demographics = [n for n in graph_nodes if n.get('type') == 'Demographic']
+
+        sections = []
+
+        # Sekcja Indicators
+        if indicators:
+            sections.append("📊 WSKAŹNIKI DEMOGRAFICZNE (Indicators):\n")
+            for ind in indicators:
+                summary = ind.get('summary', 'Brak podsumowania')
+                magnitude = ind.get('magnitude', 'N/A')
+                confidence = ind.get('confidence_level', 'N/A')
+                key_facts = ind.get('key_facts', '')
+                time_period = ind.get('time_period', '')
+
+                sections.append(f"• {summary}")
+                if magnitude and magnitude != 'N/A':
+                    sections.append(f"  Wielkość: {magnitude}")
+                if time_period:
+                    sections.append(f"  Okres: {time_period}")
+                sections.append(f"  Pewność: {confidence}")
+                if key_facts:
+                    sections.append(f"  Kluczowe fakty: {key_facts}")
+                sections.append("")
+
+        # Sekcja Observations
+        if observations:
+            sections.append("\n👥 OBSERWACJE DEMOGRAFICZNE (Observations):\n")
+            for obs in observations:
+                summary = obs.get('summary', 'Brak podsumowania')
+                confidence = obs.get('confidence_level', 'N/A')
+                key_facts = obs.get('key_facts', '')
+                time_period = obs.get('time_period', '')
+
+                sections.append(f"• {summary}")
+                sections.append(f"  Pewność: {confidence}")
+                if time_period:
+                    sections.append(f"  Okres: {time_period}")
+                if key_facts:
+                    sections.append(f"  Kluczowe fakty: {key_facts}")
+                sections.append("")
+
+        # Sekcja Trends
+        if trends:
+            sections.append("\n📈 TRENDY DEMOGRAFICZNE (Trends):\n")
+            for trend in trends:
+                summary = trend.get('summary', 'Brak podsumowania')
+                time_period = trend.get('time_period', 'N/A')
+                key_facts = trend.get('key_facts', '')
+
+                sections.append(f"• {summary}")
+                sections.append(f"  Okres: {time_period}")
+                if key_facts:
+                    sections.append(f"  Kluczowe fakty: {key_facts}")
+                sections.append("")
+
+        # Sekcja Demographics
+        if demographics:
+            sections.append("\n🎯 GRUPY DEMOGRAFICZNE (Demographics):\n")
+            for demo in demographics:
+                summary = demo.get('summary', 'Brak podsumowania')
+                confidence = demo.get('confidence_level', 'N/A')
+                key_facts = demo.get('key_facts', '')
+
+                sections.append(f"• {summary}")
+                sections.append(f"  Pewność: {confidence}")
+                if key_facts:
+                    sections.append(f"  Kluczowe fakty: {key_facts}")
+                sections.append("")
+
+        return "\n".join(sections)
+
+    def _rerank_with_cross_encoder(
+        self,
+        query: str,
+        candidates: List[Tuple[Document, float]],
+        top_k: int = 5
+    ) -> List[Tuple[Document, float]]:
+        """Użyj cross-encoder aby precyzyjnie re-score query-document pairs.
+
+        Cross-encoder ma attention mechanism który widzi query i document razem,
+        co daje lepszą precision niż bi-encoder (używany w vector search).
+
+        Args:
+            query: Query użytkownika
+            candidates: Lista (Document, RRF_score) par z RRF fusion
+            top_k: Liczba top wyników do zwrócenia
+
+        Returns:
+            Lista (Document, rerank_score) sorted by rerank_score descending
+        """
+        if not self.reranker or not candidates:
+            logger.info("Reranker niedostępny lub brak candidates - skip reranking")
+            return candidates[:top_k]
+
+        try:
+            # Przygotuj pary (query, document) dla cross-encoder
+            pairs = [(query, doc.page_content[:512]) for doc, _ in candidates]
+            # Limit do 512 znaków dla cross-encoder (max_length)
+
+            # Cross-encoder prediction (sync, ale szybkie ~100-200ms dla 20 docs)
+            scores = self.reranker.predict(pairs)
+
+            # Połącz dokumenty z nowymi scores
+            reranked = list(zip([doc for doc, _ in candidates], scores))
+
+            # Sortuj po cross-encoder score (descending)
+            reranked.sort(key=lambda x: x[1], reverse=True)
+
+            logger.info(
+                "Reranking completed: %s candidates → top %s results",
+                len(candidates),
+                top_k
+            )
+
+            return reranked[:top_k]
+
+        except Exception as exc:
+            logger.error("Reranking failed: %s - fallback to RRF ranking", exc)
+            return candidates[:top_k]
+
+    def _find_related_graph_nodes(
+        self,
+        chunk_doc: Document,
+        graph_nodes: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Znajdź graph nodes które są powiązane z danym chunkiem.
+
+        Matching bazuje na:
+        1. Wspólnych słowach kluczowych (z summary/key_facts)
+        2. Dokumencie źródłowym (doc_id)
+
+        Args:
+            chunk_doc: Document chunk z vector/keyword search
+            graph_nodes: Lista graph nodes z get_demographic_graph_context()
+
+        Returns:
+            Lista graph nodes które są powiązane z chunkiem
+        """
+        if not graph_nodes:
+            return []
+
+        related = []
+        chunk_text = chunk_doc.page_content.lower()
+        chunk_doc_id = chunk_doc.metadata.get('doc_id', '')
+
+        for node in graph_nodes:
+            # Sprawdź czy node pochodzi z tego samego dokumentu
+            node_doc_id = node.get('doc_id', '')
+            if node_doc_id and node_doc_id == chunk_doc_id:
+                related.append(node)
+                continue
+
+            # Sprawdź overlap słów kluczowych
+            summary = (node.get('summary', '') or '').lower()
+            key_facts = (node.get('key_facts', '') or '').lower()
+
+            # Ekstraktuj słowa kluczowe (> 5 chars)
+            summary_words = {w for w in summary.split() if len(w) > 5}
+            key_facts_words = {w for w in key_facts.split() if len(w) > 5}
+            node_keywords = summary_words | key_facts_words
+
+            # Policz overlap
+            matches = sum(1 for keyword in node_keywords if keyword in chunk_text)
+
+            # Jeśli >=2 matching keywords, uznaj za related
+            if matches >= 2:
+                related.append(node)
+
+        return related
+
+    def _enrich_chunk_with_graph(
+        self,
+        chunk_text: str,
+        related_nodes: List[Dict[str, Any]]
+    ) -> str:
+        """Wzbogać chunk o powiązane graph nodes w naturalny sposób.
+
+        Args:
+            chunk_text: Oryginalny tekst chunku
+            related_nodes: Powiązane graph nodes
+
+        Returns:
+            Enriched chunk text z embedded graph context
+        """
+        if not related_nodes:
+            return chunk_text
+
+        # Grupuj nodes po typie
+        indicators = [n for n in related_nodes if n.get('type') == 'Indicator']
+        observations = [n for n in related_nodes if n.get('type') == 'Observation']
+        trends = [n for n in related_nodes if n.get('type') == 'Trend']
+
+        enrichments = []
+
+        # Dodaj wskaźniki
+        if indicators:
+            enrichments.append("\n💡 Powiązane wskaźniki:")
+            for ind in indicators[:2]:  # Max 2 na chunk
+                summary = ind.get('summary', '')
+                magnitude = ind.get('magnitude', '')
+                if summary:
+                    if magnitude:
+                        enrichments.append(f"  • {summary} ({magnitude})")
+                    else:
+                        enrichments.append(f"  • {summary}")
+
+        # Dodaj obserwacje
+        if observations:
+            enrichments.append("\n🔍 Powiązane obserwacje:")
+            for obs in observations[:2]:  # Max 2 na chunk
+                summary = obs.get('summary', '')
+                if summary:
+                    enrichments.append(f"  • {summary}")
+
+        # Dodaj trendy
+        if trends:
+            enrichments.append("\n📈 Powiązane trendy:")
+            for trend in trends[:1]:  # Max 1 na chunk
+                summary = trend.get('summary', '')
+                time_period = trend.get('time_period', '')
+                if summary:
+                    if time_period:
+                        enrichments.append(f"  • {summary} ({time_period})")
+                    else:
+                        enrichments.append(f"  • {summary}")
+
+        if enrichments:
+            return chunk_text + "\n" + "\n".join(enrichments)
+        else:
+            return chunk_text
+
     async def get_demographic_insights(
         self,
         age_group: str,
@@ -523,7 +1199,23 @@ class PolishSocietyRAG:
         location: str,
         gender: str,
     ) -> Dict[str, Any]:
-        """Buduje kontekst raportowy dla wskazanego profilu demograficznego."""
+        """Buduje kontekst raportowy dla wskazanego profilu demograficznego.
+
+        Łączy trzy źródła kontekstu:
+        1. **Graph RAG** - Strukturalna wiedza z grafu (Indicators, Observations, Trends)
+        2. **Vector Search** - Semantyczne wyszukiwanie w embeddingach
+        3. **Keyword Search** - Leksykalne wyszukiwanie fulltext (opcjonalnie)
+
+        Returns:
+            Dict z kluczami:
+            - context: Pełny kontekst (graph + chunks tekstowe)
+            - graph_context: Sformatowany kontekst z grafu (string)
+            - graph_nodes: Surowe węzły grafu (list)
+            - citations: Citations z hybrid search
+            - query: Query użyte do wyszukiwania
+            - num_results: Liczba wyników z hybrid search
+            - search_type: "hybrid+graph" | "vector_only+graph" | "hybrid" | "vector_only"
+        """
 
         if not self.vector_store:
             logger.warning("Vector store niedostępny – zwracam pusty kontekst.")
@@ -536,7 +1228,7 @@ class PolishSocietyRAG:
         )
 
         logger.info(
-            "RAG hybrid search dla profilu: wiek=%s, edukacja=%s, lokalizacja=%s, płeć=%s",
+            "RAG hybrid search + Graph RAG dla profilu: wiek=%s, edukacja=%s, lokalizacja=%s, płeć=%s",
             age_group,
             education,
             location,
@@ -544,40 +1236,108 @@ class PolishSocietyRAG:
         )
 
         try:
+            # 1. GRAPH RAG - Pobierz strukturalny kontekst z grafu wiedzy
+            graph_nodes = []
+            graph_context_formatted = ""
+            try:
+                graph_nodes = self.rag_doc_service.get_demographic_graph_context(
+                    age_group=age_group,
+                    location=location,
+                    education=education,
+                    gender=gender
+                )
+                if graph_nodes:
+                    graph_context_formatted = self._format_graph_context(graph_nodes)
+                    logger.info("Pobrano %s węzłów grafu z kontekstem demograficznym", len(graph_nodes))
+                else:
+                    logger.info("Brak wyników z graph context dla podanego profilu")
+            except Exception as graph_exc:
+                logger.warning("Nie udało się pobrać graph context: %s", graph_exc)
+
+            # 2. HYBRID SEARCH (Vector + Keyword) - Pobierz chunki tekstowe
             if settings.RAG_USE_HYBRID_SEARCH:
+                # Zwiększamy k aby mieć więcej candidates dla reranking
+                candidates_k = settings.RAG_RERANK_CANDIDATES if settings.RAG_USE_RERANKING else settings.RAG_TOP_K * 2
+
                 vector_results = await self.vector_store.asimilarity_search_with_score(
                     query,
-                    k=settings.RAG_TOP_K * 2,
+                    k=candidates_k,
                 )
                 keyword_results = await self._keyword_search(
                     query,
-                    k=settings.RAG_TOP_K * 2,
+                    k=candidates_k,
                 )
                 fused_results = self._rrf_fusion(
                     vector_results,
                     keyword_results,
                     k=settings.RAG_RRF_K,
                 )
-                final_results = fused_results[: settings.RAG_TOP_K]
-                search_type = "hybrid"
+
+                # 2b. RERANKING (opcjonalne) - Precyzyjny re-scoring z cross-encoder
+                if settings.RAG_USE_RERANKING and self.reranker:
+                    logger.info("Applying cross-encoder reranking on top %s candidates", len(fused_results))
+                    final_results = self._rerank_with_cross_encoder(
+                        query=query,
+                        candidates=fused_results[:settings.RAG_RERANK_CANDIDATES],
+                        top_k=settings.RAG_TOP_K
+                    )
+                    search_type = "hybrid+rerank+graph" if graph_nodes else "hybrid+rerank"
+                else:
+                    final_results = fused_results[:settings.RAG_TOP_K]
+                    search_type = "hybrid+graph" if graph_nodes else "hybrid"
             else:
                 final_results = await self.vector_store.asimilarity_search_with_score(
                     query,
                     k=settings.RAG_TOP_K,
                 )
-                search_type = "vector_only"
+                search_type = "vector_only+graph" if graph_nodes else "vector_only"
 
+            # 3. UNIFIED CONTEXT - Wzbogać chunki o powiązane graph nodes
             context_chunks: List[str] = []
             citations: List[Dict[str, Any]] = []
+            enriched_chunks_count = 0
+
+            # Dodaj graph context na początku (jeśli istnieje)
+            if graph_context_formatted:
+                context_chunks.append("=== STRUKTURALNA WIEDZA Z GRAFU WIEDZY ===\n")
+                context_chunks.append(graph_context_formatted)
+                context_chunks.append("\n=== KONTEKST Z DOKUMENTÓW (WZBOGACONY) ===\n")
+
+            # Dodaj chunki tekstowe WZBOGACONE o powiązane graph nodes
             for doc, score in final_results:
-                chunk_text = doc.page_content[:800] if len(doc.page_content) > 800 else doc.page_content
-                context_chunks.append(chunk_text)
+                # Znajdź graph nodes powiązane z tym chunkiem
+                related_nodes = self._find_related_graph_nodes(doc, graph_nodes)
+
+                # Wzbogać chunk jeśli są related nodes
+                if related_nodes:
+                    enriched_text = self._enrich_chunk_with_graph(
+                        chunk_text=doc.page_content,
+                        related_nodes=related_nodes
+                    )
+                    enriched_chunks_count += 1
+                else:
+                    enriched_text = doc.page_content
+
+                # Truncate jeśli za długi
+                if len(enriched_text) > 1000:
+                    enriched_text = enriched_text[:1000] + "\n[...fragment obcięty...]"
+
+                context_chunks.append(enriched_text)
                 citations.append(
                     {
-                        "text": chunk_text,
+                        "text": doc.page_content[:500],  # Original dla citation
                         "score": float(score),
                         "metadata": doc.metadata,
+                        "enriched": len(related_nodes) > 0,
+                        "related_nodes_count": len(related_nodes)
                     }
+                )
+
+            if enriched_chunks_count > 0:
+                logger.info(
+                    "Unified context: %s/%s chunks enriched with graph nodes",
+                    enriched_chunks_count,
+                    len(final_results)
                 )
 
             context = "\n\n---\n\n".join(context_chunks)
@@ -586,6 +1346,8 @@ class PolishSocietyRAG:
 
             return {
                 "context": context,
+                "graph_context": graph_context_formatted,
+                "graph_nodes": graph_nodes,
                 "citations": citations,
                 "query": query,
                 "num_results": len(final_results),

@@ -618,3 +618,23 @@ export interface RAGQueryResponse {
   citations: RAGCitation[];
   num_results: number;
 }
+
+// === ORCHESTRATION REASONING TYPES ===
+
+export interface GraphInsight {
+  type: string;
+  summary: string;
+  magnitude?: string;
+  confidence: string;
+  time_period?: string;
+  source?: string;
+  why_matters: string;
+}
+
+export interface PersonaReasoning {
+  orchestration_brief?: string;
+  graph_insights: GraphInsight[];
+  allocation_reasoning?: string;
+  demographics?: Record<string, any>;
+  overall_context?: string;
+}

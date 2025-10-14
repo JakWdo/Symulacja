@@ -38,10 +38,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import AsyncSessionLocal, get_db
 from app.models import Project, Persona, User
+from app.services.persona_orchestration import PersonaOrchestrationService
 from app.api.dependencies import get_current_user, get_project_for_user, get_persona_for_user
 from app.schemas.persona import (
     PersonaResponse,
     PersonaGenerateRequest,
+    PersonaReasoningResponse,
+    GraphInsightResponse,
 )
 from app.services import DemographicDistribution
 from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PreferredPersonaGenerator
@@ -690,6 +693,58 @@ async def _generate_personas_task(
                 locations=_normalize_distribution(target_demographics.get("location", {}), POLISH_LOCATIONS),
             )
 
+            # === ORCHESTRATION STEP (GEMINI 2.5 PRO) ===
+            # Tworzymy szczegółowy plan alokacji używając orchestration agent
+            orchestration_service = PersonaOrchestrationService()
+            allocation_plan = None
+            persona_group_mapping = {}  # Mapuje persona index -> brief
+
+            logger.info("🎯 Creating orchestration plan with Gemini 2.5 Pro...")
+            try:
+                # Pobierz dodatkowy opis grupy docelowej jeśli istnieje
+                target_audience_desc = None
+                if advanced_options and "target_audience_description" in advanced_options:
+                    target_audience_desc = advanced_options["target_audience_description"]
+
+                # Tworzymy plan alokacji (długie briefe dla każdej grupy)
+                allocation_plan = await orchestration_service.create_persona_allocation_plan(
+                    target_demographics=target_demographics,
+                    num_personas=num_personas,
+                    project_description=project.description,
+                    additional_context=target_audience_desc,
+                )
+
+                logger.info(
+                    f"✅ Orchestration plan created: {len(allocation_plan.groups)} demographic groups, "
+                    f"overall_context={len(allocation_plan.overall_context)} chars"
+                )
+
+                # Mapuj briefe do każdej persony
+                # Strategia: Każda grupa ma `count` person, więc przydzielamy briefe sekwencyjnie
+                persona_index = 0
+                for group in allocation_plan.groups:
+                    group_count = group.count
+                    for _ in range(group_count):
+                        if persona_index < num_personas:
+                            persona_group_mapping[persona_index] = {
+                                "brief": group.brief,
+                                "graph_insights": [insight.model_dump() for insight in group.graph_insights],
+                                "allocation_reasoning": group.allocation_reasoning,
+                                "demographics": group.demographics,
+                            }
+                            persona_index += 1
+
+                logger.info(f"📋 Mapped briefs to {len(persona_group_mapping)} personas")
+
+            except Exception as orch_error:
+                # Jeśli orchestration failuje, logujemy ale kontynuujemy (fallback do basic generation)
+                logger.error(
+                    f"❌ Orchestration failed: {orch_error}. Continuing with basic generation...",
+                    exc_info=orch_error
+                )
+                allocation_plan = None
+                persona_group_mapping = {}
+
             # Kontrolowana współbieżność pozwala przyspieszyć generowanie bez przeciążania modelu
             logger.info(f"Generating demographic and psychological profiles for {num_personas} personas")
             concurrency_limit = _calculate_concurrency_limit(num_personas, adversarial_mode)
@@ -739,7 +794,14 @@ async def _generate_personas_task(
 
             async def create_single_persona(idx: int, demo_profile: Dict[str, Any], psych_profile: Dict[str, Any]):
                 async with semaphore:
-                    result = await generator.generate_persona_personality(demo_profile, psych_profile, use_rag, advanced_options)
+                    # Dodaj orchestration brief do advanced_options jeśli istnieje
+                    enhanced_options = advanced_options.copy() if advanced_options else {}
+                    if idx in persona_group_mapping:
+                        enhanced_options["orchestration_brief"] = persona_group_mapping[idx]["brief"]
+                        enhanced_options["graph_insights"] = persona_group_mapping[idx]["graph_insights"]
+                        enhanced_options["allocation_reasoning"] = persona_group_mapping[idx]["allocation_reasoning"]
+
+                    result = await generator.generate_persona_personality(demo_profile, psych_profile, use_rag, enhanced_options)
                     if (idx + 1) % max(1, batch_size) == 0 or idx == num_personas - 1:
                         logger.info(
                             "Generated personas chunk",
@@ -910,8 +972,18 @@ async def _generate_personas_task(
 
                     # Ekstrakcja RAG citations i details (jeśli były używane)
                     rag_citations = personality.get("_rag_citations")
-                    rag_context_details = personality.get("_rag_context_details")
+                    rag_context_details = personality.get("_rag_context_details") or {}
                     rag_context_used = bool(rag_citations)
+
+                    # Dodaj orchestration reasoning do rag_context_details (jeśli istnieje)
+                    if idx in persona_group_mapping:
+                        rag_context_details["orchestration_reasoning"] = {
+                            "brief": persona_group_mapping[idx]["brief"],
+                            "graph_insights": persona_group_mapping[idx]["graph_insights"],
+                            "allocation_reasoning": persona_group_mapping[idx]["allocation_reasoning"],
+                            "demographics": persona_group_mapping[idx]["demographics"],
+                            "overall_context": allocation_plan.overall_context if allocation_plan else None,
+                        }
 
                     persona_payload = {
                         "project_id": project_id,
@@ -1020,3 +1092,62 @@ async def delete_persona(
     await db.commit()
 
     return None
+
+
+@router.get("/personas/{persona_id}/reasoning", response_model=PersonaReasoningResponse)
+async def get_persona_reasoning(
+    persona_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Pobierz szczegółowe reasoning persony (dla zakładki 'Uzasadnienie' w UI)
+
+    Zwraca:
+    - orchestration_brief: DŁUGI (2000-3000 znaków) edukacyjny brief od Gemini 2.5 Pro
+    - graph_insights: Lista wskaźników z Graph RAG z wyjaśnieniami "dlaczego to ważne"
+    - allocation_reasoning: Dlaczego tyle person w tej grupie demograficznej
+    - demographics: Docelowa demografia tej grupy
+    - overall_context: Ogólny kontekst społeczny Polski
+
+    Output style: Edukacyjny, konwersacyjny, wyjaśniający, production-ready
+
+    Raises:
+        HTTPException 404: Jeśli persona nie istnieje lub nie ma reasoning data
+    """
+    # Pobierz personę (weryfikacja uprawnień)
+    persona = await get_persona_for_user(persona_id, current_user, db)
+
+    # Sprawdź czy persona ma rag_context_details z orchestration reasoning
+    if not persona.rag_context_details:
+        raise HTTPException(
+            status_code=404,
+            detail="Persona nie ma reasoning data (stara wersja generowania?)"
+        )
+
+    orch_reasoning = persona.rag_context_details.get("orchestration_reasoning")
+    if not orch_reasoning:
+        raise HTTPException(
+            status_code=404,
+            detail="Persona nie ma orchestration reasoning (wygenerowana przed włączeniem orchestration)"
+        )
+
+    # Parsuj graph insights do GraphInsightResponse objects
+    graph_insights = []
+    for insight_dict in orch_reasoning.get("graph_insights", []):
+        try:
+            graph_insights.append(GraphInsightResponse(**insight_dict))
+        except Exception as e:
+            logger.warning(f"Failed to parse graph insight: {e}, insight={insight_dict}")
+            continue
+
+    # Zbuduj response
+    response = PersonaReasoningResponse(
+        orchestration_brief=orch_reasoning.get("brief"),
+        graph_insights=graph_insights,
+        allocation_reasoning=orch_reasoning.get("allocation_reasoning"),
+        demographics=orch_reasoning.get("demographics"),
+        overall_context=orch_reasoning.get("overall_context"),
+    )
+
+    return response

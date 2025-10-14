@@ -205,6 +205,59 @@ class PersonaResponse(BaseModel):
     # RAG fields
     rag_context_used: bool = False
     rag_citations: Optional[List[Dict[str, Any]]] = None
+    rag_context_details: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Szczegółowe dane RAG (graph nodes, search type, enrichment info) - dla View Details"
+    )
+
+    class Config:
+        from_attributes = True
+
+
+# === ORCHESTRATION REASONING SCHEMAS ===
+
+class GraphInsightResponse(BaseModel):
+    """Pojedynczy insight z grafu wiedzy."""
+
+    type: str = Field(description="Typ węzła (Indicator, Observation, Trend, etc.)")
+    summary: str = Field(description="Jednozdaniowe podsumowanie")
+    magnitude: Optional[str] = Field(default=None, description="Wartość liczbowa jeśli istnieje (np. '78.4%')")
+    confidence: str = Field(default="medium", description="Poziom pewności: high, medium, low")
+    time_period: Optional[str] = Field(default=None, description="Okres czasu (np. '2022')")
+    source: Optional[str] = Field(default=None, description="Źródło danych (np. 'GUS', 'CBOS')")
+    why_matters: str = Field(description="Edukacyjne wyjaśnienie dlaczego to ważne")
+
+
+class PersonaReasoningResponse(BaseModel):
+    """Szczegółowe reasoning persony - dla zakładki 'Uzasadnienie' w UI.
+
+    Zawiera:
+    - orchestration_brief: DŁUGI (2000-3000 znaków) edukacyjny brief od Gemini 2.5 Pro
+    - graph_insights: Lista wskaźników z Graph RAG z wyjaśnieniami
+    - allocation_reasoning: Dlaczego tyle person w tej grupie demograficznej
+    - overall_context: Ogólny kontekst społeczny Polski
+    """
+
+    orchestration_brief: Optional[str] = Field(
+        None,
+        description="Długi (2000-3000 znaków) edukacyjny brief od orchestration agent"
+    )
+    graph_insights: List[GraphInsightResponse] = Field(
+        default_factory=list,
+        description="Lista wskaźników z Graph RAG"
+    )
+    allocation_reasoning: Optional[str] = Field(
+        None,
+        description="Dlaczego tyle person w tej grupie"
+    )
+    demographics: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Docelowa demografia tej grupy"
+    )
+    overall_context: Optional[str] = Field(
+        None,
+        description="Ogólny kontekst społeczny Polski (500-800 znaków)"
+    )
 
     class Config:
         from_attributes = True

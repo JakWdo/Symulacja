@@ -305,7 +305,8 @@ class PersonaGeneratorLangChain:
             demographic: Profil demograficzny persony
 
         Returns:
-            Dict z kluczami: context (str), citations (list), query (str)
+            Dict z kluczami: context (str), citations (list), query (str),
+            graph_context (str), graph_nodes (list), search_type (str)
             lub None jeśli RAG niedostępny
         """
         if not self.rag_service:
@@ -321,10 +322,28 @@ class PersonaGeneratorLangChain:
                 location=demographic.get('location', 'Warszawa'),
                 gender=demographic.get('gender', 'mężczyzna')
             )
-            logger.info(f"RAG context retrieved: {len(context_data.get('context', ''))} chars")
+
+            # Loguj szczegóły RAG context
+            context_len = len(context_data.get('context', ''))
+            graph_nodes_count = len(context_data.get('graph_nodes', []))
+            search_type = context_data.get('search_type', 'unknown')
+            citations_count = len(context_data.get('citations', []))
+
+            logger.info(
+                f"RAG context retrieved: {context_len} chars, "
+                f"{graph_nodes_count} graph nodes, "
+                f"{citations_count} citations, "
+                f"search_type={search_type}"
+            )
+
+            # Jeśli mamy graph nodes, loguj ich typy
+            if graph_nodes_count > 0:
+                node_types = [node.get('type', 'Unknown') for node in context_data.get('graph_nodes', [])]
+                logger.info(f"Graph node types: {', '.join(node_types)}")
+
             return context_data
         except Exception as e:
-            logger.error(f"RAG context retrieval failed: {e}")
+            logger.error(f"RAG context retrieval failed: {e}", exc_info=True)
             return None
 
     async def generate_persona_personality(
@@ -362,26 +381,56 @@ class PersonaGeneratorLangChain:
         # Pobierz kontekst RAG jeśli włączony
         rag_context = None
         rag_citations = None
+        rag_context_details = None
         if use_rag and self.rag_service:
             rag_data = await self._get_rag_context_for_persona(demographic_profile)
             if rag_data:
                 rag_context = rag_data.get('context')
                 rag_citations = rag_data.get('citations')
-                logger.info(f"Using RAG context: {len(rag_context or '')} chars, {len(rag_citations or [])} citations")
 
-        # Pobierz target_audience_description z advanced_options jeśli dostępny
+                # Przygotuj rag_context_details dla View Details
+                rag_context_details = {
+                    "search_type": rag_data.get('search_type', 'unknown'),
+                    "num_results": rag_data.get('num_results', 0),
+                    "graph_nodes_count": len(rag_data.get('graph_nodes', [])),
+                    "graph_nodes": rag_data.get('graph_nodes', []),
+                    "graph_context": rag_data.get('graph_context', ''),
+                    "enriched_chunks": sum(
+                        1 for c in rag_data.get('citations', [])
+                        if c.get('enriched', False)
+                    )
+                }
+
+                logger.info(
+                    f"Using RAG context: {len(rag_context or '')} chars, "
+                    f"{len(rag_citations or [])} citations, "
+                    f"search_type={rag_context_details['search_type']}"
+                )
+
+        # Pobierz target_audience_description i orchestration brief z advanced_options
         target_audience_desc = None
+        orchestration_brief = None
+        graph_insights = None
+        allocation_reasoning = None
+
         if advanced_options:
             target_audience_desc = advanced_options.get('target_audience_description')
+            orchestration_brief = advanced_options.get('orchestration_brief')
+            graph_insights = advanced_options.get('graph_insights')
+            allocation_reasoning = advanced_options.get('allocation_reasoning')
+
             if target_audience_desc:
                 logger.info(f"Using target audience description: {target_audience_desc[:100]}...")
+            if orchestration_brief:
+                logger.info(f"Using orchestration brief: {orchestration_brief[:150]}... ({len(orchestration_brief)} chars)")
 
-        # Generuj prompt (teraz z RAG context i target audience description jeśli dostępne)
+        # Generuj prompt (z RAG, target audience, i orchestration brief jeśli dostępne)
         prompt_text = self._create_persona_prompt(
             demographic_profile,
             psychological_profile,
             rag_context=rag_context,
-            target_audience_description=target_audience_desc
+            target_audience_description=target_audience_desc,
+            orchestration_brief=orchestration_brief
         )
 
         try:
@@ -405,9 +454,11 @@ class PersonaGeneratorLangChain:
                     f"Response keys: {list(response.keys()) if isinstance(response, dict) else 'NOT A DICT'}"
                 )
 
-            # Dodaj RAG citations do response (jeśli były używane)
+            # Dodaj RAG citations i details do response (jeśli były używane)
             if rag_citations:
                 response['_rag_citations'] = rag_citations
+            if rag_context_details:
+                response['_rag_context_details'] = rag_context_details
 
             return prompt_text, response
         except Exception as e:
@@ -420,7 +471,8 @@ class PersonaGeneratorLangChain:
         demographic: Dict[str, Any],
         psychological: Dict[str, Any],
         rag_context: Optional[str] = None,
-        target_audience_description: Optional[str] = None  # NOWY PARAMETR
+        target_audience_description: Optional[str] = None,
+        orchestration_brief: Optional[str] = None  # NOWY PARAMETR - długi brief od Gemini 2.5 Pro
     ) -> str:
         """
         Utwórz prompt dla LLM do generowania persony - WERSJA POLSKA
@@ -431,6 +483,7 @@ class PersonaGeneratorLangChain:
         - 3 przykłady few-shot z polskimi personami
         - Opcjonalny kontekst RAG z bazy wiedzy o polskim społeczeństwie
         - Opcjonalny dodatkowy opis grupy docelowej od użytkownika
+        - Opcjonalny orchestration brief (2000-3000 znaków) od Gemini 2.5 Pro
         - Instrukcje jak stworzyć unikalną polską personę
 
         Args:
@@ -438,6 +491,7 @@ class PersonaGeneratorLangChain:
             psychological: Profil psychologiczny (Big Five + Hofstede)
             rag_context: Opcjonalny kontekst z RAG (fragmenty z dokumentów)
             target_audience_description: Opcjonalny dodatkowy opis grupy docelowej
+            orchestration_brief: Opcjonalny DŁUGI brief od orchestration agent (Gemini 2.5 Pro)
 
         Returns:
             Pełny tekst prompta gotowy do wysłania do LLM (po polsku)
@@ -477,9 +531,32 @@ KONTEKST Z BAZY WIEDZY O POLSKIM SPOŁECZEŃSTWIE:
 
 {rag_context}
 
-⚠️ WAŻNE: Wykorzystaj powyższy kontekst do stworzenia realistycznej persony
-odzwierciedlającej polskie społeczeństwo. Persona powinna pasować do wzorców
-demograficznych i społecznych opisanych w kontekście.
+⚠️ KRYTYCZNE INSTRUKCJE WYKORZYSTANIA KONTEKSTU:
+
+1. **NATURALNOŚĆ**: NIE cytuj statystyk bezpośrednio w opisach
+   - ❌ ZŁE: "Należy do 67% absolwentów..."
+   - ✅ DOBRE: "Jak wielu jej rówieśników z wyższym wykształceniem, zmaga się z..."
+   - Użyj wskaźników jako TŁEM dla życia persony, nie jako faktów do cytowania
+
+2. **CIEKAWOŚĆ**: Twórz FASCYNUJĄCE historie życia
+   - Wykorzystaj obserwacje demograficzne jako INSPIRACJĘ do szczegółów
+   - Przykład: Jeśli kontekst mówi o "wysokiej mobilności zawodowej"
+     → Persona może mieć historię zmiany 3 prac w ciągu 5 lat z konkretnymi powodami
+
+3. **KONTEKST CZASOWY**: Osadź personę w trendach bez nazywania ich
+   - ❌ ZŁE: "Obserwuje trend wzrostu cen mieszkań w latach 2018-2023"
+   - ✅ DOBRE: "Odkąd 5 lat temu przeprowadziła się do Warszawy, ceny mieszkań podwoiły się"
+
+4. **AUTENTYCZNOŚĆ**: Persona ma WŁASNE doświadczenia odzwierciedlające dane
+   - Jeśli wskaźniki pokazują problem (np. trudności finansowe młodych)
+   - Persona ma KONKRETNE przykłady tego w życiu (mieszka z rodzicami, spłaca kredyt)
+
+5. **SPÓJNOŚĆ Z DANYMI**: Wszystkie szczegóły PASUJĄ do kontekstu
+   - Dochody, wartości, zainteresowania, concerns MUSZĄ być zgodne z danymi demograficznymi
+   - Ale przedstawione jako CZĘŚĆ ŻYCIA persony, nie jako cytaty ze statystyk
+
+💡 PAMIĘTAJ: Czytelnicy chcą poznać PRAWDZIWĄ OSOBĘ, nie raport statystyczny.
+Użyj danych jako fundamentu, ale zbuduj na nich ŻYWĄ, INTERESUJĄCĄ postać.
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -503,9 +580,50 @@ zgodne z tym opisem.
 
 """
 
+        # Sekcja orchestration brief (jeśli dostępny) - DŁUGI edukacyjny brief od Gemini 2.5 Pro
+        orchestration_section = ""
+        if orchestration_brief and orchestration_brief.strip():
+            orchestration_section = f"""
+═══════════════════════════════════════════════════════════════════════════════
+📋 ORCHESTRATION BRIEF (od Gemini 2.5 Pro - Szczegółowy Kontekst Społeczny)
+═══════════════════════════════════════════════════════════════════════════════
+
+{orchestration_brief.strip()}
+
+⚠️ KRYTYCZNE INSTRUKCJE WYKORZYSTANIA BRIEFU:
+
+1. **TO JEST TWÓJ FUNDAMENT**: Ten brief zawiera głęboką socjologiczną analizę
+   grupy demograficznej do której należy ta persona. Przeczytaj go UWAŻNIE.
+
+2. **NATURALNOŚĆ W OPISIE**: NIE cytuj briefu dosłownie w background_story!
+   - ❌ ZŁE: "Według briefu, ta grupa stanowi 17.3% populacji..."
+   - ✅ DOBRE: "Jak wielu jej rówieśników w Warszawie, zmaga się z wysokimi cenami mieszkań..."
+
+3. **UŻYJ JAKO TŁA**: Brief wyjaśnia DLACZEGO ta persona jest taka jaka jest.
+   - Wskaźniki z briefu (78.4% zatrudnienia, 63% mobilność) = kontekst życia persony
+   - Wartości opisane w briefie (work-life balance, rozwój) = wartości persony
+   - Wyzwania z briefu (housing crisis, burnout) = konkretne problemy w życiu persony
+
+4. **CIEKAWA HISTORIA ŻYCIA**: Użyj insights z briefu aby stworzyć FASCYNUJĄCĄ personę
+   - Brief mówi o "mobilności zawodowej" → Persona może mieć historię zmiany 3 prac
+   - Brief mówi o "cenach mieszkań" → Persona wynajmuje, oszczędza, ma konkretne plany
+   - Brief mówi o "work-life balance" → Persona ma hobby, boundaries, mindfulness
+
+5. **SPÓJNOŚĆ Z BRIEFEM**: Każdy szczegół życia persony MUSI pasować do briefu
+   - Dochody, zawód, lokalizacja, wartości, zainteresowania = zgodne z kontekstem
+   - Ale przedstawione jako ŻYCIE PERSONY, nie jako statystyki
+
+💡 PAMIĘTAJ: Brief to mapa społeczna. Ty tworzysz KONKRETNĄ OSOBĘ która żyje w tym społeczeństwie.
+Czytelnicy chcą poznać FASCYNUJĄCĄ POSTAĆ, która jest autentyczna bo odzwierciedla realne
+trendy społeczne.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+"""
+
         return f"""Jesteś ekspertem od badań rynkowych tworzącym syntetyczne persony dla polskiego rynku. Twoje persony muszą być UNIKALNE, REALISTYCZNE i WEWNĘTRZNIE SPÓJNE, odzwierciedlające POLSKIE SPOŁECZEŃSTWO.
 
-{rag_section}{target_audience_section}
+{orchestration_section}{rag_section}{target_audience_section}
 PERSONA #{persona_seed}
 SUGEROWANE IMIĘ I NAZWISKO: {suggested_first_name} {suggested_surname} (możesz użyć lub wybrać inne polskie)
 

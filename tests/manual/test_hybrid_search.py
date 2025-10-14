@@ -87,10 +87,38 @@ async def test_hybrid_search():
     print()
 
     print(f"Search type: {result.get('search_type', 'unknown')}")
-    print(f"Liczba wyników: {result['num_results']}")
+    print(f"Liczba wyników (hybrid search): {result['num_results']}")
+    print(f"Liczba węzłów grafu: {len(result.get('graph_nodes', []))}")
     print(f"Długość kontekstu: {len(result['context'])} znaków")
+    print(f"Długość graph context: {len(result.get('graph_context', ''))} znaków")
     print(f"Liczba citations: {len(result['citations'])}")
     print()
+
+    # Wyświetl graph nodes jeśli są
+    if result.get('graph_nodes'):
+        print("=" * 80)
+        print("WĘZŁY GRAFU (Graph Context)")
+        print("=" * 80)
+        print()
+
+        graph_nodes = result['graph_nodes']
+        for i, node in enumerate(graph_nodes, 1):
+            print(f"--- Węzeł #{i} ({node.get('type', 'Unknown')}) ---")
+            print(f"Summary: {node.get('summary', 'N/A')}")
+
+            if node.get('magnitude'):
+                print(f"Wielkość: {node['magnitude']}")
+            if node.get('time_period'):
+                print(f"Okres: {node['time_period']}")
+            if node.get('confidence_level'):
+                print(f"Pewność: {node['confidence_level']}")
+            if node.get('key_facts'):
+                print(f"Kluczowe fakty: {node['key_facts']}")
+
+            print()
+    else:
+        print("ℹ️  Brak wyników z grafu - dokument może nie mieć Graph RAG nodes lub graf jest pusty")
+        print()
 
     # Wyświetl top 3 citations
     if result['citations']:

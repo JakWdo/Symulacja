@@ -18,6 +18,7 @@ import type {
   RAGDocument,
   RAGQueryRequest,
   RAGQueryResponse,
+  PersonaReasoning,
 } from '@/types';
 
 // === AUTH TYPES ===
@@ -261,8 +262,14 @@ export const analysisApi = {
     return data;
   },
   getPersonaInsights: async (personaId: string): Promise<PersonaInsight> => {
-    const { data } = await api.get<PersonaInsight>(
+    const { data} = await api.get<PersonaInsight>(
       `/personas/${personaId}/insights`,
+    );
+    return data;
+  },
+  getPersonaReasoning: async (personaId: string): Promise<PersonaReasoning> => {
+    const { data } = await api.get<PersonaReasoning>(
+      `/personas/${personaId}/reasoning`,
     );
     return data;
   },

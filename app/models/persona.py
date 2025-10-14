@@ -76,6 +76,7 @@ class Persona(Base):
         # === RAG (Retrieval-Augmented Generation) ===
         rag_context_used: Czy użyto kontekstu z bazy wiedzy RAG przy generowaniu
         rag_citations: Lista fragmentów z dokumentów użytych jako kontekst (JSONB)
+        rag_context_details: Szczegółowe dane RAG (graph nodes, search type, enrichment) - dla View Details (JSONB)
 
         # === METADANE ===
         personality_prompt: Pełny prompt wysłany do LLM (do debugowania)
@@ -131,6 +132,8 @@ class Persona(Base):
     # RAG (Retrieval-Augmented Generation)
     rag_context_used = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     rag_citations = Column(JSONB, nullable=True)
+    # Szczegółowe dane RAG dla "View Details" (graph nodes, search type, enrichment info)
+    rag_context_details = Column(JSONB, nullable=True)
 
     # Metadane
     personality_prompt = Column(Text, nullable=True)
