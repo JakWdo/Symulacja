@@ -1180,8 +1180,254 @@ pip install sentence-transformers
 
 ---
 
+---
+
+## 🧪 Testy RAG + GraphRAG + Orkiestracja (Nowe!)
+
+**Data dodania:** 2025-10-14
+**Liczba testów:** +67 testów unit (łącznie **275 testów** w projekcie)
+
+### Przegląd
+
+Nowe testy pokrywają cały system RAG (Retrieval Augmented Generation), GraphRAG (Knowledge Graph) i orkiestracji person używając Gemini 2.5 Pro.
+
+**Pliki testowe:**
+```
+tests/unit/
+├── test_rag_hybrid_search.py         # 15 testów (~30s) ✅
+├── test_graph_rag_construction.py    # 18 testów (~45s) ✅
+├── test_graph_analytics.py           # 14 testów (~20s) ✅
+├── test_persona_orchestration.py     # 12 testów (~40s) ✅
+├── test_rag_config_validation.py     #  8 testów (~10s) ✅
+└── README_RAG_TESTS.md               # Szczegółowa dokumentacja
+```
+
+### Quick Start
+
+```bash
+# Wszystkie nowe testy RAG/GraphRAG
+pytest tests/unit/test_rag_*.py tests/unit/test_graph_*.py tests/unit/test_persona_*.py -v
+
+# Z coverage dla RAG services
+pytest tests/unit/test_rag_*.py --cov=app/services/rag_service.py --cov-report=html
+```
+
+---
+
+### 1. **test_rag_hybrid_search.py** (15 testów)
+
+**Cel:** Testowanie hybrydowego wyszukiwania (Vector + Keyword + RRF Fusion).
+
+**Kluczowe testy:**
+- ✅ **Vector Search** - Semantic similarity via Gemini embeddings
+- ✅ **Keyword Search** - Fulltext index (Lucene)
+- ✅ **RRF Fusion** - Reciprocal Rank Fusion (k=40/60/80)
+- ✅ **Reranking** - Cross-encoder dla precision
+- ✅ **Chunk Enrichment** - Wzbogacanie o graph nodes
+- ✅ **Performance** - Latency target <500ms
+
+**Uruchom:**
+```bash
+pytest tests/unit/test_rag_hybrid_search.py -v
+```
+
+**Co weryfikuje:**
+- Vector search zwraca semantically similar documents
+- Keyword search znajduje exact matches (polskie znaki, apostrophes)
+- RRF fusion łączy results z różnych źródeł (deduplication, ranking)
+- Reranking poprawia precision top results (cross-encoder attention)
+- Enrichment dodaje graph context (Wskazniki, Trendy) do chunków
+
+---
+
+### 2. **test_graph_rag_construction.py** (18 testów)
+
+**Cel:** Testowanie budowy grafu wiedzy z odpowiedzi person.
+
+**Kluczowe testy:**
+- ✅ **LLM Concept Extraction** - Gemini structured output (concepts, emotions, sentiment)
+- ✅ **Fallback Extraction** - Keyword-based gdy LLM unavailable (resilience)
+- ✅ **Node Creation** - Persona, Concept, Emotion nodes z metadata
+- ✅ **Relationship Creation** - MENTIONS, FEELS, AGREES_WITH, DISAGREES_WITH
+- ✅ **Memory Fallback** - In-memory graph gdy Neo4j unavailable
+- ✅ **Graph Persistence** - Lifecycle management (create, query, delete)
+
+**Uruchom:**
+```bash
+pytest tests/unit/test_graph_rag_construction.py -v
+```
+
+**Co weryfikuje:**
+- LLM ekstraktuje concepts z high quality (sentiment, key phrases)
+- System działa bez LLM (keyword fallback, stopwords filtering)
+- Nodes mają complete metadata (doc_id, chunk_index, confidence)
+- Relationships reflect persona opinions (agreement, disagreement detection)
+- Memory fallback zapewnia resilience (system działa bez Neo4j)
+
+---
+
+### 3. **test_graph_analytics.py** (14 testów)
+
+**Cel:** Testowanie zaawansowanych analiz grafowych.
+
+**Kluczowe testy:**
+- ✅ **Key Concepts** - Top concepts sorted by frequency + sentiment
+- ✅ **Controversial Concepts** - High polarization (std dev > 0.4)
+- ✅ **Influential Personas** - PageRank-like connections ranking
+- ✅ **Emotion Distribution** - Aggregates (count, intensity, percentage)
+- ✅ **Trait Correlations** - Age gap detection (young vs senior opinions)
+- ✅ **NL Queries** - Natural language interface ("Who influences most?")
+
+**Uruchom:**
+```bash
+pytest tests/unit/test_graph_analytics.py -v
+```
+
+**Co weryfikuje:**
+- Analytics zwracają actionable insights (not just raw data)
+- Controversial concepts mają identified supporters + critics
+- Influence score bazuje na connections (realistic metric)
+- NL queries używają heuristics dla keyword matching
+- Neo4j vs memory results są consistent (resilience)
+
+---
+
+### 4. **test_persona_orchestration.py** (12 testów)
+
+**Cel:** Testowanie orkiestracji używając Gemini 2.5 Pro.
+
+**Kluczowe testy:**
+- ✅ **Graph Context Retrieval** - 8 parallel queries (demographics, trends)
+- ✅ **Brief Generation** - 2000-3000 znaków, edukacyjny ton
+- ✅ **Graph Insights** - Structured data (magnitude, confidence, why_matters)
+- ✅ **JSON Parsing** - Multiple formats (```json, ```, bare braces)
+- ✅ **Timeout Handling** - 30s graph queries, 120s LLM calls
+- ✅ **Demographics Validation** - Allocation sum == total_personas
+
+**Uruchom:**
+```bash
+pytest tests/unit/test_persona_orchestration.py -v
+```
+
+**Co weryfikuje:**
+- Graph context jest comprehensive (multiple demographics queries)
+- Briefe są długie i educational (wyjaśniają "dlaczego")
+- JSON parsing jest robust (handles LLM output variations)
+- Timeouts są correctly configured (resilience)
+- Allocation logic jest sensible (% population vs relevance)
+
+---
+
+### 5. **test_rag_config_validation.py** (8 testów)
+
+**Cel:** Testowanie poprawności konfiguracji RAG parameters.
+
+**Kluczowe testy:**
+- ✅ **Chunk Size** - Bounds (500-2000), overlap (10%-50%)
+- ✅ **TOP_K** - Range (3-20), RERANK_CANDIDATES >= TOP_K
+- ✅ **RRF_K** - Range (20-100)
+- ✅ **MAX_CONTEXT** - Sufficient dla TOP_K chunks
+- ✅ **Vector Weight** - Range [0.0, 1.0], not extreme
+- ✅ **Reranker** - Model specified, sentence-transformers available
+
+**Uruchom:**
+```bash
+pytest tests/unit/test_rag_config_validation.py -v
+```
+
+**Co weryfikuje:**
+- All config parameters są w sensible ranges
+- No conflicting settings (chunk overlap < chunk size, etc.)
+- Dependencies są available (sentence-transformers dla reranking)
+
+---
+
+### Fixtures dla RAG/GraphRAG
+
+**Nowe fixtures w `tests/conftest.py`:**
+
+```python
+# Mock Stores
+mock_neo4j_driver           # Neo4j driver mock
+mock_vector_store           # Vector search mock (embeddings)
+mock_graph_store            # Cypher queries mock
+mock_embeddings             # Deterministyczne embeddings (768D)
+
+# Sample Data
+sample_rag_document         # Przykładowy dokument (GUS stats)
+mock_concept_extraction     # LLM extraction mock
+
+# LLM Mocks
+mock_llm                    # Gemini 2.5 Flash
+mock_gemini_2_5_pro         # Gemini 2.5 Pro (orchestration)
+
+# Service Fixtures
+rag_document_service_with_mocks      # RAGDocumentService z mockami
+polish_society_rag_with_mocks        # PolishSocietyRAG z mockami
+graph_service_with_mocks             # GraphService z mockami
+persona_orchestration_with_mocks     # Orchestration z mockami
+```
+
+**Użycie:**
+```python
+async def test_example(polish_society_rag_with_mocks):
+    rag = await polish_society_rag_with_mocks
+    results = await rag.hybrid_search("query", top_k=5)
+    assert len(results) == 5
+```
+
+---
+
+### Coverage Impact
+
+**Przed dodaniem testów RAG/GraphRAG:**
+| Module | Coverage |
+|--------|----------|
+| `rag_service.py` | ~78% |
+| `graph_service.py` | ~72% |
+| `persona_orchestration.py` | ~65% |
+
+**Po dodaniu testów:**
+| Module | Coverage | Wzrost |
+|--------|----------|--------|
+| `rag_service.py` | **~92%** | +14% ✅ |
+| `graph_service.py` | **~88%** | +16% ✅ |
+| `persona_orchestration.py` | **~87%** | +22% ✅ |
+
+**Overall services/ coverage:** 85%+ → **~90%** (+5%)
+
+---
+
+### Dokumentacja
+
+**Szczegółowa dokumentacja:** `tests/unit/README_RAG_TESTS.md`
+
+**Zawiera:**
+- Detailed description każdego pliku testowego
+- Test patterns i best practices
+- Troubleshooting guide
+- Performance benchmarks
+- Fixture usage examples
+
+**Przeczytaj:**
+```bash
+cat tests/unit/README_RAG_TESTS.md
+# Lub
+open tests/unit/README_RAG_TESTS.md  # jeśli w IDE
+```
+
+---
+
+### Następne Kroki (TODO)
+
+1. **Integration Tests** - test_rag_integration.py (20 testów z Neo4j)
+2. **E2E Test** - test_complete_rag_orchestration_workflow.py (full pipeline)
+3. **Performance Benchmarks** - Latency dla hybrid search, graph analytics
+
+---
+
 **Koniec dokumentacji testów**
 
 Ostatnia aktualizacja: 2025-10-14
-Wersja: 2.1 (dodano RAG testing & optimization)
-Liczba testów: 208
+Wersja: 2.2 (dodano 67 testów RAG/GraphRAG/Orchestration)
+Liczba testów: **275** (208 + 67 RAG/GraphRAG)

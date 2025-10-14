@@ -136,6 +136,9 @@ Plan rozwoju platformy z podziałem na obszary funkcjonalne.
 
 ## RAG & Knowledge Graph
 
+### RAG KLUCZOWE
+- [ ] Stworzenie RAG settings, aby prompty do LLMGraphTransformer były dostosowane do raportu.
+
 ### Chunking & Context Optimization (ZREALIZOWANE 2025-10-14) ✅
 - [x] Optymalizacja chunk_size (2000 → 1000 znaków) dla lepszej precyzji embeddings (2025-10-14)
 - [x] Zwiększenie overlap (20% → 30%) dla lepszej ciągłości kontekstu (2025-10-14)

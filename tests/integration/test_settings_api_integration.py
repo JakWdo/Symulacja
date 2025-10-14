@@ -26,7 +26,7 @@ async def test_get_profile_success(authenticated_client):
     - Zwraca podstawowe informacje (email, full_name, role, company)
     - Nie ujawnia hashed_password
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     response = client.get("/api/v1/settings/profile", headers=headers)
 
@@ -52,7 +52,7 @@ async def test_update_profile_success(authenticated_client):
     - Status 200 OK
     - Dane zostały zaktualizowane
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     update_data = {
         "full_name": "Updated Name",
@@ -76,7 +76,7 @@ async def test_update_profile_partial_update(authenticated_client):
     """
     Test częściowej aktualizacji profilu (tylko niektóre pola).
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Update only full_name
     update_data = {
@@ -102,7 +102,7 @@ async def test_get_account_stats_success(authenticated_client):
     - Zwraca liczby: projects, personas, focus_groups, surveys
     - Status 200 OK
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     response = client.get("/api/v1/settings/stats", headers=headers)
 
@@ -133,7 +133,7 @@ async def test_upload_avatar_success(authenticated_client, tmp_path):
     - Status 200 OK
     - Zwraca URL avatara
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Utwórz testowy obraz
     img = Image.new('RGB', (100, 100), color='red')
@@ -169,7 +169,7 @@ async def test_upload_avatar_invalid_file_type(authenticated_client):
     - Tylko JPG, PNG, WEBP są akceptowane
     - Status 400 Bad Request dla innych typów
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Próba uploadu tekstowego pliku
     files = {
@@ -194,7 +194,7 @@ async def test_upload_avatar_too_large(authenticated_client):
     UWAGA: Ten test może być pominięty jeśli walidacja rozmiaru
     nie jest zaimplementowana na poziomie API.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Utwórz duży obraz (>2MB)
     img = Image.new('RGB', (3000, 3000), color='blue')
@@ -227,7 +227,7 @@ async def test_delete_avatar_success(authenticated_client):
     """
     Test pomyślnego usunięcia avatara użytkownika.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     response = client.delete("/api/v1/settings/avatar", headers=headers)
 
@@ -252,7 +252,7 @@ async def test_delete_account_soft_delete(authenticated_client, db_session):
     from sqlalchemy import select
     from app.models.user import User
 
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     response = client.delete("/api/v1/settings/account", headers=headers)
 

@@ -73,7 +73,7 @@ class RAGDocumentService:
         # Model konwersacyjny wykorzystywany zarówno do budowy grafu, jak i
         # generowania finalnych odpowiedzi Graph RAG.
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model=settings.GRAPH_MODEL,
             google_api_key=self.settings.GOOGLE_API_KEY,
             temperature=0,
         )
@@ -84,35 +84,106 @@ class RAGDocumentService:
             google_api_key=settings.GOOGLE_API_KEY,
         )
 
-        # Inicjalizacja Neo4j Vector Store – krytyczna dla działania RAG.
-        try:
-            self.vector_store = Neo4jVector(
-                url=settings.NEO4J_URI,
-                username=settings.NEO4J_USER,
-                password=settings.NEO4J_PASSWORD,
-                embedding=self.embeddings,
-                index_name="rag_document_embeddings",
-                node_label="RAGChunk",
-                text_node_property="text",
-                embedding_node_property="embedding",
-            )
-            logger.info("Neo4j Vector Store został poprawnie zainicjalizowany.")
-        except Exception as exc:  # pragma: no cover - logujemy problem konfiguracyjny
-            logger.error("Nie udało się zainicjalizować Neo4j Vector Store: %s", exc)
-            self.vector_store = None
+        # Inicjalizacja Neo4j Vector Store z retry logic (dla Docker startup race condition)
+        self.vector_store = self._init_vector_store_with_retry()
 
-        # Inicjalizacja Neo4j Graph – może się nie udać, ale wtedy Graph RAG
-        # zostanie tymczasowo wyłączony (pozostanie klasyczne RAG).
-        try:
-            self.graph_store = Neo4jGraph(
-                url=settings.NEO4J_URI,
-                username=settings.NEO4J_USER,
-                password=settings.NEO4J_PASSWORD,
-            )
-            logger.info("Neo4j Graph Store został poprawnie zainicjalizowany.")
-        except Exception as exc:  # pragma: no cover - logujemy problem konfiguracyjny
-            logger.error("Nie udało się zainicjalizować Neo4j Graph Store: %s", exc)
-            self.graph_store = None
+        # Inicjalizacja Neo4j Graph Store z retry logic
+        self.graph_store = self._init_graph_store_with_retry()
+
+    def _init_vector_store_with_retry(self, max_retries: int = 10, initial_delay: float = 1.0):
+        """Inicjalizuje Neo4j Vector Store z retry logic (dla Docker startup).
+
+        Neo4j w Dockerze potrzebuje 10-15s na start (plugins: APOC, GDS).
+        Retry z exponential backoff zapobiega race condition przy startup.
+
+        Args:
+            max_retries: Maksymalna liczba prób (default: 10 = ~30s total)
+            initial_delay: Początkowe opóźnienie w sekundach (default: 1.0s)
+
+        Returns:
+            Neo4jVector instance lub None jeśli wszystkie próby failed
+        """
+        import time
+
+        logger.info("🔄 Inicjalizacja Neo4j Vector Store (z retry logic)")
+        logger.info("   URL: %s, User: %s", settings.NEO4J_URI, settings.NEO4J_USER)
+
+        delay = initial_delay
+        for attempt in range(1, max_retries + 1):
+            try:
+                vector_store = Neo4jVector(
+                    url=settings.NEO4J_URI,
+                    username=settings.NEO4J_USER,
+                    password=settings.NEO4J_PASSWORD,
+                    embedding=self.embeddings,
+                    index_name="rag_document_embeddings",
+                    node_label="RAGChunk",
+                    text_node_property="text",
+                    embedding_node_property="embedding",
+                )
+                logger.info("✅ Neo4j Vector Store połączony (próba %d/%d)", attempt, max_retries)
+                return vector_store
+
+            except Exception as exc:
+                if attempt < max_retries:
+                    logger.warning(
+                        "⚠️  Neo4j Vector Store - próba %d/%d failed: %s. Retry za %.1fs...",
+                        attempt, max_retries, str(exc)[:100], delay
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 1.5, 10.0)  # Exponential backoff (cap at 10s)
+                else:
+                    logger.error(
+                        "❌ Neo4j Vector Store - wszystkie %d prób failed. RAG wyłączony.",
+                        max_retries,
+                        exc_info=True
+                    )
+                    return None
+
+        return None
+
+    def _init_graph_store_with_retry(self, max_retries: int = 10, initial_delay: float = 1.0):
+        """Inicjalizuje Neo4j Graph Store z retry logic (dla Docker startup).
+
+        Args:
+            max_retries: Maksymalna liczba prób (default: 10 = ~30s total)
+            initial_delay: Początkowe opóźnienie w sekundach (default: 1.0s)
+
+        Returns:
+            Neo4jGraph instance lub None jeśli wszystkie próby failed
+        """
+        import time
+
+        logger.info("🔄 Inicjalizacja Neo4j Graph Store (z retry logic)")
+
+        delay = initial_delay
+        for attempt in range(1, max_retries + 1):
+            try:
+                graph_store = Neo4jGraph(
+                    url=settings.NEO4J_URI,
+                    username=settings.NEO4J_USER,
+                    password=settings.NEO4J_PASSWORD,
+                )
+                logger.info("✅ Neo4j Graph Store połączony (próba %d/%d)", attempt, max_retries)
+                return graph_store
+
+            except Exception as exc:
+                if attempt < max_retries:
+                    logger.warning(
+                        "⚠️  Neo4j Graph Store - próba %d/%d failed: %s. Retry za %.1fs...",
+                        attempt, max_retries, str(exc)[:100], delay
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 1.5, 10.0)  # Exponential backoff (cap at 10s)
+                else:
+                    logger.error(
+                        "❌ Neo4j Graph Store - wszystkie %d prób failed. GraphRAG wyłączony.",
+                        max_retries,
+                        exc_info=True
+                    )
+                    return None
+
+        return None
 
     async def ingest_document(self, file_path: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Przetwarza dokument przez pełny pipeline: load → chunk → graph → vector.
@@ -195,62 +266,98 @@ class RAGDocumentService:
                     transformer = LLMGraphTransformer(
                         llm=self.llm,
                         allowed_nodes=[
-                            "Obserwacja",
-                            "Wskaznik",
-                            "Demografia",
-                            "Trend",
-                            "Lokalizacja",
-                            "Przyczyna",
-                            "Skutek",
+                            "Obserwacja",   # Fakty, obserwacje (merge Przyczyna, Skutek tutaj)
+                            "Wskaznik",     # Wskaźniki liczbowe, statystyki
+                            "Demografia",   # Grupy demograficzne
+                            "Trend",        # Trendy czasowe, zmiany w czasie
+                            "Lokalizacja",  # Miejsca geograficzne
                         ],
                         allowed_relationships=[
-                            "OPISUJE",
-                            "DOTYCZY",
-                            "POKAZUJE_TREND",
-                            "ZLOKALIZOWANY_W",
-                            "SPOWODOWANY_PRZEZ",
-                            "PROWADZI_DO",
-                            "POROWNUJE_DO",
+                            "OPISUJE",           # Opisuje cechę/właściwość
+                            "DOTYCZY",           # Dotyczy grupy/kategorii
+                            "POKAZUJE_TREND",    # Pokazuje trend czasowy
+                            "ZLOKALIZOWANY_W",   # Zlokalizowane w miejscu
+                            "POWIAZANY_Z",       # Ogólne powiązanie (merge: przyczynowość, porównania)
                         ],
                         node_properties=[
-                            "opis",             # Szczegółowy opis węzła (2-3 zdania)
-                            "streszczenie",     # Krótkie podsumowanie (1 zdanie)
-                            "kluczowe_fakty",   # Lista kluczowych faktów (string, separated by semicolons)
-                            "okres_czasu",      # Okres czasu (jeśli dotyczy, format: "YYYY" lub "YYYY-YYYY")
-                            "skala",            # Wielkość/skala dla wskaźników (string z jednostką)
-                            "zrodlo",           # Bezpośredni cytat lub kontekst źródłowy
-                            "pewnosc"           # Poziom pewności informacji: "wysoka", "srednia", "niska"
+                            "streszczenie",     # MUST: Jednozdaniowe podsumowanie (max 150 znaków)
+                            "skala",            # Wielkość/wartość z jednostką (np. "67%", "1.2 mln")
+                            "pewnosc",          # MUST: Pewność: "wysoka", "srednia", "niska"
+                            "okres_czasu",      # Okres czasu (YYYY lub YYYY-YYYY)
+                            "kluczowe_fakty",   # Opcjonalnie: max 3 fakty (separated by semicolons)
                         ],
                         relationship_properties=[
-                            "pewnosc_relacji",  # Pewność relacji (0.0-1.0 jako string)
-                            "dowod",            # Dowód/uzasadnienie relacji (cytat lub wyjaśnienie)
-                            "sila"              # Siła relacji: "silna", "umiarkowana", "slaba"
+                            "sila",  # Siła relacji: "silna", "umiarkowana", "slaba"
                         ],
                         additional_instructions="""
-JĘZYK: Wszystkie właściwości węzłów i relacji MUSZĄ być po polsku - zarówno NAZWY jak i WARTOŚCI.
+JĘZYK: Wszystkie nazwy i wartości MUSZĄ być PO POLSKU.
 
-WĘZŁY - Każdy węzeł zawiera:
-- opis: Wyczerpujący opis kontekstu (2-3 zdania)
-- streszczenie: Jednozdaniowe streszczenie
-- kluczowe_fakty: Lista faktów oddzielonych średnikami (min. 2-3)
-- okres_czasu: Okres czasu (YYYY lub YYYY-YYYY)
-- skala: Wartość z jednostką (np. "67%", "1.2 mln osób")
-- zrodlo: Cytat ze źródła (20-50 słów)
-- pewnosc: "wysoka" (dane bezpośrednie), "srednia" (wnioski), "niska" (spekulacje)
+=== TYPY WĘZŁÓW (5) ===
+- Obserwacja: Fakty, obserwacje społeczne (włącznie z przyczynami i skutkami)
+- Wskaznik: Wskaźniki liczbowe, statystyki (np. stopa zatrudnienia)
+- Demografia: Grupy demograficzne (np. młodzi dorośli)
+- Trend: Trendy czasowe, zmiany w czasie
+- Lokalizacja: Miejsca geograficzne
 
-RELACJE - Każda relacja zawiera (POLSKIE nazwy properties):
-- pewnosc_relacji: Pewność 0.0-1.0 (string)
-- dowod: Dowód z tekstu uzasadniający relację
-- sila: "silna" (bezpośrednia), "umiarkowana" (prawdopodobna), "slaba" (możliwa)
+=== TYPY RELACJI (5) ===
+- OPISUJE: Opisuje cechę/właściwość
+- DOTYCZY: Dotyczy grupy/kategorii
+- POKAZUJE_TREND: Pokazuje trend czasowy
+- ZLOKALIZOWANY_W: Zlokalizowane w miejscu
+- POWIAZANY_Z: Ogólne powiązanie (przyczynowość, porównania, korelacje)
 
-TYPY WĘZŁÓW (POLSKIE nazwy):
-Obserwacja (obserwacje), Wskaznik (wskaźniki liczbowe), Demografia (grupy), Trend (trendy czasowe), Lokalizacja (miejsca), Przyczyna (przyczyny), Skutek (skutki)
+=== PROPERTIES WĘZŁÓW (5 - uproszczone!) ===
+- streszczenie (MUST): 1 zdanie, max 150 znaków
+- skala: Wartość z jednostką (np. "78.4%", "5000 PLN", "1.2 mln osób")
+- pewnosc (MUST): "wysoka" / "srednia" / "niska"
+- okres_czasu: YYYY lub YYYY-YYYY
+- kluczowe_fakty: Max 3 fakty oddzielone średnikami
 
-TYPY RELACJI (POLSKIE nazwy):
-OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W, SPOWODOWANY_PRZEZ, PROWADZI_DO, POROWNUJE_DO
+=== PROPERTIES RELACJI (1) ===
+- sila: "silna" / "umiarkowana" / "slaba"
 
-METADANE TECHNICZNE (KRYTYCZNE):
-Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
+=== PRZYKŁADY (FEW-SHOT) ===
+
+PRZYKŁAD 1 - Wskaznik:
+Tekst: "W 2022 stopa zatrudnienia kobiet 25-34 z wyższym wynosiła 78.4% według GUS"
+Węzeł: {{
+  type: "Wskaznik",
+  streszczenie: "Stopa zatrudnienia kobiet 25-34 z wyższym wykształceniem",
+  skala: "78.4%",
+  pewnosc: "wysoka",
+  okres_czasu: "2022",
+  kluczowe_fakty: "wysoka stopa zatrudnienia; kobiety młode; wykształcenie wyższe"
+}}
+
+PRZYKŁAD 2 - Obserwacja:
+Tekst: "Młodzi mieszkańcy dużych miast coraz częściej wynajmują mieszkania zamiast kupować"
+Węzeł: {{
+  type: "Obserwacja",
+  streszczenie: "Młodzi w miastach preferują wynajem nad zakup mieszkań",
+  pewnosc: "srednia",
+  kluczowe_fakty: "młodzi dorośli; duże miasta; wynajem mieszkań"
+}}
+
+PRZYKŁAD 3 - Trend:
+Tekst: "Od 2018 do 2023 wzrósł odsetek osób pracujących zdalnie z 12% do 31%"
+Węzeł: {{
+  type: "Trend",
+  streszczenie: "Wzrost pracy zdalnej w Polsce",
+  skala: "12% → 31%",
+  pewnosc: "wysoka",
+  okres_czasu: "2018-2023",
+  kluczowe_fakty: "praca zdalna; wzrost; pandemia"
+}}
+
+=== VALIDATION RULES ===
+- streszczenie: Zawsze wypełnij (1 zdanie, max 150 znaków)
+- pewnosc: Zawsze wypełnij ("wysoka", "srednia", "niska")
+- skala: Tylko dla Wskaznik (inne: opcjonalnie)
+- kluczowe_fakty: Max 3 fakty, separated by semicolons
+- doc_id, chunk_index: KRYTYCZNE dla lifecycle (zachowane automatycznie)
+
+=== FOCUS ===
+Priorytet: streszczenie + pewnosc. Nie trać czasu na zbędne opisy.
                         """.strip(),
                     )
                     graph_documents = await transformer.aconvert_to_graph_documents(chunks)
@@ -361,9 +468,6 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                         node.id
                     )
 
-                if node.properties.get('opis') in (None, '', 'N/A'):
-                    validation_warnings += 1
-
                 # 4. NORMALIZACJA FORMATÓW
                 # Pewność normalizacja
                 pewnosc = node.properties.get('pewnosc', '').lower()
@@ -385,16 +489,7 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                 relationship.properties['doc_id'] = doc_id
                 relationship.properties['chunk_index'] = chunk_index
 
-                # Normalizacja pewnosc_relacji (string -> float validation)
-                if relationship.properties.get('pewnosc_relacji'):
-                    try:
-                        conf_value = float(relationship.properties['pewnosc_relacji'])
-                        # Clamp do 0.0-1.0
-                        relationship.properties['pewnosc_relacji'] = str(max(0.0, min(1.0, conf_value)))
-                    except (ValueError, TypeError):
-                        relationship.properties['pewnosc_relacji'] = '0.5'  # default
-
-                # Normalizacja siły
+                # Normalizacja siły (jedyna property relacji)
                 sila = relationship.properties.get('sila', '').lower()
                 if sila not in ('silna', 'umiarkowana', 'slaba'):
                     relationship.properties['sila'] = 'umiarkowana'  # default
@@ -429,38 +524,54 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                     Jesteś analitykiem badań społecznych. Twoim zadaniem jest zamiana pytania
                     użytkownika na zapytanie Cypher korzystające z poniższego schematu grafu.
 
-                    DOSTĘPNE WŁAŚCIWOŚCI WĘZŁÓW:
-                    - description: Szczegółowy opis kontekstu (2-3 zdania)
-                    - summary: Jednozdaniowe podsumowanie
-                    - key_facts: Lista kluczowych faktów (oddzielone średnikami)
-                    - time_period: Okres czasu (YYYY lub YYYY-YYYY)
-                    - magnitude: Wielkość/skala z jednostką
-                    - source_context: Cytat ze źródła
-                    - confidence_level: Pewność danych (high/medium/low)
-                    - document_title: Tytuł dokumentu źródłowego
-                    - document_country: Kraj dokumentu
-                    - document_year: Rok dokumentu
+                    === DOSTĘPNE TYPY WĘZŁÓW (5) ===
+                    - Obserwacja: Fakty, obserwacje (włącznie z przyczynami i skutkami)
+                    - Wskaznik: Wskaźniki liczbowe, statystyki
+                    - Demografia: Grupy demograficzne
+                    - Trend: Trendy czasowe
+                    - Lokalizacja: Miejsca geograficzne
 
-                    DOSTĘPNE WŁAŚCIWOŚCI RELACJI:
-                    - confidence: Pewność relacji (0.0-1.0)
-                    - evidence: Dowód/uzasadnienie relacji
-                    - strength: Siła relacji (strong/moderate/weak)
+                    === DOSTĘPNE TYPY RELACJI (5) ===
+                    - OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W
+                    - POWIAZANY_Z: Ogólne powiązanie (przyczynowość, porównania)
 
-                    INSTRUKCJE TWORZENIA ZAPYTAŃ:
-                    1. Skup się na odnajdywaniu ścieżek do głębokości 3 między encjami
-                       (Observation, Indicator, Demographic, Trend, Location, Cause, Effect)
-                    2. ZAWSZE zwracaj właściwości węzłów (description, summary, key_facts, itp.)
-                    3. Filtruj po confidence_level węzłów jeśli użytkownik pyta o pewne fakty
-                    4. Filtruj po strength relacji jeśli użytkownik pyta o silne zależności
-                    5. Sortuj po magnitude dla pytań o największe/najmniejsze wskaźniki
-                    6. Filtruj po time_period dla pytań czasowych
-                    7. Używaj source_context w odpowiedziach dla weryfikowalności
+                    === DOSTĘPNE WŁAŚCIWOŚCI WĘZŁÓW (5 - uproszczone!) ===
+                    - streszczenie: Jednozdaniowe podsumowanie (max 150 znaków)
+                    - skala: Wielkość/wartość z jednostką (np. "78.4%")
+                    - pewnosc: Pewność danych ("wysoka", "srednia", "niska")
+                    - okres_czasu: Okres czasu (YYYY lub YYYY-YYYY)
+                    - kluczowe_fakty: Max 3 fakty (separated by semicolons)
+                    - document_title, document_country, document_year: Metadane dokumentu
 
-                    PRZYKŁADY ZAPYTAŃ:
-                    - "Jakie są największe wskaźniki?" -> sortuj po magnitude
-                    - "Jakie są pewne fakty o X?" -> filtruj confidence_level = 'high'
-                    - "Jak X wpływa na Y?" -> filtruj strength = 'strong' w relacjach LEADS_TO
-                    - "Co się zmieniło w latach 2020-2023?" -> filtruj time_period
+                    === DOSTĘPNE WŁAŚCIWOŚCI RELACJI (1) ===
+                    - sila: Siła relacji ("silna", "umiarkowana", "slaba")
+
+                    === INSTRUKCJE TWORZENIA ZAPYTAŃ ===
+                    1. Używaj POLSKICH nazw properties (streszczenie, pewnosc, skala, etc.)
+                    2. ZAWSZE zwracaj streszczenie + kluczowe_fakty
+                    3. Filtruj po pewnosc jeśli użytkownik pyta o pewne fakty ("wysoka")
+                    4. Filtruj po sila relacji dla silnych zależności ("silna")
+                    5. Sortuj po skala dla pytań o największe wskaźniki
+                    6. Filtruj po okres_czasu dla pytań czasowych
+                    7. Używaj POWIAZANY_Z dla pytań o zależności/przyczyny
+
+                    === PRZYKŁADY ZAPYTAŃ (nowy schema) ===
+                    ```cypher
+                    // Największe wskaźniki
+                    MATCH (n:Wskaznik) WHERE n.skala IS NOT NULL
+                    RETURN n.streszczenie, n.skala, n.pewnosc, n.okres_czasu
+                    ORDER BY toFloat(split(n.skala, '%')[0]) DESC LIMIT 10
+
+                    // Pewne fakty o X
+                    MATCH (n:Obserwacja)
+                    WHERE n.streszczenie CONTAINS 'X' AND n.pewnosc = 'wysoka'
+                    RETURN n.streszczenie, n.kluczowe_fakty, n.okres_czasu
+
+                    // Powiązania X → Y (używa POWIAZANY_Z)
+                    MATCH (n1)-[r:POWIAZANY_Z]->(n2)
+                    WHERE n1.streszczenie CONTAINS 'X' AND r.sila = 'silna'
+                    RETURN n1.streszczenie, r.sila, n2.streszczenie
+                    ```
 
                     Schemat grafu: {graph_schema}
                     """.strip(),
@@ -684,8 +795,15 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
         # Płeć
         search_terms.append(gender)
 
-        # Dodaj ogólne terminy demograficzne
-        search_terms.extend(["demografia", "społeczeństwo polskie", "populacja"])
+        # Dodaj ogólne terminy demograficzne (więcej aby zwiększyć szanse na match)
+        search_terms.extend([
+            "demografia", "społeczeństwo polskie", "populacja",
+            "ludność", "mieszkańcy", "obywatele",
+            "młodzi", "dorośli", "seniorzy",  # Generic age terms
+            "wiek", "pokolenie", "generacja",
+            "miasto", "miejski", "miejska",  # Generic location terms
+            "polska", "polski", "polacy"  # Country terms
+        ])
 
         # DUAL-LANGUAGE: Dodaj angielskie odpowiedniki dla polskich terminów
         # Tworzy kopię aby nie modyfikować listy podczas iteracji
@@ -697,28 +815,30 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                 if en_term not in search_terms:  # Unikaj duplikatów
                     search_terms.append(en_term)
 
-        logger.debug(
-            "Graph context search terms (PL+EN): %s",
-            search_terms[:10]  # Log tylko pierwsze 10 aby nie zaśmiecać logów
-        )
-
         logger.info(
-            "Pobieranie graph context dla: wiek=%s, lokalizacja=%s, wykształcenie=%s, płeć=%s",
+            "📊 Graph context search - Profil: wiek=%s, lokalizacja=%s, wykształcenie=%s, płeć=%s",
             age_group, location, education, gender
+        )
+        logger.info(
+            "🔍 Search terms (%s total): %s",
+            len(search_terms),
+            search_terms[:15]  # Log pierwsze 15 dla debugowania
         )
 
         try:
             # Zapytanie Cypher: Znajdź węzły które pasują do search terms
-            # confidence_level jest opcjonalny - preferujemy 'high' ale akceptujemy wszystkie
+            # pewnosc jest opcjonalny - preferujemy 'wysoka' ale akceptujemy wszystkie
+            # UWAGA: Schema uproszczony - properties: streszczenie, skala, pewnosc, okres_czasu, kluczowe_fakty
             cypher_query = """
             // Parametry: $search_terms - lista słów kluczowych do matchingu
+            // UWAGA: Schema używa POLSKICH property names (streszczenie, skala, pewnosc, etc.)
 
             // 1. Znajdź Wskaźniki (preferuj wysoką pewność jeśli istnieje)
+            // Case-insensitive search
             MATCH (ind:Wskaznik)
             WHERE ANY(term IN $search_terms WHERE
-                ind.streszczenie CONTAINS term OR
-                ind.opis CONTAINS term OR
-                ind.kluczowe_fakty CONTAINS term
+                toLower(coalesce(ind.streszczenie, '')) CONTAINS toLower(term) OR
+                toLower(coalesce(ind.kluczowe_fakty, '')) CONTAINS toLower(term)
             )
             WITH ind
             ORDER BY
@@ -733,17 +853,15 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                 kluczowe_fakty: ind.kluczowe_fakty,
                 skala: ind.skala,
                 pewnosc: coalesce(ind.pewnosc, 'nieznana'),
-                okres_czasu: ind.okres_czasu,
-                zrodlo: ind.zrodlo,
-                opis: ind.opis
+                okres_czasu: ind.okres_czasu
             }) AS indicators
 
             // 2. Znajdź Obserwacje (preferuj wysoką pewność jeśli istnieje)
+            // Case-insensitive search
             MATCH (obs:Obserwacja)
             WHERE ANY(term IN $search_terms WHERE
-                obs.streszczenie CONTAINS term OR
-                obs.opis CONTAINS term OR
-                obs.kluczowe_fakty CONTAINS term
+                toLower(coalesce(obs.streszczenie, '')) CONTAINS toLower(term) OR
+                toLower(coalesce(obs.kluczowe_fakty, '')) CONTAINS toLower(term)
             )
             WITH indicators, obs
             ORDER BY
@@ -757,16 +875,15 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                 streszczenie: obs.streszczenie,
                 kluczowe_fakty: obs.kluczowe_fakty,
                 pewnosc: coalesce(obs.pewnosc, 'nieznana'),
-                okres_czasu: obs.okres_czasu,
-                zrodlo: obs.zrodlo,
-                opis: obs.opis
+                okres_czasu: obs.okres_czasu
             }) AS observations
 
             // 3. Znajdź Trendy
+            // Case-insensitive search
             MATCH (trend:Trend)
             WHERE ANY(term IN $search_terms WHERE
-                trend.streszczenie CONTAINS term OR
-                trend.opis CONTAINS term
+                toLower(coalesce(trend.streszczenie, '')) CONTAINS toLower(term) OR
+                toLower(coalesce(trend.kluczowe_fakty, '')) CONTAINS toLower(term)
             )
             WITH indicators, observations, trend
             ORDER BY size(coalesce(trend.kluczowe_fakty, '')) DESC
@@ -775,16 +892,15 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                 type: 'Trend',
                 streszczenie: trend.streszczenie,
                 kluczowe_fakty: trend.kluczowe_fakty,
-                okres_czasu: trend.okres_czasu,
-                zrodlo: trend.zrodlo,
-                opis: trend.opis
+                okres_czasu: trend.okres_czasu
             }) AS trends
 
             // 4. Znajdź węzły Demografii
+            // Case-insensitive search
             MATCH (demo:Demografia)
             WHERE ANY(term IN $search_terms WHERE
-                demo.streszczenie CONTAINS term OR
-                demo.opis CONTAINS term
+                toLower(coalesce(demo.streszczenie, '')) CONTAINS toLower(term) OR
+                toLower(coalesce(demo.kluczowe_fakty, '')) CONTAINS toLower(term)
             )
             WITH indicators, observations, trends, demo
             ORDER BY
@@ -796,9 +912,7 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                 type: 'Demografia',
                 streszczenie: demo.streszczenie,
                 kluczowe_fakty: demo.kluczowe_fakty,
-                pewnosc: coalesce(demo.pewnosc, 'nieznana'),
-                zrodlo: demo.zrodlo,
-                opis: demo.opis
+                pewnosc: coalesce(demo.pewnosc, 'nieznana')
             }) AS demographics
 
             // 5. Połącz wszystkie wyniki
@@ -811,11 +925,26 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
             )
 
             if not result or not result[0].get('graph_context'):
-                logger.info("Brak wyników z grafu dla podanego profilu demograficznego")
+                logger.warning(
+                    "❌ Brak wyników z grafu dla profilu: wiek=%s, wykształcenie=%s, lokalizacja=%s, płeć=%s",
+                    age_group, education, location, gender
+                )
                 return []
 
             graph_context = result[0]['graph_context']
-            logger.info("Pobrano %s węzłów grafu z kontekstem demograficznym", len(graph_context))
+
+            if not graph_context:
+                logger.warning("❌ Graph context jest pusty (query zwróciło empty array)")
+                return []
+
+            logger.info(
+                "✅ Pobrano %s węzłów grafu: %s Wskaznik, %s Obserwacja, %s Trend, %s Demografia",
+                len(graph_context),
+                len([n for n in graph_context if n.get('type') == 'Wskaznik']),
+                len([n for n in graph_context if n.get('type') == 'Obserwacja']),
+                len([n for n in graph_context if n.get('type') == 'Trend']),
+                len([n for n in graph_context if n.get('type') == 'Demografia'])
+            )
 
             return graph_context
 
@@ -846,18 +975,11 @@ class PolishSocietyRAG:
             google_api_key=settings.GOOGLE_API_KEY,
         )
 
-        try:
-            self.vector_store = Neo4jVector(
-                url=settings.NEO4J_URI,
-                username=settings.NEO4J_USER,
-                password=settings.NEO4J_PASSWORD,
-                embedding=self.embeddings,
-                index_name="rag_document_embeddings",
-                node_label="RAGChunk",
-                text_node_property="text",
-                embedding_node_property="embedding",
-            )
-            logger.info("PolishSocietyRAG został poprawnie zainicjalizowany.")
+        # Inicjalizacja Neo4j Vector Store z retry logic (dla Docker startup race condition)
+        self.vector_store = self._init_vector_store_with_retry()
+
+        if self.vector_store:
+            logger.info("✅ PolishSocietyRAG: Neo4j Vector Store połączony")
 
             # Fulltext index będzie tworzony lazy - przy pierwszym użyciu keyword search
             # (nie możemy użyć asyncio.create_task() w __init__ bo może nie być event loop)
@@ -890,10 +1012,62 @@ class PolishSocietyRAG:
                         "Nie udało się załadować reranker: %s - kontynuacja bez rerankingu",
                         rerank_exc
                     )
+        else:
+            logger.error("❌ PolishSocietyRAG: Neo4j Vector Store failed - RAG wyłączony")
+            self._fulltext_index_initialized = False
+            self._rag_doc_service = None
+            self.reranker = None
 
-        except Exception as exc:  # pragma: no cover - logujemy, ale nie przerywamy
-            logger.error("Nie udało się zainicjalizować PolishSocietyRAG: %s", exc)
-            self.vector_store = None
+    def _init_vector_store_with_retry(self, max_retries: int = 10, initial_delay: float = 1.0):
+        """Inicjalizuje Neo4j Vector Store z retry logic (dla Docker startup).
+
+        Neo4j w Dockerze potrzebuje 10-15s na start (plugins: APOC, GDS).
+        Retry z exponential backoff zapobiega race condition przy startup.
+
+        Args:
+            max_retries: Maksymalna liczba prób (default: 10 = ~30s total)
+            initial_delay: Początkowe opóźnienie w sekundach (default: 1.0s)
+
+        Returns:
+            Neo4jVector instance lub None jeśli wszystkie próby failed
+        """
+        import time
+
+        logger.info("🔄 PolishSocietyRAG: Inicjalizacja Neo4j Vector Store (z retry logic)")
+
+        delay = initial_delay
+        for attempt in range(1, max_retries + 1):
+            try:
+                vector_store = Neo4jVector(
+                    url=settings.NEO4J_URI,
+                    username=settings.NEO4J_USER,
+                    password=settings.NEO4J_PASSWORD,
+                    embedding=self.embeddings,
+                    index_name="rag_document_embeddings",
+                    node_label="RAGChunk",
+                    text_node_property="text",
+                    embedding_node_property="embedding",
+                )
+                logger.info("✅ PolishSocietyRAG: Neo4j Vector Store połączony (próba %d/%d)", attempt, max_retries)
+                return vector_store
+
+            except Exception as exc:
+                if attempt < max_retries:
+                    logger.warning(
+                        "⚠️  PolishSocietyRAG: Neo4j Vector Store - próba %d/%d failed: %s. Retry za %.1fs...",
+                        attempt, max_retries, str(exc)[:100], delay
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 1.5, 10.0)  # Exponential backoff (cap at 10s)
+                else:
+                    logger.error(
+                        "❌ PolishSocietyRAG: Neo4j Vector Store - wszystkie %d prób failed",
+                        max_retries,
+                        exc_info=True
+                    )
+                    return None
+
+        return None
 
     @property
     def rag_doc_service(self) -> RAGDocumentService:
@@ -1011,11 +1185,12 @@ class PolishSocietyRAG:
         if indicators:
             sections.append("📊 WSKAŹNIKI DEMOGRAFICZNE (Wskaznik):\n")
             for ind in indicators:
-                streszczenie = ind.get('streszczenie', 'Brak podsumowania')
-                skala = ind.get('skala', 'N/A')
-                pewnosc = ind.get('pewnosc', 'N/A')
-                kluczowe_fakty = ind.get('kluczowe_fakty', '')
-                okres_czasu = ind.get('okres_czasu', '')
+                # Backward compatibility: używaj nowych nazw z fallbackiem na stare
+                streszczenie = ind.get('streszczenie') or ind.get('summary', 'Brak podsumowania')
+                skala = ind.get('skala') or ind.get('magnitude', 'N/A')
+                pewnosc = ind.get('pewnosc') or ind.get('confidence_level', 'N/A')
+                kluczowe_fakty = ind.get('kluczowe_fakty') or ind.get('key_facts', '')
+                okres_czasu = ind.get('okres_czasu') or ind.get('time_period', '')
 
                 sections.append(f"• {streszczenie}")
                 if skala and skala != 'N/A':
@@ -1031,10 +1206,11 @@ class PolishSocietyRAG:
         if observations:
             sections.append("\n👥 OBSERWACJE DEMOGRAFICZNE (Obserwacja):\n")
             for obs in observations:
-                streszczenie = obs.get('streszczenie', 'Brak podsumowania')
-                pewnosc = obs.get('pewnosc', 'N/A')
-                kluczowe_fakty = obs.get('kluczowe_fakty', '')
-                okres_czasu = obs.get('okres_czasu', '')
+                # Backward compatibility: używaj nowych nazw z fallbackiem na stare
+                streszczenie = obs.get('streszczenie') or obs.get('summary', 'Brak podsumowania')
+                pewnosc = obs.get('pewnosc') or obs.get('confidence_level', 'N/A')
+                kluczowe_fakty = obs.get('kluczowe_fakty') or obs.get('key_facts', '')
+                okres_czasu = obs.get('okres_czasu') or obs.get('time_period', '')
 
                 sections.append(f"• {streszczenie}")
                 sections.append(f"  Pewność: {pewnosc}")
@@ -1048,9 +1224,10 @@ class PolishSocietyRAG:
         if trends:
             sections.append("\n📈 TRENDY DEMOGRAFICZNE (Trend):\n")
             for trend in trends:
-                streszczenie = trend.get('streszczenie', 'Brak podsumowania')
-                okres_czasu = trend.get('okres_czasu', 'N/A')
-                kluczowe_fakty = trend.get('kluczowe_fakty', '')
+                # Backward compatibility: używaj nowych nazw z fallbackiem na stare
+                streszczenie = trend.get('streszczenie') or trend.get('summary', 'Brak podsumowania')
+                okres_czasu = trend.get('okres_czasu') or trend.get('time_period', 'N/A')
+                kluczowe_fakty = trend.get('kluczowe_fakty') or trend.get('key_facts', '')
 
                 sections.append(f"• {streszczenie}")
                 sections.append(f"  Okres: {okres_czasu}")
@@ -1062,9 +1239,10 @@ class PolishSocietyRAG:
         if demographics:
             sections.append("\n🎯 GRUPY DEMOGRAFICZNE (Demografia):\n")
             for demo in demographics:
-                streszczenie = demo.get('streszczenie', 'Brak podsumowania')
-                pewnosc = demo.get('pewnosc', 'N/A')
-                kluczowe_fakty = demo.get('kluczowe_fakty', '')
+                # Backward compatibility: używaj nowych nazw z fallbackiem na stare
+                streszczenie = demo.get('streszczenie') or demo.get('summary', 'Brak podsumowania')
+                pewnosc = demo.get('pewnosc') or demo.get('confidence_level', 'N/A')
+                kluczowe_fakty = demo.get('kluczowe_fakty') or demo.get('key_facts', '')
 
                 sections.append(f"• {streszczenie}")
                 sections.append(f"  Pewność: {pewnosc}")
@@ -1156,8 +1334,9 @@ class PolishSocietyRAG:
                 continue
 
             # Sprawdź overlap słów kluczowych
-            summary = (node.get('summary', '') or '').lower()
-            key_facts = (node.get('key_facts', '') or '').lower()
+            # Backward compatibility: używaj nowych nazw z fallbackiem na stare
+            summary = (node.get('streszczenie') or node.get('summary', '') or '').lower()
+            key_facts = (node.get('kluczowe_fakty') or node.get('key_facts', '') or '').lower()
 
             # Ekstraktuj słowa kluczowe (> 5 chars)
             summary_words = {w for w in summary.split() if len(w) > 5}
@@ -1201,8 +1380,9 @@ class PolishSocietyRAG:
         if indicators:
             enrichments.append("\n💡 Powiązane wskaźniki:")
             for ind in indicators[:2]:  # Max 2 na chunk
-                streszczenie = ind.get('streszczenie', '')
-                skala = ind.get('skala', '')
+                # Backward compatibility: używaj nowych nazw z fallbackiem na stare
+                streszczenie = ind.get('streszczenie') or ind.get('summary', '')
+                skala = ind.get('skala') or ind.get('magnitude', '')
                 if streszczenie:
                     if skala:
                         enrichments.append(f"  • {streszczenie} ({skala})")
@@ -1213,7 +1393,8 @@ class PolishSocietyRAG:
         if observations:
             enrichments.append("\n🔍 Powiązane obserwacje:")
             for obs in observations[:2]:  # Max 2 na chunk
-                streszczenie = obs.get('streszczenie', '')
+                # Backward compatibility: używaj nowych nazw z fallbackiem na stare
+                streszczenie = obs.get('streszczenie') or obs.get('summary', '')
                 if streszczenie:
                     enrichments.append(f"  • {streszczenie}")
 
@@ -1221,8 +1402,9 @@ class PolishSocietyRAG:
         if trends:
             enrichments.append("\n📈 Powiązane trendy:")
             for trend in trends[:1]:  # Max 1 na chunk
-                streszczenie = trend.get('streszczenie', '')
-                okres_czasu = trend.get('okres_czasu', '')
+                # Backward compatibility: używaj nowych nazw z fallbackiem na stare
+                streszczenie = trend.get('streszczenie') or trend.get('summary', '')
+                okres_czasu = trend.get('okres_czasu') or trend.get('time_period', '')
                 if streszczenie:
                     if okres_czasu:
                         enrichments.append(f"  • {streszczenie} ({okres_czasu})")
@@ -1441,13 +1623,12 @@ class PolishSocietyRAG:
                     enriched_text = enriched_text[:1000] + "\n[...fragment obcięty...]"
 
                 context_chunks.append(enriched_text)
+                # Format zgodny z RAGCitation schema (app/schemas/rag.py)
                 citations.append(
                     {
-                        "text": doc.page_content[:500],  # Original dla citation
-                        "score": float(score),
-                        "metadata": doc.metadata,
-                        "enriched": len(related_nodes) > 0,
-                        "related_nodes_count": len(related_nodes)
+                        "document_title": doc.metadata.get("title", "Unknown Document"),
+                        "chunk_text": doc.page_content[:500],  # Original dla citation
+                        "relevance_score": float(score),
                     }
                 )
 

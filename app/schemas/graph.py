@@ -41,7 +41,8 @@ class GraphNode(BaseModel):
     size: int = Field(..., description="Rozmiar node (proporcjonalny do ważności)")
     sentiment: Optional[float] = Field(None, description="Sentiment score (-1.0 do 1.0)")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Dodatkowe dane")
-    properties: Optional[NodeProperties] = Field(None, description="Bogate metadane węzła z GraphRAG")
+    # properties: Optional[NodeProperties] = Field(None, description="Bogate metadane węzła z GraphRAG")
+    # Note: Field 'properties' commented out - currently unused, can be re-enabled for GraphRAG
 
 
 class GraphLink(BaseModel):
@@ -51,7 +52,8 @@ class GraphLink(BaseModel):
     type: str = Field(..., description="Typ relacji: mentions, agrees, disagrees, feels")
     strength: float = Field(..., description="Siła połączenia (0.0-1.0)")
     sentiment: Optional[float] = Field(None, description="Sentiment (dla MENTIONS)")
-    properties: Optional[RelationshipProperties] = Field(None, description="Metadane relacji z GraphRAG")
+    # properties: Optional[RelationshipProperties] = Field(None, description="Metadane relacji z GraphRAG")
+    # Note: Field 'properties' commented out - currently unused, can be re-enabled for GraphRAG
 
 
 class GraphDataResponse(BaseModel):

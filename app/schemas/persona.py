@@ -14,6 +14,7 @@ from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from app.schemas.rag import RAGCitation
 
 
 class PersonaGenerationAdvancedOptions(BaseModel):
@@ -204,7 +205,10 @@ class PersonaResponse(BaseModel):
     is_active: bool
     # RAG fields
     rag_context_used: bool = False
-    rag_citations: Optional[List[Dict[str, Any]]] = None
+    rag_citations: Optional[List[RAGCitation]] = Field(
+        None,
+        description="Lista cytowań z bazy wiedzy RAG (zgodne z RAGCitation schema)"
+    )
     rag_context_details: Optional[Dict[str, Any]] = Field(
         None,
         description="Szczegółowe dane RAG (graph nodes, search type, enrichment info) - dla View Details"
@@ -217,7 +221,18 @@ class PersonaResponse(BaseModel):
 # === ORCHESTRATION REASONING SCHEMAS ===
 
 class GraphInsightResponse(BaseModel):
-    """Pojedynczy insight z grafu wiedzy."""
+    """Pojedynczy insight z grafu wiedzy.
+
+    UWAGA: Ten schema używa ANGIELSKICH property names dla API backward compatibility.
+    Dane w grafie Neo4j używają POLSKICH nazw (streszczenie, skala, pewnosc, etc.).
+
+    Mapowanie (wykonywane przez _map_graph_node_to_insight() w persona_orchestration.py):
+    - streszczenie → summary
+    - skala → magnitude
+    - pewnosc → confidence ("wysoka"→"high", "srednia"→"medium", "niska"→"low")
+    - okres_czasu → time_period
+    - kluczowe_fakty → why_matters (z dodatkowym kontekstem)
+    """
 
     type: str = Field(description="Typ węzła (Wskaznik, Obserwacja, Trend, etc.)")
     summary: str = Field(description="Jednozdaniowe podsumowanie")

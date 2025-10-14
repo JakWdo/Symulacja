@@ -5,6 +5,7 @@ Ten plik zawiera fixtures używane przez wiele testów.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -31,7 +32,7 @@ def event_loop():
 # DATABASE FIXTURES (dla testów integracyjnych)
 # ============================================================================
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session")
 async def test_engine():
     """
     Tworzy engine testowej bazy danych.
@@ -67,7 +68,7 @@ async def test_engine():
     await engine.dispose()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     """
     Tworzy sesję bazodanową dla pojedynczego testu.
@@ -309,7 +310,7 @@ def mock_datetime():
 # ADVANCED INTEGRATION FIXTURES
 # ============================================================================
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def authenticated_client(db_session):
     """
     Zwraca TestClient + authenticated user + auth headers.
@@ -349,7 +350,7 @@ async def authenticated_client(db_session):
     return client, test_user, headers
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def project_with_personas(db_session, authenticated_client):
     """
     Zwraca project z 10 wygenerowanymi personami.
@@ -363,7 +364,7 @@ async def project_with_personas(db_session, authenticated_client):
     from app.models.persona import Persona
     from uuid import uuid4
 
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
     project = Project(
@@ -416,7 +417,7 @@ async def project_with_personas(db_session, authenticated_client):
     return project, personas, client, headers
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def completed_focus_group(db_session, project_with_personas):
     """
     Zwraca completed focus group z responses.
@@ -432,7 +433,7 @@ async def completed_focus_group(db_session, project_with_personas):
     from uuid import uuid4
     from datetime import datetime, timezone, timedelta
 
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     # Select 5 personas for focus group
     selected_personas = personas[:5]
@@ -525,3 +526,345 @@ def clear_graph_cache():
     GraphService._memory_graph_cache = {}
     GraphService._memory_stats_cache = {}
     GraphService._memory_metrics_cache = {}
+
+
+# ============================================================================
+# RAG & GRAPHRAG FIXTURES (dla testów RAG/GraphRAG/Orchestration)
+# ============================================================================
+
+@pytest.fixture
+def mock_neo4j_driver():
+    """
+    Mock Neo4j driver dla testów bez prawdziwego Neo4j.
+
+    Usage:
+        def test_graph_query(mock_neo4j_driver):
+            # mock_neo4j_driver ma all standard methods
+            session = mock_neo4j_driver.session()
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    driver = AsyncMock()
+    session = AsyncMock()
+
+    # Mock session methods
+    session.run = AsyncMock()
+    session.execute_write = AsyncMock()
+    session.execute_read = AsyncMock()
+
+    # Mock driver methods
+    driver.session = MagicMock(return_value=session)
+    driver.close = AsyncMock()
+
+    return driver
+
+
+@pytest.fixture
+def mock_vector_store():
+    """
+    Mock Neo4jVector store dla testów hybrid search bez Neo4j.
+
+    Usage:
+        async def test_hybrid_search(mock_vector_store):
+            results = await mock_vector_store.asimilarity_search("query", k=5)
+    """
+    from unittest.mock import AsyncMock
+    from langchain_core.documents import Document
+
+    vector_store = AsyncMock()
+
+    # Mock similarity search - zwraca sample documents
+    async def mock_similarity_search(query: str, k: int = 5):
+        return [
+            Document(
+                page_content=f"Sample document {i} about {query}",
+                metadata={
+                    "doc_id": f"doc_{i}",
+                    "title": f"Document {i}",
+                    "chunk_index": i,
+                }
+            )
+            for i in range(k)
+        ]
+
+    async def mock_similarity_search_with_score(query: str, k: int = 5):
+        docs = await mock_similarity_search(query, k)
+        return [(doc, 0.9 - (i * 0.1)) for i, doc in enumerate(docs)]
+
+    vector_store.asimilarity_search = mock_similarity_search
+    vector_store.asimilarity_search_with_score = mock_similarity_search_with_score
+    vector_store.aadd_documents = AsyncMock()
+
+    return vector_store
+
+
+@pytest.fixture
+def mock_graph_store():
+    """
+    Mock Neo4j Graph store dla testów GraphRAG bez Neo4j.
+
+    Usage:
+        def test_graph_rag(mock_graph_store):
+            result = mock_graph_store.query("MATCH (n) RETURN n")
+    """
+    from unittest.mock import MagicMock
+
+    graph_store = MagicMock()
+
+    # Mock query - zwraca sample graph results (UPROSZCZONY SCHEMA - 5 properties)
+    def mock_query(cypher: str, params: dict = None):
+        # Return sample graph nodes
+        return [
+            {
+                "type": "Wskaznik",
+                "streszczenie": "Stopa zatrudnienia 78.4%",
+                "skala": "78.4%",
+                "pewnosc": "wysoka",
+                "okres_czasu": "2022",
+                "kluczowe_fakty": "wysoka stopa; młodzi dorośli; wykształcenie wyższe",
+            },
+            {
+                "type": "Trend",
+                "streszczenie": "Wzrost zatrudnienia młodych",
+                "okres_czasu": "2018-2023",
+                "kluczowe_fakty": "Wzrost o 12% w grupie 25-34",
+            }
+        ]
+
+    graph_store.query = mock_query
+    graph_store.get_schema = MagicMock(return_value="Mock graph schema")
+    graph_store.add_graph_documents = MagicMock()
+
+    return graph_store
+
+
+@pytest.fixture
+def sample_rag_document():
+    """
+    Przykładowy dokument RAG dla testów.
+
+    Usage:
+        def test_document_processing(sample_rag_document):
+            assert sample_rag_document.title == "Test Report"
+    """
+    from langchain_core.documents import Document
+
+    return Document(
+        page_content="""
+        Raport o polskim społeczeństwie 2023
+
+        W Polsce w 2022 roku stopa zatrudnienia osób w wieku 25-34 lata
+        z wyższym wykształceniem wyniosła 78.4% według danych GUS.
+
+        Trendy demograficzne wskazują na wzrost mobilności zawodowej młodych
+        dorosłych. W latach 2018-2023 obserwowano wzrost zatrudnienia o 12%
+        w tej grupie wiekowej.
+
+        Ceny mieszkań w Warszawie osiągnęły średnio 15000 zł za metr kwadratowy,
+        co znacząco wpływa na decyzje mieszkaniowe młodych profesjonalistów.
+        """,
+        metadata={
+            "title": "Raport GUS 2023",
+            "country": "Poland",
+            "year": "2023",
+            "source": "GUS",
+        }
+    )
+
+
+@pytest.fixture
+def mock_gemini_2_5_pro():
+    """
+    Mock Gemini 2.5 Pro dla testów orchestration bez API.
+
+    Usage:
+        async def test_orchestration(mock_gemini_2_5_pro):
+            response = await mock_gemini_2_5_pro.ainvoke("prompt")
+            assert "groups" in response.content
+    """
+    from unittest.mock import AsyncMock
+    from types import SimpleNamespace
+    import json
+
+    llm = AsyncMock()
+
+    # Mock allocation plan response
+    allocation_plan = {
+        "total_personas": 20,
+        "overall_context": (
+            "Polskie społeczeństwo w 2024 roku charakteryzuje się wysoką stopą zatrudnienia "
+            "młodych dorosłych z wyższym wykształceniem (78.4%). Jednocześnie ceny mieszkań "
+            "w dużych miastach rosną szybciej niż dochody, co wpływa na decyzje życiowe."
+        ),
+        "groups": [
+            {
+                "count": 6,
+                "demographics": {
+                    "age": "25-34",
+                    "gender": "kobieta",
+                    "education": "wyższe",
+                    "location": "Warszawa"
+                },
+                "brief": (
+                    "Ta grupa stanowi około 17.3% populacji miejskiej według GUS 2022. "
+                    "To fascynująca grupa społeczna która balansuje między budowaniem kariery "
+                    "a decyzjami o rodzinie. Wskaźniki pokazują że 78.4% tej grupy jest "
+                    "zatrudnionych - najwyższa stopa w Polsce. " * 10  # ~2000 chars
+                ),
+                "graph_insights": [
+                    {
+                        "type": "Wskaznik",
+                        "summary": "Stopa zatrudnienia kobiet 25-34 z wyższym",
+                        "magnitude": "78.4%",
+                        "confidence": "high",
+                        "time_period": "2022",
+                        "source": "GUS",
+                        "why_matters": "Wysoka stopa zatrudnienia oznacza purchasing power"
+                    }
+                ],
+                "allocation_reasoning": "6 z 20 person (30%) bo grupa kluczowa dla early adoption"
+            }
+        ]
+    }
+
+    llm.ainvoke.return_value = SimpleNamespace(
+        content=f"```json\n{json.dumps(allocation_plan, ensure_ascii=False, indent=2)}\n```"
+    )
+
+    return llm
+
+
+@pytest.fixture
+def mock_embeddings():
+    """
+    Mock Google Gemini embeddings dla testów bez API.
+
+    Usage:
+        def test_embeddings(mock_embeddings):
+            embedding = mock_embeddings.embed_query("test")
+            assert len(embedding) == 768
+    """
+    from unittest.mock import MagicMock
+    import numpy as np
+
+    embeddings = MagicMock()
+
+    # Generate deterministic embeddings for testing
+    def embed_query(text: str):
+        np.random.seed(hash(text) % (2**32))
+        return np.random.rand(768).tolist()
+
+    def embed_documents(texts: list):
+        return [embed_query(text) for text in texts]
+
+    embeddings.embed_query = embed_query
+    embeddings.embed_documents = embed_documents
+
+    return embeddings
+
+
+@pytest.fixture
+def mock_concept_extraction():
+    """
+    Mock dla LLM concept extraction z tekstu.
+
+    Usage:
+        async def test_extraction(mock_concept_extraction):
+            result = await mock_concept_extraction("Some text")
+            assert "concepts" in result
+    """
+    from unittest.mock import AsyncMock
+
+    async def extract_concepts(text: str):
+        # Simple keyword-based extraction for deterministic tests
+        words = text.lower().split()
+        concepts = [w.capitalize() for w in words if len(w) > 5][:5]
+
+        return {
+            "concepts": concepts or ["General", "Topic"],
+            "emotions": ["Neutral"],
+            "sentiment": 0.0,
+            "key_phrases": [text[:50]] if text else []
+        }
+
+    return AsyncMock(side_effect=extract_concepts)
+
+
+@pytest_asyncio.fixture
+async def rag_document_service_with_mocks(mock_vector_store, mock_graph_store, mock_embeddings):
+    """
+    RAGDocumentService z mockowanymi zależnościami.
+
+    Usage:
+        async def test_rag_service(rag_document_service_with_mocks):
+            service = rag_document_service_with_mocks
+            # service ma mocked Neo4j, embeddings, etc.
+    """
+    from app.services.rag_service import RAGDocumentService
+    from unittest.mock import patch
+
+    with patch('app.services.rag_service.GoogleGenerativeAIEmbeddings', return_value=mock_embeddings):
+        service = RAGDocumentService()
+        service.vector_store = mock_vector_store
+        service.graph_store = mock_graph_store
+
+        yield service
+
+
+@pytest_asyncio.fixture
+async def polish_society_rag_with_mocks(mock_vector_store, mock_embeddings):
+    """
+    PolishSocietyRAG z mockowanymi zależnościami.
+
+    Usage:
+        async def test_hybrid_search(polish_society_rag_with_mocks):
+            rag = polish_society_rag_with_mocks
+            results = await rag.hybrid_search("query", top_k=5)
+    """
+    from app.services.rag_service import PolishSocietyRAG
+    from unittest.mock import patch
+
+    with patch('app.services.rag_service.GoogleGenerativeAIEmbeddings', return_value=mock_embeddings):
+        rag = PolishSocietyRAG()
+        rag.vector_store = mock_vector_store
+        rag._fulltext_index_initialized = True  # Skip index creation
+
+        yield rag
+
+
+@pytest_asyncio.fixture
+async def graph_service_with_mocks(mock_neo4j_driver, mock_llm):
+    """
+    GraphService z mockowanymi zależnościami.
+
+    Usage:
+        async def test_graph_building(graph_service_with_mocks):
+            service = graph_service_with_mocks
+            await service.build_graph_from_focus_group(db, fg_id)
+    """
+    from app.services.graph_service import GraphService
+
+    service = GraphService()
+    service.driver = mock_neo4j_driver
+    service.llm = mock_llm
+
+    yield service
+
+
+@pytest_asyncio.fixture
+async def persona_orchestration_with_mocks(mock_gemini_2_5_pro, polish_society_rag_with_mocks):
+    """
+    PersonaOrchestrationService z mockowanymi zależnościami.
+
+    Usage:
+        async def test_orchestration(persona_orchestration_with_mocks):
+            service = persona_orchestration_with_mocks
+            plan = await service.create_persona_allocation_plan(...)
+    """
+    from app.services.persona_orchestration import PersonaOrchestrationService
+
+    service = PersonaOrchestrationService()
+    service.llm = mock_gemini_2_5_pro
+    service.rag_service = await polish_society_rag_with_mocks
+
+    yield service

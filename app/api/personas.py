@@ -30,7 +30,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from uuid import UUID
 from functools import lru_cache
 
-from fastapi import APIRouter, Depends, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, BackgroundTasks, Request, HTTPException
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import select
@@ -1061,6 +1061,64 @@ async def _generate_personas_task(
         logger.error(f"CRITICAL ERROR in persona generation task", exc_info=e)
 
 
+def _normalize_rag_citations(citations: Optional[List[Dict[str, Any]]]) -> Optional[List[Dict[str, Any]]]:
+    """
+    Normalizuje RAG citations do aktualnego schematu RAGCitation.
+
+    Stary format (przed refactorem):
+    {
+        "text": str,
+        "score": float,
+        "metadata": {"title": str, ...}
+    }
+
+    Nowy format (RAGCitation schema):
+    {
+        "document_title": str,
+        "chunk_text": str,
+        "relevance_score": float
+    }
+
+    Args:
+        citations: Lista citations (może być None lub pusta)
+
+    Returns:
+        Lista citations w nowym formacie lub None jeśli input był None
+    """
+    if not citations:
+        return citations
+
+    normalized = []
+    for citation in citations:
+        if not isinstance(citation, dict):
+            logger.warning(f"Invalid citation type: {type(citation)}, skipping")
+            continue
+
+        # Sprawdź czy to stary format (ma 'text' zamiast 'chunk_text')
+        if 'text' in citation and 'chunk_text' not in citation:
+            # Stary format - przekształć
+            normalized_citation = {
+                "document_title": citation.get("metadata", {}).get("title", "Unknown Document"),
+                "chunk_text": citation.get("text", ""),
+                "relevance_score": abs(float(citation.get("score", 0.0)))  # abs() bo stare scores były ujemne
+            }
+            normalized.append(normalized_citation)
+        elif 'chunk_text' in citation:
+            # Nowy format - użyj bez zmian
+            normalized.append(citation)
+        else:
+            # Nieprawidłowy format - spróbuj wyekstraktować co się da
+            logger.warning(f"Unknown citation format: {list(citation.keys())}")
+            normalized_citation = {
+                "document_title": citation.get("document_title") or citation.get("metadata", {}).get("title", "Unknown Document"),
+                "chunk_text": citation.get("chunk_text") or citation.get("text", ""),
+                "relevance_score": abs(float(citation.get("relevance_score") or citation.get("score", 0.0)))
+            }
+            normalized.append(normalized_citation)
+
+    return normalized if normalized else None
+
+
 @router.get("/projects/{project_id}/personas", response_model=List[PersonaResponse])
 async def list_personas(
     project_id: UUID,
@@ -1078,6 +1136,12 @@ async def list_personas(
         .limit(limit)
     )
     personas = result.scalars().all()
+
+    # Normalizuj rag_citations dla każdej persony (backward compatibility)
+    for persona in personas:
+        if persona.rag_citations:
+            persona.rag_citations = _normalize_rag_citations(persona.rag_citations)
+
     return personas
 
 
@@ -1089,6 +1153,11 @@ async def get_persona(
 ):
     """Get a specific persona"""
     persona = await get_persona_for_user(persona_id, current_user, db)
+
+    # Normalizuj rag_citations (backward compatibility)
+    if persona.rag_citations:
+        persona.rag_citations = _normalize_rag_citations(persona.rag_citations)
+
     return persona
 
 
@@ -1132,18 +1201,31 @@ async def get_persona_reasoning(
     # Pobierz personę (weryfikacja uprawnień)
     persona = await get_persona_for_user(persona_id, current_user, db)
 
-    # Sprawdź czy persona ma rag_context_details z orchestration reasoning
+    # Graceful handling: zwróć pustą response jeśli brak orchestration data
+    # (zamiast 404 - lepsze UX)
     if not persona.rag_context_details:
-        raise HTTPException(
-            status_code=404,
-            detail="Persona nie ma reasoning data (stara wersja generowania?)"
+        logger.warning(
+            f"Persona {persona_id} nie ma rag_context_details - zwracam pustą response"
+        )
+        return PersonaReasoningResponse(
+            orchestration_brief=None,
+            graph_insights=[],
+            allocation_reasoning=None,
+            demographics=None,
+            overall_context=None,
         )
 
     orch_reasoning = persona.rag_context_details.get("orchestration_reasoning")
     if not orch_reasoning:
-        raise HTTPException(
-            status_code=404,
-            detail="Persona nie ma orchestration reasoning (wygenerowana przed włączeniem orchestration)"
+        logger.warning(
+            f"Persona {persona_id} nie ma orchestration_reasoning - zwracam pustą response"
+        )
+        return PersonaReasoningResponse(
+            orchestration_brief=None,
+            graph_insights=[],
+            allocation_reasoning=None,
+            demographics=None,
+            overall_context=None,
         )
 
     # Parsuj graph insights do GraphInsightResponse objects

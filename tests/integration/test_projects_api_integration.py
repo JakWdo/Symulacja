@@ -26,7 +26,7 @@ async def test_create_project_success(authenticated_client):
     - Demographics sumują się do 1.0
     - Project należy do zalogowanego użytkownika
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     project_data = {
         "name": "Market Research Project",
@@ -79,7 +79,7 @@ async def test_create_project_invalid_demographics_sum(authenticated_client):
     KRYTYCZNE: Rozkłady demograficzne muszą być prawidłowe,
     inaczej walidacja chi-kwadrat będzie błędna.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Demographics nie sumują się do 1.0 (suma = 0.6)
     project_data = {
@@ -109,7 +109,7 @@ async def test_create_project_empty_demographics(authenticated_client):
     """
     Test odrzucenia projektu z pustą demografią.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     project_data = {
         "name": "Empty Demographics Project",
@@ -136,7 +136,7 @@ async def test_list_projects_returns_only_users_projects(authenticated_client):
 
     KRYTYCZNE: Izolacja danych między użytkownikami.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create 2 projects
     for i in range(2):
@@ -173,7 +173,7 @@ async def test_list_projects_pagination(authenticated_client):
     """
     Test paginacji listy projektów.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create 5 projects
     for i in range(5):
@@ -203,7 +203,7 @@ async def test_get_project_details(authenticated_client):
     """
     Test pobierania szczegółów pojedynczego projektu.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
     project_data = {
@@ -236,7 +236,7 @@ async def test_get_project_not_found(authenticated_client):
     """
     Test zwracania 404 dla nieistniejącego projektu.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     fake_id = str(uuid4())
     response = client.get(f"/api/v1/projects/{fake_id}", headers=headers)
@@ -251,7 +251,7 @@ async def test_update_project_demographics(authenticated_client):
     """
     Test aktualizacji demographics projektu.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
     project_data = {
@@ -290,7 +290,7 @@ async def test_update_project_partial_update(authenticated_client):
     """
     Test częściowej aktualizacji projektu (tylko niektóre pola).
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
     project_data = {
@@ -329,7 +329,7 @@ async def test_delete_project_soft_delete(authenticated_client):
     KRYTYCZNE: Projekty nie są usuwane fizycznie z bazy,
     tylko oznaczane jako nieaktywne.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
     project_data = {

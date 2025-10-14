@@ -28,7 +28,7 @@ async def test_generate_personas_success(authenticated_client):
     - Persony są generowane
     - Każda persona ma wymagane pola (demographics, Big Five, Hofstede)
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
     project_data = {
@@ -103,7 +103,7 @@ async def test_generate_personas_invalid_num(authenticated_client):
 
     Liczba person musi być: 1 <= num_personas <= 1000
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
     project_data = {
@@ -150,7 +150,7 @@ async def test_list_personas_returns_only_project_personas(project_with_personas
 
     KRYTYCZNE: Izolacja danych między projektami.
     """
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     # Get personas for this project
     response = client.get(f"/api/v1/projects/{project.id}/personas", headers=headers)
@@ -173,7 +173,7 @@ async def test_get_persona_details(project_with_personas):
     """
     Test pobierania szczegółów pojedynczej persony.
     """
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     persona = personas[0]
 
@@ -193,7 +193,7 @@ async def test_get_persona_not_found(authenticated_client):
     """
     Test zwracania 404 dla nieistniejącej persony.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     fake_id = str(uuid4())
     response = client.get(f"/api/v1/personas/{fake_id}", headers=headers)
@@ -207,7 +207,7 @@ async def test_delete_persona(project_with_personas):
     """
     Test usuwania persony (soft delete).
     """
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     persona_to_delete = personas[0]
     persona_id = str(persona_to_delete.id)
@@ -235,7 +235,7 @@ async def test_generate_adversarial_personas(authenticated_client):
 
     Adversarial mode = persony są bardziej krytyczne/sceptyczne.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
     project_data = {

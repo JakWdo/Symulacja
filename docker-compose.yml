@@ -75,10 +75,12 @@ services:
       - neo4j_data:/data
       - neo4j_logs:/logs
     healthcheck:
+      # Zwiększone interwały i retries aby dać Neo4j czas na inicjalizację plugins (APOC, GDS)
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s  # Zwiększone z 10s
+      timeout: 10s   # Zwiększone z 5s
+      retries: 10    # Zwiększone z 5 (total: 150s = 2.5 min)
+      start_period: 30s  # Grace period przy starcie
     restart: unless-stopped
 
   # ============================================================================

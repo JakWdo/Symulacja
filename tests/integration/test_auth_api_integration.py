@@ -207,7 +207,7 @@ async def test_get_current_user_with_valid_token(authenticated_client):
     """
     Test pobierania danych zalogowanego użytkownika.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     response = client.get("/api/v1/auth/me", headers=headers)
     assert response.status_code == 200

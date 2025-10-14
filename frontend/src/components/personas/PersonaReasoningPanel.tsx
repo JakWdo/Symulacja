@@ -42,14 +42,43 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
     );
   }
 
-  if (error || !reasoning) {
+  if (error) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
           {error instanceof Error
             ? error.message
-            : 'Brak reasoning data dla tej persony (wygenerowana przed włączeniem orchestration)'}
+            : 'Błąd podczas ładowania reasoning data'}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Check if reasoning is empty (no orchestration data)
+  if (!reasoning || (!reasoning.orchestration_brief &&
+                     reasoning.graph_insights.length === 0 &&
+                     !reasoning.allocation_reasoning &&
+                     !reasoning.overall_context)) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          <div className="space-y-2">
+            <p className="font-medium">Ta persona nie ma szczegółowego reasoning</p>
+            <p className="text-sm text-muted-foreground">
+              Persona została wygenerowana, ale orchestration service nie dodał szczegółowych wyjaśnień.
+              Możliwe przyczyny:
+            </p>
+            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+              <li>Orchestration failował podczas generowania (sprawdź logi API)</li>
+              <li>Gemini 2.5 Pro nie zwrócił poprawnego JSON</li>
+              <li>Persona została wygenerowana przed włączeniem orchestration</li>
+            </ul>
+            <p className="text-sm font-medium mt-4">
+              💡 Rozwiązanie: Wygeneruj nowe persony aby zobaczyć pełne reasoning.
+            </p>
+          </div>
         </AlertDescription>
       </Alert>
     );

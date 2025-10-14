@@ -16,7 +16,7 @@ import asyncio
 @pytest.mark.asyncio
 async def test_create_focus_group_success(project_with_personas):
     """Test pomyślnego utworzenia grupy fokusowej."""
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     persona_ids = [str(p.id) for p in personas[:5]]
 
@@ -49,7 +49,7 @@ async def test_create_focus_group_success(project_with_personas):
 @pytest.mark.asyncio
 async def test_update_focus_group_draft(project_with_personas):
     """Test aktualizacji grupy fokusowej w statusie pending."""
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     # Utwórz grupę
     fg_data = {
@@ -91,7 +91,7 @@ async def test_update_focus_group_draft(project_with_personas):
 @pytest.mark.asyncio
 async def test_list_focus_groups(project_with_personas):
     """Test listowania grup fokusowych projektu."""
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     # Utwórz 2 grupy
     for i in range(2):
@@ -115,7 +115,7 @@ async def test_list_focus_groups(project_with_personas):
 @pytest.mark.asyncio
 async def test_get_focus_group_results(completed_focus_group):
     """Test pobierania wyników grupy fokusowej."""
-    focus_group, responses, client, headers = completed_focus_group
+    focus_group, responses, client, headers = await completed_focus_group
 
     response = client.get(
         f"/api/v1/focus-groups/{focus_group.id}/results",

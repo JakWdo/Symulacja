@@ -29,8 +29,92 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
+def _map_graph_node_to_insight(node: Dict[str, Any]) -> Optional["GraphInsight"]:
+    """Konwertuje graph node z polskimi property names na GraphInsight z angielskimi.
+
+    Mapowanie:
+    - streszczenie → summary
+    - skala → magnitude
+    - pewnosc → confidence ("wysoka"→"high", "srednia"→"medium", "niska"→"low")
+    - okres_czasu → time_period
+    - kluczowe_fakty → why_matters (z dodatkowym kontekstem)
+
+    Args:
+        node: Dict z grafu Neo4j (polskie property names)
+
+    Returns:
+        GraphInsight object lub None jeśli dane niepełne
+    """
+    if not node:
+        return None
+
+    # Backward compatibility: obsłuż zarówno stare jak i nowe nazwy
+    node_type = node.get('type', 'Unknown')
+    summary = node.get('streszczenie') or node.get('summary')
+
+    if not summary:
+        logger.warning(f"Graph node bez streszczenia/summary: {node}")
+        return None
+
+    # Mapowanie pewności PL→EN
+    pewnosc_pl = (node.get('pewnosc') or node.get('confidence_level', '')).lower()
+    confidence_map = {
+        'wysoka': 'high',
+        'srednia': 'medium',
+        'niska': 'low',
+        'high': 'high',
+        'medium': 'medium',
+        'low': 'low'
+    }
+    confidence = confidence_map.get(pewnosc_pl, 'medium')
+
+    # Magnitude i time period
+    magnitude = node.get('skala') or node.get('magnitude')
+    time_period = node.get('okres_czasu') or node.get('time_period')
+    source = node.get('source') or node.get('document_title')
+
+    # why_matters - generuj z kluczowych faktów lub default
+    kluczowe_fakty = node.get('kluczowe_fakty') or node.get('key_facts', '')
+    if kluczowe_fakty:
+        why_matters = f"Ten wskaźnik pokazuje: {kluczowe_fakty}"
+    else:
+        # Default why_matters bazując na typie węzła
+        why_matters_defaults = {
+            'Wskaznik': 'Ten wskaźnik demograficzny pomaga zrozumieć charakterystykę grupy docelowej',
+            'Obserwacja': 'Ta obserwacja społeczna ilustruje rzeczywiste zachowania grupy',
+            'Trend': 'Ten trend czasowy pokazuje jak zmieniają się wzorce w populacji',
+            'Demografia': 'Te dane demograficzne charakteryzują profil grupy'
+        }
+        why_matters = why_matters_defaults.get(node_type, 'Ten insight dostarcza kontekstu dla profilu persony')
+
+    try:
+        return GraphInsight(
+            type=node_type,
+            summary=summary,
+            magnitude=magnitude,
+            confidence=confidence,
+            time_period=time_period,
+            source=source,
+            why_matters=why_matters
+        )
+    except Exception as e:
+        logger.error(f"Nie można utworzyć GraphInsight z node: {node}, error: {e}")
+        return None
+
+
 class GraphInsight(BaseModel):
-    """Pojedynczy insight z grafu wiedzy (Wskaznik, Obserwacja, Trend)."""
+    """Pojedynczy insight z grafu wiedzy (Wskaznik, Obserwacja, Trend).
+
+    UWAGA: Ten schema używa ANGIELSKICH property names dla API consistency.
+    Dane w grafie Neo4j używają POLSKICH nazw (streszczenie, skala, pewnosc, etc.).
+
+    Konwersja wykonywana przez funkcję _map_graph_node_to_insight():
+    - streszczenie → summary
+    - skala → magnitude
+    - pewnosc → confidence ("wysoka"→"high", "srednia"→"medium", "niska"→"low")
+    - okres_czasu → time_period
+    - kluczowe_fakty → why_matters (z dodatkowym edukacyjnym kontekstem)
+    """
 
     type: str = Field(description="Typ węzła (Wskaznik, Obserwacja, Trend, etc.)")
     summary: str = Field(description="Jednozdaniowe podsumowanie")
@@ -76,7 +160,7 @@ class PersonaOrchestrationService:
 
         # Gemini 2.5 Pro dla complex reasoning i długich analiz
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-pro",
+            model="gemini-2.5-pro",  
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.3,  # Niższa dla analytical tasks
             max_tokens=8000,  # Długie briefe (2000-3000 znaków każdy)
@@ -100,7 +184,7 @@ class PersonaOrchestrationService:
         Gemini 2.5 Pro przeprowadza głęboką analizę:
         1. Pobiera Graph RAG context (hybrid search dla rozkładów demograficznych)
         2. Analizuje trendy społeczne i wskaźniki statystyczne
-        3. Tworzy DŁUGIE (2000-3000 znaków) edukacyjne briefe
+        3. Tworzy DŁUGIE (1000-2000 znaków) edukacyjne briefe
         4. Wyjaśnia "dlaczego" dla każdej decyzji alokacyjnej
 
         Args:
@@ -132,8 +216,20 @@ class PersonaOrchestrationService:
 
         # Krok 3: Gemini 2.5 Pro generuje plan (długa analiza)
         try:
+            logger.info(f"🤖 Wywołuję Gemini 2.0 Flash Exp dla orchestration (max_tokens=8000, timeout=120s)...")
             response = await self.llm.ainvoke(prompt)
-            plan_json = self._extract_json_from_response(response.content)
+
+            # DEBUG: Log surowej odpowiedzi od Gemini
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            logger.info(f"📝 Gemini response length: {len(response_text)} chars")
+            logger.info(f"📝 Gemini response preview (first 500 chars): {response_text[:500]}")
+            logger.info(f"📝 Gemini response preview (last 500 chars): {response_text[-500:]}")
+
+            plan_json = self._extract_json_from_response(response_text)
+
+            # DEBUG: Log sparsowanego JSON
+            logger.info(f"✅ JSON parsed successfully: {len(plan_json)} top-level keys")
+            logger.info(f"✅ JSON keys: {list(plan_json.keys())}")
 
             # Parse do Pydantic model (walidacja)
             plan = PersonaAllocationPlan(**plan_json)
@@ -143,6 +239,8 @@ class PersonaOrchestrationService:
 
         except Exception as e:
             logger.error(f"❌ Błąd podczas tworzenia planu alokacji: {e}")
+            logger.error(f"❌ Exception type: {type(e).__name__}")
+            logger.error(f"❌ Exception details: {str(e)[:1000]}")
             raise
 
     async def _get_comprehensive_graph_context(
@@ -316,35 +414,36 @@ Przeprowadź głęboką socjologiczną analizę i stwórz plan alokacji person k
 Zrób overview polskiego społeczeństwa bazując na Graph RAG context:
 - Jakie są kluczowe trendy demograficzne w Polsce?
 - Co pokazują wskaźniki ekonomiczne (zatrudnienie, dochody, housing)?
-- Jakie wartości i wyzwania ma polskie społeczeństwo 2024/2025?
+- Jakie wartości i wyzwania ma polskie społeczeństwo 2025?
 - Dlaczego to ma znaczenie dla generowania person?
+- Dla kazdej osoby twórz opis dlaczego akurat do niej się to tyczy.
 
 ### 2. GRUPY DEMOGRAFICZNE Z DŁUGIMI BRIEFAMI
 
 Dla każdej znaczącej grupy demograficznej (na podstawie rozkładu docelowego), stwórz:
 
-**Każdy brief MUSI zawierać (2000-3000 znaków):**
+**Każdy brief MUSI zawierać (1000-2000 znaków):**
 
-a) **Dlaczego ta grupa?** (400-600 znaków)
+a) **Dlaczego ta grupa?** (200-300 znaków)
    - Jaki % populacji stanowi ta grupa (z Graph RAG)
    - Dlaczego są ważni dla badania
    - Jak rozkład pasuje do realiów polskiego społeczeństwa
    - Statystyki z Graph RAG (magnitude, confidence)
 
-b) **Kontekst zawodowy i życiowy** (600-800 znaków)
+b) **Kontekst zawodowy i życiowy** (300-400 znaków)
    - Typowe zawody dla tej grupy
    - Zarobki (realne liczby w PLN z Graph RAG jeśli dostępne)
    - Housing situation (własne/wynajem, ceny mieszkań)
    - Wyzwania ekonomiczne (kredyty, oszczędności, koszty życia)
    - Dlaczego tak jest? (społeczno-ekonomiczny kontekst)
 
-c) **Wartości i aspiracje** (600-800 znaków)
+c) **Wartości i aspiracje** (300-400 znaków)
    - Jakie wartości są ważne dla tej grupy (z badań społecznych)
    - Aspiracje i life goals
    - Dlaczego te wartości? (kontekst pokoleniowy, historyczny)
    - Jak zmienia się to w czasie (trendy)
 
-d) **Typowe wyzwania i zainteresowania** (400-600 znaków)
+d) **Typowe wyzwania i zainteresowania** (200-400 znaków)
    - Realne problemy życiowe tej grupy
    - Typowe hobby i sposób spędzania wolnego czasu
    - Dlaczego te zainteresowania pasują do profilu
@@ -389,7 +488,7 @@ zarabiającej 9000 zł netto (mediana), zakup 50m2 mieszkania wymaga odłożenia
 więc że 45% tej grupy wynajmuje mieszkania. To nie wybór stylu życia - to
 konieczność ekonomiczna.
 
-[... dalszy tekst 1500+ znaków ...]
+[... dalszy tekst 1000+ znaków ...]
 ```
 
 === OUTPUT FORMAT ===
@@ -442,7 +541,7 @@ Generuj plan alokacji:
         return prompt
 
     def _extract_json_from_response(self, response_text: str) -> Dict[str, Any]:
-        """Ekstraktuje JSON z odpowiedzi LLM (może być otoczony markdown).
+        """Ekstraktuje JSON z odpowiedzi LLM (może być otoczony markdown lub preambułą).
 
         Args:
             response_text: Surowa odpowiedź od LLM
@@ -453,20 +552,46 @@ Generuj plan alokacji:
         Raises:
             ValueError: Jeśli nie można sparsować JSON
         """
-        # Usuń markdown code blocks jeśli istnieją
         text = response_text.strip()
-        if text.startswith("```json"):
-            text = text[7:]  # Remove ```json
-        if text.startswith("```"):
-            text = text[3:]  # Remove ```
-        if text.endswith("```"):
-            text = text[:-3]  # Remove trailing ```
 
-        text = text.strip()
+        # Strategia 1: Znajdź blok ```json ... ``` (może być w środku tekstu)
+        import re
+        json_block_match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
+        if json_block_match:
+            json_text = json_block_match.group(1).strip()
+            try:
+                return json.loads(json_text)
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ Nie można sparsować JSON z bloku markdown: {e}")
+                logger.error(f"JSON block text: {json_text[:500]}...")
+                # Kontynuuj do następnej strategii
 
+        # Strategia 2: Znajdź blok ``` ... ``` (bez json)
+        code_block_match = re.search(r'```\s*(.*?)\s*```', text, re.DOTALL)
+        if code_block_match:
+            json_text = code_block_match.group(1).strip()
+            try:
+                return json.loads(json_text)
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ Nie można sparsować JSON z bloku kodu: {e}")
+                # Kontynuuj do następnej strategii
+
+        # Strategia 3: Znajdź pierwszy { ... } (może być po preambule)
+        brace_match = re.search(r'\{.*\}', text, re.DOTALL)
+        if brace_match:
+            json_text = brace_match.group(0).strip()
+            try:
+                return json.loads(json_text)
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ Nie można sparsować JSON z braces: {e}")
+                logger.error(f"Braces text: {json_text[:500]}...")
+
+        # Strategia 4: Spróbuj sparsować cały tekst (fallback)
         try:
             return json.loads(text)
         except json.JSONDecodeError as e:
-            logger.error(f"❌ Nie można sparsować JSON: {e}")
-            logger.error(f"Response text: {text[:500]}...")
+            logger.error(f"❌ Nie można sparsować JSON (all strategies failed): {e}")
+            logger.error(f"❌ Response text length: {len(text)} chars")
+            logger.error(f"❌ Response text (first 1000 chars): {text[:1000]}")
+            logger.error(f"❌ Response text (last 1000 chars): {text[-1000:]}")
             raise ValueError(f"LLM nie zwrócił poprawnego JSON: {e}")

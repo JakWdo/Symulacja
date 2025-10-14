@@ -21,9 +21,9 @@ Graph RAG nie jest dodatkiem - to **kluczowy komponent** systemu zapewniający j
 ### 1. Strukturalna Wiedza
 **Hybrid Search (chunks)** dostarcza surowego tekstu, ale **Graph RAG** dostarcza **relacje i kontekst**:
 - Wskaznik (wskaźniki) z `skala` - konkretne liczby, nie tylko opisy
-- Obserwacja (obserwacje) z `kluczowe_fakty` - zweryfikowane fakty
+- Obserwacja (obserwacje) z `kluczowe_fakty` - zweryfikowane fakty (włącznie z przyczynami i skutkami)
 - Trend (trendy) z `okres_czasu` - zmiany w czasie
-- Relationships - przyczyny (SPOWODOWANY_PRZEZ), skutki (PROWADZI_DO), powiązania (OPISUJE)
+- Relationships - powiązania (OPISUJE, DOTYCZY, POWIAZANY_Z) z property `sila`
 
 ### 2. Enrichment Chunków
 Unikalna feature: **chunki są wzbogacane o powiązane graph nodes**
@@ -39,19 +39,23 @@ Enriched chunk:
 ```
 
 ### 3. Precision & Verifiability
-- `zrodlo` - cytat ze źródła dla każdego węzła
-- `pewnosc` - wysokość pewności (wysoka/srednia/niska)
-- `dowod` - dowód dla każdej relacji
+- `pewnosc` - wysokość pewności węzłów (wysoka/srednia/niska)
+- `skala` - konkretne wartości liczbowe z jednostkami
+- `sila` - siła relacji (silna/umiarkowana/slaba)
 
 **Rezultat:** LLM dostaje nie tylko tekst, ale **strukturalną wiedzę** z metadanymi jakości.
+
+**Zmiany (2025-10-14):** Usunięto `zrodlo` i `dowod` (zajmowały dużo tokenów) - focus na core properties.
 
 ### 4. Query Flexibility
 Graph RAG pozwala na zaawansowane queries:
 - "Jakie są **największe** wskaźniki?" → sortuj po `skala`
 - "Jakie są **pewne** fakty?" → filtruj `pewnosc = 'wysoka'`
-- "Jak X **wpływa** na Y?" → znajdź ścieżki LEADS_TO z `sila = 'silna'`
+- "Jak X **wpływa** na Y?" → znajdź ścieżki POWIAZANY_Z z `sila = 'silna'`
 
 **Bez Graph RAG:** Tylko keyword/semantic search - brak struktury, brak pewności, brak relacji.
+
+**Zmiany (2025-10-14):** Relacja POWIAZANY_Z zastępuje LEADS_TO, SPOWODOWANY_PRZEZ, PROWADZI_DO (uproszczenie).
 
 ---
 
@@ -188,46 +192,48 @@ Graph RAG ekstraktuje strukturalną wiedzę z dokumentów i zapisuje w grafie Ne
 **2. `PolishSocietyRAG`** - Hybrid search dla generatora person
 **3. API `/api/v1/rag/*`** - Upload, listowanie, zapytania
 
-### Typy Węzłów
+### Typy Węzłów (UPROSZCZONE - 5 typów)
 
-- **Obserwacja** - Konkretne obserwacje, fakty z badań
+- **Obserwacja** - Konkretne obserwacje, fakty z badań, przyczyny i skutki zjawisk
 - **Wskaznik** - Wskaźniki liczbowe, statystyki, metryki
 - **Demografia** - Grupy demograficzne, populacje
 - **Trend** - Trendy czasowe, zmiany w czasie
 - **Lokalizacja** - Miejsca geograficzne
-- **Przyczyna** / **Skutek** - Przyczyny i skutki zjawisk
 
-### Typy Relacji
+**Zmiany (2025-10-14):** Usunięto typy "Przyczyna" i "Skutek" - merge do "Obserwacja" (7 → 5 typów).
+
+### Typy Relacji (UPROSZCZONE - 5 typów)
 
 - `OPISUJE` - Opisuje cechę/właściwość
 - `DOTYCZY` - Dotyczy grupy/kategorii
 - `POKAZUJE_TREND` - Pokazuje trend czasowy
 - `ZLOKALIZOWANY_W` - Zlokalizowane w miejscu
-- `SPOWODOWANY_PRZEZ` / `PROWADZI_DO` - Przyczyny i skutki
-- `POROWNUJE_DO` - Porównanie
+- `POWIAZANY_Z` - Ogólne powiązanie (przyczynowość, porównania, korelacje)
 
-### Bogate Metadane Węzłów
+**Zmiany (2025-10-14):** Usunięto "SPOWODOWANY_PRZEZ", "PROWADZI_DO", "POROWNUJE_DO" - merge do "POWIAZANY_Z" (7 → 5 typów).
+
+### Bogate Metadane Węzłów (UPROSZCZONE - 5 properties)
 
 **WAŻNE:** Property names są po polsku, wartości również po polsku.
 
 Każdy węzeł zawiera:
-- `streszczenie` - Jednozdaniowe streszczenie (wartość: po polsku)
-- `opis` - Szczegółowy opis kontekstu (2-3 zdania, wartość: po polsku)
-- `kluczowe_fakty` - Lista kluczowych faktów oddzielonych średnikami (wartość: po polsku)
-- `zrodlo` - Bezpośredni cytat ze źródła (20-50 słów, wartość: po polsku) dla weryfikowalności
-- `okres_czasu` - Okres czasu (format: "2020" lub "2018-2023")
-- `skala` - Wartość z jednostką (np. "67%", "1.2 mln osób")
-- `pewnosc` - Pewność danych: "wysoka" (dane bezpośrednie), "srednia" (wnioski), "niska" (spekulacje)
+- `streszczenie` - **MUST:** Jednozdaniowe podsumowanie, max 150 znaków (wartość: po polsku)
+- `skala` - Wartość z jednostką (np. "78.4%", "5000 PLN", "1.2 mln osób")
+- `pewnosc` - **MUST:** Pewność danych: "wysoka", "srednia", "niska"
+- `okres_czasu` - Okres czasu (format: "2022" lub "2018-2023")
+- `kluczowe_fakty` - Max 3 fakty oddzielone średnikami (wartość: po polsku)
 - `doc_id`, `chunk_index` - Metadane techniczne dla zarządzania cyklem życia
 
-### Bogate Metadane Relacji
+**Zmiany (2025-10-14):** Usunięto "opis" (duplikował streszczenie) i "zrodlo" (rzadko używane, zajmowało dużo tokenów). Focus na core properties: streszczenie + pewnosc. (7 → 5 properties)
+
+### Bogate Metadane Relacji (UPROSZCZONE - 1 property)
 
 **WAŻNE:** Property names są po polsku, wartości również po polsku.
 
-- `dowod` - Dowód z tekstu uzasadniający relację (wartość: po polsku)
-- `pewnosc_relacji` - Pewność relacji 0.0-1.0 (string)
-- `sila` - Siła relacji: "silna" (bezpośrednia), "umiarkowana" (prawdopodobna), "slaba" (możliwa)
+- `sila` - Siła relacji: "silna", "umiarkowana", "slaba"
 - `doc_id`, `chunk_index` - Metadane techniczne dla zarządzania cyklem życia
+
+**Zmiany (2025-10-14):** Usunięto "pewnosc_relacji" (duplikował sila) i "dowod" (zajmowało dużo tokenów, nie używane). (3 → 1 property)
 
 ### Przepływ Ingestu
 
@@ -263,28 +269,40 @@ Każdy węzeł zawiera:
    }
 ```
 
-### Przykładowe Graph RAG Queries
+### Przykładowe Graph RAG Queries (ZAKTUALIZOWANE - nowy schema)
 
 ```cypher
--- Znajdź największe wskaźniki
+-- Znajdź największe wskaźniki (tylko streszczenie, skala, pewnosc)
 MATCH (n:Wskaznik)
 WHERE n.skala IS NOT NULL
-RETURN n.streszczenie, n.skala, n.zrodlo
+RETURN n.streszczenie, n.skala, n.pewnosc, n.okres_czasu
 ORDER BY toFloat(split(n.skala, '%')[0]) DESC
+LIMIT 10
 
--- Znajdź pewne fakty o temacie X
+-- Znajdź pewne fakty o temacie X (uproszczone properties)
 MATCH (n:Obserwacja)
 WHERE n.streszczenie CONTAINS 'X' AND n.pewnosc = 'wysoka'
-RETURN n.opis, n.kluczowe_fakty, n.zrodlo
+RETURN n.streszczenie, n.kluczowe_fakty, n.okres_czasu
 
--- Jak X wpływa na Y? (silne relacje)
-MATCH (przyczyna:Przyczyna)-[r:PROWADZI_DO]->(skutek:Skutek)
-WHERE przyczyna.streszczenie CONTAINS 'X' AND skutek.streszczenie CONTAINS 'Y'
+-- Znajdź powiązania między X i Y (używa POWIAZANY_Z zamiast PROWADZI_DO)
+MATCH (n1:Obserwacja)-[r:POWIAZANY_Z]->(n2:Obserwacja)
+WHERE n1.streszczenie CONTAINS 'X' AND n2.streszczenie CONTAINS 'Y'
   AND r.sila = 'silna'
-RETURN przyczyna.streszczenie, r.dowod, skutek.streszczenie, r.pewnosc_relacji
+RETURN n1.streszczenie, r.sila, n2.streszczenie
+
+-- Znajdź trendy w okresie czasu
+MATCH (n:Trend)
+WHERE n.okres_czasu CONTAINS '2020'
+RETURN n.streszczenie, n.okres_czasu, n.kluczowe_fakty, n.pewnosc
 ```
 
-**UWAGA:** Wszystkie nazwy węzłów (Obserwacja, Wskaznik, Demografia, Trend, Lokalizacja, Przyczyna, Skutek) i relacji (OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W, SPOWODOWANY_PRZEZ, PROWADZI_DO, POROWNUJE_DO) oraz properties (streszczenie, opis, kluczowe_fakty, zrodlo, skala, pewnosc) są **po polsku**.
+**UWAGA:** Wszystkie nazwy węzłów (Obserwacja, Wskaznik, Demografia, Trend, Lokalizacja) i relacji (OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W, POWIAZANY_Z) oraz properties (streszczenie, skala, pewnosc, okres_czasu, kluczowe_fakty) są **po polsku**.
+
+**Zmiany schema (2025-10-14):**
+- Usunięto typy: Przyczyna, Skutek → merge do Obserwacja
+- Usunięto relacje: SPOWODOWANY_PRZEZ, PROWADZI_DO, POROWNUJE_DO → merge do POWIAZANY_Z
+- Usunięto properties węzłów: opis, zrodlo → focus na streszczenie
+- Usunięto properties relacji: pewnosc_relacji, dowod → zostało tylko sila
 
 ---
 

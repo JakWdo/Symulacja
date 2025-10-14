@@ -12,6 +12,7 @@ Kluczowe endpointy:
 - /analysis - analiza wyników i podsumowania AI
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -27,6 +28,54 @@ import logging
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager - inicjalizacja/cleanup zasobów przy starcie/stopie aplikacji."""
+    # Startup
+    print("🚀 LIFESPAN: Inicjalizacja aplikacji...")
+    logger.info("🚀 LIFESPAN: Inicjalizacja aplikacji...")
+
+    # Inicjalizuj RAG serwisy przy starcie aby wykryć błędy konfiguracji wcześnie
+    try:
+        print("LIFESPAN: Inicjalizacja RAG Document Service...")
+        logger.info("LIFESPAN: Inicjalizacja RAG Document Service...")
+        from app.api.rag import get_rag_document_service
+        doc_service = get_rag_document_service()
+        if doc_service.vector_store:
+            print(f"✓ LIFESPAN: RAG Document Service OK - vector_store={type(doc_service.vector_store)}")
+            logger.info("✓ LIFESPAN: RAG Document Service zainicjalizowany pomyślnie")
+        else:
+            print("✗ LIFESPAN: RAG Document Service: vector_store is None!")
+            logger.error("✗ LIFESPAN: RAG Document Service: vector_store is None!")
+    except Exception as exc:
+        print(f"✗ LIFESPAN: Błąd RAG Document Service: {exc}")
+        logger.error("✗ Błąd podczas inicjalizacji RAG Document Service: %s", exc, exc_info=True)
+
+    try:
+        print("LIFESPAN: Inicjalizacja Polish Society RAG...")
+        logger.info("LIFESPAN: Inicjalizacja Polish Society RAG...")
+        from app.api.rag import get_polish_society_rag
+        rag_service = get_polish_society_rag()
+        if rag_service.vector_store:
+            print(f"✓ LIFESPAN: Polish Society RAG OK - vector_store={type(rag_service.vector_store)}")
+            logger.info("✓ LIFESPAN: Polish Society RAG zainicjalizowany pomyślnie")
+        else:
+            print("✗ LIFESPAN: Polish Society RAG: vector_store is None!")
+            logger.error("✗ LIFESPAN: Polish Society RAG: vector_store is None!")
+    except Exception as exc:
+        print(f"✗ LIFESPAN: Błąd Polish Society RAG: {exc}")
+        logger.error("✗ Błąd podczas inicjalizacji Polish Society RAG: %s", exc, exc_info=True)
+
+    print("✓ LIFESPAN: Aplikacja gotowa do obsługi żądań")
+    logger.info("✓ LIFESPAN: Aplikacja gotowa do obsługi żądań")
+
+    yield
+
+    # Shutdown
+    print("👋 LIFESPAN: Zamykanie aplikacji...")
+    logger.info("👋 LIFESPAN: Zamykanie aplikacji...")
 
 # Walidacja krytycznych ustawień w produkcji
 if settings.ENVIRONMENT == "production":
@@ -63,6 +112,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Setup Rate Limiting
@@ -136,7 +186,25 @@ async def health_check():
     Returns:
         Status zdrowia aplikacji i środowisko
     """
-    return {"status": "healthy", "environment": settings.ENVIRONMENT}
+    # Diagnostyka RAG serwisów
+    rag_status = {}
+    try:
+        from app.api.rag import _rag_document_service, _polish_society_rag
+        rag_status["rag_document_service_initialized"] = _rag_document_service is not None
+        rag_status["polish_society_rag_initialized"] = _polish_society_rag is not None
+        if _rag_document_service:
+            rag_status["rag_doc_vector_store_ok"] = _rag_document_service.vector_store is not None
+            rag_status["rag_doc_graph_store_ok"] = _rag_document_service.graph_store is not None
+        if _polish_society_rag:
+            rag_status["polish_rag_vector_store_ok"] = _polish_society_rag.vector_store is not None
+    except Exception as exc:
+        rag_status["error"] = str(exc)
+
+    return {
+        "status": "healthy",
+        "environment": settings.ENVIRONMENT,
+        "rag_services": rag_status
+    }
 
 
 # Globalny handler wyjątków - łapie wszystkie nieobsłużone błędy

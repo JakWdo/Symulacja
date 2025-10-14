@@ -59,12 +59,14 @@ class Settings(BaseSettings):
     PERSONA_GENERATION_MODEL: str = "gemini-2.5-flash"
     # ANALYSIS_MODEL: Model do analizy i podsumowań (dokładny)
     ANALYSIS_MODEL: str = "gemini-2.5-pro"
+    # GRAPH_MODEL: Model do tworzenia grafu z raportu
+    GRAPH_MODEL: str = "gemini-2.5-flash"
     # DEFAULT_MODEL: ustawienie utrzymujące zgodność wsteczną
     DEFAULT_MODEL: str = "gemini-2.5-flash"
     # TEMPERATURE: Kreatywność modelu (0.0-1.0, wyższe = bardziej kreatywne)
     TEMPERATURE: float = 0.7
     # MAX_TOKENS: Maksymalna długość odpowiedzi
-    MAX_TOKENS: int = 8000
+    MAX_TOKENS: int = 6000
 
     # === CELE WYDAJNOŚCIOWE ===
     # Maksymalny czas odpowiedzi pojedynczej persony (sekundy)
