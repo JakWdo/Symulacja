@@ -291,8 +291,10 @@ class FocusGroupServiceLangChain:
                 session, str(persona.id), question, top_k=5
             )
 
-            # Wygeneruj odpowiedź używając LangChain + Gemini
+            # Wygeneruj odpowiedź używając LangChain + Gemini (mierz czas)
+            start_time = time.time()
             response_text = await self._generate_response(persona, question, context)
+            response_time = time.time() - start_time
 
             print(f"💬 Generated response (length={len(response_text) if response_text else 0}): {response_text[:50] if response_text else 'EMPTY'}...")
 

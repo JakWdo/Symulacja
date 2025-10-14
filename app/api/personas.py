@@ -734,6 +734,20 @@ async def _generate_personas_task(
                             }
                             persona_index += 1
 
+                # WALIDACJA: Sprawdź czy wszystkie persony dostały briefe
+                total_allocated = sum(group.count for group in allocation_plan.groups)
+                if total_allocated != num_personas:
+                    logger.warning(
+                        f"⚠️ Allocation plan gap: expected {num_personas} personas, "
+                        f"but allocation plan covers {total_allocated}. "
+                        f"{num_personas - total_allocated} personas won't have orchestration briefs."
+                    )
+                elif persona_index < num_personas:
+                    logger.warning(
+                        f"⚠️ Brief mapping incomplete: mapped {persona_index}/{num_personas} personas. "
+                        f"Last {num_personas - persona_index} personas won't have orchestration briefs."
+                    )
+
                 logger.info(f"📋 Mapped briefs to {len(persona_group_mapping)} personas")
 
             except Exception as orch_error:

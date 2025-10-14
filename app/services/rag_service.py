@@ -195,39 +195,39 @@ class RAGDocumentService:
                     transformer = LLMGraphTransformer(
                         llm=self.llm,
                         allowed_nodes=[
-                            "Observation",
-                            "Indicator",
-                            "Demographic",
+                            "Obserwacja",
+                            "Wskaznik",
+                            "Demografia",
                             "Trend",
-                            "Location",
-                            "Cause",
-                            "Effect",
+                            "Lokalizacja",
+                            "Przyczyna",
+                            "Skutek",
                         ],
                         allowed_relationships=[
-                            "DESCRIBES",
-                            "APPLIES_TO",
-                            "SHOWS_TREND",
-                            "LOCATED_IN",
-                            "CAUSED_BY",
-                            "LEADS_TO",
-                            "COMPARES_TO",
+                            "OPISUJE",
+                            "DOTYCZY",
+                            "POKAZUJE_TREND",
+                            "ZLOKALIZOWANY_W",
+                            "SPOWODOWANY_PRZEZ",
+                            "PROWADZI_DO",
+                            "POROWNUJE_DO",
                         ],
                         node_properties=[
-                            "description",      # Szczegółowy opis węzła (2-3 zdania)
-                            "summary",          # Krótkie podsumowanie (1 zdanie)
-                            "key_facts",        # Lista kluczowych faktów (string, separated by semicolons)
-                            "time_period",      # Okres czasu (jeśli dotyczy, format: "YYYY" lub "YYYY-YYYY")
-                            "magnitude",        # Wielkość/skala dla wskaźników (string z jednostką)
-                            "source_context",   # Bezpośredni cytat lub kontekst źródłowy
-                            "confidence_level"  # Poziom pewności informacji: "high", "medium", "low"
+                            "opis",             # Szczegółowy opis węzła (2-3 zdania)
+                            "streszczenie",     # Krótkie podsumowanie (1 zdanie)
+                            "kluczowe_fakty",   # Lista kluczowych faktów (string, separated by semicolons)
+                            "okres_czasu",      # Okres czasu (jeśli dotyczy, format: "YYYY" lub "YYYY-YYYY")
+                            "skala",            # Wielkość/skala dla wskaźników (string z jednostką)
+                            "zrodlo",           # Bezpośredni cytat lub kontekst źródłowy
+                            "pewnosc"           # Poziom pewności informacji: "wysoka", "srednia", "niska"
                         ],
                         relationship_properties=[
-                            "confidence",       # Pewność relacji (0.0-1.0 jako string)
-                            "evidence",         # Dowód/uzasadnienie relacji (cytat lub wyjaśnienie)
-                            "strength"          # Siła relacji: "strong", "moderate", "weak"
+                            "pewnosc_relacji",  # Pewność relacji (0.0-1.0 jako string)
+                            "dowod",            # Dowód/uzasadnienie relacji (cytat lub wyjaśnienie)
+                            "sila"              # Siła relacji: "silna", "umiarkowana", "slaba"
                         ],
                         additional_instructions="""
-JĘZYK: Wszystkie właściwości węzłów i relacji (streszczenie, opis, kluczowe_fakty, zrodlo, dowód) MUSZĄ być po polsku.
+JĘZYK: Wszystkie właściwości węzłów i relacji MUSZĄ być po polsku - zarówno NAZWY jak i WARTOŚCI.
 
 WĘZŁY - Każdy węzeł zawiera:
 - opis: Wyczerpujący opis kontekstu (2-3 zdania)
@@ -238,13 +238,16 @@ WĘZŁY - Każdy węzeł zawiera:
 - zrodlo: Cytat ze źródła (20-50 słów)
 - pewnosc: "wysoka" (dane bezpośrednie), "srednia" (wnioski), "niska" (spekulacje)
 
-RELACJE - Każda relacja zawiera:
-- pewność: Pewność 0.0-1.0 (string)
-- dowód: Dowód z tekstu uzasadniający relację
-- siła: "silna" (bezpośrednia), "umiarkowana" (prawdopodobna), "słaba" (możliwa)
+RELACJE - Każda relacja zawiera (POLSKIE nazwy properties):
+- pewnosc_relacji: Pewność 0.0-1.0 (string)
+- dowod: Dowód z tekstu uzasadniający relację
+- sila: "silna" (bezpośrednia), "umiarkowana" (prawdopodobna), "slaba" (możliwa)
 
-TYPY WĘZŁÓW (precyzyjnie):
-Observation (obserwacje), Indicator (wskaźniki liczbowe), Demographic (grupy), Trend (trendy czasowe), Location (miejsca), Cause (przyczyny), Effect (skutki)
+TYPY WĘZŁÓW (POLSKIE nazwy):
+Obserwacja (obserwacje), Wskaznik (wskaźniki liczbowe), Demografia (grupy), Trend (trendy czasowe), Lokalizacja (miejsca), Przyczyna (przyczyny), Skutek (skutki)
+
+TYPY RELACJI (POLSKIE nazwy):
+OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W, SPOWODOWANY_PRZEZ, PROWADZI_DO, POROWNUJE_DO
 
 METADANE TECHNICZNE (KRYTYCZNE):
 Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
@@ -351,25 +354,25 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
 
                 # 3. WALIDACJA JAKOŚCI METADANYCH
                 # Sprawdź czy kluczowe właściwości są wypełnione
-                if node.properties.get('summary') in (None, '', 'N/A'):
+                if node.properties.get('streszczenie') in (None, '', 'N/A'):
                     validation_warnings += 1
                     logger.debug(
-                        "Węzeł '%s' nie ma summary - LLM może nie wyekstraktować wszystkich właściwości",
+                        "Węzeł '%s' nie ma streszczenia - LLM może nie wyekstraktować wszystkich właściwości",
                         node.id
                     )
 
-                if node.properties.get('description') in (None, '', 'N/A'):
+                if node.properties.get('opis') in (None, '', 'N/A'):
                     validation_warnings += 1
 
                 # 4. NORMALIZACJA FORMATÓW
-                # Confidence level normalizacja
-                confidence = node.properties.get('confidence_level', '').lower()
-                if confidence not in ('high', 'medium', 'low'):
-                    node.properties['confidence_level'] = 'medium'  # default
+                # Pewność normalizacja
+                pewnosc = node.properties.get('pewnosc', '').lower()
+                if pewnosc not in ('wysoka', 'srednia', 'niska'):
+                    node.properties['pewnosc'] = 'srednia'  # default
 
-                # Magnitude - upewnij się że jest stringiem
-                if node.properties.get('magnitude') and not isinstance(node.properties['magnitude'], str):
-                    node.properties['magnitude'] = str(node.properties['magnitude'])
+                # Skala - upewnij się że jest stringiem
+                if node.properties.get('skala') and not isinstance(node.properties['skala'], str):
+                    node.properties['skala'] = str(node.properties['skala'])
 
                 enriched_count += 1
 
@@ -382,19 +385,19 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
                 relationship.properties['doc_id'] = doc_id
                 relationship.properties['chunk_index'] = chunk_index
 
-                # Normalizacja confidence (string -> float validation)
-                if relationship.properties.get('confidence'):
+                # Normalizacja pewnosc_relacji (string -> float validation)
+                if relationship.properties.get('pewnosc_relacji'):
                     try:
-                        conf_value = float(relationship.properties['confidence'])
+                        conf_value = float(relationship.properties['pewnosc_relacji'])
                         # Clamp do 0.0-1.0
-                        relationship.properties['confidence'] = str(max(0.0, min(1.0, conf_value)))
+                        relationship.properties['pewnosc_relacji'] = str(max(0.0, min(1.0, conf_value)))
                     except (ValueError, TypeError):
-                        relationship.properties['confidence'] = '0.5'  # default
+                        relationship.properties['pewnosc_relacji'] = '0.5'  # default
 
-                # Normalizacja strength
-                strength = relationship.properties.get('strength', '').lower()
-                if strength not in ('strong', 'moderate', 'weak'):
-                    relationship.properties['strength'] = 'moderate'  # default
+                # Normalizacja siły
+                sila = relationship.properties.get('sila', '').lower()
+                if sila not in ('silna', 'umiarkowana', 'slaba'):
+                    relationship.properties['sila'] = 'umiarkowana'  # default
 
         logger.info(
             "Wzbogacono %s węzłów. Ostrzeżenia walidacji: %s",
@@ -710,92 +713,92 @@ Zachowaj doc_id i chunk_index w każdym węźle dla późniejszego usuwania.
             cypher_query = """
             // Parametry: $search_terms - lista słów kluczowych do matchingu
 
-            // 1. Znajdź Indicators (preferuj high confidence jeśli istnieje)
-            MATCH (ind:Indicator)
+            // 1. Znajdź Wskaźniki (preferuj wysoką pewność jeśli istnieje)
+            MATCH (ind:Wskaznik)
             WHERE ANY(term IN $search_terms WHERE
-                ind.summary CONTAINS term OR
-                ind.description CONTAINS term OR
-                ind.key_facts CONTAINS term
+                ind.streszczenie CONTAINS term OR
+                ind.opis CONTAINS term OR
+                ind.kluczowe_fakty CONTAINS term
             )
             WITH ind
             ORDER BY
-                CASE WHEN ind.confidence_level = 'high' THEN 0
-                     WHEN ind.confidence_level = 'medium' THEN 1
+                CASE WHEN ind.pewnosc = 'wysoka' THEN 0
+                     WHEN ind.pewnosc = 'srednia' THEN 1
                      ELSE 2 END,
-                size(coalesce(ind.key_facts, '')) DESC
+                size(coalesce(ind.kluczowe_fakty, '')) DESC
             LIMIT 3
             WITH collect({
-                type: 'Indicator',
-                summary: ind.summary,
-                key_facts: ind.key_facts,
-                magnitude: ind.magnitude,
-                confidence_level: coalesce(ind.confidence_level, 'unknown'),
-                time_period: ind.time_period,
-                source_context: ind.source_context,
-                description: ind.description
+                type: 'Wskaznik',
+                streszczenie: ind.streszczenie,
+                kluczowe_fakty: ind.kluczowe_fakty,
+                skala: ind.skala,
+                pewnosc: coalesce(ind.pewnosc, 'nieznana'),
+                okres_czasu: ind.okres_czasu,
+                zrodlo: ind.zrodlo,
+                opis: ind.opis
             }) AS indicators
 
-            // 2. Znajdź Observations (preferuj high confidence jeśli istnieje)
-            MATCH (obs:Observation)
+            // 2. Znajdź Obserwacje (preferuj wysoką pewność jeśli istnieje)
+            MATCH (obs:Obserwacja)
             WHERE ANY(term IN $search_terms WHERE
-                obs.summary CONTAINS term OR
-                obs.description CONTAINS term OR
-                obs.key_facts CONTAINS term
+                obs.streszczenie CONTAINS term OR
+                obs.opis CONTAINS term OR
+                obs.kluczowe_fakty CONTAINS term
             )
             WITH indicators, obs
             ORDER BY
-                CASE WHEN obs.confidence_level = 'high' THEN 0
-                     WHEN obs.confidence_level = 'medium' THEN 1
+                CASE WHEN obs.pewnosc = 'wysoka' THEN 0
+                     WHEN obs.pewnosc = 'srednia' THEN 1
                      ELSE 2 END,
-                size(coalesce(obs.key_facts, '')) DESC
+                size(coalesce(obs.kluczowe_fakty, '')) DESC
             LIMIT 3
             WITH indicators, collect({
-                type: 'Observation',
-                summary: obs.summary,
-                key_facts: obs.key_facts,
-                confidence_level: coalesce(obs.confidence_level, 'unknown'),
-                time_period: obs.time_period,
-                source_context: obs.source_context,
-                description: obs.description
+                type: 'Obserwacja',
+                streszczenie: obs.streszczenie,
+                kluczowe_fakty: obs.kluczowe_fakty,
+                pewnosc: coalesce(obs.pewnosc, 'nieznana'),
+                okres_czasu: obs.okres_czasu,
+                zrodlo: obs.zrodlo,
+                opis: obs.opis
             }) AS observations
 
-            // 3. Znajdź Trends
+            // 3. Znajdź Trendy
             MATCH (trend:Trend)
             WHERE ANY(term IN $search_terms WHERE
-                trend.summary CONTAINS term OR
-                trend.description CONTAINS term
+                trend.streszczenie CONTAINS term OR
+                trend.opis CONTAINS term
             )
             WITH indicators, observations, trend
-            ORDER BY size(coalesce(trend.key_facts, '')) DESC
+            ORDER BY size(coalesce(trend.kluczowe_fakty, '')) DESC
             LIMIT 2
             WITH indicators, observations, collect({
                 type: 'Trend',
-                summary: trend.summary,
-                key_facts: trend.key_facts,
-                time_period: trend.time_period,
-                source_context: trend.source_context,
-                description: trend.description
+                streszczenie: trend.streszczenie,
+                kluczowe_fakty: trend.kluczowe_fakty,
+                okres_czasu: trend.okres_czasu,
+                zrodlo: trend.zrodlo,
+                opis: trend.opis
             }) AS trends
 
-            // 4. Znajdź Demographics nodes
-            MATCH (demo:Demographic)
+            // 4. Znajdź węzły Demografii
+            MATCH (demo:Demografia)
             WHERE ANY(term IN $search_terms WHERE
-                demo.summary CONTAINS term OR
-                demo.description CONTAINS term
+                demo.streszczenie CONTAINS term OR
+                demo.opis CONTAINS term
             )
             WITH indicators, observations, trends, demo
             ORDER BY
-                CASE WHEN demo.confidence_level = 'high' THEN 0
-                     WHEN demo.confidence_level = 'medium' THEN 1
+                CASE WHEN demo.pewnosc = 'wysoka' THEN 0
+                     WHEN demo.pewnosc = 'srednia' THEN 1
                      ELSE 2 END
             LIMIT 2
             WITH indicators, observations, trends, collect({
-                type: 'Demographic',
-                summary: demo.summary,
-                key_facts: demo.key_facts,
-                confidence_level: coalesce(demo.confidence_level, 'unknown'),
-                source_context: demo.source_context,
-                description: demo.description
+                type: 'Demografia',
+                streszczenie: demo.streszczenie,
+                kluczowe_fakty: demo.kluczowe_fakty,
+                pewnosc: coalesce(demo.pewnosc, 'nieznana'),
+                zrodlo: demo.zrodlo,
+                opis: demo.opis
             }) AS demographics
 
             // 5. Połącz wszystkie wyniki
@@ -856,8 +859,9 @@ class PolishSocietyRAG:
             )
             logger.info("PolishSocietyRAG został poprawnie zainicjalizowany.")
 
-            if settings.RAG_USE_HYBRID_SEARCH:
-                asyncio.create_task(self._ensure_fulltext_index())
+            # Fulltext index będzie tworzony lazy - przy pierwszym użyciu keyword search
+            # (nie możemy użyć asyncio.create_task() w __init__ bo może nie być event loop)
+            self._fulltext_index_initialized = False
 
             # Inicjalizuj RAGDocumentService dla dostępu do graph context
             # Używamy leniwej inicjalizacji aby uniknąć circular dependency
@@ -933,6 +937,11 @@ class PolishSocietyRAG:
         if not self.vector_store:
             return []
 
+        # Lazy initialization fulltext index przy pierwszym użyciu
+        if settings.RAG_USE_HYBRID_SEARCH and not self._fulltext_index_initialized:
+            await self._ensure_fulltext_index()
+            self._fulltext_index_initialized = True
+
         try:
             driver = self.vector_store._driver
 
@@ -991,76 +1000,76 @@ class PolishSocietyRAG:
             return ""
 
         # Grupuj węzły po typie
-        indicators = [n for n in graph_nodes if n.get('type') == 'Indicator']
-        observations = [n for n in graph_nodes if n.get('type') == 'Observation']
+        indicators = [n for n in graph_nodes if n.get('type') == 'Wskaznik']
+        observations = [n for n in graph_nodes if n.get('type') == 'Obserwacja']
         trends = [n for n in graph_nodes if n.get('type') == 'Trend']
-        demographics = [n for n in graph_nodes if n.get('type') == 'Demographic']
+        demographics = [n for n in graph_nodes if n.get('type') == 'Demografia']
 
         sections = []
 
-        # Sekcja Indicators
+        # Sekcja Wskaźniki
         if indicators:
-            sections.append("📊 WSKAŹNIKI DEMOGRAFICZNE (Indicators):\n")
+            sections.append("📊 WSKAŹNIKI DEMOGRAFICZNE (Wskaznik):\n")
             for ind in indicators:
-                summary = ind.get('summary', 'Brak podsumowania')
-                magnitude = ind.get('magnitude', 'N/A')
-                confidence = ind.get('confidence_level', 'N/A')
-                key_facts = ind.get('key_facts', '')
-                time_period = ind.get('time_period', '')
+                streszczenie = ind.get('streszczenie', 'Brak podsumowania')
+                skala = ind.get('skala', 'N/A')
+                pewnosc = ind.get('pewnosc', 'N/A')
+                kluczowe_fakty = ind.get('kluczowe_fakty', '')
+                okres_czasu = ind.get('okres_czasu', '')
 
-                sections.append(f"• {summary}")
-                if magnitude and magnitude != 'N/A':
-                    sections.append(f"  Wielkość: {magnitude}")
-                if time_period:
-                    sections.append(f"  Okres: {time_period}")
-                sections.append(f"  Pewność: {confidence}")
-                if key_facts:
-                    sections.append(f"  Kluczowe fakty: {key_facts}")
+                sections.append(f"• {streszczenie}")
+                if skala and skala != 'N/A':
+                    sections.append(f"  Wielkość: {skala}")
+                if okres_czasu:
+                    sections.append(f"  Okres: {okres_czasu}")
+                sections.append(f"  Pewność: {pewnosc}")
+                if kluczowe_fakty:
+                    sections.append(f"  Kluczowe fakty: {kluczowe_fakty}")
                 sections.append("")
 
-        # Sekcja Observations
+        # Sekcja Obserwacje
         if observations:
-            sections.append("\n👥 OBSERWACJE DEMOGRAFICZNE (Observations):\n")
+            sections.append("\n👥 OBSERWACJE DEMOGRAFICZNE (Obserwacja):\n")
             for obs in observations:
-                summary = obs.get('summary', 'Brak podsumowania')
-                confidence = obs.get('confidence_level', 'N/A')
-                key_facts = obs.get('key_facts', '')
-                time_period = obs.get('time_period', '')
+                streszczenie = obs.get('streszczenie', 'Brak podsumowania')
+                pewnosc = obs.get('pewnosc', 'N/A')
+                kluczowe_fakty = obs.get('kluczowe_fakty', '')
+                okres_czasu = obs.get('okres_czasu', '')
 
-                sections.append(f"• {summary}")
-                sections.append(f"  Pewność: {confidence}")
-                if time_period:
-                    sections.append(f"  Okres: {time_period}")
-                if key_facts:
-                    sections.append(f"  Kluczowe fakty: {key_facts}")
+                sections.append(f"• {streszczenie}")
+                sections.append(f"  Pewność: {pewnosc}")
+                if okres_czasu:
+                    sections.append(f"  Okres: {okres_czasu}")
+                if kluczowe_fakty:
+                    sections.append(f"  Kluczowe fakty: {kluczowe_fakty}")
                 sections.append("")
 
-        # Sekcja Trends
+        # Sekcja Trendy
         if trends:
-            sections.append("\n📈 TRENDY DEMOGRAFICZNE (Trends):\n")
+            sections.append("\n📈 TRENDY DEMOGRAFICZNE (Trend):\n")
             for trend in trends:
-                summary = trend.get('summary', 'Brak podsumowania')
-                time_period = trend.get('time_period', 'N/A')
-                key_facts = trend.get('key_facts', '')
+                streszczenie = trend.get('streszczenie', 'Brak podsumowania')
+                okres_czasu = trend.get('okres_czasu', 'N/A')
+                kluczowe_fakty = trend.get('kluczowe_fakty', '')
 
-                sections.append(f"• {summary}")
-                sections.append(f"  Okres: {time_period}")
-                if key_facts:
-                    sections.append(f"  Kluczowe fakty: {key_facts}")
+                sections.append(f"• {streszczenie}")
+                sections.append(f"  Okres: {okres_czasu}")
+                if kluczowe_fakty:
+                    sections.append(f"  Kluczowe fakty: {kluczowe_fakty}")
                 sections.append("")
 
-        # Sekcja Demographics
+        # Sekcja Demografia
         if demographics:
-            sections.append("\n🎯 GRUPY DEMOGRAFICZNE (Demographics):\n")
+            sections.append("\n🎯 GRUPY DEMOGRAFICZNE (Demografia):\n")
             for demo in demographics:
-                summary = demo.get('summary', 'Brak podsumowania')
-                confidence = demo.get('confidence_level', 'N/A')
-                key_facts = demo.get('key_facts', '')
+                streszczenie = demo.get('streszczenie', 'Brak podsumowania')
+                pewnosc = demo.get('pewnosc', 'N/A')
+                kluczowe_fakty = demo.get('kluczowe_fakty', '')
 
-                sections.append(f"• {summary}")
-                sections.append(f"  Pewność: {confidence}")
-                if key_facts:
-                    sections.append(f"  Kluczowe fakty: {key_facts}")
+                sections.append(f"• {streszczenie}")
+                sections.append(f"  Pewność: {pewnosc}")
+                if kluczowe_fakty:
+                    sections.append(f"  Kluczowe fakty: {kluczowe_fakty}")
                 sections.append("")
 
         return "\n".join(sections)
@@ -1182,8 +1191,8 @@ class PolishSocietyRAG:
             return chunk_text
 
         # Grupuj nodes po typie
-        indicators = [n for n in related_nodes if n.get('type') == 'Indicator']
-        observations = [n for n in related_nodes if n.get('type') == 'Observation']
+        indicators = [n for n in related_nodes if n.get('type') == 'Wskaznik']
+        observations = [n for n in related_nodes if n.get('type') == 'Obserwacja']
         trends = [n for n in related_nodes if n.get('type') == 'Trend']
 
         enrichments = []
@@ -1192,38 +1201,114 @@ class PolishSocietyRAG:
         if indicators:
             enrichments.append("\n💡 Powiązane wskaźniki:")
             for ind in indicators[:2]:  # Max 2 na chunk
-                summary = ind.get('summary', '')
-                magnitude = ind.get('magnitude', '')
-                if summary:
-                    if magnitude:
-                        enrichments.append(f"  • {summary} ({magnitude})")
+                streszczenie = ind.get('streszczenie', '')
+                skala = ind.get('skala', '')
+                if streszczenie:
+                    if skala:
+                        enrichments.append(f"  • {streszczenie} ({skala})")
                     else:
-                        enrichments.append(f"  • {summary}")
+                        enrichments.append(f"  • {streszczenie}")
 
         # Dodaj obserwacje
         if observations:
             enrichments.append("\n🔍 Powiązane obserwacje:")
             for obs in observations[:2]:  # Max 2 na chunk
-                summary = obs.get('summary', '')
-                if summary:
-                    enrichments.append(f"  • {summary}")
+                streszczenie = obs.get('streszczenie', '')
+                if streszczenie:
+                    enrichments.append(f"  • {streszczenie}")
 
         # Dodaj trendy
         if trends:
             enrichments.append("\n📈 Powiązane trendy:")
             for trend in trends[:1]:  # Max 1 na chunk
-                summary = trend.get('summary', '')
-                time_period = trend.get('time_period', '')
-                if summary:
-                    if time_period:
-                        enrichments.append(f"  • {summary} ({time_period})")
+                streszczenie = trend.get('streszczenie', '')
+                okres_czasu = trend.get('okres_czasu', '')
+                if streszczenie:
+                    if okres_czasu:
+                        enrichments.append(f"  • {streszczenie} ({okres_czasu})")
                     else:
-                        enrichments.append(f"  • {summary}")
+                        enrichments.append(f"  • {streszczenie}")
 
         if enrichments:
             return chunk_text + "\n" + "\n".join(enrichments)
         else:
             return chunk_text
+
+    async def hybrid_search(
+        self,
+        query: str,
+        top_k: int = 5
+    ) -> List[Document]:
+        """Wykonuje hybrydowe wyszukiwanie (vector + keyword + RRF fusion).
+
+        Ta metoda łączy wyszukiwanie semantyczne (embeddingi) i pełnotekstowe (keywords)
+        używając Reciprocal Rank Fusion do połączenia wyników.
+
+        Args:
+            query: Zapytanie tekstowe do wyszukania
+            top_k: Liczba wyników do zwrócenia (domyślnie 5)
+
+        Returns:
+            Lista Document obiektów posortowana po relevance score
+
+        Raises:
+            RuntimeError: Jeśli vector store nie jest dostępny
+        """
+        if not self.vector_store:
+            raise RuntimeError("Vector store niedostępny - hybrid search niemożliwy")
+
+        logger.info("Hybrid search: query='%s...', top_k=%s", query[:50], top_k)
+
+        try:
+            # HYBRID SEARCH (Vector + Keyword)
+            if settings.RAG_USE_HYBRID_SEARCH:
+                # Zwiększamy k aby mieć więcej candidates dla reranking
+                candidates_k = settings.RAG_RERANK_CANDIDATES if settings.RAG_USE_RERANKING else top_k * 2
+
+                # Vector search
+                vector_results = await self.vector_store.asimilarity_search_with_score(
+                    query,
+                    k=candidates_k,
+                )
+
+                # Keyword search
+                keyword_results = await self._keyword_search(
+                    query,
+                    k=candidates_k,
+                )
+
+                # RRF fusion
+                fused_results = self._rrf_fusion(
+                    vector_results,
+                    keyword_results,
+                    k=settings.RAG_RRF_K,
+                )
+
+                # Optional reranking
+                if settings.RAG_USE_RERANKING and self.reranker:
+                    logger.info("Applying cross-encoder reranking")
+                    final_results = self._rerank_with_cross_encoder(
+                        query=query,
+                        candidates=fused_results[:settings.RAG_RERANK_CANDIDATES],
+                        top_k=top_k
+                    )
+                else:
+                    final_results = fused_results[:top_k]
+            else:
+                # Vector-only search
+                final_results = await self.vector_store.asimilarity_search_with_score(
+                    query,
+                    k=top_k,
+                )
+
+            # Return only Documents (strip scores)
+            documents = [doc for doc, score in final_results]
+            logger.info("Hybrid search returned %s documents", len(documents))
+            return documents
+
+        except Exception as exc:
+            logger.error("Hybrid search failed: %s", exc, exc_info=True)
+            raise RuntimeError(f"Hybrid search failed: {exc}")
 
     async def get_demographic_insights(
         self,

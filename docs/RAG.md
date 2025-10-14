@@ -192,7 +192,7 @@ Graph RAG ekstraktuje strukturalną wiedzę z dokumentów i zapisuje w grafie Ne
 
 - **Obserwacja** - Konkretne obserwacje, fakty z badań
 - **Wskaznik** - Wskaźniki liczbowe, statystyki, metryki
-- **Grupa_Demograficzna** - Grupy demograficzne, populacje
+- **Demografia** - Grupy demograficzne, populacje
 - **Trend** - Trendy czasowe, zmiany w czasie
 - **Lokalizacja** - Miejsca geograficzne
 - **Przyczyna** / **Skutek** - Przyczyny i skutki zjawisk
@@ -208,13 +208,13 @@ Graph RAG ekstraktuje strukturalną wiedzę z dokumentów i zapisuje w grafie Ne
 
 ### Bogate Metadane Węzłów
 
-**WAŻNE:** Wszystkie nazwy i wartości właściwości MUSZĄ być po polsku.
+**WAŻNE:** Property names są po polsku, wartości również po polsku.
 
 Każdy węzeł zawiera:
-- `streszczenie` - Jednozdaniowe streszczenie (po polsku)
-- `opis` - Szczegółowy opis kontekstu (2-3 zdania, po polsku)
-- `kluczowe_fakty` - Lista kluczowych faktów oddzielonych średnikami (po polsku)
-- `zrodlo` - Bezpośredni cytat ze źródła (20-50 słów, po polsku) dla weryfikowalności
+- `streszczenie` - Jednozdaniowe streszczenie (wartość: po polsku)
+- `opis` - Szczegółowy opis kontekstu (2-3 zdania, wartość: po polsku)
+- `kluczowe_fakty` - Lista kluczowych faktów oddzielonych średnikami (wartość: po polsku)
+- `zrodlo` - Bezpośredni cytat ze źródła (20-50 słów, wartość: po polsku) dla weryfikowalności
 - `okres_czasu` - Okres czasu (format: "2020" lub "2018-2023")
 - `skala` - Wartość z jednostką (np. "67%", "1.2 mln osób")
 - `pewnosc` - Pewność danych: "wysoka" (dane bezpośrednie), "srednia" (wnioski), "niska" (spekulacje)
@@ -222,9 +222,9 @@ Każdy węzeł zawiera:
 
 ### Bogate Metadane Relacji
 
-**WAŻNE:** Wszystkie nazwy i wartości właściwości MUSZĄ być po polsku.
+**WAŻNE:** Property names są po polsku, wartości również po polsku.
 
-- `dowod` - Dowód z tekstu uzasadniający relację (po polsku)
+- `dowod` - Dowód z tekstu uzasadniający relację (wartość: po polsku)
 - `pewnosc_relacji` - Pewność relacji 0.0-1.0 (string)
 - `sila` - Siła relacji: "silna" (bezpośrednia), "umiarkowana" (prawdopodobna), "slaba" (możliwa)
 - `doc_id`, `chunk_index` - Metadane techniczne dla zarządzania cyklem życia
@@ -283,6 +283,8 @@ WHERE przyczyna.streszczenie CONTAINS 'X' AND skutek.streszczenie CONTAINS 'Y'
   AND r.sila = 'silna'
 RETURN przyczyna.streszczenie, r.dowod, skutek.streszczenie, r.pewnosc_relacji
 ```
+
+**UWAGA:** Wszystkie nazwy węzłów (Obserwacja, Wskaznik, Demografia, Trend, Lokalizacja, Przyczyna, Skutek) i relacji (OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W, SPOWODOWANY_PRZEZ, PROWADZI_DO, POROWNUJE_DO) oraz properties (streszczenie, opis, kluczowe_fakty, zrodlo, skala, pewnosc) są **po polsku**.
 
 ---
 
