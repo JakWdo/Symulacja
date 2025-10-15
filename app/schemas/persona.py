@@ -13,7 +13,7 @@ from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from app.schemas.rag import RAGCitation
 
 
@@ -218,6 +218,110 @@ class PersonaResponse(BaseModel):
         from_attributes = True
 
 
+# === SEGMENT-BASED ARCHITECTURE SCHEMAS ===
+
+class DemographicConstraints(BaseModel):
+    """
+    HARD constraints dla generowania person w ramach segmentu.
+
+    Te constraints są WYMUSZANE przez generator - persona musi pasować do tych bounds.
+    Używane przez SegmentDefinition do zapewnienia spójności persona ↔ segment.
+    """
+    age_min: int = Field(ge=18, le=100, description="Minimalny wiek (18-100)")
+    age_max: int = Field(ge=18, le=100, description="Maksymalny wiek (18-100)")
+    gender: str = Field(description="Płeć: 'female', 'male', 'non-binary'")
+    education_levels: List[str] = Field(min_items=1, description="Dozwolone poziomy wykształcenia")
+    income_brackets: List[str] = Field(min_items=1, description="Dozwolone przedziały dochodowe")
+    locations: Optional[List[str]] = Field(None, description="Dozwolone lokalizacje (None = any)")
+
+    @validator('age_max')
+    def age_max_greater_than_min(cls, v, values):
+        """Walidacja: age_max musi być >= age_min."""
+        if 'age_min' in values and v < values['age_min']:
+            raise ValueError(f'age_max ({v}) must be >= age_min ({values["age_min"]})')
+        return v
+
+    @validator('gender')
+    def validate_gender(cls, v):
+        """Walidacja: gender musi być jednym z dozwolonych wartości."""
+        allowed = ['female', 'male', 'non-binary', 'kobieta', 'mężczyzna']
+        if v.lower() not in allowed:
+            raise ValueError(f'gender must be one of {allowed}, got: {v}')
+        return v
+
+
+class RAGCitationQuality(BaseModel):
+    """
+    High-quality RAG citation z filtrowaniem.
+
+    Tylko cytaty o confidence > 0.7 i relevance 'high' lub 'medium'.
+    Usunięte dziwne metryki (np. relevance -412%).
+    """
+    source: str = Field(description="Źródło dokumentu (np. 'GUS_Rynek_Pracy_2024')")
+    content: str = Field(max_length=500, description="Treść cytatu (max 500 znaków)")
+    year: Optional[int] = Field(None, ge=2000, le=2030, description="Rok danych (2000-2030)")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence score (0.0-1.0)")
+    relevance: str = Field(description="Relevance: 'high' lub 'medium' (nie 'low')")
+
+    @validator('relevance')
+    def validate_relevance(cls, v):
+        """Walidacja: relevance tylko 'high' lub 'medium'."""
+        allowed = ['high', 'medium']
+        if v.lower() not in allowed:
+            raise ValueError(f'relevance must be "high" or "medium", got: {v}')
+        return v
+
+
+class SegmentDefinition(BaseModel):
+    """
+    Structured definition segmentu demograficznego.
+
+    Każdy segment ma:
+    - Unikalną nazwę (LLM-generated, np. "Młodzi Prekariusze")
+    - HARD demographic constraints (wymuszane przez generator)
+    - Indywidualny kontekst społeczny (500-800 znaków)
+    - Per-segment graph insights i RAG citations
+    - Persona count (ile person w tym segmencie)
+
+    To jest "contract" między orchestration a generator - zapewnia spójność.
+    """
+    segment_id: str = Field(
+        pattern="^seg_[a-z0-9_]+$",
+        description="Unikalny ID segmentu (np. 'seg_young_precariat')"
+    )
+    segment_name: str = Field(
+        min_length=5,
+        max_length=60,
+        description="Mówiąca nazwa segmentu (np. 'Młodzi Prekariusze', 'Aspirujące Profesjonalistki 35-44')"
+    )
+    segment_description: Optional[str] = Field(
+        None,
+        max_length=300,
+        description="Krótki opis segmentu (1-2 zdania)"
+    )
+    demographics: DemographicConstraints = Field(description="HARD constraints dla person")
+    segment_context: str = Field(
+        min_length=400,
+        max_length=1200,
+        description="Kontekst społeczny dla TEJ grupy (500-800 znaków typowo)"
+    )
+    graph_insights: List["GraphInsightResponse"] = Field(
+        default_factory=list,
+        description="Graph insights filtrowane dla tego segmentu"
+    )
+    rag_citations: List[RAGCitationQuality] = Field(
+        default_factory=list,
+        max_items=10,
+        description="Top 10 high-quality RAG citations"
+    )
+    persona_count: int = Field(ge=1, description="Liczba person do wygenerowania w tym segmencie")
+    persona_brief: str = Field(
+        min_length=200,
+        max_length=800,
+        description="Instructions dla LLM generującego persony (dlaczego ten segment ważny)"
+    )
+
+
 # === ORCHESTRATION REASONING SCHEMAS ===
 
 class GraphInsightResponse(BaseModel):
@@ -246,17 +350,51 @@ class GraphInsightResponse(BaseModel):
 class PersonaReasoningResponse(BaseModel):
     """Szczegółowe reasoning persony - dla zakładki 'Uzasadnienie' w UI.
 
-    Zawiera:
-    - orchestration_brief: DŁUGI (2000-3000 znaków) edukacyjny brief od Gemini 2.5 Pro
-    - graph_insights: Lista wskaźników z Graph RAG z wyjaśnieniami
-    - allocation_reasoning: Dlaczego tyle person w tej grupie demograficznej
-    - overall_context: Ogólny kontekst społeczny Polski
+    **NOWE POLA (segment-based architecture):**
+    - segment_name: Mówiąca nazwa segmentu (np. "Młodzi Prekariusze")
+    - segment_id: Unikalny ID segmentu
+    - segment_description: Krótki opis segmentu (1-2 zdania)
+    - segment_social_context: Kontekst społeczny dla TEJ grupy (500-800 znaków)
+
+    **LEGACY POLA (deprecated, zachowane dla backward compatibility):**
+    - orchestration_brief: Użyj zamiast tego persona_brief z SegmentDefinition
+    - overall_context: Użyj zamiast tego segment_social_context
+
+    **AKTUALNE POLA:**
+    - graph_insights: Lista wskaźników z Graph RAG
+    - allocation_reasoning: Dlaczego tyle person w tej grupie
+    - demographics: Docelowa demografia tej grupy
     """
 
+    # === NOWE POLA (segment-based) ===
+    segment_name: Optional[str] = Field(
+        None,
+        description="Mówiąca nazwa segmentu (np. 'Młodzi Prekariusze', 'Aspirujące Profesjonalistki 35-44')"
+    )
+    segment_id: Optional[str] = Field(
+        None,
+        description="Unikalny ID segmentu (np. 'seg_young_precariat')"
+    )
+    segment_description: Optional[str] = Field(
+        None,
+        description="Krótki opis segmentu (1-2 zdania)"
+    )
+    segment_social_context: Optional[str] = Field(
+        None,
+        description="Kontekst społeczny dla TEJ grupy demograficznej (500-800 znaków)"
+    )
+
+    # === LEGACY POLA (dla kompatybilności wstecznej) ===
     orchestration_brief: Optional[str] = Field(
         None,
-        description="Długi (2000-3000 znaków) edukacyjny brief od orchestration agent"
+        description="Legacy brief wygenerowany przez orchestration agent (900-1200 znaków)"
     )
+    overall_context: Optional[str] = Field(
+        None,
+        description="Ogólny kontekst społeczny Polski (legacy pole - preferuj segment_social_context)"
+    )
+
+    # === AKTUALNE POLA ===
     graph_insights: List[GraphInsightResponse] = Field(
         default_factory=list,
         description="Lista wskaźników z Graph RAG"
@@ -268,10 +406,6 @@ class PersonaReasoningResponse(BaseModel):
     demographics: Optional[Dict[str, Any]] = Field(
         None,
         description="Docelowa demografia tej grupy"
-    )
-    overall_context: Optional[str] = Field(
-        None,
-        description="Ogólny kontekst społeczny Polski (500-800 znaków)"
     )
 
     class Config:

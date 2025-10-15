@@ -135,6 +135,10 @@ class Persona(Base):
     # Szczegółowe dane RAG dla "View Details" (graph nodes, search type, enrichment info)
     rag_context_details = Column(JSONB, nullable=True)
 
+    # Segment tracking (segment-based persona generation architecture)
+    segment_id = Column(String(100), nullable=True, index=True)
+    segment_name = Column(String(100), nullable=True)
+
     # Metadane
     personality_prompt = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

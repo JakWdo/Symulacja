@@ -1,22 +1,18 @@
-"""
-Testy integracyjne API autentykacji z rzeczywistą bazą danych.
+"""Integration coverage for FastAPI authentication endpoints."""
 
-Ten moduł testuje pełny flow autoryzacji:
-- Rejestracja użytkowników
-- Logowanie i generowanie JWT
-- Ochrona endpointów
-- Walidacja tokenów
-- Edge cases (duplicate email, wrong password, expired tokens)
-"""
+import time
+from uuid import uuid4
 
 import pytest
-from uuid import uuid4
-import time
+from sqlalchemy import select
+
+from app.models.user import User
+from tests.factories import unique_email
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_user_success(db_session):
+async def test_register_user_success(db_session, api_client):
     """
     Test pomyślnej rejestracji nowego użytkownika.
 
@@ -26,21 +22,14 @@ async def test_register_user_success(db_session):
     - Zwraca user object z poprawnymi polami
     - Hasło jest zahashowane (nie plain text)
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
-    from sqlalchemy import select
-    from app.models.user import User
-
-    client = TestClient(app, raise_server_exceptions=False)
-
     register_data = {
-        "email": "newuser@example.com",
+        "email": unique_email("register"),
         "password": "SecurePass123",
         "full_name": "New Test User",
         "company": "Test Corp"
     }
 
-    response = client.post("/api/v1/auth/register", json=register_data)
+    response = api_client.post("/api/v1/auth/register", json=register_data)
 
     assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
 
@@ -56,9 +45,7 @@ async def test_register_user_success(db_session):
     assert "id" in user_data
 
     # Verify user exists in database with hashed password
-    result = await db_session.execute(
-        select(User).where(User.email == register_data["email"])
-    )
+    result = await db_session.execute(select(User).where(User.email == register_data["email"]))
     user = result.scalar_one_or_none()
 
     assert user is not None
@@ -70,29 +57,24 @@ async def test_register_user_success(db_session):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_duplicate_email_fails(db_session):
+async def test_register_duplicate_email_fails(db_session, api_client):
     """
     Test że rejestracja z istniejącym emailem zwraca błąd.
 
     KRYTYCZNE: Duplicate emails = security issue.
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
-
-    client = TestClient(app, raise_server_exceptions=False)
-
     register_data = {
-        "email": "duplicate@example.com",
+        "email": unique_email("duplicate"),
         "password": "SecurePass123",
         "full_name": "First User"
     }
 
     # First registration - should succeed
-    response1 = client.post("/api/v1/auth/register", json=register_data)
+    response1 = api_client.post("/api/v1/auth/register", json=register_data)
     assert response1.status_code == 201
 
     # Second registration with same email - should fail
-    response2 = client.post("/api/v1/auth/register", json=register_data)
+    response2 = api_client.post("/api/v1/auth/register", json=register_data)
     assert response2.status_code == 400
 
     error = response2.json()
@@ -102,31 +84,26 @@ async def test_register_duplicate_email_fails(db_session):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_success(db_session):
+async def test_login_success(db_session, api_client):
     """
     Test pomyślnego logowania z poprawnymi credentials.
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
-
-    client = TestClient(app, raise_server_exceptions=False)
-
     # Register user first
     register_data = {
-        "email": "logintest@example.com",
+        "email": unique_email("login"),
         "password": "SecurePass123",
         "full_name": "Login Test User"
     }
-    register_response = client.post("/api/v1/auth/register", json=register_data)
+    register_response = api_client.post("/api/v1/auth/register", json=register_data)
     assert register_response.status_code == 201
 
     # Now login
     login_data = {
-        "email": "logintest@example.com",
+        "email": register_data["email"],
         "password": "SecurePass123"
     }
 
-    response = client.post("/api/v1/auth/login", json=login_data)
+    response = api_client.post("/api/v1/auth/login", json=login_data)
     assert response.status_code == 200
 
     data = response.json()
@@ -139,34 +116,29 @@ async def test_login_success(db_session):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_wrong_password_fails(db_session):
+async def test_login_wrong_password_fails(db_session, api_client):
     """
     Test że logowanie z błędnym hasłem zwraca 401.
 
     KRYTYCZNE: Musi zwrócić 401, nie szczegółową informację
     o tym co jest złe (security best practice).
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
-
-    client = TestClient(app, raise_server_exceptions=False)
-
     # Register user
     register_data = {
-        "email": "wrongpass@example.com",
+        "email": unique_email("wrongpass"),
         "password": "CorrectPass123",
         "full_name": "Wrong Pass User"
     }
-    register_response = client.post("/api/v1/auth/register", json=register_data)
+    register_response = api_client.post("/api/v1/auth/register", json=register_data)
     assert register_response.status_code == 201
 
     # Try login with wrong password
     login_data = {
-        "email": "wrongpass@example.com",
+        "email": register_data["email"],
         "password": "WrongPass123"  # Different password
     }
 
-    response = client.post("/api/v1/auth/login", json=login_data)
+    response = api_client.post("/api/v1/auth/login", json=login_data)
     assert response.status_code == 401
 
     error = response.json()
@@ -177,24 +149,19 @@ async def test_login_wrong_password_fails(db_session):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_nonexistent_user_fails(db_session):
+async def test_login_nonexistent_user_fails(db_session, api_client):
     """
     Test że logowanie nieistniejącego użytkownika zwraca 401.
 
     KRYTYCZNE: Musi zwrócić ten sam błąd co wrong password
     (nie ujawniać czy email istnieje).
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
-
-    client = TestClient(app, raise_server_exceptions=False)
-
     login_data = {
         "email": "nonexistent@example.com",
         "password": "SomePass123"
     }
 
-    response = client.post("/api/v1/auth/login", json=login_data)
+    response = api_client.post("/api/v1/auth/login", json=login_data)
     assert response.status_code == 401
 
     error = response.json()
@@ -221,19 +188,13 @@ async def test_get_current_user_with_valid_token(authenticated_client):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_get_current_user_without_token_fails(db_session):
+async def test_get_current_user_without_token_fails(api_client):
     """
     Test że dostęp do /auth/me bez tokenu zwraca 401.
 
     KRYTYCZNE: Protected endpoint musi wymagać autoryzacji.
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
-
-    client = TestClient(app, raise_server_exceptions=False)
-
-    # Try to access without Authorization header
-    response = client.get("/api/v1/auth/me")
+    response = api_client.get("/api/v1/auth/me")
     assert response.status_code == 401
 
     error = response.json()
@@ -242,38 +203,29 @@ async def test_get_current_user_without_token_fails(db_session):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_invalid_token_returns_401(db_session):
+async def test_invalid_token_returns_401(api_client):
     """
     Test że nieprawidłowy JWT token zwraca 401.
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
-
-    client = TestClient(app, raise_server_exceptions=False)
-
     # Try with invalid token
     invalid_headers = {"Authorization": "Bearer invalid.token.here"}
 
-    response = client.get("/api/v1/auth/me", headers=invalid_headers)
+    response = api_client.get("/api/v1/auth/me", headers=invalid_headers)
     assert response.status_code == 401
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_expired_token_returns_401(db_session):
+async def test_expired_token_returns_401(api_client):
     """
     Test że wygasły JWT token zwraca 401.
 
     UWAGA: Ten test wymaga mockowania czasu lub krótszego exp time.
     Obecnie jest symboliczny, bo standardowy JWT ma długi czas życia.
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
     from app.core.security import create_access_token
     from datetime import timedelta
     from uuid import uuid4
-
-    client = TestClient(app, raise_server_exceptions=False)
 
     # Create token with very short expiration (-1 minute = already expired)
     token = create_access_token(
@@ -283,7 +235,7 @@ async def test_expired_token_returns_401(db_session):
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    response = client.get("/api/v1/auth/me", headers=headers)
+    response = api_client.get("/api/v1/auth/me", headers=headers)
     assert response.status_code == 401
 
     error = response.json()
@@ -292,17 +244,12 @@ async def test_expired_token_returns_401(db_session):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_validates_password_strength(db_session):
+async def test_register_validates_password_strength(api_client):
     """
     Test że walidacja hasła odrzuca słabe hasła.
 
     KRYTYCZNE: Weak passwords = security vulnerability.
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
-
-    client = TestClient(app, raise_server_exceptions=False)
-
     weak_passwords = [
         "short",         # Za krótkie (<8 chars)
         "12345678",      # Tylko cyfry
@@ -317,23 +264,18 @@ async def test_register_validates_password_strength(db_session):
             "full_name": "Weak Pass User"
         }
 
-        response = client.post("/api/v1/auth/register", json=register_data)
+        response = api_client.post("/api/v1/auth/register", json=register_data)
         assert response.status_code == 422, f"Weak password '{weak_pass}' should be rejected"
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_protected_endpoint_requires_auth(db_session):
+async def test_protected_endpoint_requires_auth(api_client):
     """
     Test że protected endpoint (np. /projects) wymaga autoryzacji.
 
     KRYTYCZNE: Wszystkie business endpoints muszą być chronione.
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
-
-    client = TestClient(app, raise_server_exceptions=False)
-
     # Try to create project without auth
     project_data = {
         "name": "Unauthorized Project",
@@ -344,5 +286,5 @@ async def test_protected_endpoint_requires_auth(db_session):
         "target_sample_size": 20
     }
 
-    response = client.post("/api/v1/projects", json=project_data)
+    response = api_client.post("/api/v1/projects", json=project_data)
     assert response.status_code == 401, "Protected endpoint must require authentication"

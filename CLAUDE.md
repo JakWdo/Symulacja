@@ -46,10 +46,13 @@ python -m pytest tests/ -v
 - **README.md** - User-facing docs, quick start
 - **CLAUDE.md** - Ten plik (instrukcje dla Claude)
 - **docs/README.md** - Indeks dokumentacji technicznej
-- **docs/DOCKER.md** - Architektura Docker, deployment
-- **docs/TESTING.md** - Test suite (208 testów)
-- **docs/RAG.md** - System RAG (Hybrid Search + GraphRAG)
-- **PLAN.md** - Roadmap i zadania do zrealizowania
+- **docs/DEVOPS.md** - DevOps, Docker, CI/CD, monitoring (44KB)
+- **docs/TESTING.md** - Test suite (380 testów, fixtures, performance)
+- **docs/RAG.md** - System RAG (Hybrid Search + GraphRAG, 38KB)
+- **docs/AI_ML.md** - AI/LLM system, persona generation (40KB)
+- **docs/QUICKSTART.md** - Quick start guide
+- **docs/TROUBLESHOOTING.md** - Rozwiązywanie problemów
+- **PLAN.md** - Roadmap i 46 zadań strategicznych (TIER 0-3)
 
 ## Architektura
 
@@ -68,8 +71,17 @@ Models/DB (app/models/*.py) - data access
 - `PersonaGeneratorLangChain` - Generuje persony z RAG + statistical sampling
 - `FocusGroupServiceLangChain` - Orkiestracja dyskusji (async parallelization)
 - `MemoryServiceLangChain` - Event sourcing z semantic search
-- `GraphService` - Analiza grafu wiedzy (Neo4j)
-- `RAGDocumentService` - Hybrid search + GraphRAG
+- `RAGDocumentService` - Zarządzanie dokumentami (ingest, CRUD)
+- `GraphRAGService` - Graph RAG (Cypher queries, answer_question)
+- `PolishSocietyRAG` - Hybrid search (vector + keyword + RRF fusion)
+- `GraphService` - *(archived)* Analiza focus groups (Neo4j concepts/emotions)
+
+### Archived Services
+
+**app/services/archived/** - Legacy features nie używane w obecnej wersji:
+- `graph_service.py` - Focus group graph analysis (concept/emotion extraction)
+  - Zachowane dla historii, ale ukryte z frontend UI
+  - Zobacz `app/services/archived/README.md` dla instrukcji przywrócenia
 
 ### Wzorce
 
@@ -213,14 +225,15 @@ python scripts/init_neo4j_indexes.py  # Re-create indexes
 ## Production Checklist
 
 **Pre-Deploy:**
-- [ ] Wszystkie testy przechodzą (208 tests)
+- [ ] Wszystkie testy przechodzą (380 tests)
 - [ ] Coverage >80%
 - [ ] Migrations up-to-date
 - [ ] Neo4j indexes utworzone
-- [ ] Secrets w env vars (NIE .env!)
+- [ ] Secrets rotated i bezpieczne (NIE w .env w repo!)
 - [ ] CORS tylko prod domains
 - [ ] Rate limiting włączony
 - [ ] Health check działa
+- [ ] Docker services running (postgres, redis, neo4j, api, frontend)
 
 **Post-Deploy:**
 - [ ] Smoke tests (login, personas, focus group)
@@ -249,7 +262,9 @@ python scripts/init_neo4j_indexes.py  # Re-create indexes
 
 Szczegółowe informacje znajdziesz w:
 - **docs/README.md** - Indeks całej dokumentacji
-- **docs/DOCKER.md** - Multi-stage builds, deployment (224 linii)
-- **docs/TESTING.md** - Test suite, fixtures, performance (998 linii)
-- **docs/RAG.md** - Hybrid Search, GraphRAG, metadane (503 linie)
+- **docs/DEVOPS.md** - Docker, CI/CD, monitoring, deployment (44KB)
+- **docs/TESTING.md** - Test suite (380 testów), fixtures, performance (39KB)
+- **docs/RAG.md** - Hybrid Search, GraphRAG, 3 serwisy (38KB)
+- **docs/AI_ML.md** - AI/LLM system, persona generation (40KB)
+- **docs/TROUBLESHOOTING.md** - Rozwiązywanie problemów (23KB)
 - **README.md** - User-facing documentation

@@ -17,11 +17,15 @@ Wymaga:
 
 import asyncio
 import time
-from typing import Dict, List, Any
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
-from app.services.rag_service import PolishSocietyRAG
+import pytest
+
+from app.services.rag_hybrid_search_service import PolishSocietyRAG
 from app.core.config import get_settings
+
+pytestmark = pytest.mark.manual
 
 settings = get_settings()
 

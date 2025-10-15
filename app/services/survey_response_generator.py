@@ -390,50 +390,11 @@ Your response:""")
 
     def _fallback_open_text_response(self, persona: Persona, question: str) -> str:
         """Zwróć bezpieczną odpowiedź fallback dla pytań otwartych, aby uniknąć pustych wartości."""
-        lowered_question = question.lower()
-        if "pizza" in lowered_question:
-            return self._pizza_fallback_response(persona)
-
         name = (persona.full_name or "Ta persona").split(" ")[0]
         occupation = persona.occupation or "uczestnik badania"
         return (
             f"{name}, pracując jako {occupation}, potrzebuje chwili, aby w pełni odpowiedzieć na pytanie "
             f"\"{question}\". Podkreśla jednak, że temat jest dla niego ważny i wróci do niego po krótkim namyśle."
-        )
-
-    def _pizza_fallback_response(self, persona: Persona) -> str:
-        """Deterministyczny fallback opisujący ulubioną pizzę persony."""
-        name = (persona.full_name or "Ta persona").split(" ")[0]
-        occupation = persona.occupation or "uczestnik badania"
-        location = persona.location
-
-        values = [v.lower() for v in (persona.values or []) if isinstance(v, str)]
-        interests = [i.lower() for i in (persona.interests or []) if isinstance(i, str)]
-
-        def has_any(options):
-            return any(opt in values or opt in interests for opt in options)
-
-        if has_any({"health", "wellness", "fitness", "yoga", "running", "sport"}):
-            style = "lekką pizzę verde z rukolą, grillowaną cukinią i delikatnym pesto"
-            reason = "bo dzięki niej może zjeść coś przyjemnego, a jednocześnie zadbać o zdrowe nawyki"
-        elif has_any({"travel", "adventure", "exploration", "innovation", "spice"}):
-            style = "pikantną pizzę diavola z dojrzewającym salami, jalapeño i kremowym burratą"
-            reason = "bo przepada za wyrazistymi smakami i kulinarnymi eksperymentami"
-        elif has_any({"family", "tradition", "comfort", "home"}):
-            style = "klasyczną margheritę na neapolitańskim cieście"
-            reason = "która przywołuje rodzinne wspomnienia i daje poczucie domowego ciepła"
-        elif has_any({"food", "culinary", "gourmet", "wine"}):
-            style = "wykwintną pizzę bianca z ricottą, szpinakiem i odrobiną cytrynowej skórki"
-            reason = "bo docenia nieoczywiste kompozycje i starannie dobrane składniki"
-        else:
-            style = "pełną dodatków pizzę capricciosa z szynką, karczochami i pieczarkami"
-            reason = "bo daje mu wszystkiego po trochu i satysfakcjonuje różnorodnością smaków"
-
-        location_note = f", a w {location} wie, gdzie znaleźć rzemieślniczą pizzerię spełniającą te oczekiwania" if location else ""
-
-        return (
-            f"{name}, na co dzień {occupation}, najchętniej wybiera {style}. "
-            f"Mówi, że lubi ją, ponieważ {reason}{location_note}."
         )
 
     async def get_survey_analytics(

@@ -148,7 +148,7 @@ async def run_focus_group(
 async def _run_focus_group_task(focus_group_id: UUID):
     """Background task to run focus group"""
     import logging
-    from app.services.graph_service import GraphService
+    from app.services.archived.graph_service import GraphService
     logger = logging.getLogger(__name__)
 
     logger.info(f"🎯 Background task started for focus group {focus_group_id}")

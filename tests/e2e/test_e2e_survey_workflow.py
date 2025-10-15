@@ -16,6 +16,7 @@ import time
 
 @pytest.mark.e2e
 @pytest.mark.slow
+@pytest.mark.external
 @pytest.mark.asyncio
 async def test_survey_workflow_end_to_end(project_with_personas):
     """

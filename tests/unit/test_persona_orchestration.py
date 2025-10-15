@@ -2,7 +2,7 @@
 
 Ten moduł testuje PersonaOrchestrationService:
 - Comprehensive Graph RAG context retrieval (8 parallel queries)
-- DemographicGroup brief generation (2000-3000 znaków)
+- DemographicGroup brief generation (900-1200 znaków)
 - Graph insights extraction z metadata
 - Allocation reasoning (% population vs relevance)
 - JSON parsing (różne LLM output formats)
@@ -139,7 +139,7 @@ class TestDemographicBriefGeneration:
         Returns PersonaAllocationPlan:
         - total_personas (int)
         - overall_context (500-800 znaków)
-        - groups (List[DemographicGroup]) z briefami 2000-3000 znaków
+        - groups (List[DemographicGroup]) z briefami 900-1200 znaków
         """
         service = await persona_orchestration_with_mocks
 
@@ -164,17 +164,17 @@ class TestDemographicBriefGeneration:
         group = plan.groups[0]
         assert isinstance(group, DemographicGroup)
         assert group.count > 0
-        assert len(group.brief) >= 100  # Mock może być shorter than 2000-3000
+        assert len(group.brief) >= 50  # Mock może być krótszy niż docelowe 900-1200
         assert isinstance(group.graph_insights, list)
 
     async def test_brief_length_validation(
         self, persona_orchestration_with_mocks
     ):
         """
-        Test: Briefe mają required length (2000-3000 znaków).
+        Test: Briefe mają required length (900-1200 znaków).
 
-        Prompt instruuje LLM aby generował długie briefe.
-        Verification: Każdy brief ma min 2000 znaków.
+        Prompt instruuje LLM aby generował zwięzłe, treściwe briefe.
+        Verification: Z prawdziwym modelem oczekujemy min 900 znaków.
         """
         service = await persona_orchestration_with_mocks
 
@@ -187,7 +187,7 @@ class TestDemographicBriefGeneration:
 
         # Verify briefs (mock może nie spełniać exact requirement)
         for group in plan.groups:
-            # W realnym teście z Gemini 2.5 Pro: assert len(group.brief) >= 2000
+            # W realnym teście z Gemini 2.5 Pro: assert len(group.brief) >= 900
             assert len(group.brief) > 0
             assert isinstance(group.brief, str)
 

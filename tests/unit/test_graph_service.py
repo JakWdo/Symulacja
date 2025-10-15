@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 from collections import Counter
 
-from app.services.graph_service import GraphService, ConceptExtraction
+from app.services.archived.graph_service import GraphService, ConceptExtraction
 
 
 class DummyLLM:

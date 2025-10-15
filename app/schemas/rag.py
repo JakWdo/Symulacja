@@ -75,3 +75,16 @@ class GraphRAGQuestionResponse(BaseModel):
     graph_context: List[Dict[str, Any]]
     vector_context: List[Any]
     cypher_query: str
+
+
+class GraphRAGQuery(BaseModel):
+    """Struktura pomocnicza zamieniająca pytanie na zapytanie Cypher."""
+
+    entities: List[str] = Field(
+        default_factory=list,
+        description="Najważniejsze encje wyekstrahowane z pytania użytkownika.",
+    )
+    cypher_query: str = Field(
+        ...,
+        description="Zapytanie Cypher, które należy wykonać na grafie wiedzy.",
+    )

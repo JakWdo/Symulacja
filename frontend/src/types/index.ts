@@ -47,6 +47,7 @@ export interface Persona {
   is_active: boolean;
   rag_context_used: boolean;
   rag_citations: RAGCitation[] | null;
+  rag_context_details?: RagContextDetails | null;
 }
 
 export interface FocusGroup {
@@ -619,22 +620,72 @@ export interface RAGQueryResponse {
   num_results: number;
 }
 
+export interface RagContextOrchestrationReasoning {
+  brief?: string;
+  graph_insights?: GraphInsight[];
+  allocation_reasoning?: string;
+  demographics?: Record<string, any>;
+  overall_context?: string;
+  segment_name?: string;
+  segment_description?: string;
+  segment_social_context?: string;
+  segment_id?: string;
+}
+
+export interface RAGGraphNode {
+  type?: string;
+  summary?: string;
+  streszczenie?: string;
+  magnitude?: string;
+  skala?: string;
+  confidence?: string;
+  pewnosc?: string;
+  time_period?: string;
+  okres_czasu?: string;
+  source?: string;
+  document_title?: string;
+  why_matters?: string;
+  kluczowe_fakty?: string;
+  [key: string]: unknown;
+}
+
+export interface RagContextDetails {
+  search_type?: string;
+  num_results?: number;
+  graph_nodes_count?: number;
+  graph_nodes?: RAGGraphNode[];
+  graph_context?: string;
+  context_preview?: string;
+  context_length?: number;
+  enriched_chunks?: number;
+  citations_count?: number;
+  query?: string;
+  orchestration_reasoning?: RagContextOrchestrationReasoning;
+}
+
 // === ORCHESTRATION REASONING TYPES ===
 
 export interface GraphInsight {
   type: string;
   summary: string;
   magnitude?: string;
-  confidence: string;
+  confidence: 'high' | 'medium' | 'low';
   time_period?: string;
   source?: string;
   why_matters: string;
 }
 
 export interface PersonaReasoning {
+  // === NOWE POLA (segment-based) ===
+  segment_name?: string;  // Np. "Młodzi Prekariusze"
+  segment_id?: string;
+  segment_description?: string;
+  segment_social_context?: string;  // Kontekst dla TEJ grupy (500-800 znaków)
+
+  // === AKTUALNE POLA ===
   orchestration_brief?: string;
   graph_insights: GraphInsight[];
   allocation_reasoning?: string;
   demographics?: Record<string, any>;
-  overall_context?: string;
+  overall_context?: string;  // Legacy, używamy segment_social_context teraz
 }

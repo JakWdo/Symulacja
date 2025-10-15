@@ -21,17 +21,17 @@ import {
   ChevronRight,
   Filter,
   Database,
-  Quote,
   Brain,
   User,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { PersonaReasoningPanel } from '@/components/personas/PersonaReasoningPanel';
+import { PersonaRAGPanel } from '@/components/personas/PersonaRAGPanel';
 import { projectsApi, personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
-import { Persona as APIPersona, type RAGCitation } from '@/types';
+import { Persona as APIPersona } from '@/types';
 import { toast } from '@/components/ui/toastStore';
 import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
 import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
@@ -1104,30 +1104,11 @@ export function Personas() {
                   </TabsContent>
 
                   <TabsContent value="rag" className="mt-6">
-                    {apiPersona?.rag_context_used && apiPersona?.rag_citations ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2 mb-4">
-                          <Quote className="h-5 w-5 text-primary" />
-                          <h3 className="font-semibold">Kontekst z Bazy Wiedzy RAG</h3>
-                          <Badge variant="outline">{apiPersona.rag_citations.length} cytowań</Badge>
-                        </div>
-                        {apiPersona.rag_citations.map((citation, idx) => (
-                          <Card key={idx}>
-                            <CardContent className="pt-4">
-                              <div className="flex justify-between items-start mb-2">
-                                <p className="font-medium text-sm">{citation.document_title}</p>
-                                <Badge variant="secondary">
-                                  {(citation.relevance_score * 100).toFixed(0)}% relevance
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground">{citation.chunk_text}</p>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
+                    {apiPersona ? (
+                      <PersonaRAGPanel persona={apiPersona} />
                     ) : (
                       <div className="text-center text-muted-foreground py-8">
-                        Brak kontekstu RAG dla tej persony
+                        Ładowanie kontekstu RAG...
                       </div>
                     )}
                   </TabsContent>

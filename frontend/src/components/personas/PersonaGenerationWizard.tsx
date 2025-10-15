@@ -235,14 +235,32 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
               <p className="text-sm text-muted-foreground mb-3">
                 Opisz dokładniej grupę docelową lub specyficzne wymagania
               </p>
-              <Textarea
-                id="target-audience"
-                value={config.targetAudience}
-                onChange={(e) => setConfig(prev => ({ ...prev, targetAudience: e.target.value }))}
-                className="bg-input-background border-border"
-                placeholder="np. 'Osoby zainteresowane zrównoważonym rozwojem i ekologicznymi produktami'"
-                rows={3}
-              />
+              <div className="relative space-y-2">
+                <Textarea
+                  id="target-audience"
+                  value={config.targetAudience}
+                  onChange={(e) => {
+                    const value = e.target.value.slice(0, 500);
+                    setConfig(prev => ({ ...prev, targetAudience: value }));
+                  }}
+                  maxLength={500}
+                  className="bg-input-background border-border"
+                  placeholder="np. 'Osoby zainteresowane zrównoważonym rozwojem i ekologicznymi produktami'"
+                  rows={3}
+                />
+                <div
+                  className={`text-xs ${
+                    config.targetAudience.length > 400
+                      ? 'text-red-500'
+                      : config.targetAudience.length > 300
+                      ? 'text-yellow-500'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {config.targetAudience.length}/500 znaków
+                  {config.targetAudience.length > 300 && ' - Krótszy opis = lepsze wyniki'}
+                </div>
+              </div>
             </div>
           </div>
         </div>

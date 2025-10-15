@@ -140,18 +140,6 @@ class FocusGroupServiceLangChain:
 
             await db.commit()
 
-            # Po zakończeniu automatycznie budujemy graf wiedzy
-            logger.info(f"🧠 Starting automatic graph build for focus group {focus_group_id}")
-            try:
-                from app.services.graph_service import GraphService
-                graph_service = GraphService()
-                graph_stats = await graph_service.build_graph_from_focus_group(db, str(focus_group_id))
-                await graph_service.close()
-                logger.info(f"✅ Graph built successfully: {graph_stats}")
-            except Exception as graph_error:
-                # Błąd przy budowie grafu nie powinien zatrzymać całego procesu
-                logger.error(f"⚠️ Graph build failed (non-critical): {graph_error}", exc_info=True)
-
             return {
                 "focus_group_id": str(focus_group_id),
                 "status": "completed",
@@ -399,50 +387,11 @@ IMPORTANT INSTRUCTION:
 
     def _fallback_response(self, persona: Persona, question: str) -> str:
         """Zwróć przygotowaną odpowiedź zapasową, gdy LLM nic nie wygeneruje."""
-        lowered_question = question.lower()
-        if "pizza" in lowered_question:
-            return self._pizza_fallback_response(persona)
-
         name = (persona.full_name or "Ta persona").split(" ")[0]
         occupation = persona.occupation or "uczestnik badania"
         return (
             f"{name}, pracując jako {occupation}, potrzebuje chwili, by uporządkować myśli wokół pytania "
             f"\"{question}\". Zaznacza jednak, że chętnie wróci do tematu, bo uważa go za ważny dla całej dyskusji."
-        )
-
-    def _pizza_fallback_response(self, persona: Persona) -> str:
-        """Provide a personable pizza description fallback."""
-        name = (persona.full_name or "Ta persona").split(" ")[0]
-        occupation = persona.occupation or "uczestnik badania"
-        location = persona.location
-
-        values = [v.lower() for v in (persona.values or []) if isinstance(v, str)]
-        interests = [i.lower() for i in (persona.interests or []) if isinstance(i, str)]
-
-        def has_any(options):
-            return any(opt in values or opt in interests for opt in options)
-
-        if has_any({"health", "wellness", "fitness", "yoga", "running", "sport"}):
-            style = "lekką pizzę verde na bardzo cienkim cieście z rukolą, grillowanymi warzywami i oliwą truflową"
-            reason = "dzięki której może zjeść coś pysznego i wciąż trzymać się swoich zdrowych nawyków"
-        elif has_any({"travel", "adventure", "exploration", "innovation", "spice"}):
-            style = "pikantną pizzę diavola z dojrzewającym salami, jalapeño i odrobiną miodu"
-            reason = "bo lubi kuchenne eksperymenty i wyraźne smaki, które dodają energii"
-        elif has_any({"family", "tradition", "comfort", "home"}):
-            style = "klasyczną pizzę margheritę na neapolitańskim cieście"
-            reason = "która kojarzy mu się z domowym ciepłem i prostymi przyjemnościami"
-        elif has_any({"food", "culinary", "gourmet", "wine"}):
-            style = "wyrafinowaną pizzę bianca z ricottą, świeżym szpinakiem i odrobiną cytrynowej skórki"
-            reason = "bo docenia subtelne połączenia smaków i dobrą jakość składników"
-        else:
-            style = "aromatyczną pizzę capricciosa z szynką, karczochami i pieczarkami"
-            reason = "która zapewnia idealną równowagę między klasyką a urozmaiceniem"
-
-        location_note = f", a w {location} łatwo znaleźć rzemieślniczą pizzerię, która spełnia te oczekiwania" if location else ""
-
-        return (
-            f"{name}, pracując jako {occupation}, najczęściej wybiera {style}. "
-            f"Mówi, że lubi ją {reason}{location_note}."
         )
 
     def _create_response_prompt(
@@ -476,8 +425,8 @@ IMPORTANT INSTRUCTION:
                     context_text += f"{i}. Q: {ctx['event_data'].get('question', '')}\n"
                     context_text += f"   A: {ctx['event_data'].get('response', '')}\n"
 
-        # Przycinamy historię tła do 300 znaków (oszczędność tokenów)
-        background = persona.background_story[:300] if persona.background_story else 'Has diverse life experiences'
+        # Używamy pełnej historii tła persony
+        background = persona.background_story if persona.background_story else 'Has diverse life experiences'
 
         return f"""You are participating in a focus group discussion.
 

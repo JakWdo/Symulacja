@@ -1,414 +1,295 @@
-# PLAN.md - Roadmap & Task Tracking
+# PLAN.md - Roadmap & Strategic Tasks
 
-**WAŻNE:** Ten plik jest używany przez Claude Code do trackowania zadań i planowania rozwoju.
+**Market Research SaaS** - Platforma do wirtualnych grup fokusowych z AI
 
----
-
-## 📋 Jak używać tego pliku?
-
-### Dla Claude Code:
-1. **Przed rozpoczęciem zadania** - Przeczytaj odpowiednią sekcję, sprawdź czy podobne zadanie nie istnieje
-2. **Po zakończeniu zadania** - Zaznacz jako zrealizowane `[x]` i dodaj datę w formacie `(2025-10-14)`
-3. **Dodawanie nowych zadań** - Grupuj według obszaru, dodaj do odpowiedniej sekcji "Priorities"
-4. **Aktualizacja** - Aktualizuj ten plik przy każdej większej zmianie w projekcie
-
-### Dla Developerów:
-- Checklisty są pogrupowane według obszarów funkcjonalnych
-- Priorytety znajdują się na końcu dokumentu (High/Medium/Low)
-- Zrealizowane zadania pozostają w dokumencie (dla historii i trackowania postępu)
+**Ostatnia aktualizacja:** 2025-10-15 - Dostosowanie do rzeczywistego stanu projektu
 
 ---
 
-## 🗺️ Roadmap & Future Improvements
+## 🎯 Przegląd Stanu Projektu
 
-Plan rozwoju platformy z podziałem na obszary funkcjonalne.
+**Status Ogólny:** 5.5/10 - DEVELOPMENT MODE (Docker down, testy nie przechodzą)
 
-## Docker & Infrastructure
+**Kluczowe Metryki:**
+- Test Coverage: Unknown (380 testów zebranych, ale nie mogą działać - Docker services down)
+- Architektura: 8.0/10 - Service Layer Pattern, Async/Await, nowa struktura RAG (3 serwisy)
+- Security: 5.0/10 - GOOGLE_API_KEY w repozytorium, DEFAULT SECRET_KEY, DEBUG=True
+- DevOps: 3.0/10 - Docker nie działa, brak CI/CD, brak monitoringu
 
-### CI/CD Pipeline
-- [ ] GitHub Actions workflow dla automated builds
-- [ ] Automated testing w CI (pytest, unit + integration)
-- [ ] Docker image builds i push do registry
-- [ ] Automated deployment do staging environment
-- [ ] Production deployment z manual approval gate
+**KRYTYCZNE PROBLEMY:**
+- ❌ **Docker services nie działają** - postgres, redis, neo4j, api, frontend (0/5 running)
+- ❌ **GOOGLE_API_KEY w .env** (exposed w git) - NATYCHMIASTOWA ROTACJA WYMAGANA
+- ❌ **Testy nie mogą działać** - timeout bo brak działających dependencies
+- ❌ **DOCKER.md usunięty** - ale jest DEVOPS.md i TROUBLESHOOTING.md
 
-### Docker Registry
-- [ ] Prywatny Docker registry (Harbor / AWS ECR / GCP Artifact Registry)
-- [ ] Image signing dla security
-- [ ] Vulnerability scanning (Trivy / Clair)
-- [ ] Tag strategy (semver, git sha, latest)
-
-### Kubernetes (jeśli planowane)
-- [ ] Kubernetes manifests (Deployments, Services, ConfigMaps)
-- [ ] Helm charts dla łatwiejszego deployment
-- [ ] Horizontal Pod Autoscaling (HPA) bazowane na CPU/memory
-- [ ] Ingress controller z SSL/TLS termination
-- [ ] Persistent Volumes dla databases
-
-### Monitoring & Observability
-- [ ] Prometheus + Grafana w Docker Compose
-- [ ] Application metrics (FastAPI requests, response times)
-- [ ] Database metrics (Postgres, Redis, Neo4j)
-- [ ] LLM API metrics (Gemini calls, token usage, costs)
-- [ ] Alerting (email, Slack, PagerDuty) na critical events
-
-### Health Checks
-- [ ] Comprehensive health endpoints (/health/live, /health/ready)
-- [ ] Database connection checks
-- [ ] Redis connection checks
-- [ ] Neo4j connection checks
-- [ ] External API checks (Google Gemini availability)
-- [ ] Startup probes dla slow-starting services
-
-### Backups
-- [ ] Automated Postgres backups (daily, retention policy)
-- [ ] Neo4j backups (graph data)
-- [ ] Redis persistence (RDB + AOF w production)
-- [ ] Static files backups (avatary użytkowników)
-- [ ] Backup restoration testing (monthly)
-- [ ] Off-site backup storage (S3, GCS)
+**Ostatnie Osiągnięcia (październik 2025):**
+- [x] RAG System - Split na 3 serwisy (RAGDocumentService, RAGGraphService, RAGHybridSearchService) (data: 2025-10-15)
+- [x] Hybrid Search - Optymalizacja (chunking 1000, reranking, RRF fusion) (data: 2025-10-14)
+- [x] Security Fixes - 8 critical/high issues (bare except, indexes, sanitization) (data: 2025-10-14)
+- [x] Graph Service - Archiwizacja legacy features (data: 2025-10-15)
+- [x] Test Infrastructure - Factories, fixtures, 380 testów (data: 2025-10-15)
+- [x] Documentation - DEVOPS.md, TROUBLESHOOTING.md, QUICKSTART.md (data: 2025-10-15)
+- [x] **Segment-Based Persona Architecture** - Refactor z loose orchestration na structured segments (data: 2025-10-15)
 
 ---
 
-## Backend & API
+## 🚨 TIER 0: IMMEDIATE FIXES (TODAY!)
 
-### Performance Optimization
-- [ ] Database query optimization (analyze slow queries)
-- [ ] Connection pooling tuning (SQLAlchemy, Neo4j)
-- [ ] Redis caching strategy (cache persona profiles, focus group results)
-- [ ] Async batch processing dla bulk operations
-- [ ] Background jobs dla long-running tasks (Celery / ARQ)
+### Critical Security (DO FIRST!)
+- [ ] [Priority: 100] **ROTATE GOOGLE_API_KEY** - Key exposed w .env committed to git - NATYCHMIAST - 15min
+  - Unieważnij AIzaSyDB92Edj_MGJsBuyK21J0gcupofvO1ZVQ8 w Google Cloud Console
+  - Wygeneruj nowy klucz
+  - Dodaj .env do .gitignore (jeśli nie ma)
+  - Git commit z usunięciem klucza, ale NIE push starego history!
+- [ ] [Priority: 100] **Git history cleanup** - Usuń GOOGLE_API_KEY ze wszystkich commitów (git filter-branch lub BFG) - 30min
+- [ ] [Priority: 98] **Zmień SECRET_KEY** - "your_secret_key_here_change_in_production" to default placeholder - 5min
 
-### API Enhancements
-- [ ] API versioning strategy (v2 endpoints)
-- [ ] Rate limiting per user/IP (Redis-based)
-- [ ] Request/response compression (gzip)
-- [ ] API key management dla external integrations
-- [ ] Webhook support dla async notifications
-
-### Error Handling
-- [ ] Structured error responses (error codes, messages)
-- [ ] Error tracking (Sentry integration)
-- [ ] Retry logic dla transient failures (LLM API, database)
-- [ ] Circuit breaker pattern dla external services
-- [ ] Dead letter queue dla failed jobs
-
-### Security
-- [ ] API audit logging (who, what, when)
-- [ ] RBAC (Role-Based Access Control) - admin, user, viewer roles
-- [ ] API key rotation policy
-- [ ] Input sanitization hardening
-- [ ] OWASP Top 10 compliance audit
-- [ ] Penetration testing
+### Infrastructure (GET WORKING!)
+- [ ] [Priority: 99] **Uruchom Docker services** - postgres, redis, neo4j, api, frontend (docker-compose up -d) - 10min
+  - Diagnoza: dlaczego services są down
+  - Fix: docker-compose.yml issues
+  - Verify: docker-compose ps pokazuje 5/5 running
+- [ ] [Priority: 95] **Inicjalizacja Neo4j indexes** - python scripts/init_neo4j_indexes.py (WYMAGANE dla RAG!) - 5min
+- [ ] [Priority: 90] **Verify test suite** - python -m pytest tests/ -v (sprawdź czy 380 testów przechodzi) - 30min
 
 ---
 
-## AI & LLM
+## 🚨 TIER 1: PRODUCTION BLOCKERS (Week 1)
 
-### Gemini API Optimization
-- [ ] Token usage monitoring i cost tracking
-- [ ] Caching dla powtarzalnych queries
-- [ ] Fallback na mniejsze modele (Flash) jeśli Pro timeout
-- [ ] Batch requests gdzie możliwe
-- [ ] Prompt optimization dla mniejszych tokenów
+### Security & Dependencies
+- [ ] [Priority: 95] Upgrade vulnerable dependencies (npm audit, pip-audit, fix CVEs) - 5h
+- [ ] [Priority: 95] Docker secrets management (użyj Docker secrets lub AWS SSM zamiast .env) - 4h
+- [ ] [Priority: 90] Validate SECRET_KEY at startup (check != default, length ≥32, entropy check) - 1h
+- [ ] [Priority: 90] Disable DEBUG by default (raise error if DEBUG=True + ENVIRONMENT=production) - 30min
 
-### Multi-Model Support
-- [ ] Abstrakcja LLM provider (LangChain już używany)
-- [ ] Fallback na OpenAI GPT jeśli Gemini niedostępny
-- [ ] A/B testing różnych modeli
-- [ ] Model selection bazowane na task type (generation vs analysis)
+### New RAG Architecture Integration
+- [ ] [Priority: 92] **Testy dla nowych serwisów RAG** - test_rag_document_service.py, test_rag_graph_service.py, test_rag_hybrid_search_service.py (sprawdź integrację) - 4h
+- [ ] [Priority: 90] **Update API endpoints** - app/api/rag.py używa nowych serwisów (RAGDocumentService, RAGGraphService, RAGHybridSearchService) - 2h
+- [ ] [Priority: 88] **Migration guide** - Dokumentacja migracji z monolitycznego rag_service.py do 3 serwisów - 1h
 
-### Persona Generation
-- [ ] Więcej demographic categories (ethnicity, occupation, income brackets)
-- [ ] International demographics (UK, US, Germany, etc.)
-- [ ] Custom personality frameworks (MBTI, Enneagram)
-- [ ] Persona templates library (zapisane profile)
-- [ ] Import person z CSV/JSON
+### CI/CD & Infrastructure
+- [ ] [Priority: 95] GitHub Actions workflow (lint → test → security scan → build) - 8h
+- [ ] [Priority: 85] Health check endpoints (/health/live, /health/ready, /health/startup) - 2h
+- [ ] [Priority: 80] Automated backups (Postgres daily, Neo4j weekly, S3/local storage) - 4h
 
-### Focus Groups
-- [ ] Real-time streaming responses (WebSockets / SSE)
-- [ ] Progress indicators (X of Y personas odpowiedziało)
-- [ ] Retry pojedynczych person jeśli failed
-- [ ] Focus group templates (pre-defined questions)
-- [ ] Export transcripts (PDF, DOCX)
+### Authentication & Authorization
+- [ ] [Priority: 88] JWT token blacklist (Redis-based revocation, TTL = token expiration) - 6h
+- [ ] [Priority: 85] Account lockout mechanism (5 failed attempts → 15min lockout, Redis counter) - 6h
 
 ---
 
-## RAG & Knowledge Graph
+## 🎯 TIER 2: OPTIMIZATION & STABILITY (Week 2-3)
 
-### RAG KLUCZOWE
-- [ ] Stworzenie RAG settings, aby prompty do LLMGraphTransformer były dostosowane do raportu.
+### RAG System Stabilization
+- [ ] [Priority: 85] **RAG integration tests end-to-end** - Test RAGDocumentService → RAGGraphService → RAGHybridSearchService workflow - 8h
+- [ ] [Priority: 82] **Neo4j connection pooling** - Implement proper connection pool dla RAGGraphService (max_size=50, timeout=30s) - 3h
+- [ ] [Priority: 80] **GraphRAG schema validation** - Ensure consistent node properties, improve fill-rate (target: 85%+) - 6h
+- [ ] [Priority: 75] **RAG error handling** - Comprehensive error handling dla chunking, embeddings, graph construction failures - 4h
 
-### Chunking & Context Optimization (ZREALIZOWANE 2025-10-14) ✅
-- [x] Optymalizacja chunk_size (2000 → 1000 znaków) dla lepszej precyzji embeddings (2025-10-14)
-- [x] Zwiększenie overlap (20% → 30%) dla lepszej ciągłości kontekstu (2025-10-14)
-- [x] Zwiększenie TOP_K (5 → 8) dla kompensacji mniejszych chunków (2025-10-14)
-- [x] Zwiększenie MAX_CONTEXT (5000 → 12000) zapobiegające truncation (2025-10-14)
+### AI/LLM Optimization
+- [ ] [Priority: 80] **PersonaGenerator prompt compression** - 700 lines → 250 lines (reduce token usage ~55%) - 4h
+- [ ] [Priority: 78] **LLM retry logic** - Exponential backoff, circuit breaker (3 retries, 60s cooldown) - 3h
+- [ ] [Priority: 75] **Token usage tracking** - Log token consumption per request (persona generation, focus groups, RAG) - 2h
 
-### Reranking & Precision (ZREALIZOWANE 2025-10-14) ✅
-- [x] Cross-encoder reranking dla precyzyjniejszego scoringu (2025-10-14)
-- [x] Multilingual reranker (mmarco-mMiniLMv2) dla wsparcia polskiego (2025-10-14)
-- [x] A/B testing framework (test_rag_ab_comparison.py) (2025-10-14)
-- [x] RRF_K tuning tools (test_rrf_k_tuning.py) (2025-10-14)
+### Performance & Caching
+- [ ] [Priority: 80] **Redis caching layer Phase 1** - Cache persona profiles (TTL: 24h), focus groups (TTL: 7d) - 8h
+- [ ] [Priority: 75] **Redis caching layer Phase 2** - Cache RAG queries (TTL: 1h), hybrid search results - 6h
+- [ ] [Priority: 70] **Connection pooling optimization** - SQLAlchemy (pool_size=20), Neo4j (max_size=50), Redis (max_connections=50) - 4h
 
-### Hybrid Search Improvements
-- [ ] BM25 keyword search zamiast fulltext (lepsze ranking)
-- [ ] Query expansion (synonimy, related terms)
-- [ ] Multi-query retrieval (generuj wiele queries z jednego pytania)
-
-### Chunking Strategy (PRIORYTET ŚREDNI)
-- [ ] **Semantic chunking** - Split bazując na semantic similarity, nie arbitrary char count
-  - LangChain `SemanticChunker` lub custom implementation
-  - Zachowuje tematyczną spójność chunków
-  - Problem: Arbitrary char count często rozdziela ważne informacje
-  - Rozwiązanie: Chunki są naturalnie spójne semantycznie
-
-### Graph Node Enrichment (PRIORYTET ŚREDNI)
-- [ ] **Improved graph node matching** - Cosine similarity zamiast word overlap dla enrichment
-  - Obecny matching (word overlap) daje dużo false positives/negatives
-  - Cosine similarity między chunk embedding a graph node properties
-  - Albo TF-IDF scoring dla weighted matching
-  - Zwiększ próg z >=2 matches → semantic threshold (cosine >0.7)
-
-### Graph RAG Enhancements
-- [ ] Community detection w grafie (clustery person/konceptów)
-- [ ] Graph traversal queries (find paths between concepts)
-- [ ] Temporal graph analysis (zmiany opinii w czasie)
-- [ ] Entity linking (Wikipedia, DBpedia)
-
-### Graph Prompt Optimization (PRIORYTET ŚREDNI)
-- [ ] **Graph prompt simplification** - Zmniejsz liczbę required properties dla lepszego fill-rate
-  - Problem: Validation pokazuje >30% nodes bez pełnych metadanych
-  - Obecne: 7 node properties + 3 relationship properties = LLM ma trudności
-  - Rozwiązanie: Zmniejsz do must-have only (description, summary, confidence_level)
-  - Albo two-pass approach: extract nodes → enrich properties w drugim LLM call
-  - Lepiej mniej properties, ale wypełnione quality data
-
-### Document Management
-- [ ] Web scraping dla public reports
-- [ ] OCR dla scanned PDFs
-- [ ] Document versioning (track updates)
-- [ ] Document expiration dates (auto-remove stale data)
-- [ ] Multi-language support (Polish, English)
-
-### Embeddings
-- [ ] Multi-lingual embeddings (Polish + English)
-- [ ] Fine-tuned embeddings dla domain-specific content
-- [ ] Embeddings compression (quantization) dla mniejszych storage
-
-### Advanced RAG Features (PRIORYTET NISKI - Eksperymentalne)
-- [ ] **Dynamic TOP_K** - Dostosuj k w zależności od query complexity
-  - LLM klasyfikuje query jako simple/medium/complex
-  - Simple queries → TOP_K=5 (mniej noise)
-  - Complex queries → TOP_K=12-15 (więcej kontekstu)
-  - Wymaga query complexity classifier (może być prosty heuristic lub ML model)
-
-- [ ] **Dimensionality reduction** - PCA z 3072 → 1024 wymiary dla Google embeddings
-  - Może przyspieszyć vector search (mniejsze wektory = szybsze dot product)
-  - Może obniżyć quality retrieval
-  - Wymaga EXTENSIVE testing na production data
-  - Trade-off: speed vs accuracy
-
-- [ ] **Custom Polish cross-encoder** - Trenuj domain-specific reranker na polskich tekstach demograficznych
-  - Obecny mmarco model jest multilingual ale generic
-  - Custom model trenowany na polskich social research texts
-  - Długoterminowy projekt (requires labeled query-document pairs)
-  - Wymaga: 1000+ labeled pairs (query, relevant_doc, irrelevant_doc)
+### Testing & Quality
+- [ ] [Priority: 75] **Test suite stability** - Fix timeout issues, ensure all 380 tests pass consistently - 4h
+- [ ] [Priority: 72] **Fix flaky E2E tests** - test_e2e_full_workflow.py, test_e2e_survey_workflow.py (increase timeouts, add retries) - 2h
+- [ ] [Priority: 68] **Test coverage analysis** - Identify untested code paths, prioritize critical paths - 3h
 
 ---
 
-## Frontend
+## 🔧 TIER 3: ENHANCEMENTS & POLISH (Week 4+)
 
-### UI/UX Improvements
-- [ ] Dark mode persistence (localStorage)
-- [ ] Keyboard shortcuts (hotkeys dla common actions)
-- [ ] Drag & drop persona assignment do focus groups
-- [ ] Bulk operations (select multiple personas, delete, export)
-- [ ] Undo/redo dla edycji
+### Code Quality & Refactoring
+- [ ] [Priority: 65] **Refactor PersonaOrchestration** - Simplify persona_orchestration.py (lepszy error handling, logging) - 4h
+- [ ] [Priority: 62] **Refactor _generate_personas_task** - Split 250 lines → 4 methods, reduce complexity (18 → <10) - 6h
+- [ ] [Priority: 58] **Standardize error logging** - Structured JSON logs, correlation IDs, consistent log levels - 6h
+- [ ] [Priority: 55] **Code quality metrics** - Setup SonarQube/CodeClimate, track complexity, duplication - 4h
 
-### Real-Time Features
-- [ ] WebSocket connection dla live updates
-- [ ] Real-time collaboration (multiple users editing)
-- [ ] Live focus group progress (streaming responses)
-- [ ] Notifications system (toast, browser notifications)
+### DevOps & Monitoring
+- [ ] [Priority: 68] **Prometheus + Grafana setup** - Dashboards dla FastAPI metrics, DB, Redis, Neo4j, LLM tokens - 12h
+- [ ] [Priority: 65] **Docker network isolation** - Separate networks: frontend, backend, database - 3h
+- [ ] [Priority: 60] **Resource limits** - docker-compose CPU/memory limits, restart policies - 2h
+- [ ] [Priority: 58] **Image vulnerability scanning** - Trivy w CI, fail on HIGH/CRITICAL CVEs - 6h
 
-### Visualization Enhancements
-- [ ] Graph analysis: filtry (age, gender, sentiment)
-- [ ] Graph analysis: zoom, pan, node selection
-- [ ] Chart exports (PNG, SVG) dla wszystkich visualizations
-- [ ] Interactive timelines (persona history)
-- [ ] Comparison views (compare 2 focus groups side-by-side)
+### Security & Compliance
+- [ ] [Priority: 58] **API audit logging** - Log user_id, endpoint, method, timestamp, IP (retention: 90d) - 8h
+- [ ] [Priority: 55] **MFA implementation** - TOTP 2FA, QR setup, backup codes - 12h
+- [ ] [Priority: 52] **GDPR compliance checks** - Data retention policies, user data export/delete - 8h
 
-### Accessibility
-- [ ] WCAG 2.1 AA compliance
-- [ ] Screen reader support
-- [ ] Keyboard navigation dla wszystkich features
-- [ ] High contrast mode
-- [ ] Font size controls
-
-### Performance
-- [ ] Code splitting (lazy load routes)
-- [ ] Image optimization (avatary)
-- [ ] Bundle size optimization (tree shaking)
-- [ ] Service worker dla offline support
-- [ ] PWA manifest (installable app)
+### Features & UX
+- [ ] [Priority: 55] **Persona quality dashboard** - Metrics: diversity, RAG usage, latency (Grafana) - 10h
+- [ ] [Priority: 50] **Real-time progress indicators** - WebSocket/SSE dla persona generation, focus groups - 12h
+- [ ] [Priority: 48] **Export functionality** - Export focus groups, personas to PDF/CSV/JSON - 8h
 
 ---
 
-## Testing
+## 📊 Podział Zadań według Obszarów
 
-### Test Coverage
-- [ ] Zwiększ coverage do 90%+ (obecnie ~80%)
-- [ ] Property-based testing (Hypothesis) dla generators
-- [ ] Mutation testing (mutmut) dla test quality
-- [ ] Visual regression testing (Percy, Chromatic)
+**TIER 0 (CRITICAL):** 6 zadań - Security + Infrastructure (DO TODAY!)
+**TIER 1 (BLOCKERS):** 12 zadań - Security, RAG Integration, CI/CD, Auth (Week 1)
+**TIER 2 (OPTIMIZATION):** 13 zadań - RAG Stabilization, AI/LLM, Performance, Testing (Week 2-3)
+**TIER 3 (ENHANCEMENTS):** 15 zadań - Code Quality, DevOps, Security, Features (Week 4+)
 
-### E2E Testing
-- [ ] Playwright / Cypress dla frontend E2E
-- [ ] Critical user flows (signup → generate personas → run focus group)
-- [ ] Cross-browser testing (Chrome, Firefox, Safari)
-- [ ] Mobile testing (responsive design)
-
-### Performance Testing
-- [ ] Load testing (Locust / k6) - 100 concurrent users
-- [ ] Stress testing - find breaking point
-- [ ] Spike testing - sudden traffic spikes
-- [ ] Endurance testing - 24h load
-
-### Chaos Engineering
-- [ ] Simulated database failures
-- [ ] Network latency injection
-- [ ] LLM API failures
-- [ ] OOM (Out of Memory) scenarios
+**Total:** 46 zadań strategicznych (3 tiers + critical)
 
 ---
 
-## Data & Analytics
+## 🎯 Quick Wins (≤2h, High Impact)
 
-### User Analytics
-- [ ] Usage tracking (Mixpanel, Amplitude)
-- [ ] Funnel analysis (signup → first focus group)
-- [ ] Cohort analysis (user retention)
-- [ ] Feature adoption rates
+Zadania do natychmiastowego wykonania:
+1. **ROTATE GOOGLE_API_KEY** (15min) - Priority: 100
+2. **Zmień SECRET_KEY** (5min) - Priority: 98
+3. **Uruchom Docker** (10min) - Priority: 99
+4. **Init Neo4j indexes** (5min) - Priority: 95
+5. **Disable DEBUG by default** (30min) - Priority: 90
+6. **Health check endpoints** (2h) - Priority: 85
+7. **Resource limits in docker-compose** (2h) - Priority: 60
+8. **Fix flaky E2E tests** (2h) - Priority: 72
 
-### Application Analytics
-- [ ] Persona generation statistics (distributions, demographics)
-- [ ] Focus group metrics (duration, personas count, questions)
-- [ ] LLM API usage (tokens, costs, models)
-- [ ] Error rates i tipos per endpoint
-
-### Business Intelligence
-- [ ] Dashboard dla key metrics
-- [ ] Revenue tracking (jeśli płatne plany)
-- [ ] Churn prediction (ML model)
-- [ ] Customer lifetime value (LTV)
+**Total Quick Wins:** 8 zadań, ~4.5h całkowity czas
 
 ---
 
-## Compliance & Legal
+## 📈 Success Criteria
 
-### GDPR
-- [ ] Data retention policies (auto-delete po X miesięcy)
-- [ ] Right to erasure (user deletion flow)
-- [ ] Data portability (export user data)
-- [ ] Consent management (cookies, tracking)
-- [ ] Privacy policy updates
+**TIER 0 (TODAY) - Basic Functionality:**
+- ✅ GOOGLE_API_KEY rotated & removed from git history
+- ✅ SECRET_KEY changed (not default)
+- ✅ Docker services running (5/5: postgres, redis, neo4j, api, frontend)
+- ✅ Neo4j indexes initialized
+- ✅ Test suite runnable (380 tests collect without errors)
 
-### Terms of Service
-- [ ] ToS acceptance flow
-- [ ] ToS versioning (track changes)
-- [ ] Age verification (13+ / 18+)
+**TIER 1 (Week 1) - Production Blockers Resolved:**
+- ✅ Zero HIGH/CRITICAL CVEs w dependencies
+- ✅ All secrets managed securely (nie w .env w repo)
+- ✅ SECRET_KEY validation at startup
+- ✅ DEBUG disabled w production
+- ✅ New RAG services (Document, Graph, HybridSearch) fully integrated & tested
+- ✅ GitHub Actions CI/CD running (lint → test → build)
+- ✅ Health check endpoints operational
+- ✅ JWT blacklist implemented
+- ✅ Account lockout mechanism working
 
-### Audit Trails
-- [ ] User action logging (CRUD operations)
-- [ ] Admin action logging
-- [ ] Data access logs (kto, co, kiedy)
-- [ ] Log retention policy
+**TIER 2 (Week 2-3) - Optimized & Stable:**
+- ✅ All 380 tests passing consistently (no flaky tests)
+- ✅ RAG end-to-end integration tests passing
+- ✅ Neo4j connection pooling configured (no leaks)
+- ✅ GraphRAG fill-rate ≥85%
+- ✅ PersonaGenerator token usage -55% (compression)
+- ✅ Redis caching operational (persona, focus groups, RAG queries)
+- ✅ LLM retry logic + circuit breaker implemented
+- ✅ Connection pooling optimized (DB, Neo4j, Redis)
 
----
-
-## Internationalization
-
-### Multi-Language Support
-- [ ] i18n framework (react-i18next)
-- [ ] Polish, English, German translations
-- [ ] Language selection w UI
-- [ ] LLM prompts w native language
-- [ ] Date/time formatting per locale
-
-### Regional Demographics
-- [ ] Polish demographics (już jest)
-- [ ] UK demographics
-- [ ] US demographics
-- [ ] German demographics
-
----
-
-## Integrations
-
-### Export Formats
-- [ ] PDF reports (focus group transcripts)
-- [ ] DOCX exports (Microsoft Word)
-- [ ] Excel exports (survey results, demographics)
-- [ ] PowerPoint exports (charts, summaries)
-
-### External APIs
-- [ ] Slack integration (notifications)
-- [ ] Microsoft Teams integration
-- [ ] Zapier webhooks
-- [ ] REST API dla third-party integrations
-
-### Import Sources
-- [ ] Import personas z CSV
-- [ ] Import survey questions z Google Forms
-- [ ] Import documents z Google Drive, Dropbox
+**TIER 3 (Week 4+) - Production Excellence:**
+- ✅ Code quality score 8.5/10+ (SonarQube/CodeClimate)
+- ✅ Prometheus + Grafana dashboards live
+- ✅ Docker network isolation complete
+- ✅ Image vulnerability scanning in CI (Trivy)
+- ✅ API audit logging operational (90d retention)
+- ✅ MFA available for users
+- ✅ GDPR compliance (data export/delete)
+- ✅ Real-time progress indicators (WebSocket/SSE)
 
 ---
 
-## Scalability
+## 🗂️ Archiwum Zakończonych Zadań (ostatnie 30 dni)
 
-### Database Sharding
-- [ ] Postgres sharding strategy (by tenant/user)
-- [ ] Read replicas dla query load distribution
-- [ ] Connection pooling optimization (PgBouncer)
-
-### Caching Strategy
-- [ ] Redis caching layers (L1: in-memory, L2: Redis, L3: DB)
-- [ ] Cache invalidation strategy (TTL, manual)
-- [ ] Cache warming dla popular queries
-
-### Async Processing
-- [ ] Message queue (RabbitMQ / Redis Queue)
-- [ ] Background workers (Celery)
-- [ ] Job scheduling (APScheduler / Celery Beat)
-- [ ] Distributed task execution
-
----
-
-## Priorities
-
-### High Priority (Next 3 months)
-- Monitoring & Observability
-- CI/CD Pipeline
-- Real-time focus group updates (WebSockets)
-- Test coverage improvements
-- ✅ RAG optimization (chunking, reranking, A/B testing) - DONE 2025-10-14
-
-### Medium Priority (3-6 months)
-- Multi-model LLM support
-- Frontend performance optimization
-- API rate limiting
-- **RAG Chunking Strategy** - Semantic chunking implementation (split by semantic similarity)
-- **Graph Node Enrichment** - Improved matching (cosine similarity vs word overlap)
-- **Graph Prompt Optimization** - Simplification dla lepszego fill-rate (zmniejsz required properties)
-
-### Low Priority (6-12 months)
-- Kubernetes migration (jeśli potrzebne)
-- Multi-language i18n
-- Advanced analytics dashboard
-- Third-party integrations
-- **Advanced RAG Features** - Dynamic TOP_K, dimensionality reduction (PCA), custom Polish cross-encoder
+### Październik 2025
+- [x] RAG monolith split (3 serwisy: Document, Graph, HybridSearch) (data: 2025-10-15)
+- [x] Hybrid Search optimization (chunking, reranking, RRF tuning) (data: 2025-10-14)
+- [x] Security fixes (8 issues: bare except, indexes, sanitization) (data: 2025-10-14)
+- [x] Graph service archiving (legacy features do archived/) (data: 2025-10-15)
+- [x] Test infrastructure (factories, fixtures, 58 test files) (data: 2025-10-15)
+- [x] Documentation restructure (docs/: AI_ML, DEVOPS, RAG, TESTING, README) (data: 2025-10-15)
+- [x] Persona orchestration service (persona_orchestration.py) (data: 2025-10-15)
+- [x] A/B testing framework dla RAG (test_rag_ab_comparison.py, test_rrf_k_tuning.py) (data: 2025-10-14)
+- [x] Security headers middleware (HSTS, CSP, X-Frame-Options) (data: 2025-10-14)
+- [x] Database indexes on foreign keys (personas.project_id, focus_groups.project_id) (data: 2025-10-14)
+- [x] **Segment-Based Persona Architecture** (data: 2025-10-15)
+  - ✅ Nowe schematy: DemographicConstraints, SegmentDefinition (app/schemas/persona.py)
+  - ✅ Orchestration: _generate_segment_name, _generate_segment_context, _filter_graph_insights_for_segment
+  - ✅ Generator: generate_persona_from_segment z ENFORCE demographics (age, gender, education, income)
+  - ✅ Database: segment_id, segment_name columns w tabeli personas
+  - ✅ Frontend: Hero Segment Header + Validation Alert w PersonaReasoningPanel.tsx
+  - ✅ Documentation: Kompletna sekcja w docs/AI_ML.md (1900+ linii)
+  - Impact: Rozwiązuje problem niezgodności persona ↔ brief (HARD constraints zamiast string prompts)
 
 ---
 
-*Last updated: 2025-10-14*
+## 📚 Dokumentacja i Kontekst
+
+**Główne pliki dokumentacji:**
+- `README.md` - User-facing quick start
+- `CLAUDE.md` - Instrukcje dla Claude Code (architecture, patterns, troubleshooting)
+- `docs/README.md` - Indeks dokumentacji technicznej
+- `docs/TESTING.md` - Test suite (208 testów, markery, fixtures, performance)
+- `docs/RAG.md` - Hybrid Search + GraphRAG (architektura, optymalizacje, tuning)
+- `docs/AI_ML.md` - AI/LLM system (persona generation, quality metrics)
+- `docs/DEVOPS.md` - DevOps practices (CI/CD, monitoring, deployment)
+
+**Architecture Patterns:**
+- Service Layer Pattern (API → Services → Models)
+- Async/Await dla I/O operations
+- Event Sourcing dla persona memory
+- Hybrid Search (Vector + Keyword + RRF)
+- Parallel Processing (asyncio.gather dla LLM calls)
+
+**Tech Stack:**
+- Backend: FastAPI, PostgreSQL+pgvector, Redis, Neo4j
+- AI: Google Gemini 2.5 (Flash/Pro) via LangChain
+- Frontend: React 18, TypeScript, Vite, TanStack Query, Tailwind
+- Infrastructure: Docker, Docker Compose
+
+---
+
+## 🔄 Workflow Zarządzania Planem
+
+**Gdy wprowadzasz zmiany:**
+1. Zaznacz ukończone zadania `[x]` i dodaj datę `(data: YYYY-MM-DD)`
+2. Przenieś ukończone zadania do sekcji "Archiwum" jeśli >30 dni
+3. Dodaj nowe zadania z priorytetu (Priority: 1-100)
+4. Utrzymuj 20-30 aktywnych zadań (TIER 1-3)
+5. Usuwaj/konsoliduj zadania o niskim priorytecie (<45)
+
+**Format zadania:**
+```markdown
+- [ ] [Priority: XX] Krótki opis (szczegóły, lokalizacja) - estymat
+```
+
+**Priorytety:**
+- 90-100: Critical (production blockers)
+- 75-89: High (optimization, performance)
+- 60-74: Medium (quality, testing)
+- 45-59: Low (enhancements, nice-to-have)
+- <45: Backlog (rozważyć usunięcie)
+
+---
+---
+
+## 🚨 CRITICAL ALERTS
+
+**IMMEDIATE ACTION REQUIRED:**
+1. **GOOGLE_API_KEY EXPOSED** - AIzaSyDB92Edj_MGJsBuyK21J0gcupofvO1ZVQ8 in .env committed to git
+   - Unieważnij w Google Cloud Console → Credentials
+   - Wygeneruj nowy klucz z IP restrictions
+   - Usuń z git history: `git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch .env' --prune-empty --tag-name-filter cat -- --all`
+   - Force push: `git push origin --force --all`
+
+2. **DOCKER SERVICES DOWN** - 0/5 services running
+   - Run: `docker-compose up -d`
+   - Check: `docker-compose ps`
+   - Logs: `docker-compose logs -f`
+
+3. **TESTY NIE DZIAŁAJĄ** - Timeout bo brak dependencies
+   - Po uruchomieniu Docker: `python -m pytest tests/ -v`
+
+---
+
+**Liczba aktywnych zadań:** 46 (TIER 0-3)
+**Ostatnia aktualizacja:** 2025-10-15 (pełna restrukturyzacja, focus na critical issues)

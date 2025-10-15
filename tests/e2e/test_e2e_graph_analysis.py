@@ -15,6 +15,8 @@ import pytest
 
 
 @pytest.mark.e2e
+@pytest.mark.slow
+@pytest.mark.external
 @pytest.mark.asyncio
 async def test_graph_analysis_complete_workflow(completed_focus_group):
     """

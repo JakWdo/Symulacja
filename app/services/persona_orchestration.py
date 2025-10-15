@@ -2,7 +2,7 @@
 
 Ten moduł zawiera `PersonaOrchestrationService`, który wykorzystuje Gemini 2.5 Pro
 do przeprowadzenia głębokiej analizy Graph RAG i tworzenia szczegółowych briefów
-(2000-3000 znaków) dla każdej grupy demograficznej person.
+(900-1200 znaków) dla każdej grupy demograficznej person.
 
 Filozofia:
 - Orchestration Agent (Gemini 2.5 Pro) = complex reasoning, długie analizy
@@ -18,12 +18,11 @@ import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
-from app.services.rag_service import PolishSocietyRAG
+from app.services.rag_hybrid_search_service import PolishSocietyRAG
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -48,44 +47,27 @@ def _map_graph_node_to_insight(node: Dict[str, Any]) -> Optional["GraphInsight"]
     if not node:
         return None
 
-    # Backward compatibility: obsłuż zarówno stare jak i nowe nazwy
+    # Graf używa polskich property names
     node_type = node.get('type', 'Unknown')
-    summary = node.get('streszczenie') or node.get('summary')
+    summary = node.get('streszczenie')
 
     if not summary:
-        logger.warning(f"Graph node bez streszczenia/summary: {node}")
+        logger.warning(f"Graph node bez streszczenia: {node}")
         return None
 
     # Mapowanie pewności PL→EN
-    pewnosc_pl = (node.get('pewnosc') or node.get('confidence_level', '')).lower()
-    confidence_map = {
-        'wysoka': 'high',
-        'srednia': 'medium',
-        'niska': 'low',
-        'high': 'high',
-        'medium': 'medium',
-        'low': 'low'
-    }
+    pewnosc_pl = node.get('pewnosc', '').lower()
+    confidence_map = {'wysoka': 'high', 'srednia': 'medium', 'niska': 'low'}
     confidence = confidence_map.get(pewnosc_pl, 'medium')
 
-    # Magnitude i time period
-    magnitude = node.get('skala') or node.get('magnitude')
-    time_period = node.get('okres_czasu') or node.get('time_period')
-    source = node.get('source') or node.get('document_title')
+    # Dane węzła (polskie property names)
+    magnitude = node.get('skala')
+    time_period = node.get('okres_czasu')
+    source = node.get('source', node.get('document_title'))
 
-    # why_matters - generuj z kluczowych faktów lub default
-    kluczowe_fakty = node.get('kluczowe_fakty') or node.get('key_facts', '')
-    if kluczowe_fakty:
-        why_matters = f"Ten wskaźnik pokazuje: {kluczowe_fakty}"
-    else:
-        # Default why_matters bazując na typie węzła
-        why_matters_defaults = {
-            'Wskaznik': 'Ten wskaźnik demograficzny pomaga zrozumieć charakterystykę grupy docelowej',
-            'Obserwacja': 'Ta obserwacja społeczna ilustruje rzeczywiste zachowania grupy',
-            'Trend': 'Ten trend czasowy pokazuje jak zmieniają się wzorce w populacji',
-            'Demografia': 'Te dane demograficzne charakteryzują profil grupy'
-        }
-        why_matters = why_matters_defaults.get(node_type, 'Ten insight dostarcza kontekstu dla profilu persony')
+    # why_matters - użyj kluczowych faktów lub summary jako fallback
+    kluczowe_fakty = node.get('kluczowe_fakty', '')
+    why_matters = f"Ten wskaźnik pokazuje: {kluczowe_fakty}" if kluczowe_fakty else summary
 
     try:
         return GraphInsight(
@@ -130,7 +112,7 @@ class DemographicGroup(BaseModel):
 
     count: int = Field(description="Liczba person do wygenerowania w tej grupie")
     demographics: Dict[str, Any] = Field(description="Cechy demograficzne (age, gender, education, etc.)")
-    brief: str = Field(description="DŁUGI (2000-3000 znaków) edukacyjny brief dla generatorów")
+    brief: str = Field(description="Długi (900-1200 znaków) edukacyjny brief dla generatorów")
     graph_insights: List[GraphInsight] = Field(default_factory=list, description="Insighty z Graph RAG")
     allocation_reasoning: str = Field(description="Dlaczego tyle person w tej grupie")
 
@@ -149,7 +131,7 @@ class PersonaOrchestrationService:
     Ten serwis:
     1. Pobiera comprehensive Graph RAG context (Wskazniki, Grupy_Demograficzne, Trendy)
     2. Przeprowadza głęboką socjologiczną analizę używając Gemini 2.5 Pro
-    3. Tworzy szczegółowe briefe (2000-3000 znaków) dla każdej grupy person
+    3. Tworzy szczegółowe briefe (900-1200 znaków) dla każdej grupy person
     4. Wyjaśnia "dlaczego" (edukacyjny output style) dla wszystkich decyzji
 
     Output style: Konwersacyjny, edukacyjny, wyjaśniający, production-ready.
@@ -163,7 +145,7 @@ class PersonaOrchestrationService:
             model="gemini-2.5-pro",  
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.3,  # Niższa dla analytical tasks
-            max_tokens=8000,  # Długie briefe (2000-3000 znaków każdy)
+            max_tokens=8000,  # Wystarczająco na pełny plan + briefy
             timeout=120,  # 2 minuty dla complex reasoning
         )
 
@@ -184,7 +166,7 @@ class PersonaOrchestrationService:
         Gemini 2.5 Pro przeprowadza głęboką analizę:
         1. Pobiera Graph RAG context (hybrid search dla rozkładów demograficznych)
         2. Analizuje trendy społeczne i wskaźniki statystyczne
-        3. Tworzy DŁUGIE (1000-2000 znaków) edukacyjne briefe
+        3. Tworzy spójne (900-1200 znaków) edukacyjne briefe
         4. Wyjaśnia "dlaczego" dla każdej decyzji alokacyjnej
 
         Args:
@@ -216,7 +198,7 @@ class PersonaOrchestrationService:
 
         # Krok 3: Gemini 2.5 Pro generuje plan (długa analiza)
         try:
-            logger.info(f"🤖 Wywołuję Gemini 2.0 Flash Exp dla orchestration (max_tokens=8000, timeout=120s)...")
+            logger.info(f"🤖 Wywołuję Gemini 2.5 Pro dla orchestration (max_tokens=8000, timeout=120s)...")
             response = await self.llm.ainvoke(prompt)
 
             # DEBUG: Log surowej odpowiedzi od Gemini
@@ -355,7 +337,7 @@ class PersonaOrchestrationService:
         Prompt instruuje LLM aby:
         1. Przeanalizować Graph RAG context (Wskazniki, Obserwacje)
         2. Wyjaśnić "dlaczego" dla każdej decyzji (edukacyjny styl)
-        3. Utworzyć DŁUGIE (2000-3000 znaków) briefe dla każdej grupy
+        3. Utworzyć spójne (900-1200 znaków) briefe dla każdej grupy
         4. Użyć konwersacyjnego tonu (jak kolega z zespołu)
 
         Args:
@@ -385,8 +367,8 @@ pokazywany użytkownikom w interfejsie. Dlatego MUSISZ:
 ✅ **Edukacyjny** - User ma się UCZYĆ o polskim społeczeństwie, nie tylko dostać dane
 ✅ **PO POLSKU** - Naturalnie, bez anglicyzmów gdzie niepotrzebne
 
-DŁUGOŚĆ BRIEFÓW: Każdy brief dla grupy demograficznej ma mieć 2000-3000 znaków.
-To NIE jest lista bullet points - to edukacyjny esej który wyjaśnia kontekst społeczny.
+    DŁUGOŚĆ BRIEFÓW: Każdy brief dla grupy demograficznej ma mieć 900-1200 znaków.
+    To ma być edukacyjny mini-esej, który wyjaśnia kontekst społeczny bez lania wody.
 
 === DANE WEJŚCIOWE ===
 
@@ -422,28 +404,28 @@ Zrób overview polskiego społeczeństwa bazując na Graph RAG context:
 
 Dla każdej znaczącej grupy demograficznej (na podstawie rozkładu docelowego), stwórz:
 
-**Każdy brief MUSI zawierać (1000-2000 znaków):**
+**Każdy brief MUSI zawierać (900-1200 znaków):**
 
-a) **Dlaczego ta grupa?** (200-300 znaków)
+a) **Dlaczego ta grupa?** (180-220 znaków)
    - Jaki % populacji stanowi ta grupa (z Graph RAG)
    - Dlaczego są ważni dla badania
    - Jak rozkład pasuje do realiów polskiego społeczeństwa
    - Statystyki z Graph RAG (magnitude, confidence)
 
-b) **Kontekst zawodowy i życiowy** (300-400 znaków)
+b) **Kontekst zawodowy i życiowy** (260-320 znaków)
    - Typowe zawody dla tej grupy
    - Zarobki (realne liczby w PLN z Graph RAG jeśli dostępne)
    - Housing situation (własne/wynajem, ceny mieszkań)
    - Wyzwania ekonomiczne (kredyty, oszczędności, koszty życia)
    - Dlaczego tak jest? (społeczno-ekonomiczny kontekst)
 
-c) **Wartości i aspiracje** (300-400 znaków)
+c) **Wartości i aspiracje** (260-320 znaków)
    - Jakie wartości są ważne dla tej grupy (z badań społecznych)
    - Aspiracje i life goals
    - Dlaczego te wartości? (kontekst pokoleniowy, historyczny)
    - Jak zmienia się to w czasie (trendy)
 
-d) **Typowe wyzwania i zainteresowania** (200-400 znaków)
+d) **Typowe wyzwania i zainteresowania** (180-240 znaków)
    - Realne problemy życiowe tej grupy
    - Typowe hobby i sposób spędzania wolnego czasu
    - Dlaczego te zainteresowania pasują do profilu
@@ -508,7 +490,7 @@ Generuj JSON zgodny z tym schematem:
         "education": "wyższe",
         "location": "Warszawa"
       }},
-      "brief": "BARDZO DŁUGI (2000-3000 znaków) edukacyjny brief jak w przykładzie...",
+      "brief": "Edukacyjny brief (900-1200 znaków) jak w przykładzie...",
       "graph_insights": [
         {{
           "type": "Wskaznik",
@@ -528,7 +510,7 @@ Generuj JSON zgodny z tym schematem:
 
 KLUCZOWE ZASADY:
 
-1. **Briefe mają być DŁUGIE** (2000-3000 znaków każdy) - to edukacyjne eseje, nie listy
+1. **Briefe mają być KONKRETNE** (900-1200 znaków każdy) - mini-eseje, nie listy
 2. **Wyjaśniaj "dlaczego"** dla WSZYSTKIEGO - user ma się uczyć
 3. **Konwersacyjny ton** - jak kolega tłumaczy przy kawie, nie jak raport naukowy
 4. **Używaj danych z Graph RAG** - magnitude, confidence, time_period, sources
@@ -595,3 +577,290 @@ Generuj plan alokacji:
             logger.error(f"❌ Response text (first 1000 chars): {text[:1000]}")
             logger.error(f"❌ Response text (last 1000 chars): {text[-1000:]}")
             raise ValueError(f"LLM nie zwrócił poprawnego JSON: {e}")
+
+    # === NEW METHODS FOR SEGMENT-BASED ARCHITECTURE ===
+
+    async def _generate_segment_name(
+        self,
+        demographics: Dict[str, Any],
+        graph_insights: List[GraphInsight],
+        rag_citations: List[Any]
+    ) -> str:
+        """Generuje mówiącą nazwę segmentu używając Gemini 2.5 Flash.
+
+        Nazwa powinna być krótka (2-4 słowa), mówiąca i odzwierciedlać
+        kluczowe cechy grupy demograficznej bazując na insightach.
+
+        Args:
+            demographics: Cechy demograficzne (age, gender, education, income)
+            graph_insights: Graph insights dla tej grupy
+            rag_citations: RAG citations dla kontekstu
+
+        Returns:
+            Nazwa segmentu (np. "Młodzi Prekariusze", "Aspirujące Profesjonalistki 35-44")
+
+        Raises:
+            ValueError: Jeśli LLM nie zwróci poprawnej nazwy
+        """
+        # Extract key demographics
+        age_range = demographics.get('age', demographics.get('age_group', 'nieznany'))
+        gender = demographics.get('gender', 'nieznana')
+        education = demographics.get('education', demographics.get('education_level', 'nieznane'))
+        income = demographics.get('income', demographics.get('income_bracket', 'nieznany'))
+
+        # Format insights
+        insights_text = "\n".join([
+            f"- {ins.summary} ({ins.confidence})"
+            for ins in graph_insights[:3]  # Top 3
+        ]) if graph_insights else "Brak insights"
+
+        # Format citations (first 2 max)
+        citations_text = "\n".join([
+            f"- {cit.page_content[:100]}..."
+            for cit in rag_citations[:2]
+        ]) if hasattr(rag_citations[0] if rag_citations else None, 'page_content') else "Brak cytatów"
+
+        prompt = f"""Stwórz trafną, MÓWIĄCĄ nazwę dla poniższego segmentu demograficznego.
+
+DANE SEGMENTU:
+- Wiek: {age_range}
+- Płeć: {gender}
+- Wykształcenie: {education}
+- Dochód: {income}
+
+INSIGHTS Z GRAFU:
+{insights_text}
+
+CYTATY Z RAG:
+{citations_text}
+
+ZASADY:
+1. Nazwa powinna być 2-4 słowa (np. "Młodzi Prekariusze", "Aspirujące Profesjonalistki 35-44")
+2. Oddaje kluczową charakterystykę grupy (wiek + status społeczno-ekonomiczny)
+3. Używa polskiego języka, brzmi naturalnie
+4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek → "Młodzi Prekariusze")
+5. Unikaj ogólników ("Grupa A", "Segment 1")
+6. Jeśli wiek jest istotny, włącz go (np. "35-44")
+
+PRZYKŁADY DOBRYCH NAZW:
+- "Młodzi Prekariusze" (18-24, niskie dochody)
+- "Aspirujące Profesjonalistki 35-44" (kobiety, wyższe wykształcenie, średnie dochody)
+- "Dojrzali Eksperci" (45-54, wysokie dochody, stabilna kariera)
+- "Początkujący Profesjonaliści" (25-34, pierwsze kroki w karierze)
+
+ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
+
+        try:
+            # Use Gemini Flash for quick naming (cheap, fast)
+            llm_flash = ChatGoogleGenerativeAI(
+                model="gemini-2.0-flash-exp",
+                google_api_key=settings.GOOGLE_API_KEY,
+                temperature=0.7,
+                max_tokens=50,
+                timeout=10
+            )
+
+            response = await llm_flash.ainvoke(prompt)
+            segment_name = response.content.strip() if hasattr(response, 'content') else str(response).strip()
+
+            # Clean up (remove quotes if present)
+            segment_name = segment_name.strip('"\'')
+
+            # Validation: nazwa powinna mieć 5-60 znaków
+            if len(segment_name) < 5 or len(segment_name) > 60:
+                logger.warning(f"Generated segment name too short/long: '{segment_name}', using fallback")
+                # Fallback: template name
+                segment_name = f"Segment {age_range}, {gender}"
+
+            logger.info(f"✅ Generated segment name: '{segment_name}'")
+            return segment_name
+
+        except Exception as e:
+            logger.error(f"❌ Failed to generate segment name: {e}")
+            # Fallback: template name
+            fallback_name = f"Segment {age_range}, {gender}"
+            logger.warning(f"Using fallback segment name: '{fallback_name}'")
+            return fallback_name
+
+    async def _generate_segment_context(
+        self,
+        segment_name: str,
+        demographics: Dict[str, Any],
+        graph_insights: List[GraphInsight],
+        rag_citations: List[Any],
+        project_goal: Optional[str] = None
+    ) -> str:
+        """Generuje kontekst społeczny dla segmentu używając Gemini 2.5 Pro.
+
+        Kontekst powinien być 500-800 znaków, edukacyjny i specyficzny dla TEJ grupy.
+
+        Args:
+            segment_name: Nazwa segmentu
+            demographics: Cechy demograficzne
+            graph_insights: Graph insights dla tej grupy
+            rag_citations: RAG citations dla kontekstu
+            project_goal: Cel projektu (opcjonalny)
+
+        Returns:
+            Kontekst społeczny (500-800 znaków)
+
+        Raises:
+            ValueError: Jeśli LLM nie zwróci poprawnego kontekstu
+        """
+        # Extract key demographics
+        age_range = demographics.get('age', demographics.get('age_group', 'nieznany'))
+        gender = demographics.get('gender', 'nieznana')
+        education = demographics.get('education', demographics.get('education_level', 'nieznane'))
+        income = demographics.get('income', demographics.get('income_bracket', 'nieznany'))
+
+        # Format insights with details
+        insights_text = "\n".join([
+            f"- **{ins.summary}**\n  Magnitude: {ins.magnitude or 'N/A'}, Confidence: {ins.confidence}, "
+            f"Source: {ins.source or 'N/A'}, Year: {ins.time_period or 'N/A'}\n  "
+            f"Why it matters: {ins.why_matters[:150]}..."
+            for ins in graph_insights[:5]  # Top 5
+        ]) if graph_insights else "Brak insights"
+
+        # Format citations (first 3 max)
+        citations_text = "\n".join([
+            f"[{idx+1}] {cit.page_content[:200]}..."
+            for idx, cit in enumerate(rag_citations[:3])
+        ]) if hasattr(rag_citations[0] if rag_citations else None, 'page_content') else "Brak cytatów"
+
+        prompt = f"""Stwórz kontekst społeczny dla segmentu "{segment_name}".
+
+DEMOGRAFIA:
+- Wiek: {age_range}
+- Płeć: {gender}
+- Wykształcenie: {education}
+- Dochód: {income}
+
+INSIGHTS Z GRAFU:
+{insights_text}
+
+CYTATY Z RAG:
+{citations_text}
+
+CEL PROJEKTU:
+{project_goal or "Badanie syntetycznych person"}
+
+WYTYCZNE:
+1. Długość: 500-800 znaków (WAŻNE!)
+2. Kontekst SPECYFICZNY dla tej grupy (nie ogólny dla całej Polski!)
+3. Opisz:
+   - Kluczowe wyzwania życiowe tej grupy
+   - Wartości i aspiracje typowe dla tego segmentu
+   - Kontekst ekonomiczny i społeczny (np. rynek pracy, stabilność)
+   - Jak insights z grafu i RAG odnoszą się do TEJ grupy
+4. Ton: analityczny, oparty na danych, ale zrozumiały
+5. Unikaj: ogólników, stereotypów, wartościowania
+6. Używaj konkretnych liczb z insights (np. "78.4% zatrudnienia")
+
+PRZYKŁAD DOBREGO KONTEKSTU (dla "Młodzi Prekariusze"):
+"Młodzi Prekariusze to osoby w wieku 18-24 lat, często w trakcie studiów lub tuż po ich ukończeniu. Wchodzą na rynek pracy w trudnym okresie – inflacja, niestabilność zatrudnienia (umowy śmieciowe, staże), rosnące koszty życia. Mimo wyższego wykształcenia (lub jego zdobywania), zarabiają poniżej średniej krajowej (<3000 PLN). Ich wartości: autonomia, rozwój osobisty, work-life balance. Aspiracje: stabilna praca, własne mieszkanie (często nieosiągalne). Wyzwania: długi kredytowe, niepewność przyszłości, rosnące wymagania pracodawców. Według GUS (2024), 62% osób w tej grupie pracuje na umowach czasowych, a inflacja uderza w nich najmocniej ze względu na brak oszczędności buforowych."
+
+ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
+
+        try:
+            response = await self.llm.ainvoke(prompt)  # Use Gemini 2.5 Pro
+            segment_context = response.content.strip() if hasattr(response, 'content') else str(response).strip()
+
+            # Validation: kontekst powinien mieć 400-1200 znaków
+            if len(segment_context) < 400 or len(segment_context) > 1200:
+                logger.warning(
+                    f"Generated segment context length ({len(segment_context)}) outside range 400-1200, "
+                    "but accepting anyway"
+                )
+
+            logger.info(f"✅ Generated segment context: {len(segment_context)} chars")
+            return segment_context
+
+        except Exception as e:
+            logger.error(f"❌ Failed to generate segment context: {e}")
+            # Fallback: minimal context
+            fallback_context = (
+                f"Segment '{segment_name}' obejmuje osoby w wieku {age_range}, {gender}, "
+                f"z wykształceniem {education} i dochodami {income}. "
+                f"Ta grupa stanowi istotną część polskiego społeczeństwa i wymaga szczególnej uwagi "
+                f"w kontekście badań rynkowych."
+            )
+            logger.warning(f"Using fallback segment context: {len(fallback_context)} chars")
+            return fallback_context
+
+    def _filter_graph_insights_for_segment(
+        self,
+        insights: List[GraphInsight],
+        demographics: Dict[str, Any]
+    ) -> List[GraphInsight]:
+        """Filtruje graph insights dla konkretnego segmentu demograficznego.
+
+        Zwraca tylko insights relevantne dla tego segmentu (np. insights o młodych
+        dla segmentu 18-24).
+
+        Args:
+            insights: Wszystkie graph insights
+            demographics: Demografia segmentu
+
+        Returns:
+            Filtrowana lista insights (max 10)
+        """
+        if not insights:
+            return []
+
+        # Extract age range for filtering
+        age_str = demographics.get('age', demographics.get('age_group', ''))
+
+        filtered = []
+        for insight in insights:
+            # Filter by age relevance (check if age range mentioned in summary)
+            age_relevant = True
+            if age_str:
+                # Simple heuristic: if insight mentions age, check if it's relevant
+                summary_lower = insight.summary.lower()
+                if any(age_term in summary_lower for age_term in ['wiek', 'lat', 'young', 'old', 'młod', 'star']):
+                    # Check if age range overlaps (simplified)
+                    age_relevant = age_str.lower() in summary_lower or not any(
+                        other_age in summary_lower
+                        for other_age in ['18-24', '25-34', '35-44', '45-54', '55+']
+                        if other_age != age_str
+                    )
+
+            if age_relevant:
+                filtered.append(insight)
+
+        # Sort by confidence (high first) and return top 10
+        confidence_order = {'high': 3, 'medium': 2, 'low': 1}
+        filtered.sort(key=lambda x: confidence_order.get(x.confidence, 0), reverse=True)
+
+        return filtered[:10]
+
+    def _filter_rag_citations(
+        self,
+        citations: List[Any],
+        min_confidence: float = 0.7
+    ) -> List[Any]:
+        """Filtruje RAG citations - tylko high-quality (confidence > threshold).
+
+        Args:
+            citations: Lista RAG citations (Document objects)
+            min_confidence: Minimalny confidence score (default 0.7)
+
+        Returns:
+            Filtrowana lista citations (max 10)
+        """
+        if not citations:
+            return []
+
+        filtered = []
+        for cit in citations:
+            # Check if citation has confidence score in metadata
+            confidence = 1.0  # Default if not available
+            if hasattr(cit, 'metadata') and cit.metadata:
+                confidence = cit.metadata.get('confidence', cit.metadata.get('score', 1.0))
+
+            # Filter by confidence
+            if confidence >= min_confidence:
+                filtered.append(cit)
+
+        # Return top 10
+        return filtered[:10]

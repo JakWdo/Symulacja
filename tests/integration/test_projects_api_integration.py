@@ -9,9 +9,10 @@ Ten moduł testuje CRUD operations dla projektów badawczych:
 - Usuwanie projektów (soft delete)
 - Izolacja danych między użytkownikami
 """
-
 import pytest
 from uuid import uuid4
+
+from tests.factories import project_payload
 
 
 @pytest.mark.integration
@@ -28,17 +29,16 @@ async def test_create_project_success(authenticated_client):
     """
     client, user, headers = await authenticated_client
 
-    project_data = {
-        "name": "Market Research Project",
-        "description": "Testing project creation",
-        "target_audience": "Young professionals aged 25-35",
-        "research_objectives": "Understand product preferences",
-        "target_demographics": {
+    project_data = project_payload(
+        name="Market Research Project",
+        description="Testing project creation",
+        research_objectives="Understand product preferences",
+        target_demographics={
             "age_group": {"18-24": 0.2, "25-34": 0.5, "35-44": 0.3},
-            "gender": {"male": 0.48, "female": 0.52}
+            "gender": {"male": 0.48, "female": 0.52},
         },
-        "target_sample_size": 50
-    }
+        target_sample_size=50,
+    )
 
     response = client.post(
         "/api/v1/projects",
@@ -82,14 +82,14 @@ async def test_create_project_invalid_demographics_sum(authenticated_client):
     client, user, headers = await authenticated_client
 
     # Demographics nie sumują się do 1.0 (suma = 0.6)
-    project_data = {
-        "name": "Invalid Demographics Project",
-        "target_demographics": {
-            "age_group": {"18-24": 0.3, "25-34": 0.3},  # suma = 0.6, nie 1.0!
-            "gender": {"male": 0.5, "female": 0.5}
+    project_data = project_payload(
+        name="Invalid Demographics Project",
+        target_demographics={
+            "age_group": {"18-24": 0.3, "25-34": 0.3},
+            "gender": {"male": 0.5, "female": 0.5},
         },
-        "target_sample_size": 20
-    }
+        target_sample_size=20,
+    )
 
     response = client.post(
         "/api/v1/projects",
@@ -111,11 +111,11 @@ async def test_create_project_empty_demographics(authenticated_client):
     """
     client, user, headers = await authenticated_client
 
-    project_data = {
-        "name": "Empty Demographics Project",
-        "target_demographics": {},  # Pusty dict
-        "target_sample_size": 20
-    }
+    project_data = project_payload(
+        name="Empty Demographics Project",
+        target_demographics={},
+        target_sample_size=20,
+    )
 
     response = client.post(
         "/api/v1/projects",
@@ -140,14 +140,14 @@ async def test_list_projects_returns_only_users_projects(authenticated_client):
 
     # Create 2 projects
     for i in range(2):
-        project_data = {
-            "name": f"Test Project {i+1}",
-            "target_demographics": {
+        project_data = project_payload(
+            name=f"Test Project {i+1}",
+            target_demographics={
                 "age_group": {"18-24": 0.5, "25-34": 0.5},
-                "gender": {"male": 0.5, "female": 0.5}
+                "gender": {"male": 0.5, "female": 0.5},
             },
-            "target_sample_size": 20
-        }
+            target_sample_size=20,
+        )
         response = client.post("/api/v1/projects", json=project_data, headers=headers)
         assert response.status_code == 201
 
@@ -177,14 +177,14 @@ async def test_list_projects_pagination(authenticated_client):
 
     # Create 5 projects
     for i in range(5):
-        project_data = {
-            "name": f"Pagination Test Project {i+1}",
-            "target_demographics": {
+        project_data = project_payload(
+            name=f"Pagination Test Project {i+1}",
+            target_demographics={
                 "age_group": {"18-24": 0.5, "25-34": 0.5},
-                "gender": {"male": 0.5, "female": 0.5}
+                "gender": {"male": 0.5, "female": 0.5},
             },
-            "target_sample_size": 10
-        }
+            target_sample_size=10,
+        )
         response = client.post("/api/v1/projects", json=project_data, headers=headers)
         assert response.status_code == 201
 
@@ -197,6 +197,12 @@ async def test_list_projects_pagination(authenticated_client):
     assert len(data) <= 2  # Should respect limit
 
 
+def test_list_projects_requires_auth(api_client):
+    """Ensure unauthenticated clients cannot access project listings."""
+    response = api_client.get("/api/v1/projects")
+    assert response.status_code == 401
+
+
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_project_details(authenticated_client):
@@ -206,15 +212,15 @@ async def test_get_project_details(authenticated_client):
     client, user, headers = await authenticated_client
 
     # Create project
-    project_data = {
-        "name": "Detail Test Project",
-        "description": "Project for testing details endpoint",
-        "target_demographics": {
+    project_data = project_payload(
+        name="Detail Test Project",
+        description="Project for testing details endpoint",
+        target_demographics={
             "age_group": {"18-24": 0.3, "25-34": 0.4, "35-44": 0.3},
-            "gender": {"male": 0.5, "female": 0.5}
+            "gender": {"male": 0.5, "female": 0.5},
         },
-        "target_sample_size": 30
-    }
+        target_sample_size=30,
+    )
     create_response = client.post("/api/v1/projects", json=project_data, headers=headers)
     assert create_response.status_code == 201
     project_id = create_response.json()["id"]
@@ -254,14 +260,14 @@ async def test_update_project_demographics(authenticated_client):
     client, user, headers = await authenticated_client
 
     # Create project
-    project_data = {
-        "name": "Update Test Project",
-        "target_demographics": {
+    project_data = project_payload(
+        name="Update Test Project",
+        target_demographics={
             "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
+            "gender": {"male": 0.5, "female": 0.5},
         },
-        "target_sample_size": 20
-    }
+        target_sample_size=20,
+    )
     create_response = client.post("/api/v1/projects", json=project_data, headers=headers)
     assert create_response.status_code == 201
     project_id = create_response.json()["id"]

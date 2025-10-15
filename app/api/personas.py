@@ -74,6 +74,58 @@ logger = logging.getLogger(__name__)
 _running_tasks = set()
 
 
+def _graph_node_to_insight_response(node: Dict[str, Any]) -> Optional[GraphInsightResponse]:
+    """Konwertuje surowy węzeł grafu (Neo4j) na GraphInsightResponse."""
+    if not node:
+        return None
+
+    summary = node.get("summary") or node.get("streszczenie")
+    if not summary:
+        return None
+
+    magnitude = node.get("magnitude") or node.get("skala")
+    confidence_raw = node.get("confidence") or node.get("pewnosc") or node.get("pewność")
+    confidence_map = {
+        "wysoka": "high",
+        "średnia": "medium",
+        "srednia": "medium",
+        "niska": "low",
+    }
+    if isinstance(confidence_raw, str):
+        confidence = confidence_map.get(confidence_raw.lower(), confidence_raw.lower())
+    else:
+        confidence = "medium"
+
+    time_period = node.get("time_period") or node.get("okres_czasu")
+    source = (
+        node.get("source")
+        or node.get("document_title")
+        or node.get("Źródło")
+        or node.get("źródło")
+    )
+
+    why_matters = (
+        node.get("why_matters")
+        or node.get("kluczowe_fakty")
+        or node.get("explanation")
+        or summary
+    )
+
+    try:
+        return GraphInsightResponse(
+            type=node.get("type", "Insight"),
+            summary=summary,
+            magnitude=magnitude,
+            confidence=confidence or "medium",
+            time_period=time_period,
+            source=source,
+            why_matters=why_matters,
+        )
+    except Exception as exc:  # pragma: no cover - graceful fallback
+        logger.warning("Failed to convert graph node to insight: %s", exc)
+        return None
+
+
 @lru_cache(maxsize=1)
 def _get_persona_generator() -> PreferredPersonaGenerator:
     logger.info("Initializing cached persona generator instance")
@@ -94,10 +146,11 @@ _NAME_FROM_STORY_PATTERN = re.compile(
 )
 _AGE_IN_STORY_PATTERN = re.compile(r"(?P<age>\d{1,3})-year-old")
 # Wzorce do ekstrakcji wieku z polskiego tekstu
+# WAŻNE: Negative lookahead (?!\s+doświadczenia) zapobiega matchowaniu "10 lat doświadczenia"
 _POLISH_AGE_PATTERNS = [
-    re.compile(r"(?:ma|mam)\s+(?P<age>\d{1,2})\s+lat", re.IGNORECASE),  # "ma 32 lata"
-    re.compile(r"(?P<age>\d{1,2})-letni[aey]?", re.IGNORECASE),  # "32-letnia"
-    re.compile(r"(?P<age>\d{1,2})\s+lat", re.IGNORECASE),  # "32 lat"
+    re.compile(r"(?:ma|mam)\s+(?P<age>\d{1,2})\s+lat(?!\s+doświadczenia)", re.IGNORECASE),  # "ma 32 lata" ale NIE "ma 10 lat doświadczenia"
+    re.compile(r"(?P<age>\d{1,2})-letni[aey]?(?!\s+doświadczeni)", re.IGNORECASE),  # "32-letnia" ale NIE "10-letni doświadczeniem"
+    re.compile(r"(?P<age>\d{1,2})\s+lat(?!\s+(?:doświadczenia|pracy|stażu|w))", re.IGNORECASE),  # "32 lat" ale NIE "10 lat doświadczenia/pracy/stażu/w firmie"
 ]
 
 
@@ -734,6 +787,30 @@ async def _generate_personas_task(
                             }
                             persona_index += 1
 
+                # KOREKCJA: Jeśli LLM alokował za mało, dolicz brakujące do ostatniej grupy
+                # To naprawia off-by-one error gdzie LLM czasami zwraca sum(group.count) < num_personas
+                total_allocated = sum(group.count for group in allocation_plan.groups)
+                if total_allocated < num_personas and allocation_plan.groups:
+                    shortage = num_personas - total_allocated
+                    logger.info(
+                        f"🔧 Correcting allocation shortage: adding {shortage} personas to last group "
+                        f"(LLM allocated {total_allocated}/{num_personas})"
+                    )
+
+                    # Zwiększ count ostatniej grupy
+                    allocation_plan.groups[-1].count += shortage
+
+                    # Dodaj brakujące persony do mapping (używając briefa ostatniej grupy)
+                    last_group = allocation_plan.groups[-1]
+                    for i in range(persona_index, num_personas):
+                        persona_group_mapping[i] = {
+                            "brief": last_group.brief,
+                            "graph_insights": [insight.model_dump() for insight in last_group.graph_insights],
+                            "allocation_reasoning": last_group.allocation_reasoning,
+                            "demographics": last_group.demographics,
+                        }
+                        persona_index += 1
+
                 # WALIDACJA: Sprawdź czy wszystkie persony dostały briefe
                 total_allocated = sum(group.count for group in allocation_plan.groups)
                 if total_allocated != num_personas:
@@ -765,6 +842,42 @@ async def _generate_personas_task(
             semaphore = asyncio.Semaphore(concurrency_limit)
             demographic_profiles = [generator.sample_demographic_profile(distribution)[0] for _ in range(num_personas)]
             psychological_profiles = [{**generator.sample_big_five_traits(), **generator.sample_cultural_dimensions()} for _ in range(num_personas)]
+
+            # === OVERRIDE DEMOGRAPHICS Z ORCHESTRATION ===
+            # Orchestration plan ma AUTORYTATYWNE demographics (z Gemini 2.5 Pro analysis)
+            # Override sampled demographics aby zapewnić spójność z briefami
+            if allocation_plan and persona_group_mapping:
+                logger.info("🔒 Overriding sampled demographics with orchestration demographics...")
+                override_count = 0
+
+                for idx, profile in enumerate(demographic_profiles):
+                    if idx in persona_group_mapping:
+                        orch_demo = persona_group_mapping[idx]["demographics"]
+
+                        # Override sampled values (orchestration jest bardziej autorytatywny)
+                        if "age" in orch_demo and orch_demo["age"]:
+                            profile["age_group"] = orch_demo["age"]
+                            override_count += 1
+
+                        if "gender" in orch_demo and orch_demo["gender"]:
+                            profile["gender"] = orch_demo["gender"]
+
+                        if "education" in orch_demo and orch_demo["education"]:
+                            profile["education_level"] = orch_demo["education"]
+
+                        if "income" in orch_demo and orch_demo["income"]:
+                            profile["income_bracket"] = orch_demo["income"]
+
+                        logger.debug(
+                            f"Persona {idx}: enforced demographics from orchestration "
+                            f"(age={orch_demo.get('age')}, gender={orch_demo.get('gender')})",
+                            extra={"project_id": str(project_id), "index": idx}
+                        )
+
+                logger.info(
+                    f"✅ Demographics override completed: {override_count}/{num_personas} personas enforced",
+                    extra={"project_id": str(project_id)}
+                )
 
             logger.info(
                 f"Starting LLM generation for {num_personas} personas with concurrency={concurrency_limit}",
@@ -909,6 +1022,8 @@ async def _generate_personas_task(
                         )
 
                     # WALIDACJA WIEKU: Spróbuj wyekstraktować wiek z opisu i porównaj z demografią
+                    # KRYTYCZNE: Używaj extracted_age TYLKO jeśli mieści się w zakresie demograficznym
+                    # To naprawia bug gdzie "10 lat doświadczenia" → age=10 dla persony 35-44
                     extracted_age = _extract_age_from_story(background_story)
                     if extracted_age:
                         # Sprawdź czy extracted_age mieści się w age_group
@@ -916,26 +1031,42 @@ async def _generate_personas_task(
                         if "-" in age_group_str:
                             try:
                                 min_age, max_age = map(int, age_group_str.split("-"))
-                                if not (min_age <= extracted_age <= max_age):
-                                    logger.warning(
-                                        f"Age mismatch for persona {idx}: story says {extracted_age}, "
-                                        f"but age_group is {age_group_str}. Using story age.",
+                                if min_age <= extracted_age <= max_age:
+                                    # ✅ OK - extracted_age jest w zakresie, użyj go
+                                    age = extracted_age
+                                    logger.debug(
+                                        f"Using extracted age {extracted_age} (within range {age_group_str})",
                                         extra={"project_id": str(project_id), "index": idx}
                                     )
-                                # Używaj wieku z opisu jeśli jest dostępny (bardziej spójne)
-                                age = extracted_age
+                                else:
+                                    # ❌ Poza zakresem - IGNORUJ extracted_age, zostaw losowy wiek
+                                    logger.warning(
+                                        f"Age mismatch for persona {idx}: story says {extracted_age}, "
+                                        f"but age_group is {age_group_str}. IGNORING extracted age, using random age {age}.",
+                                        extra={"project_id": str(project_id), "index": idx}
+                                    )
+                                    # NIE ustawiaj age = extracted_age!
                             except ValueError:
                                 pass
                         elif "+" in age_group_str:
                             try:
                                 min_age = int(age_group_str.replace("+", ""))
                                 if extracted_age >= min_age:
+                                    # ✅ OK - extracted_age jest >= min_age, użyj go
                                     age = extracted_age
+                                else:
+                                    # ❌ Poniżej minimum - IGNORUJ
+                                    logger.warning(
+                                        f"Age mismatch for persona {idx}: story says {extracted_age}, "
+                                        f"but age_group is {age_group_str}. IGNORING extracted age.",
+                                        extra={"project_id": str(project_id), "index": idx}
+                                    )
                             except ValueError:
                                 pass
                         else:
-                            # Brak przedziału - użyj extracted_age
-                            age = extracted_age
+                            # Brak przedziału - użyj extracted_age (ale z sanity check)
+                            if 18 <= extracted_age <= 100:
+                                age = extracted_age
 
                     occupation = _get_consistent_occupation(
                         demographic.get("education_level"),
@@ -985,9 +1116,22 @@ async def _generate_personas_task(
                         )
 
                     # Ekstrakcja RAG citations i details (jeśli były używane)
-                    rag_citations = personality.get("_rag_citations")
+                    rag_citations_raw = personality.get("_rag_citations") or []
+                    rag_citations = rag_citations_raw or None
                     rag_context_details = personality.get("_rag_context_details") or {}
-                    rag_context_used = bool(rag_citations)
+                    if (
+                        "graph_nodes_count" not in rag_context_details
+                        and rag_context_details.get("graph_nodes")
+                    ):
+                        rag_context_details["graph_nodes_count"] = len(
+                            rag_context_details.get("graph_nodes", [])
+                        )
+                    rag_context_used = bool(
+                        rag_citations_raw
+                        or rag_context_details.get("graph_nodes")
+                        or rag_context_details.get("graph_context")
+                        or rag_context_details.get("context_preview")
+                    )
 
                     # Dodaj orchestration reasoning do rag_context_details (jeśli istnieje)
                     if idx in persona_group_mapping:
@@ -1019,6 +1163,55 @@ async def _generate_personas_task(
                         "rag_context_details": rag_context_details,  # NOWE POLE
                         **psychological
                     }
+
+                    # === VALIDATION: SPRAWDŹ SPÓJNOŚĆ DEMOGRAPHICS ===
+                    # Validate że generated persona pasuje do orchestration demographics
+                    if idx in persona_group_mapping:
+                        orch_demo = persona_group_mapping[idx]["demographics"]
+                        mismatches = []
+
+                        # Check gender
+                        expected_gender = _polishify_gender(orch_demo.get("gender", ""))
+                        if expected_gender and persona_payload["gender"] != expected_gender:
+                            mismatches.append(
+                                f"gender: got '{persona_payload['gender']}', expected '{expected_gender}'"
+                            )
+
+                        # Check age range
+                        expected_age_range = orch_demo.get("age", "")
+                        if expected_age_range and "-" in expected_age_range:
+                            try:
+                                min_age, max_age = map(int, expected_age_range.split("-"))
+                                if not (min_age <= persona_payload["age"] <= max_age):
+                                    mismatches.append(
+                                        f"age: {persona_payload['age']} not in range {expected_age_range}"
+                                    )
+                            except ValueError:
+                                pass
+
+                        # Check education (basic comparison - might have different formats)
+                        expected_education = orch_demo.get("education", "")
+                        if expected_education:
+                            # Normalize for comparison
+                            norm_expected_ed = _polishify_education(expected_education)
+                            if persona_payload["education_level"] != norm_expected_ed:
+                                mismatches.append(
+                                    f"education: got '{persona_payload['education_level']}', "
+                                    f"expected '{norm_expected_ed}'"
+                                )
+
+                        # Log mismatches jeśli znaleziono
+                        if mismatches:
+                            logger.warning(
+                                f"⚠️  Demographics mismatch for persona {idx} ('{full_name}'): "
+                                f"{'; '.join(mismatches)}",
+                                extra={
+                                    "project_id": str(project_id),
+                                    "persona_index": idx,
+                                    "full_name": full_name,
+                                    "mismatches": mismatches,
+                                }
+                            )
 
                     personas_data.append(persona_payload)
                     batch_payloads.append(persona_payload)
@@ -1187,7 +1380,7 @@ async def get_persona_reasoning(
     Pobierz szczegółowe reasoning persony (dla zakładki 'Uzasadnienie' w UI)
 
     Zwraca:
-    - orchestration_brief: DŁUGI (2000-3000 znaków) edukacyjny brief od Gemini 2.5 Pro
+    - orchestration_brief: Zwięzły (900-1200 znaków) edukacyjny brief od Gemini 2.5 Pro
     - graph_insights: Lista wskaźników z Graph RAG z wyjaśnieniami "dlaczego to ważne"
     - allocation_reasoning: Dlaczego tyle person w tej grupie demograficznej
     - demographics: Docelowa demografia tej grupy
@@ -1203,9 +1396,10 @@ async def get_persona_reasoning(
 
     # Graceful handling: zwróć pustą response jeśli brak orchestration data
     # (zamiast 404 - lepsze UX)
-    if not persona.rag_context_details:
+    rag_details: Dict[str, Any] = persona.rag_context_details or {}
+    if not rag_details:
         logger.warning(
-            f"Persona {persona_id} nie ma rag_context_details - zwracam pustą response"
+            "Persona %s nie ma rag_context_details - zwracam pustą response", persona_id
         )
         return PersonaReasoningResponse(
             orchestration_brief=None,
@@ -1215,35 +1409,65 @@ async def get_persona_reasoning(
             overall_context=None,
         )
 
-    orch_reasoning = persona.rag_context_details.get("orchestration_reasoning")
+    orch_reasoning: Dict[str, Any] = rag_details.get("orchestration_reasoning") or {}
     if not orch_reasoning:
         logger.warning(
-            f"Persona {persona_id} nie ma orchestration_reasoning - zwracam pustą response"
-        )
-        return PersonaReasoningResponse(
-            orchestration_brief=None,
-            graph_insights=[],
-            allocation_reasoning=None,
-            demographics=None,
-            overall_context=None,
+            "Persona %s nie ma orchestration_reasoning - korzystam tylko z danych RAG",
+            persona_id,
         )
 
-    # Parsuj graph insights do GraphInsightResponse objects
-    graph_insights = []
-    for insight_dict in orch_reasoning.get("graph_insights", []):
+    # Parsuj graph insights z orchestration lub fallbacku
+    graph_insights: List[GraphInsightResponse] = []
+    raw_graph_insights = orch_reasoning.get("graph_insights") or rag_details.get(
+        "graph_insights", []
+    )
+    for insight_dict in raw_graph_insights or []:
         try:
             graph_insights.append(GraphInsightResponse(**insight_dict))
-        except Exception as e:
-            logger.warning(f"Failed to parse graph insight: {e}, insight={insight_dict}")
-            continue
+        except Exception as exc:
+            logger.warning(
+                "Failed to parse graph insight: %s, insight=%s", exc, insight_dict
+            )
 
-    # Zbuduj response
+    # Fallback: konwertuj surowe węzły grafu na insights
+    if not graph_insights and rag_details.get("graph_nodes"):
+        for node in rag_details["graph_nodes"]:
+            converted = _graph_node_to_insight_response(node)
+            if converted:
+                graph_insights.append(converted)
+
+    # Wyprowadź pola segmentowe i kontekstowe
+    segment_name = orch_reasoning.get("segment_name") or rag_details.get("segment_name")
+    segment_description = orch_reasoning.get("segment_description") or rag_details.get(
+        "segment_description"
+    )
+    segment_social_context = (
+        orch_reasoning.get("segment_social_context")
+        or rag_details.get("segment_social_context")
+        or rag_details.get("segment_context")
+    )
+
+    orchestration_brief = orch_reasoning.get("brief") or rag_details.get("brief")
+    allocation_reasoning = orch_reasoning.get("allocation_reasoning") or rag_details.get(
+        "allocation_reasoning"
+    )
+    demographics = orch_reasoning.get("demographics") or rag_details.get("demographics")
+    overall_context = (
+        orch_reasoning.get("overall_context")
+        or rag_details.get("overall_context")
+        or rag_details.get("graph_context")
+    )
+
     response = PersonaReasoningResponse(
-        orchestration_brief=orch_reasoning.get("brief"),
+        orchestration_brief=orchestration_brief,
         graph_insights=graph_insights,
-        allocation_reasoning=orch_reasoning.get("allocation_reasoning"),
-        demographics=orch_reasoning.get("demographics"),
-        overall_context=orch_reasoning.get("overall_context"),
+        allocation_reasoning=allocation_reasoning,
+        demographics=demographics,
+        overall_context=overall_context,
+        segment_name=segment_name,
+        segment_id=orch_reasoning.get("segment_id") or rag_details.get("segment_id"),
+        segment_description=segment_description,
+        segment_social_context=segment_social_context,
     )
 
     return response

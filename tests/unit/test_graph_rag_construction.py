@@ -13,7 +13,7 @@ Dokumentacja: app/services/graph_service.py
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.services.graph_service import GraphService, ConceptExtraction
+from app.services.archived.graph_service import GraphService, ConceptExtraction
 
 
 class TestLLMConceptExtraction:

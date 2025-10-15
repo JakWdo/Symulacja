@@ -286,5 +286,258 @@ Dodając nowy skrypt:
 
 ---
 
-**Ostatnia aktualizacja:** 2025-10-14
-**Liczba skryptów:** 2
+### 3. backup_neo4j.py ⭐ NOWY
+
+**Opis:** Backup grafu Neo4j do pliku .cypher (Cypher statements)
+
+**Co robi:**
+- Eksportuje wszystkie nodes i relationships do Cypher CREATE statements
+- Weryfikuje połączenie z Neo4j przed backup
+- Tworzy timestamped backups w `data/backups/`
+- Wspiera `--dry-run` mode (podgląd bez tworzenia backup)
+- Weryfikuje że backup się powiódł
+
+**Kiedy używać:**
+- **PRZED cleanup operations** (np. cleanup_legacy_mentions.py)
+- **PRZED production deployment**
+- Regularnie jako część backup strategy
+- Po ważnych zmianach w grafie
+
+**Uruchomienie:**
+```bash
+# Dry-run (podgląd bez tworzenia backup)
+python scripts/backup_neo4j.py --dry-run
+
+# Właściwy backup (domyślna lokalizacja)
+python scripts/backup_neo4j.py
+
+# Backup do custom lokalizacji
+python scripts/backup_neo4j.py --output /path/to/backup.cypher
+```
+
+**Output:**
+- Default: `data/backups/neo4j-backup-YYYY-MM-DD-HH-MM.cypher`
+- Custom: Ścieżka podana w `--output`
+
+**Co NIE jest w backup:**
+- ⚠️ **Embedding vectors** (zbyt duże dla text backup)
+- Po restore musisz ponownie uruchomić RAG ingest aby odtworzyć embeddings
+
+**Przywracanie backup:**
+```bash
+# 1. Zatrzymaj aplikację
+docker-compose down
+
+# 2. Usuń Neo4j volume (UWAGA: usuwa wszystkie dane!)
+docker volume rm market-research-saas_neo4j_data
+
+# 3. Uruchom Neo4j
+docker-compose up -d neo4j
+
+# 4. Załaduj backup
+cat data/backups/neo4j-backup-2025-10-15-12-00.cypher | \
+  docker exec -i market-research-saas-neo4j-1 cypher-shell \
+  -u neo4j -p dev_password_change_in_prod
+
+# 5. Re-create indexes
+python scripts/init_neo4j_indexes.py
+
+# 6. Re-create embeddings (upload dokumenty ponownie)
+# POST /api/v1/rag/documents/upload
+```
+
+**Uwagi:**
+- Backup NIE zawiera embedding vectors (zbyt duże)
+- Wielkość backup: ~50KB per 1000 nodes (bez embeddings)
+- Restore może zająć kilka minut dla dużych grafów
+
+---
+
+### 4. cleanup_legacy_mentions.py ⭐ NOWY
+
+**Opis:** Usuwanie legacy data z archived feature (graph_service.py)
+
+**Co usuwa:**
+- **MENTIONS relationships** (2757 relacji = 51% wszystkich relacji)
+- **Concept nodes** (20)
+- **Emotion nodes** (1)
+- **Persona nodes** bez `doc_id` (nie używane przez personas table)
+
+**Co NIE usuwa (RAG nodes - INTACT):**
+- ✅ Wskaznik, Obserwacja, Trend, Demografia, Lokalizacja, RAGChunk nodes
+- ✅ OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W, POWIAZANY_Z relationships
+
+**Kiedy używać:**
+- Po potwierdzeniu że archived feature (graph_service.py) nie jest używane
+- Aby oczyścić graf z legacy data
+- **TYLKO jeśli masz backup!**
+
+**Uruchomienie:**
+
+⚠️ **WAŻNE: Zawsze najpierw zrób backup!**
+
+```bash
+# KROK 1: Backup (WYMAGANE!)
+python scripts/backup_neo4j.py
+
+# KROK 2: Dry-run (sprawdź co zostanie usunięte)
+python scripts/cleanup_legacy_mentions.py --dry-run
+
+# KROK 3: Właściwy cleanup (po potwierdzeniu że dry-run OK)
+python scripts/cleanup_legacy_mentions.py
+```
+
+**Interactive Confirmation:**
+Script wymaga wpisania `YES` aby kontynuować (safety check).
+
+**Expected Results:**
+```
+BEFORE → AFTER
+Total Nodes: 2753 → ~2728 (-25)
+Total Relationships: 5453 → ~2696 (-2757)
+
+LEGACY DATA DELETED:
+MENTIONS relationships: 2757 → 0
+Concept nodes: 20 → 0
+Emotion nodes: 1 → 0
+Unused Persona nodes: 4 → 0
+
+RAG DATA INTACT:
+Wskaznik: 150 → 150 (no change)
+Obserwacja: 200 → 200 (no change)
+```
+
+**Rollback (jeśli coś poszło nie tak):**
+Zobacz instrukcje w output cleanup script lub backup_neo4j.py
+
+**Uwagi:**
+- Batch delete (1000 items na raz) dla performance
+- Pre + Post verification (fail fast jeśli coś nie tak)
+- Detailed logging (INFO level)
+- Idempotent (może być uruchomiony multiple times)
+
+---
+
+## 📊 Code Review Report - MENTIONS Usage
+
+### Podsumowanie
+
+**Status:** ✅ Bezpieczne do usunięcia
+
+MENTIONS relationships są używane TYLKO przez archived feature `app/services/archived/graph_service.py`.
+
+### Pliki Używające MENTIONS
+
+1. **app/services/archived/graph_service.py** (ARCHIVED)
+   - Status: Feature archived, nie używane w obecnej wersji
+   - Usage: Tworzenie MENTIONS relationships w `_extract_concepts_and_emotions()`
+
+2. **app/api/graph_analysis.py** (API Endpoints)
+   - Status: Endpoints ukryte z frontend UI (AppSidebar, App.tsx)
+   - Impact cleanup: Endpoints przestaną działać (ale już są ukryte)
+   - Recommendation: Można pozostawić (backend-only) lub usunąć
+
+3. **app/api/focus_groups.py** (Background Task)
+   - Status: Automatyczne budowanie grafu po zakończeniu focus group (linia 166)
+   - Impact cleanup: Task będzie failować (ale gracefully catchowany)
+   - Recommendation: Wyłączyć automatyczne budowanie grafu (zakomentować linie 164-173)
+
+4. **app/schemas/graph.py** (API Schemas)
+   - Status: Schemas wspominają "mentions" jako przykład
+   - Impact cleanup: Schemas mogą pozostać (backward compatibility)
+   - Recommendation: Dodać deprecation notice
+
+5. **tests/** (Unit Tests)
+   - Status: Testy dla GraphService i MENTIONS relationships
+   - Impact cleanup: Testy mogą pozostać (dokumentują legacy behavior)
+   - Recommendation: Dodać skip marker lub przenieść do `tests/archived/`
+
+### Dependency Check Results
+
+✅ **Brak blocking dependencies**
+
+All MENTIONS relationships follow expected pattern:
+- `Persona → MENTIONS → Concept` (100% of relationships)
+
+**Konkluzja:** Bezpieczne do usunięcia.
+
+---
+
+## 🚀 Workflow Setup Projektu
+
+### Pierwsze Uruchomienie (New Developer)
+
+```bash
+# 1. Start Docker services
+docker-compose up -d
+
+# 2. Poczekaj na inicjalizację baz
+sleep 10
+
+# 3. Migracje bazy danych (preferowana metoda)
+docker-compose exec api alembic upgrade head
+
+# 4. Inicjalizuj Neo4j indeksy (WYMAGANE dla RAG!)
+python scripts/init_neo4j_indexes.py
+
+# 5. (OPCJONALNIE) Backup przed jakimikolwiek zmianami
+python scripts/backup_neo4j.py
+
+# 6. (OPCJONALNIE) Cleanup legacy data (jeśli nie jest używane)
+# python scripts/cleanup_legacy_mentions.py --dry-run
+
+# 7. Weryfikuj że wszystko działa
+docker-compose ps
+curl http://localhost:8000/docs  # API docs
+```
+
+### Reset Environment (Clean State)
+
+```bash
+# 1. (OPCJONALNIE) Backup jeśli chcesz zachować dane
+python scripts/backup_neo4j.py
+
+# 2. Zatrzymaj i usuń wszystko (UWAGA: usuwa dane!)
+docker-compose down -v
+
+# 3. Start od nowa
+docker-compose up -d
+
+# 4. Poczekaj na inicjalizację
+sleep 10
+
+# 5. Migracje
+docker-compose exec api alembic upgrade head
+
+# 6. Neo4j indeksy
+python scripts/init_neo4j_indexes.py
+
+# 7. (Opcjonalnie) Restore backup jeśli chcesz
+# cat data/backups/neo4j-backup-YYYY-MM-DD-HH-MM.cypher | \
+#   docker exec -i market-research-saas-neo4j-1 cypher-shell \
+#   -u neo4j -p dev_password_change_in_prod
+```
+
+### Maintenance Workflow (Cleanup Legacy Data)
+
+```bash
+# 1. BACKUP FIRST!
+python scripts/backup_neo4j.py
+
+# 2. Dry-run (sprawdź co zostanie usunięte)
+python scripts/cleanup_legacy_mentions.py --dry-run
+
+# 3. Przejrzyj output dry-run
+# - Sprawdź legacy data counts
+# - Sprawdź że RAG nodes są intact
+
+# 4. Właściwy cleanup (ONLY if dry-run OK)
+python scripts/cleanup_legacy_mentions.py
+
+# 5. Weryfikuj że cleanup się powiódł
+# - Sprawdź post-cleanup summary
+# - Przetestuj RAG queries: POST /api/v1/rag/ask
+```
+
+**Ostatnia aktualizacja:** 2025-10-15
+**Liczba skryptów:** 4

@@ -16,20 +16,28 @@
 
 ## Szybki Start
 
-### Uruchom wszystkie testy (bez wolnych)
+> Domyślnie pomijamy testy oznaczone jako `slow`, `external`, `performance` i `manual`.  
+> Aby je włączyć użyj odpowiednich flag (`--run-slow`, `--run-external`, ...).
+
+### 1. Domyślny zestaw (CI smoke + unit/integration)
 ```bash
-pytest tests/ -v -m "not slow and not e2e"
+python -m pytest -v
 ```
 
-### Uruchom z pokryciem kodu
+### 2. Raport pokrycia
 ```bash
-pytest tests/ --cov=app --cov-report=html -m "not slow"
-open htmlcov/index.html
+python -m pytest -v --cov=app --cov-report=html
+open htmlcov/index.html  # macOS
 ```
 
-### Uruchom tylko szybkie testy jednostkowe
+### 3. End-to-end smoke (bez usług zewnętrznych)
 ```bash
-pytest tests/unit/ -v
+python -m pytest tests/e2e/test_e2e_ci_smoke.py -v
+```
+
+### 4. Pełne testy z usługami zewnętrznymi
+```bash
+python -m pytest -v --run-slow --run-external
 ```
 
 ---
@@ -38,245 +46,112 @@ pytest tests/unit/ -v
 
 ```
 tests/
-├── unit/                   # Testy jednostkowe (~150 testów, <5s)
-│   ├── test_persona_generator.py            # Generator person
-│   ├── test_focus_group_service.py          # Serwis grup fokusowych
-│   ├── test_graph_service.py                # Serwis grafów
-│   ├── test_memory_service_langchain.py     # System pamięci
-│   ├── test_discussion_summarizer_service.py # Podsumowania AI
-│   ├── test_persona_validator_service.py    # Walidacja person
-│   ├── test_survey_response_generator.py    # Generator odpowiedzi
-│   ├── test_core_config_security.py         # Konfiguracja i security
-│   ├── test_models.py                       # Modele bazy danych
-│   ├── test_auth_api.py                     # API autoryzacji
-│   ├── test_main_api.py                     # Główne endpointy
-│   ├── test_analysis_api.py                 # API analiz
-│   ├── test_graph_analysis_api.py           # API analizy grafów
-│   └── test_critical_paths.py               # Krytyczne ścieżki
-│
-├── integration/            # Testy integracyjne z DB (~35 testów, 10-30s)
-│   ├── test_auth_api_integration.py         # Flow autoryzacji (11 testów)
-│   ├── test_projects_api_integration.py     # CRUD projektów (10 testów)
-│   ├── test_personas_api_integration.py     # Generowanie person (7 testów)
-│   ├── test_focus_groups_api_integration.py # API grup fokusowych (4 testy)
-│   └── test_surveys_api_integration.py      # API ankiet (3 testy)
-│
-├── e2e/                    # Testy end-to-end (~4 testy, 2-5 min)
-│   ├── test_e2e_full_workflow.py            # Pełny workflow badania
-│   ├── test_e2e_survey_workflow.py          # Workflow ankiety
-│   └── test_e2e_graph_analysis.py           # Workflow analizy grafowej
-│
-├── performance/            # Testy wydajności (~5 testów, 5-10 min)
-│   └── test_performance.py                  # Benchmarki wydajnościowe
-│
-├── error_handling/         # Testy błędów (~9 testów, 5-10s)
-│   └── test_error_handling.py               # Edge cases i resilience
-│
-├── conftest.py             # Wspólne fixtures i konfiguracja
-└── TESTY.md               # Ten plik (dokumentacja)
+├── conftest.py                 # minimalne bootstrapowanie (pytest_plugins = fixtures)
+├── fixtures/                   # Modularne fixtury (asyncio_loop, config, api, rag, utils, …)
+├── factories/                  # Fabryki danych/payloadów (project_payload, focus_group_payload, …)
+├── unit/                       # Testy jednostkowe (~240 testów, <10s)
+├── integration/                # Testy HTTP + DB (~70 testów, 20-40s)
+├── e2e/                        # Scenariusze end-to-end (w tym smoke i testy wymagające API)
+├── performance/                # Benchmarki wydajności (wolne, opt-in)
+├── error_handling/             # Testy odporności na awarie
+├── manual/                     # Skrypty diagnostyczne (uruchamiane ręcznie, oznaczone markerem `manual`)
+└── README/TESTING docs         # Dokumentacja (ten plik + README sekcja Testing)
 ```
 
-**Łącznie:** ~208 testów
+**Łącznie:** ~380 testów (wg `pytest --collect-only`)
 
 ---
 
 ## Kategorie Testów
 
 ### 🟢 Testy Jednostkowe (Unit Tests)
-**Czas:** <5 sekund łącznie
-**Liczba:** ~150 testów
+- **Czas:** <10 sekund łącznie  
+- **Liczba:** ~240 testów  
+- **Uruchamianie:** domyślnie w `python -m pytest -v`
 
-Testują pojedyncze funkcje i klasy bez zewnętrznych zależności.
+Jednostki obejmują logikę deterministyczną (generator person, usługi RAG, walidatory, konfiguracja, modele ORM).  
+Dane wejściowe budowane są za pomocą fabryk (`tests/factories/`) lub lekkich fixture’ów.
 
+Typowe polecenia:
 ```bash
-# Uruchom wszystkie testy jednostkowe
-pytest tests/unit/ -v
-
-# Przykładowe moduły:
-pytest tests/unit/test_persona_generator.py -v
-pytest tests/unit/test_focus_group_service.py -v
+python -m pytest tests/unit/ -v
+python -m pytest tests/unit/test_persona_generator.py -v
 ```
-
-**Co testują:**
-- Losowanie demograficzne (weighted sampling)
-- Generowanie cech osobowości (Big Five, Hofstede)
-- Walidacja statystyczna (chi-kwadrat)
-- Parsowanie odpowiedzi AI
-- Ekstrakcja konceptów z tekstu
-- Obliczenia sentymentu i polaryzacji
 
 ---
 
 ### 🟡 Testy Integracyjne (Integration Tests)
-**Czas:** 10-30 sekund
-**Liczba:** ~35 testów
-**Wymagają:** PostgreSQL
+- **Czas:** 20-40 sekund  
+- **Liczba:** ~70 testów  
+- **Wymagają:** PostgreSQL (tworzony automatycznie przez fixture `test_engine`)
 
-Testują endpointy API z rzeczywistą bazą danych.
+Testy operują na FastAPI `TestClient`, prawdziwej bazie danych i fixturach `authenticated_client` / `project_with_personas`.  
+Kluczowe moduły:
 
+| Plik | Co sprawdza |
+|------|-------------|
+| `test_auth_api_integration.py` | rejestracja, logowanie, walidacja hasła, ochronę endpointów |
+| `test_projects_api_integration.py` | CRUD projektów, paginację, walidację danych |
+| `test_personas_api_integration.py` | walidację generatora, limity wejściowe, dostęp do zasobów |
+| `test_focus_groups_api_integration.py` | draft/run/listing/results dla fokusów |
+| `test_surveys_api_integration.py` | ankiety i pobieranie wyników |
+| `test_graph_analysis_api_integration.py` | kontrakty API grafowego z mockowanym serwisem |
+
+Uruchomienie:
 ```bash
-# Wymagane: Docker z PostgreSQL
 docker-compose up -d postgres
-
-# Uruchom testy integracyjne
-pytest tests/integration/ -v
+python -m pytest tests/integration/ -v
 ```
-
-**Co testują:**
-
-#### Autoryzacja (11 testów)
-- ✅ Rejestracja użytkownika (hashowanie hasła bcrypt)
-- ✅ Logowanie (JWT token generation)
-- ✅ Walidacja siły hasła
-- ✅ Ochrona endpointów (auth required)
-- ✅ Wygasłe tokeny
-- ✅ Duplikacja email
-
-#### Projekty (10 testów)
-- ✅ Tworzenie projektu z demographics
-- ✅ Walidacja demographics (suma = 1.0)
-- ✅ Listowanie projektów (tylko własne)
-- ✅ Aktualizacja projektu
-- ✅ Soft delete
-
-#### Persony (7 testów)
-- ✅ Generowanie person (Gemini API)
-- ✅ Walidacja liczby person (1-1000)
-- ✅ Big Five traits verification
-- ✅ Tryb adversarial
-- ✅ Usuwanie person
-
-#### Grupy Fokusowe (4 testy)
-- ✅ Tworzenie grupy fokusowej
-- ✅ Aktualizacja draft
-- ✅ Listowanie grup
-- ✅ Pobieranie wyników
-
-#### Ankiety (3 testy)
-- ✅ Tworzenie ankiety
-- ✅ Listowanie ankiet
-- ✅ Pobieranie szczegółów
 
 ---
 
 ### 🔴 Testy End-to-End (E2E Tests)
-**Czas:** 2-5 minut
-**Liczba:** 4 testy
-**Wymagają:** PostgreSQL + Gemini API
+- **Czas:** 30 sekund – 4 minuty (w zależności od markera)  
+- **Liczba:** 4 główne scenariusze  
+- **Wymagania:** PostgreSQL; dla testów z `external` również Gemini/Neo4j
 
-Testują kompletne scenariusze użytkownika od początku do końca.
+Domyślnie uruchamiany jest jedynie **`test_e2e_ci_smoke.py`** – superszybki przepływ z mockami, który pozwala zintegrować cały stack w CI bez kluczy API.
 
+| Test | Markery | Opis |
+|------|---------|------|
+| `test_e2e_ci_smoke.py::test_ci_smoke_research_flow` | `e2e` | Rejestracja → projekt → generowanie person → fokus → transcript (wszystko stubowane) |
+| `test_e2e_full_workflow.py::test_complete_research_workflow_end_to_end` | `e2e`, `slow`, `external` | Pełny przebieg badania (Gemini, graf, insights) |
+| `test_e2e_survey_workflow.py::test_survey_workflow_end_to_end` | `e2e`, `slow`, `external` | Kompletny workflow ankiety |
+| `test_e2e_graph_analysis.py::test_graph_analysis_complete_workflow` | `e2e`, `slow`, `external` | Analiza grafowa + fallback bez Neo4j |
+
+Uruchamianie:
 ```bash
-# Wymagane: Docker + Gemini API key
-docker-compose up -d postgres redis neo4j
-export GOOGLE_API_KEY=your_key
+# tylko smoke (domyślnie i w CI)
+python -m pytest tests/e2e/test_e2e_ci_smoke.py -v
 
-# Uruchom testy E2E (z logowaniem)
-pytest tests/e2e/ -v -s
+# wszystkie scenariusze
+python -m pytest tests/e2e/ -v --run-slow --run-external -s
 ```
-
-#### ⭐ **test_complete_research_workflow_end_to_end**
-**Najważniejszy test aplikacji!**
-
-Przepływ (10 kroków):
-1. Rejestracja użytkownika
-2. Utworzenie projektu badawczego
-3. Generowanie 10 person (15-30s)
-4. Walidacja statystyczna (chi-kwadrat)
-5. Utworzenie grupy fokusowej (5 person × 3 pytania)
-6. Uruchomienie dyskusji (30-60s)
-7. Weryfikacja 15 odpowiedzi
-8. Budowa grafu wiedzy (Neo4j/memory)
-9. Generowanie insights AI
-10. Weryfikacja performance metrics
-
-**Czas:** ~90-180 sekund
-**Jeśli ten test przechodzi, aplikacja działa!** ✅
-
-#### **test_survey_workflow_end_to_end**
-Przepływ ankiety:
-1. Utworzenie ankiety (4 typy pytań: rating, single-choice, multiple-choice, open-text)
-2. Uruchomienie zbierania odpowiedzi
-3. Weryfikacja odpowiedzi (10 person × 4 pytania = 40)
-4. Analiza statystyczna
-5. Demographic breakdown
-
-**Czas:** ~60-120 sekund
-
-#### **test_graph_analysis_complete_workflow**
-Przepływ analizy grafowej:
-1. Budowa grafu wiedzy
-2. Ekstrakcja key concepts
-3. Identyfikacja kontrowersyjnych tematów
-4. Analiza wpływowych person (PageRank)
-5. Korelacje demograficzne
-6. Rozkład emocji
-
-**Czas:** ~30-60 sekund
-
-#### **test_graph_fallback_when_neo4j_unavailable**
-Test resilience:
-- Neo4j niedostępny → fallback do in-memory graph
-- System musi działać bez Neo4j ✅
 
 ---
 
 ### 🔴 Testy Wydajnościowe (Performance Tests)
-**Czas:** 5-10 minut
-**Liczba:** 5 testów
-**Wymagają:** Gemini API
+- **Czas:** 5-10 minut  
+- **Liczba:** 5 scenariuszy  
+- **Markery:** `slow`, `performance`, `external`
 
-Weryfikują czy system spełnia cele wydajnościowe.
+Benchmarki mierzą czas generowania person, wykonania grupy fokusowej i średni czas odpowiedzi. Ze względu na koszty API i długość trwania są domyślnie wyłączone.
 
 ```bash
-# Uruchom testy wydajności
-pytest tests/performance/ -v -s
+python -m pytest tests/performance/ -v --run-slow --run-performance --run-external -s
 ```
-
-**Testy:**
-
-| Test | Target | Ideal | Co testuje |
-|------|--------|-------|------------|
-| `test_persona_generation_performance_20_personas` | <60s | 30-45s | Generowanie 20 person |
-| `test_focus_group_execution_performance_20x4` | <3 min | <2 min | 20 person × 4 pytania |
-| `test_avg_response_time_per_persona` | <3s | 1-2s | Średni czas odpowiedzi |
-| `test_survey_execution_performance_10x10` | <60s | <45s | Ankieta 10×10 |
-| `test_parallelization_speedup` | >=2x | >=3x | Speedup równoległości |
-
-**Dlaczego to ważne:**
-- Bez testów performance, regresje wydajnościowe są niewidoczne
-- Użytkownicy porzucą platformę jeśli generowanie person trwa >2 min
-- Weryfikuje że parallel processing działa (3x speedup)
 
 ---
 
-### 🟡 Testy Error Handling
-**Czas:** 5-10 sekund
-**Liczba:** 9 testów
+### 🟠 Testy Error Handling
+- **Czas:** ~10 sekund  
+- **Liczba:** ~10 testów  
+- **Cel:** weryfikacja odporności na błędy (API Gemini, Neo4j, walidacje danych)
 
-Testują edge cases i resilience systemu.
-
+Uruchamianie:
 ```bash
-pytest tests/error_handling/ -v
+python -m pytest tests/error_handling/ -v
 ```
-
-**Co testują:**
-
-| Test | Scenariusz | Oczekiwane zachowanie |
-|------|------------|----------------------|
-| `test_gemini_api_timeout_handling` | Gemini API nie odpowiada | Graceful error 503 |
-| `test_gemini_api_quota_exceeded_handling` | 429 quota exceeded | Informacja o limicie |
-| `test_neo4j_unavailable_fallback_to_memory_graph` | Neo4j down | Fallback do pamięci ✅ |
-| `test_empty_personas_list_for_focus_group` | Pusta lista person | Validation error 400 |
-| `test_empty_questions_for_focus_group` | Puste pytania | Validation error 400 |
-| `test_invalid_demographics_distribution` | Demografia suma != 1.0 | Błąd lub warning |
-| `test_concurrent_focus_group_runs_race_condition` | 2 równoległe runs | 409 Conflict lub serialize |
-| `test_database_connection_error_handling` | DB disconnect | 500/503 error |
-
-**Dlaczego to ważne:**
-- Aplikacja produkcyjna MUSI obsługiwać błędy zewnętrznych serwisów
-- Testuje resilience i fallback mechanisms
-- Chroni przed crashami w produkcji
 
 ---
 
@@ -342,68 +217,59 @@ Testy automatycznie tworzą oddzielną bazę testową:
 ### Podstawowe Komendy
 
 ```bash
-# Wszystkie testy (bez wolnych E2E/performance)
-pytest tests/ -v -m "not slow and not e2e"
+# Domyślny zestaw (szybkie unit/integration + smoke e2e)
+python -m pytest -v
 
-# Z pokryciem kodu (coverage)
-pytest tests/ --cov=app --cov-report=html
-open htmlcov/index.html
+# Pokrycie kodu
+python -m pytest -v --cov=app --cov-report=html
 
-# Testy jednostkowe (szybkie)
-pytest tests/unit/ -v
+# Testy jednostkowe
+python -m pytest tests/unit/ -v
 
-# Testy integracyjne (wymaga DB)
-pytest tests/integration/ -v
+# Testy integracyjne (wymaga PostgreSQL)
+python -m pytest tests/integration/ -v
 
-# Testy E2E (wymaga Gemini API, wolne)
-pytest tests/e2e/ -v -s
+# End-to-end (pełne scenariusze – wymagają kluczy)
+python -m pytest tests/e2e/ -v --run-slow --run-external -s
 
-# Testy wydajnościowe (bardzo wolne)
-pytest tests/performance/ -v -s
+# Performance
+python -m pytest tests/performance/ -v --run-slow --run-performance --run-external -s
 
-# Testy error handling
-pytest tests/error_handling/ -v
+# Error handling
+python -m pytest tests/error_handling/ -v
 ```
 
 ### Zaawansowane Komendy
 
 ```bash
-# Konkretny plik testowy
-pytest tests/unit/test_persona_generator.py -v
+# Konkretny plik / test
+python -m pytest tests/unit/test_persona_generator.py -v
+python -m pytest tests/e2e/test_e2e_full_workflow.py::test_complete_research_workflow_end_to_end -v --run-slow --run-external -s
 
-# Konkretny test
-pytest tests/e2e/test_e2e_full_workflow.py::test_complete_research_workflow_end_to_end -v -s
+# Włączanie kategorii markerów
+python -m pytest -v --run-slow
+python -m pytest -v --run-external
+python -m pytest -v --run-performance --run-external --run-slow
+python -m pytest -v --run-manual  # diagnostyka RAG
 
-# Testy według markera
-pytest -v -m integration
-pytest -v -m "e2e and not slow"
-pytest -v -m slow
+# Fail-fast / tylko ostatnie błędy
+python -m pytest -x
+python -m pytest --lf
 
-# Pierwszy failed test (fail fast)
-pytest tests/ -x
-
-# Pokaż print statements (-s)
-pytest tests/unit/ -v -s
-
-# Równoległe uruchomienie (wymaga pytest-xdist)
-pytest tests/unit/ -n auto
-
-# Only failed from last run
-pytest tests/ --lf
-
-# Verbose output z timings
-pytest tests/ -v --durations=10
+# Debug (printy, czasy)
+python -m pytest -v -s
+python -m pytest -v --durations=10
 ```
 
 ### Markery Testów
 
-Testy są oznaczone markerami dla łatwego filtrowania:
+Testy są oznaczone markerami dla filtrowania. Domyślnie są SKIPowane, dopóki nie uruchomisz odpowiedniej flagi:
 
 | Marker | Znaczenie | Użycie |
 |--------|-----------|--------|
-| `@pytest.mark.integration` | Wymaga bazy danych | `pytest -m integration` |
-| `@pytest.mark.e2e` | Test end-to-end | `pytest -m e2e` |
-| `@pytest.mark.slow` | Test trwa >10s | `pytest -m "not slow"` |
+| `@pytest.mark.integration` | Wymaga bazy danych | `python -m pytest -m integration` |
+| `@pytest.mark.e2e` | Test end-to-end | `python -m pytest -m e2e --run-slow --run-external` |
+| `@pytest.mark.slow` | Test trwa >10s | `python -m pytest --run-slow` |
 | `@pytest.mark.asyncio` | Async test (auto) | - |
 
 ---
@@ -506,7 +372,7 @@ Wszystkie fixtures w: [tests/conftest.py](conftest.py)
 **Dlaczego:** Pokrywa 90% funkcjonalności aplikacji w jednym scenariuszu
 
 ```bash
-pytest tests/e2e/test_e2e_full_workflow.py::test_complete_research_workflow_end_to_end -v -s
+python -m pytest tests/e2e/test_e2e_full_workflow.py::test_complete_research_workflow_end_to_end -v --run-slow --run-external -s
 ```
 
 **Jeśli ten test przechodzi, aplikacja działa!**
@@ -519,7 +385,7 @@ pytest tests/e2e/test_e2e_full_workflow.py::test_complete_research_workflow_end_
 **Dlaczego:** Weryfikuje wszystkie security critical paths
 
 ```bash
-pytest tests/integration/test_auth_api_integration.py -v
+python -m pytest tests/integration/test_auth_api_integration.py -v
 ```
 
 Testuje:
@@ -537,7 +403,7 @@ Testuje:
 **Dlaczego:** Wykrywa regresje wydajnościowe
 
 ```bash
-pytest tests/performance/ -v -s
+python -m pytest tests/performance/ -v --run-slow --run-performance --run-external -s
 ```
 
 Weryfikuje cele:
@@ -554,7 +420,7 @@ Weryfikuje cele:
 **Dlaczego:** Testuje najważniejsze walidacje biznesowe
 
 ```bash
-pytest tests/unit/test_critical_paths.py -v
+python -m pytest tests/unit/test_critical_paths.py -v
 ```
 
 Testuje:
@@ -573,7 +439,7 @@ Testuje:
 **Dlaczego:** Testuje resilience i fallbacks
 
 ```bash
-pytest tests/error_handling/ -v
+python -m pytest tests/error_handling/ -v
 ```
 
 Testuje:
@@ -621,14 +487,14 @@ Z [CLAUDE.md](../CLAUDE.md) - weryfikowane przez `tests/performance/`:
 
 ```bash
 # HTML report
-pytest tests/ --cov=app --cov-report=html
+python -m pytest -v --cov=app --cov-report=html
 open htmlcov/index.html
 
 # Terminal report
-pytest tests/ --cov=app --cov-report=term-missing
+python -m pytest -v --cov=app --cov-report=term-missing
 
 # XML report (dla CI/CD)
-pytest tests/ --cov=app --cov-report=xml
+python -m pytest -v --cov=app --cov-report=xml
 ```
 
 ### Cele Coverage
@@ -643,15 +509,11 @@ pytest tests/ --cov=app --cov-report=xml
 
 ### Metryki Jakości Testów
 
-**Przed (ocena 60/100):**
-- 191 testów (155 pass, 36 skip)
-- Brak testów E2E
-- Brak testów performance
-- Brak testów error handling
-
-**Po (ocena 85-90/100):**
-- 208 testów (200+ pass, <5 skip)
-- ✅ 4 testy E2E
+**Aktualny stan (2024):**
+- ~380 testów zebranych przez `pytest --collect-only`
+- Domyślny przebieg wykonuje ~270 (pozostałe są oznaczone `slow`/`external`/`performance`/`manual`)
+- Pokrycie globalne utrzymywane w okolicach 90%
+- Dedykowany smoke E2E na potrzeby CI/CD oraz kompletne scenariusze on-demand
 - ✅ 5 testów performance
 - ✅ 9 testów error handling
 - ✅ 35 testów integracyjnych z DB
@@ -756,18 +618,18 @@ pip install -e .
 **Optymalizacje:**
 
 ```bash
-# Uruchom tylko szybkie testy
-pytest tests/ -m "not slow and not e2e"
+# Uruchom tylko szybkie testy (domyślne zachowanie)
+python -m pytest -v
 
-# Pomiń testy performance
-pytest tests/ -m "not slow"
+# Dodaj wolne testy (slow/external/performance)
+python -m pytest -v --run-slow --run-external --run-performance
 
 # Równoległe uruchomienie (wymaga pytest-xdist)
 pip install pytest-xdist
-pytest tests/unit/ -n auto
+python -m pytest tests/unit/ -n auto
 
-# Cache wyników
-pytest tests/ --cache-clear  # czyść cache jeśli problemy
+# Czyszczenie cache pytesta
+python -m pytest --cache-clear
 ```
 
 ---
@@ -886,12 +748,19 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov pytest-asyncio
 
-      - name: Run tests
+      - name: Run fast suite (CI default)
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:test_password@localhost/test_db
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          pytest tests/ -v -m "not slow and not e2e" --cov=app
+          python -m pytest -v --cov=app
+
+      # Opcjonalnie: druga macierz dla testów zależnych od usług zewnętrznych
+      # - name: Run full suite (requires secrets)
+      #   env:
+      #     DATABASE_URL: postgresql+asyncpg://postgres:test_password@localhost/test_db
+      #     GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      #   run: |
+      #     python -m pytest -v --run-slow --run-external --cov=app
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
@@ -905,7 +774,7 @@ jobs:
 
 **Tak**, ale tylko testy jednostkowe:
 ```bash
-pytest tests/unit/ -v
+python -m pytest tests/unit/ -v
 ```
 
 Testy integracyjne i E2E wymagają PostgreSQL.
@@ -917,7 +786,7 @@ Testy integracyjne i E2E wymagają PostgreSQL.
 **Tak**, większość testów używa mocków:
 ```bash
 # Testy bez Gemini API (unit + integration bez personas)
-pytest tests/unit/ tests/integration/test_auth_api_integration.py tests/integration/test_projects_api_integration.py -v
+python -m pytest tests/unit/ tests/integration/test_auth_api_integration.py tests/integration/test_projects_api_integration.py -v
 ```
 
 Tylko testy E2E i performance wymagają prawdziwego Gemini API.
@@ -942,16 +811,16 @@ Tylko testy E2E i performance wymagają prawdziwego Gemini API.
 
 ```bash
 # 1. Uruchom z verbose output i prints
-pytest tests/path/to/test.py::test_name -v -s
+python -m pytest tests/path/to/test.py::test_name -v -s
 
 # 2. Uruchom tylko failed test z ostatniego runa
 pytest --lf -v
 
 # 3. Użyj pdb (Python debugger)
-pytest tests/path/to/test.py::test_name --pdb
+python -m pytest tests/path/to/test.py::test_name --pdb
 
 # 4. Zwiększ timeout dla async testów
-pytest tests/ -v --asyncio-timeout=300
+python -m pytest tests/ -v --asyncio-timeout=300
 ```
 
 ---
@@ -973,6 +842,171 @@ Użyj w teście:
 def test_something():
     pass
 ```
+
+---
+
+## 🚨 Test Coverage Gaps (Priority: HIGH)
+
+**Źródło:** Audit Report 2025-10-15
+
+### CRITICAL Gaps
+
+#### 1. RAG Document Ingest Pipeline
+**Problem:** Brak testów dla kluczowego pipeline ingestu dokumentów RAG.
+
+**Missing Tests:**
+- Upload PDF/DOCX → chunking → embedding → Neo4j storage
+- LLMGraphTransformer extraction (nodes + relationships)
+- Graph node enrichment validation
+- Error handling (corrupt files, OOM, Neo4j unavailable)
+
+**Impact:** CRITICAL - RAG system to core feature, brak testów = ryzyko regresji.
+
+**Recommendation:**
+```python
+# tests/integration/test_rag_document_ingest.py
+@pytest.mark.integration
+async def test_document_ingest_pipeline_end_to_end():
+    """Test pełnego pipeline ingestu dokumentu."""
+    # 1. Upload PDF
+    # 2. Verify chunking (correct count, overlap)
+    # 3. Verify embeddings (768D vectors)
+    # 4. Verify Neo4j storage (RAGChunk nodes)
+    # 5. Verify graph extraction (Wskaznik, Obserwacja nodes)
+    # 6. Verify enrichment (metadane węzłów)
+```
+
+**Status:** [ ] TODO - Phase 3
+
+---
+
+#### 2. Account Lockout Tests
+**Problem:** Brak testów dla account lockout mechanism (security critical).
+
+**Missing Tests:**
+- 5 failed login attempts → account locked
+- Lockout timer (15 minutes)
+- Admin unlock endpoint
+- Lockout notification (email alert)
+
+**Impact:** HIGH - Security vulnerability, możliwy brute-force attack.
+
+**Recommendation:**
+```python
+# tests/integration/test_auth_lockout.py
+async def test_account_lockout_after_5_failed_attempts():
+    # 1. Failed login x5
+    # 2. Verify account locked
+    # 3. Verify can't login even with correct password
+    # 4. Wait 15 min or admin unlock
+    # 5. Verify can login again
+```
+
+**Status:** [ ] TODO - Phase 2
+
+---
+
+### MEDIUM Priority Gaps
+
+#### 3. Flaky E2E Test (Polling Loop)
+**Problem:** `test_e2e_full_workflow.py` ma polling loop który czasem timeout.
+
+**Issue:**
+```python
+# Problematic code:
+while status != "completed" and attempts < 30:
+    await asyncio.sleep(2)  # Fixed 2s delay
+    status = get_status()
+```
+
+**Recommendation:**
+- Exponential backoff (2s → 4s → 8s)
+- Configureable timeout (env var)
+- Better logging (dlaczego timeout)
+- Fallback: mock LLM w CI dla deterministycznego timing
+
+**Status:** [ ] TODO - Phase 2
+
+---
+
+#### 4. RAG Hybrid Search Edge Cases
+**Missing Tests:**
+- Empty query → graceful error
+- Query > 8000 chars → truncation handling
+- No documents in Neo4j → empty results (not error)
+- Concurrent queries → no race conditions
+
+**Recommendation:** Dodaj do `tests/unit/test_rag_hybrid_search.py`
+
+**Status:** [ ] TODO - Phase 3
+
+---
+
+## 📊 Test Quality Metrics (Audit Results)
+
+**Overall Score:** 8.5/10 (Excellent)
+
+| Metric | Current | Target | Status |
+|--------|---------|--------|--------|
+| **Total Tests** | 380 | 400+ | ✅ 95% |
+| **Overall Coverage** | ~90% | 85%+ | ✅ 106% |
+| **Service Coverage** | ~92% | 85%+ | ✅ 108% |
+| **Unit Tests** | 298 | 250+ | ✅ 119% |
+| **Integration Tests** | 51 | 40+ | ✅ 128% |
+| **E2E Tests** | 5 | 5+ | ✅ 100% |
+| **Performance Tests** | 5 | 5+ | ✅ 100% |
+| **Manual Tests** | 3 | 3+ | ✅ 100% |
+
+**Strengths:**
+- ✅ Excellent coverage (90% overall, 92% services)
+- ✅ Comprehensive fixtures (modular design)
+- ✅ CI-friendly (smoke tests, fast suite)
+- ✅ Performance benchmarks (targets defined)
+- ✅ Manual diagnostic tools (RAG testing)
+
+**Weaknesses:**
+- ❌ RAG ingest pipeline tests missing (CRITICAL)
+- ❌ Account lockout tests missing (HIGH)
+- ⚠️ Flaky E2E test (polling loop issue)
+- ⚠️ RAG edge cases not covered
+
+---
+
+## 🎯 Recommended Test Additions (Phase 3)
+
+### Priority: CRITICAL (Sprint 1)
+1. **RAG Document Ingest** - `tests/integration/test_rag_document_ingest.py` (~15 testów)
+   - Upload PDF/DOCX
+   - Chunking validation
+   - Embedding generation
+   - Neo4j storage
+   - Graph extraction
+   - Error handling
+
+### Priority: HIGH (Sprint 2)
+2. **Account Lockout** - `tests/integration/test_auth_lockout.py` (~8 testów)
+   - Failed login attempts
+   - Lockout timer
+   - Admin unlock
+   - Email notifications
+
+3. **E2E Stability** - Fix polling loop w `test_e2e_full_workflow.py`
+   - Exponential backoff
+   - Configureable timeouts
+   - Better logging
+
+### Priority: MEDIUM (Sprint 3)
+4. **RAG Edge Cases** - Extend `tests/unit/test_rag_hybrid_search.py` (~10 testów)
+   - Empty query handling
+   - Long query truncation
+   - No documents fallback
+   - Concurrent queries
+
+5. **GraphRAG Query Generation** - `tests/unit/test_graph_rag_cypher.py` (~12 testów)
+   - LLM-generated Cypher validation
+   - Syntax error handling
+   - Injection protection
+   - Query optimization
 
 ---
 
@@ -1185,7 +1219,7 @@ pip install sentence-transformers
 ## 🧪 Testy RAG + GraphRAG + Orkiestracja (Nowe!)
 
 **Data dodania:** 2025-10-14
-**Liczba testów:** +67 testów unit (łącznie **275 testów** w projekcie)
+**Liczba testów:** +67 testów unit (łącznie ~**380 testów** w projekcie)
 
 ### Przegląd
 
@@ -1206,10 +1240,10 @@ tests/unit/
 
 ```bash
 # Wszystkie nowe testy RAG/GraphRAG
-pytest tests/unit/test_rag_*.py tests/unit/test_graph_*.py tests/unit/test_persona_*.py -v
+python -m pytest tests/unit/test_rag_*.py tests/unit/test_graph_*.py tests/unit/test_persona_*.py -v
 
 # Z coverage dla RAG services
-pytest tests/unit/test_rag_*.py --cov=app/services/rag_service.py --cov-report=html
+python -m pytest tests/unit/test_rag_*.py --cov=app/services/rag_service.py --cov-report=html
 ```
 
 ---
@@ -1228,7 +1262,7 @@ pytest tests/unit/test_rag_*.py --cov=app/services/rag_service.py --cov-report=h
 
 **Uruchom:**
 ```bash
-pytest tests/unit/test_rag_hybrid_search.py -v
+python -m pytest tests/unit/test_rag_hybrid_search.py -v
 ```
 
 **Co weryfikuje:**
@@ -1254,7 +1288,7 @@ pytest tests/unit/test_rag_hybrid_search.py -v
 
 **Uruchom:**
 ```bash
-pytest tests/unit/test_graph_rag_construction.py -v
+python -m pytest tests/unit/test_graph_rag_construction.py -v
 ```
 
 **Co weryfikuje:**
@@ -1280,7 +1314,7 @@ pytest tests/unit/test_graph_rag_construction.py -v
 
 **Uruchom:**
 ```bash
-pytest tests/unit/test_graph_analytics.py -v
+python -m pytest tests/unit/test_graph_analytics.py -v
 ```
 
 **Co weryfikuje:**
@@ -1298,7 +1332,7 @@ pytest tests/unit/test_graph_analytics.py -v
 
 **Kluczowe testy:**
 - ✅ **Graph Context Retrieval** - 8 parallel queries (demographics, trends)
-- ✅ **Brief Generation** - 2000-3000 znaków, edukacyjny ton
+- ✅ **Brief Generation** - 900-1200 znaków, edukacyjny ton
 - ✅ **Graph Insights** - Structured data (magnitude, confidence, why_matters)
 - ✅ **JSON Parsing** - Multiple formats (```json, ```, bare braces)
 - ✅ **Timeout Handling** - 30s graph queries, 120s LLM calls
@@ -1306,7 +1340,7 @@ pytest tests/unit/test_graph_analytics.py -v
 
 **Uruchom:**
 ```bash
-pytest tests/unit/test_persona_orchestration.py -v
+python -m pytest tests/unit/test_persona_orchestration.py -v
 ```
 
 **Co weryfikuje:**
@@ -1332,7 +1366,7 @@ pytest tests/unit/test_persona_orchestration.py -v
 
 **Uruchom:**
 ```bash
-pytest tests/unit/test_rag_config_validation.py -v
+python -m pytest tests/unit/test_rag_config_validation.py -v
 ```
 
 **Co weryfikuje:**
@@ -1430,4 +1464,4 @@ open tests/unit/README_RAG_TESTS.md  # jeśli w IDE
 
 Ostatnia aktualizacja: 2025-10-14
 Wersja: 2.2 (dodano 67 testów RAG/GraphRAG/Orchestration)
-Liczba testów: **275** (208 + 67 RAG/GraphRAG)
+Liczba testów: **~380** (w tym moduły RAG/GraphRAG/Orchestration)

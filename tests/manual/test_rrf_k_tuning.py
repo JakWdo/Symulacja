@@ -23,13 +23,17 @@ Wymaga:
 
 import asyncio
 import time
-from typing import List, Dict, Any, Tuple
 from dataclasses import dataclass
+from typing import Any, Dict, List, Tuple
+
+import pytest
 
 from langchain_core.documents import Document
 
-from app.services.rag_service import PolishSocietyRAG
+from app.services.rag_hybrid_search_service import PolishSocietyRAG
 from app.core.config import get_settings
+
+pytestmark = pytest.mark.manual
 
 settings = get_settings()
 

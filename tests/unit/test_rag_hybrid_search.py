@@ -491,16 +491,16 @@ class TestHybridSearchIntegration:
         """
         rag = await polish_society_rag_with_mocks
 
-        # Mock RAGDocumentService dla graph context
-        mock_rag_doc_service = MagicMock()
-        mock_rag_doc_service.get_demographic_graph_context = MagicMock(return_value=[
+        # Mock GraphRAGService dla graph context
+        mock_graph_rag_service = MagicMock()
+        mock_graph_rag_service.get_demographic_graph_context = MagicMock(return_value=[
             {
                 "type": "Wskaznik",
                 "streszczenie": "Zatrudnienie 78.4%",
                 "skala": "78.4%"
             }
         ])
-        rag._rag_doc_service = mock_rag_doc_service
+        rag._graph_rag_service = mock_graph_rag_service
 
         # Execute full pipeline
         result = await rag.get_demographic_insights(
@@ -535,9 +535,9 @@ class TestHybridSearchIntegration:
         rag = await polish_society_rag_with_mocks
 
         # Mock empty graph context
-        mock_rag_doc_service = MagicMock()
-        mock_rag_doc_service.get_demographic_graph_context = MagicMock(return_value=[])
-        rag._rag_doc_service = mock_rag_doc_service
+        mock_graph_rag_service = MagicMock()
+        mock_graph_rag_service.get_demographic_graph_context = MagicMock(return_value=[])
+        rag._graph_rag_service = mock_graph_rag_service
 
         # Execute
         result = await rag.get_demographic_insights(

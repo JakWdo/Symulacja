@@ -46,7 +46,7 @@ settings = get_settings()
 # Import RAG service (opcjonalny - tylko jeśli RAG włączony)
 try:
     if settings.RAG_ENABLED:
-        from app.services.rag_service import PolishSocietyRAG
+        from app.services.rag_hybrid_search_service import PolishSocietyRAG
         _rag_service_available = True
     else:
         _rag_service_available = False
@@ -143,19 +143,19 @@ class PersonaGeneratorLangChain:
         profiles = []
 
         for _ in range(n_samples):
-            # Normalizuj każdy rozkład lub użyj wartości domyślnych
+            # Normalizuj każdy rozkład lub użyj wartości domyślnych (polskich)
             age_groups = self._prepare_distribution(
                 distribution.age_groups, DEFAULT_AGE_GROUPS
             )
             genders = self._prepare_distribution(distribution.genders, DEFAULT_GENDERS)
             education_levels = self._prepare_distribution(
-                distribution.education_levels, DEFAULT_EDUCATION_LEVELS
+                distribution.education_levels, POLISH_EDUCATION_LEVELS
             )
             income_brackets = self._prepare_distribution(
-                distribution.income_brackets, DEFAULT_INCOME_BRACKETS
+                distribution.income_brackets, POLISH_INCOME_BRACKETS
             )
             locations = self._prepare_distribution(
-                distribution.locations, DEFAULT_LOCATIONS
+                distribution.locations, POLISH_LOCATIONS
             )
 
             # Losuj wartość z każdej kategorii zgodnie z wagami
@@ -198,9 +198,6 @@ class PersonaGeneratorLangChain:
         Sprawdza czy rozkład jest poprawny, normalizuje go do sumy 1.0,
         lub zwraca fallback jeśli rozkład jest niepoprawny.
 
-        Dodatkowo: jeśli fallback to DEFAULT_LOCATIONS, DEFAULT_INCOME_BRACKETS
-        lub DEFAULT_EDUCATION_LEVELS, zamienia na polskie odpowiedniki.
-
         Args:
             distribution: Rozkład do znormalizowania
             fallback: Rozkład domyślny używany gdy distribution jest pusty/błędny
@@ -209,23 +206,9 @@ class PersonaGeneratorLangChain:
             Znormalizowany rozkład (suma = 1.0) lub fallback
         """
         if not distribution:
-            # Użyj polskich wartości domyślnych jeśli fallback jest anglojęzyczny
-            if fallback is DEFAULT_LOCATIONS:
-                fallback = POLISH_LOCATIONS
-            elif fallback is DEFAULT_INCOME_BRACKETS:
-                fallback = POLISH_INCOME_BRACKETS
-            elif fallback is DEFAULT_EDUCATION_LEVELS:
-                fallback = POLISH_EDUCATION_LEVELS
             return fallback
         total = sum(distribution.values())
         if total <= 0:
-            # Użyj polskich wartości domyślnych jeśli fallback jest anglojęzyczny
-            if fallback is DEFAULT_LOCATIONS:
-                fallback = POLISH_LOCATIONS
-            elif fallback is DEFAULT_INCOME_BRACKETS:
-                fallback = POLISH_INCOME_BRACKETS
-            elif fallback is DEFAULT_EDUCATION_LEVELS:
-                fallback = POLISH_EDUCATION_LEVELS
             return fallback
         # Pierwsza normalizacja - dziel przez sumę
         normalized = {key: value / total for key, value in distribution.items()}
@@ -392,14 +375,19 @@ class PersonaGeneratorLangChain:
                 rag_context_details = {
                     "search_type": rag_data.get('search_type', 'unknown'),
                     "num_results": rag_data.get('num_results', 0),
-                    "graph_nodes_count": len(rag_data.get('graph_nodes', [])),
+                    "graph_nodes_count": rag_data.get('graph_nodes_count', len(rag_data.get('graph_nodes', []))),
                     "graph_nodes": rag_data.get('graph_nodes', []),
                     "graph_context": rag_data.get('graph_context', ''),
-                    "enriched_chunks": sum(
-                        1 for c in rag_data.get('citations', [])
-                        if c.get('enriched', False)
-                    )
+                    "enriched_chunks": rag_data.get('enriched_chunks_count', 0),
                 }
+
+                if rag_data.get('query'):
+                    rag_context_details["query"] = rag_data.get('query')
+                if rag_context:
+                    rag_context_details["context_preview"] = rag_context[:1500]
+                    rag_context_details["context_length"] = len(rag_context)
+                if rag_citations is not None:
+                    rag_context_details["citations_count"] = len(rag_citations or [])
 
                 logger.info(
                     f"Using RAG context: {len(rag_context or '')} chars, "
@@ -483,7 +471,7 @@ class PersonaGeneratorLangChain:
         - 3 przykłady few-shot z polskimi personami
         - Opcjonalny kontekst RAG z bazy wiedzy o polskim społeczeństwie
         - Opcjonalny dodatkowy opis grupy docelowej od użytkownika
-        - Opcjonalny orchestration brief (2000-3000 znaków) od Gemini 2.5 Pro
+        - Opcjonalny orchestration brief (900-1200 znaków) od Gemini 2.5 Pro
         - Instrukcje jak stworzyć unikalną polską personę
 
         Args:
@@ -508,212 +496,82 @@ class PersonaGeneratorLangChain:
             suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
         suggested_surname = self._rng.choice(POLISH_SURNAMES)
 
-        # Wskazówki do interpretacji cech osobowości (PO POLSKU)
+        # Pobierz wartości Big Five (interpretację robi LLM)
         openness_val = psychological.get('openness', 0.5)
         conscientiousness_val = psychological.get('conscientiousness', 0.5)
         extraversion_val = psychological.get('extraversion', 0.5)
         agreeableness_val = psychological.get('agreeableness', 0.5)
         neuroticism_val = psychological.get('neuroticism', 0.5)
 
-        openness_hint = "kreatywna, ciekawa świata, otwarta na nowe doświadczenia" if openness_val > 0.6 else "praktyczna, tradycyjna, preferuje rutynę" if openness_val < 0.4 else "umiarkowanie otwarta"
-        conscientiousness_hint = "zorganizowana, zdyscyplinowana, skrupulatna" if conscientiousness_val > 0.6 else "spontaniczna, elastyczna, mniej uporządkowana" if conscientiousness_val < 0.4 else "zbalansowana w planowaniu"
-        extraversion_hint = "towarzyska, energiczna, lubi ludzi" if extraversion_val > 0.6 else "powściągliwa, introwertyczna, preferuje samotność" if extraversion_val < 0.4 else "ambiwertysta"
-        agreeableness_hint = "współpracująca, empatyczna, życzliwa" if agreeableness_val > 0.6 else "konkurencyjna, bezpośrednia, sceptyczna" if agreeableness_val < 0.4 else "zbalansowane podejście społeczne"
-        neuroticism_hint = "nerwowa, wrażliwa, podatna na stres" if neuroticism_val > 0.6 else "spokojna, odporna, stabilna emocjonalnie" if neuroticism_val < 0.4 else "umiarkowanie emocjonalna"
+        # Unified context section (merge RAG + Target Audience + Orchestration Brief)
+        unified_context = ""
+        if rag_context or target_audience_description or orchestration_brief:
+            context_parts = []
 
-        # Sekcja RAG context (jeśli dostępna)
-        rag_section = ""
-        if rag_context:
-            rag_section = f"""
-═══════════════════════════════════════════════════════════════════════════════
-KONTEKST Z BAZY WIEDZY O POLSKIM SPOŁECZEŃSTWIE:
-═══════════════════════════════════════════════════════════════════════════════
+            if rag_context:
+                context_parts.append(f"📊 KONTEKST RAG:\n{rag_context}")
+            if orchestration_brief and orchestration_brief.strip():
+                context_parts.append(f"📋 ORCHESTRATION BRIEF:\n{orchestration_brief.strip()}")
+            if target_audience_description and target_audience_description.strip():
+                context_parts.append(f"🎯 GRUPA DOCELOWA:\n{target_audience_description.strip()}")
 
-{rag_context}
+            unified_context = f"""
+═══════════════════════════════════════════
+KONTEKST (RAG + Brief + Audience):
+═══════════════════════════════════════════
 
-⚠️ KRYTYCZNE INSTRUKCJE WYKORZYSTANIA KONTEKSTU:
+{chr(10).join(context_parts)}
 
-1. **NATURALNOŚĆ**: NIE cytuj statystyk bezpośrednio w opisach
-   - ❌ ZŁE: "Należy do 67% absolwentów..."
-   - ✅ DOBRE: "Jak wielu jej rówieśników z wyższym wykształceniem, zmaga się z..."
-   - Użyj wskaźników jako TŁEM dla życia persony, nie jako faktów do cytowania
+⚠️ KLUCZOWE ZASADY:
+• Użyj kontekstu jako TŁA życia persony (nie cytuj statystyk!)
+• Stwórz FASCYNUJĄCĄ historię - kontekst to fundament, nie lista faktów
+• Wskaźniki → konkretne detale życia (housing crisis → wynajmuje, oszczędza)
+• Trendy → doświadczenia życiowe (mobilność → zmiana 3 prac w 5 lat)
+• Naturalność: "Jak wielu rówieśników..." zamiast "67% absolwentów..."
 
-2. **CIEKAWOŚĆ**: Twórz FASCYNUJĄCE historie życia
-   - Wykorzystaj obserwacje demograficzne jako INSPIRACJĘ do szczegółów
-   - Przykład: Jeśli kontekst mówi o "wysokiej mobilności zawodowej"
-     → Persona może mieć historię zmiany 3 prac w ciągu 5 lat z konkretnymi powodami
-
-3. **KONTEKST CZASOWY**: Osadź personę w trendach bez nazywania ich
-   - ❌ ZŁE: "Obserwuje trend wzrostu cen mieszkań w latach 2018-2023"
-   - ✅ DOBRE: "Odkąd 5 lat temu przeprowadziła się do Warszawy, ceny mieszkań podwoiły się"
-
-4. **AUTENTYCZNOŚĆ**: Persona ma WŁASNE doświadczenia odzwierciedlające dane
-   - Jeśli wskaźniki pokazują problem (np. trudności finansowe młodych)
-   - Persona ma KONKRETNE przykłady tego w życiu (mieszka z rodzicami, spłaca kredyt)
-
-5. **SPÓJNOŚĆ Z DANYMI**: Wszystkie szczegóły PASUJĄ do kontekstu
-   - Dochody, wartości, zainteresowania, concerns MUSZĄ być zgodne z danymi demograficznymi
-   - Ale przedstawione jako CZĘŚĆ ŻYCIA persony, nie jako cytaty ze statystyk
-
-💡 PAMIĘTAJ: Czytelnicy chcą poznać PRAWDZIWĄ OSOBĘ, nie raport statystyczny.
-Użyj danych jako fundamentu, ale zbuduj na nich ŻYWĄ, INTERESUJĄCĄ postać.
-
-═══════════════════════════════════════════════════════════════════════════════
+═══════════════════════════════════════════
 
 """
 
-        # Sekcja dodatkowego opisu grupy docelowej (jeśli dostępny)
-        target_audience_section = ""
-        if target_audience_description and target_audience_description.strip():
-            target_audience_section = f"""
-═══════════════════════════════════════════════════════════════════════════════
-DODATKOWY OPIS GRUPY DOCELOWEJ:
-═══════════════════════════════════════════════════════════════════════════════
+        return f"""Expert: Syntetyczne persony dla polskiego rynku - UNIKALNE, REALISTYCZNE, SPÓJNE.
 
-{target_audience_description.strip()}
+{unified_context}PERSONA #{persona_seed}: {suggested_first_name} {suggested_surname}
 
-⚠️ WAŻNE: Ta persona MUSI odpowiadać powyższemu opisowi grupy docelowej.
-Upewnij się, że cechy, zainteresowania, wartości i styl życia persony są
-zgodne z tym opisem.
+PROFIL:
+• Wiek: {demographic.get('age_group')} | Płeć: {demographic.get('gender')} | Lokalizacja: {demographic.get('location')}
+• Wykształcenie: {demographic.get('education_level')} | Dochód: {demographic.get('income_bracket')}
 
-═══════════════════════════════════════════════════════════════════════════════
+OSOBOWOŚĆ (Big Five - wartości 0-1):
+• Otwartość (Openness): {openness_val:.2f}
+• Sumienność (Conscientiousness): {conscientiousness_val:.2f}
+• Ekstrawersja (Extraversion): {extraversion_val:.2f}
+• Ugodowość (Agreeableness): {agreeableness_val:.2f}
+• Neurotyzm (Neuroticism): {neuroticism_val:.2f}
 
-"""
+Interpretacja Big Five: <0.4 = niskie, 0.4-0.6 = średnie, >0.6 = wysokie.
+Wykorzystaj te wartości do stworzenia spójnej osobowości i historii życiowej.
 
-        # Sekcja orchestration brief (jeśli dostępny) - DŁUGI edukacyjny brief od Gemini 2.5 Pro
-        orchestration_section = ""
-        if orchestration_brief and orchestration_brief.strip():
-            orchestration_section = f"""
-═══════════════════════════════════════════════════════════════════════════════
-📋 ORCHESTRATION BRIEF (od Gemini 2.5 Pro - Szczegółowy Kontekst Społeczny)
-═══════════════════════════════════════════════════════════════════════════════
+HOFSTEDE (wartości 0-1): PD={psychological.get('power_distance', 0.5):.2f} | IND={psychological.get('individualism', 0.5):.2f} | UA={psychological.get('uncertainty_avoidance', 0.5):.2f}
 
-{orchestration_brief.strip()}
+ZASADY:
+• Zawód = wykształcenie + dochód
+• Osobowość → historia (O→podróże, S→planowanie)
+• Detale: dzielnice, marki, konkretne hobby
 
-⚠️ KRYTYCZNE INSTRUKCJE WYKORZYSTANIA BRIEFU:
+PRZYKŁAD:
+{{"full_name": "Marek Kowalczyk", "persona_title": "Główny Księgowy", "headline": "Poznański księgowy (56) planujący emeryturę", "background_story": "28 lat w firmie, żonaty, dwoje dorosłych dzieci, kupił działkę pod Poznaniem, skarbnik parafii", "values": ["Stabilność", "Lojalność", "Rodzina", "Odpowiedzialność"], "interests": ["Wędkarstwo", "Majsterkowanie", "Grillowanie"], "communication_style": "formalny, face-to-face", "decision_making_style": "metodyczny, unika ryzyka", "typical_concerns": ["Emerytura", "Sukcesja", "Zdrowie"]}}
 
-1. **TO JEST TWÓJ FUNDAMENT**: Ten brief zawiera głęboką socjologiczną analizę
-   grupy demograficznej do której należy ta persona. Przeczytaj go UWAŻNIE.
-
-2. **NATURALNOŚĆ W OPISIE**: NIE cytuj briefu dosłownie w background_story!
-   - ❌ ZŁE: "Według briefu, ta grupa stanowi 17.3% populacji..."
-   - ✅ DOBRE: "Jak wielu jej rówieśników w Warszawie, zmaga się z wysokimi cenami mieszkań..."
-
-3. **UŻYJ JAKO TŁA**: Brief wyjaśnia DLACZEGO ta persona jest taka jaka jest.
-   - Wskaźniki z briefu (78.4% zatrudnienia, 63% mobilność) = kontekst życia persony
-   - Wartości opisane w briefie (work-life balance, rozwój) = wartości persony
-   - Wyzwania z briefu (housing crisis, burnout) = konkretne problemy w życiu persony
-
-4. **CIEKAWA HISTORIA ŻYCIA**: Użyj insights z briefu aby stworzyć FASCYNUJĄCĄ personę
-   - Brief mówi o "mobilności zawodowej" → Persona może mieć historię zmiany 3 prac
-   - Brief mówi o "cenach mieszkań" → Persona wynajmuje, oszczędza, ma konkretne plany
-   - Brief mówi o "work-life balance" → Persona ma hobby, boundaries, mindfulness
-
-5. **SPÓJNOŚĆ Z BRIEFEM**: Każdy szczegół życia persony MUSI pasować do briefu
-   - Dochody, zawód, lokalizacja, wartości, zainteresowania = zgodne z kontekstem
-   - Ale przedstawione jako ŻYCIE PERSONY, nie jako statystyki
-
-💡 PAMIĘTAJ: Brief to mapa społeczna. Ty tworzysz KONKRETNĄ OSOBĘ która żyje w tym społeczeństwie.
-Czytelnicy chcą poznać FASCYNUJĄCĄ POSTAĆ, która jest autentyczna bo odzwierciedla realne
-trendy społeczne.
-
-═══════════════════════════════════════════════════════════════════════════════
-
-"""
-
-        return f"""Jesteś ekspertem od badań rynkowych tworzącym syntetyczne persony dla polskiego rynku. Twoje persony muszą być UNIKALNE, REALISTYCZNE i WEWNĘTRZNIE SPÓJNE, odzwierciedlające POLSKIE SPOŁECZEŃSTWO.
-
-{orchestration_section}{rag_section}{target_audience_section}
-PERSONA #{persona_seed}
-SUGEROWANE IMIĘ I NAZWISKO: {suggested_first_name} {suggested_surname} (możesz użyć lub wybrać inne polskie)
-
-PROFIL DEMOGRAFICZNY:
-- Grupa wiekowa: {demographic.get('age_group')}
-- Płeć: {demographic.get('gender')}
-- Wykształcenie: {demographic.get('education_level')}
-- Przedział dochodowy: {demographic.get('income_bracket')}
-- Lokalizacja: {demographic.get('location')}
-
-CECHY OSOBOWOŚCI (Big Five):
-- Otwartość: {openness_val:.2f} → {openness_hint}
-- Sumienność: {conscientiousness_val:.2f} → {conscientiousness_hint}
-- Ekstrawersja: {extraversion_val:.2f} → {extraversion_hint}
-- Ugodowość: {agreeableness_val:.2f} → {agreeableness_hint}
-- Neurotyzm: {neuroticism_val:.2f} → {neuroticism_hint}
-
-WYMIARY KULTUROWE (Hofstede):
-- Dystans władzy: {psychological.get('power_distance', 0.5):.2f}
-- Indywidualizm: {psychological.get('individualism', 0.5):.2f}
-- Unikanie niepewności: {psychological.get('uncertainty_avoidance', 0.5):.2f}
-
-KRYTYCZNE INSTRUKCJE DLA POLSKIEJ PERSONY:
-1. Persona MUSI być UNIKALNA - unikaj ogólnych opisów
-2. Imię i nazwisko MUSI być POLSKIE (Jan Kowalski, Anna Nowak, Piotr Zieliński, Maria Wiśniewska)
-3. Lokalizacja MUSI być polska (Warszawa, Kraków, Wrocław, Gdańsk, inne polskie miasta)
-4. Wiek ma znaczenie: 25-latek i 65-latek mają BARDZO różne konteksty życiowe
-5. Zawód zgodny z wykształceniem i poziomem dochodów (typowe polskie zawody)
-6. Historia życiowa zgodna z cechami osobowości:
-   - Wysoka Otwartość → podróże, kreatywne hobby, różnorodne doświadczenia
-   - Wysoka Sumienność → uporządkowana ścieżka kariery, planowanie
-   - Wysoka Ekstrawersja → aktywności społeczne, networking
-   - Niska Ugodowość → zawody konkurencyjne, niezależna praca
-   - Wysoki Indywidualizm → przedsiębiorczość, samodzielność
-7. Bądź KONKRETNY: nazwij dzielnice miast, konkretne polskie marki, prawdziwe hobby
-
-PRZYKŁADY FEW-SHOT (POLSKIE PERSONY):
-
-Przykład 1 (Wysoka otwartość, kreatywny zawód w średniej karierze):
+Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
 {{
-  "full_name": "Katarzyna Lewandowska",
-  "persona_title": "Freelance UX Designer",
-  "headline": "Krakowska designerka eksperymentująca z dostępnością cyfrową i zero waste.",
-  "background_story": "Kasia ma 32 lata i mieszka w Krakowie na Kazimierzu. Po ASP i 5 latach w agencji przeszła na freelancing 3 lata temu. Obecnie projektuje interfejsy dla polskich startupów i zagranicznych klientów, uczy się Swift, a weekendy spędza na wspinaczce w Tatrach. Singielka ciesząca się wolnością wyboru projektów od sustainable fashion po edtech.",
-  "values": ["Kreatywność", "Niezależność", "Ciągły rozwój", "Autentyczność", "Ekologia", "Równowaga praca-życie"],
-  "interests": ["Wspinaczka górska", "Design dostępny (a11y)", "Festiwale muzyczne (Opener, OFF)", "Kawiarnie specialty coffee", "Zero waste", "Sketching w plenerze"],
-  "communication_style": "entuzjastyczna i wizualna, używa metafor i przykładów z różnych dziedzin, preferuje Slack i Figma",
-  "decision_making_style": "intuicyjna z research; testuje pomysły szybko przez prototypy i MVP",
-  "typical_concerns": ["Utrzymanie wolności twórczej przy stabilności finansowej", "Znalezienie sensownych projektów", "Balansowanie samotnej pracy z potrzebą kontaktu społecznego", "Brak pewności socjalnej (ZUS, urlop)"]
-}}
-
-Przykład 2 (Niska otwartość, wysoka sumienność, zbliżający się do emerytury):
-{{
-  "full_name": "Marek Kowalczyk",
-  "persona_title": "Doświadczony Główny Księgowy",
-  "headline": "Poznański księgowy skrupulatnie planujący emeryturę i mentorujący młodsze pokolenie.",
-  "background_story": "Marek ma 56 lat i pracuje w tej samej firmie produkcyjnej od 28 lat. Żonaty, dwoje dorosłych dzieci (syn lekarz, córka nauczycielka). Kupił niedawno działkę pod Poznaniem i planuje emeryturę za 6 lat. Jest skarbnikiem parafii, dumny ze swojej przewidywalnej rutyny i relacji z klientami budowanych przez dekady.",
-  "values": ["Stabilność", "Lojalność", "Rodzina", "Odpowiedzialność", "Tradycja", "Uczciwość"],
-  "interests": ["Wędkarstwo nad Wartą", "Majsterkowanie i renowacja domu", "Podcasty o finansach osobistych", "Grillowanie", "Działalność parafialna", "Chór kościelny"],
-  "communication_style": "formalny i profesjonalny, preferuje spotkania twarzą w twarz, używa sprawdzonych schematów",
-  "decision_making_style": "metodyczny i unikający ryzyka, opiera się na sprawdzonych metodach i dokładnym planowaniu",
-  "typical_concerns": ["Zapewnienie wystarczającej emerytury", "Utrzymanie relacji z klientami przez sukcesję", "Zdrowie i opieka medyczna na emeryturze", "Planowanie spadku dla dzieci"]
-}}
-
-Przykład 3 (Wysoka ekstrawersja, wysoki neurotyzm, świeży absolwent):
-{{
-  "full_name": "Julia Nowicka",
-  "persona_title": "Social Media Manager & Content Creator",
-  "headline": "Warszawska marketerka Z-ki walcząca z niepewnością kariery w creator economy.",
-  "background_story": "Julia ma 25 lat i niedawno skończyła marketing na SGH. Mieszka z trzema współlokatorkami na Mokotowie, pracuje jako social media manager w agencji beauty. Balansuje między lękiem o stabilność pracy a ekscytacją gospodarką twórców. Stale networkuje na eventach branżowych budując markę osobistą jako Gen-Z marketing consultant. Rodzice z Radomia nie do końca rozumieją jej wybór kariery.",
-  "values": ["Relacje", "Rozpoznawalność", "Autentyczność", "Innowacja", "Rodzina", "Sukces zawodowy"],
-  "interests": ["Tworzenie contentu TikTok/Instagram", "Eventy networkingowe", "Kultura brunchowa", "Secondhandy (Vinted, lumpeksy)", "Słuchanie podcastów", "Mental health awareness", "K-pop"],
-  "communication_style": "energiczna i świadoma trendów, używa slangu social media, bardzo ekspresywna z emoji",
-  "decision_making_style": "impulsywna ale kolaboratywna, szuka walidacji od rówieśników przed zobowiązaniem",
-  "typical_concerns": ["Pewność pracy w niestabilnej branży", "Kredyt studencki do spłaty", "Lęk porównawczy z social media", "Udowodnienie wyboru kariery rodzicom", "Budowanie zrównoważonego dochodu", "Wysokie ceny wynajmu w Warszawie"]
-}}
-
-Teraz wygeneruj KOMPLETNIE INNĄ personę zachowując ten sam poziom szczegółowości i spójności z podanym profilem demograficznym i psychologicznym.
-
-Generuj WYŁĄCZNIE JSON (bez markdown, bez dodatkowego tekstu):
-{{
-  "full_name": "<realistyczne polskie imię i nazwisko pasujące do lokalizacji>",
-  "persona_title": "<zwięzły tytuł zawodowy lub etapu życia>",
-  "headline": "<jedno zdanie podsumowujące spójne z wiekiem, zawodem i motywacjami>",
-  "background_story": "<2-3 konkretne zdania o ich obecnym życiu, ścieżce kariery i unikalnym kontekście>",
-  "values": ["<5-7 konkretnych wartości które kierują ich decyzjami>"],
-  "interests": ["<5-7 konkretnych hobby/aktywności które faktycznie uprawiają>"],
-  "communication_style": "<jak się wyrażają i komunikują>",
-  "decision_making_style": "<jak podchodzą do ważnych wyborów>",
-  "typical_concerns": ["<3-5 konkretnych zmartwień lub priorytetów na obecnym etapie życia>"]
+  "full_name": "<polskie imię+nazwisko>",
+  "persona_title": "<zawód/etap życia>",
+  "headline": "<1 zdanie: wiek, zawód, motywacje>",
+  "background_story": "<2-3 zdania: życie, kariera, kontekst>",
+  "values": ["<5-7 wartości>"],
+  "interests": ["<5-7 hobby/aktywności>"],
+  "communication_style": "<jak się komunikuje>",
+  "decision_making_style": "<jak podejmuje decyzje>",
+  "typical_concerns": ["<3-5 zmartwień/priorytetów>"]
 }}"""
 
     def validate_distribution(
@@ -864,3 +722,174 @@ Generuj WYŁĄCZNIE JSON (bez markdown, bez dodatkowego tekstu):
             "expected": expected_counts,
             "sample_size": valid_samples,
         }
+
+    # === SEGMENT-BASED ARCHITECTURE: ENFORCE DEMOGRAPHICS ===
+
+    async def generate_persona_from_segment(
+        self,
+        segment_id: str,
+        segment_name: str,
+        segment_context: str,
+        demographics_constraints: Dict[str, Any],  # Will be DemographicConstraints from SegmentDefinition
+        graph_insights: List[Any] = None,
+        rag_citations: List[Any] = None,
+        personality_skew: Optional[Dict[str, float]] = None
+    ) -> Tuple[str, Dict[str, Any]]:
+        """
+        Generuj personę Z WYMUSZENIEM demographics z segmentu.
+
+        KLUCZOWA RÓŻNICA vs generate_persona_personality():
+        - Demographics są ENFORCE (nie losowane poza bounds!)
+        - Age = random.randint(age_min, age_max)
+        - Gender = demographics_constraints.gender (NO randomization!)
+        - Education/Income = random.choice z allowed lists
+
+        Args:
+            segment_id: ID segmentu
+            segment_name: Nazwa segmentu (np. "Młodzi Prekariusze")
+            segment_context: Kontekst społeczny segmentu
+            demographics_constraints: Dict z keys: age_min, age_max, gender, education_levels, income_brackets, locations
+            graph_insights: Insights filtrowane dla segmentu
+            rag_citations: High-quality RAG citations
+            personality_skew: Opcjonalne przesunięcie Big Five
+
+        Returns:
+            Tuple (prompt_text, response_dict)
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # ENFORCE DEMOGRAPHICS
+        age_min = demographics_constraints.get('age_min', 25)
+        age_max = demographics_constraints.get('age_max', 34)
+        age = self._rng.integers(age_min, age_max + 1)
+
+        gender = demographics_constraints.get('gender', 'kobieta')
+        education_levels = demographics_constraints.get('education_levels', ['wyższe'])
+        income_brackets = demographics_constraints.get('income_brackets', ['3000-5000 PLN'])
+        locations = demographics_constraints.get('locations') or ['Warszawa']
+
+        education = self._rng.choice(education_levels)
+        income = self._rng.choice(income_brackets)
+        location = self._rng.choice(locations)
+
+        demographic_profile = {
+            "age": age,
+            "age_group": f"{age_min}-{age_max}",
+            "gender": gender,
+            "education_level": education,
+            "income_bracket": income,
+            "location": location
+        }
+
+        logger.info(
+            f"🔒 ENFORCED demographics: age={age}, gender={gender}, "
+            f"education={education}, income={income}, segment='{segment_name}'"
+        )
+
+        # Sample psychological profile
+        psychological_profile = {
+            **self.sample_big_five_traits(personality_skew),
+            **self.sample_cultural_dimensions()
+        }
+
+        # Create prompt with segment context
+        prompt_text = self._create_segment_persona_prompt(
+            demographic_profile,
+            psychological_profile,
+            segment_name,
+            segment_context,
+            graph_insights,
+            rag_citations
+        )
+
+        try:
+            response = await self.persona_chain.ainvoke({"prompt": prompt_text})
+
+            # ENFORCE demographic fields (override LLM if needed)
+            response['age'] = age
+            response['gender'] = gender
+            response['education_level'] = education
+            response['income_bracket'] = income
+            response['location'] = location
+
+            # Add segment tracking
+            response['_segment_id'] = segment_id
+            response['_segment_name'] = segment_name
+
+            if rag_citations:
+                response['_rag_citations'] = rag_citations
+
+            logger.info(f"✅ Persona generated: {response.get('full_name')} (segment='{segment_name}')")
+            return prompt_text, response
+
+        except Exception as e:
+            logger.error(f"❌ Failed to generate persona from segment: {e}", exc_info=True)
+            raise ValueError(f"Failed to generate persona from segment '{segment_name}': {e}")
+
+    def _create_segment_persona_prompt(
+        self,
+        demographic: Dict[str, Any],
+        psychological: Dict[str, Any],
+        segment_name: str,
+        segment_context: str,
+        graph_insights: List[Any],
+        rag_citations: List[Any]
+    ) -> str:
+        """Create prompt for segment-based persona generation."""
+
+        # Suggest Polish name
+        gender_lower = demographic.get('gender', 'kobieta').lower()
+        if 'female' in gender_lower or 'kobieta' in gender_lower:
+            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
+        else:
+            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
+        suggested_surname = self._rng.choice(POLISH_SURNAMES)
+
+        age = demographic.get('age', 30)
+
+        # Format insights
+        insights_text = ""
+        if graph_insights:
+            insights_text = "\n".join([
+                f"- {ins.get('summary', ins.get('streszczenie', 'N/A'))}"
+                for ins in graph_insights[:5]
+            ])
+
+        return f"""Wygeneruj realistyczną personę dla segmentu "{segment_name}".
+
+CONSTRAINTS (MUSISZ PRZESTRZEGAĆ!):
+• Wiek: {age} lat
+• Płeć: {demographic.get('gender')}
+• Wykształcenie: {demographic.get('education_level')}
+• Dochód: {demographic.get('income_bracket')}
+• Lokalizacja: {demographic.get('location')}
+
+KONTEKST SEGMENTU:
+{segment_context}
+
+INSIGHTS:
+{insights_text or "Brak insights"}
+
+OSOBOWOŚĆ (Big Five):
+• Otwartość: {psychological.get('openness', 0.5):.2f}
+• Sumienność: {psychological.get('conscientiousness', 0.5):.2f}
+• Ekstrawersja: {psychological.get('extraversion', 0.5):.2f}
+
+ZASADY:
+• Persona MUSI pasować do constraints
+• Zawód = wykształcenie + dochód
+• Używaj kontekstu jako tła (nie cytuj statystyk!)
+
+ZWRÓĆ JSON:
+{{
+  "full_name": "{suggested_first_name} {suggested_surname}",
+  "persona_title": "<zawód>",
+  "headline": "<{age} lat, zawód, motywacje>",
+  "background_story": "<2-3 zdania>",
+  "values": ["<5-7 wartości>"],
+  "interests": ["<5-7 hobby>"],
+  "communication_style": "<styl>",
+  "decision_making_style": "<styl>",
+  "typical_concerns": ["<3-5 zmartwień>"]
+}}"""

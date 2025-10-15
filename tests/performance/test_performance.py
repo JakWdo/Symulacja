@@ -17,6 +17,8 @@ import asyncio
 
 
 @pytest.mark.slow
+@pytest.mark.performance
+@pytest.mark.external
 @pytest.mark.asyncio
 async def test_persona_generation_performance_20_personas(db_session):
     """
@@ -100,6 +102,8 @@ async def test_persona_generation_performance_20_personas(db_session):
 
 
 @pytest.mark.slow
+@pytest.mark.performance
+@pytest.mark.external
 @pytest.mark.asyncio
 async def test_focus_group_execution_performance_20x4(project_with_personas):
     """
@@ -195,6 +199,8 @@ async def test_focus_group_execution_performance_20x4(project_with_personas):
 
 
 @pytest.mark.slow
+@pytest.mark.performance
+@pytest.mark.external
 @pytest.mark.asyncio
 async def test_avg_response_time_per_persona(completed_focus_group):
     """
