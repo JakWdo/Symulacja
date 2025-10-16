@@ -111,23 +111,25 @@ def init_neo4j_indexes():
 
                     # Create vector index
                     # Syntax for Neo4j 5.x+
-                    session.run("""
+                    session.run(
+                        f"""
                         CREATE VECTOR INDEX rag_document_embeddings IF NOT EXISTS
                         FOR (n:RAGChunk)
                         ON n.embedding
-                        OPTIONS {
-                            indexConfig: {
-                                `vector.dimensions`: 3072,
+                        OPTIONS {{
+                            indexConfig: {{
+                                `vector.dimensions`: {settings.EMBEDDING_DIMENSION},
                                 `vector.similarity_function`: 'cosine'
-                            }
-                        }
-                    """)
+                            }}
+                        }}
+                    """
+                    )
 
                     print("✅ Vector index created successfully")
                     print("   Index: rag_document_embeddings")
                     print("   Node: RAGChunk")
                     print("   Property: embedding")
-                    print("   Dimensions: 3072 (Google Gemini gemini-embedding-001)")
+                    print(f"   Dimensions: {settings.EMBEDDING_DIMENSION} (Google Gemini {settings.EMBEDDING_MODEL})")
                     print("   Similarity: cosine")
 
             except Exception as e:

@@ -22,15 +22,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader
-from langchain_community.graphs import Neo4jGraph
-from langchain_community.vectorstores import Neo4jVector
-from langchain_core.documents import Document
 from langchain_experimental.graph_transformers.llm import LLMGraphTransformer
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.core.config import get_settings
 from app.models.rag_document import RAGDocument
+from app.services.clients import build_chat_model
+from app.services.rag_clients import get_graph_store, get_vector_store
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -56,118 +54,14 @@ class RAGDocumentService:
 
         # Model konwersacyjny wykorzystywany zarówno do budowy grafu, jak i
         # generowania finalnych odpowiedzi Graph RAG.
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = build_chat_model(
             model=settings.GRAPH_MODEL,
-            google_api_key=self.settings.GOOGLE_API_KEY,
             temperature=0,
         )
 
-        # Embeddingi Google Gemini wykorzystywane przez indeks wektorowy Neo4j.
-        self.embeddings = GoogleGenerativeAIEmbeddings(
-            model=settings.EMBEDDING_MODEL,
-            google_api_key=settings.GOOGLE_API_KEY,
-        )
-
-        # Inicjalizacja Neo4j Vector Store z retry logic (dla Docker startup race condition)
-        self.vector_store = self._init_vector_store_with_retry()
-
-        # Inicjalizacja Neo4j Graph Store z retry logic
-        self.graph_store = self._init_graph_store_with_retry()
-
-    def _init_vector_store_with_retry(self, max_retries: int = 10, initial_delay: float = 1.0):
-        """Inicjalizuje Neo4j Vector Store z retry logic (dla Docker startup).
-
-        Neo4j w Dockerze potrzebuje 10-15s na start (plugins: APOC, GDS).
-        Retry z exponential backoff zapobiega race condition przy startup.
-
-        Args:
-            max_retries: Maksymalna liczba prób (default: 10 = ~30s total)
-            initial_delay: Początkowe opóźnienie w sekundach (default: 1.0s)
-
-        Returns:
-            Neo4jVector instance lub None jeśli wszystkie próby failed
-        """
-        import time
-
-        logger.info("🔄 Inicjalizacja Neo4j Vector Store (z retry logic)")
-        logger.info("   URL: %s, User: %s", settings.NEO4J_URI, settings.NEO4J_USER)
-
-        delay = initial_delay
-        for attempt in range(1, max_retries + 1):
-            try:
-                vector_store = Neo4jVector(
-                    url=settings.NEO4J_URI,
-                    username=settings.NEO4J_USER,
-                    password=settings.NEO4J_PASSWORD,
-                    embedding=self.embeddings,
-                    index_name="rag_document_embeddings",
-                    node_label="RAGChunk",
-                    text_node_property="text",
-                    embedding_node_property="embedding",
-                )
-                logger.info("✅ Neo4j Vector Store połączony (próba %d/%d)", attempt, max_retries)
-                return vector_store
-
-            except Exception as exc:
-                if attempt < max_retries:
-                    logger.warning(
-                        "⚠️  Neo4j Vector Store - próba %d/%d failed: %s. Retry za %.1fs...",
-                        attempt, max_retries, str(exc)[:100], delay
-                    )
-                    time.sleep(delay)
-                    delay = min(delay * 1.5, 10.0)  # Exponential backoff (cap at 10s)
-                else:
-                    logger.error(
-                        "❌ Neo4j Vector Store - wszystkie %d prób failed. RAG wyłączony.",
-                        max_retries,
-                        exc_info=True
-                    )
-                    return None
-
-        return None
-
-    def _init_graph_store_with_retry(self, max_retries: int = 10, initial_delay: float = 1.0):
-        """Inicjalizuje Neo4j Graph Store z retry logic (dla Docker startup).
-
-        Args:
-            max_retries: Maksymalna liczba prób (default: 10 = ~30s total)
-            initial_delay: Początkowe opóźnienie w sekundach (default: 1.0s)
-
-        Returns:
-            Neo4jGraph instance lub None jeśli wszystkie próby failed
-        """
-        import time
-
-        logger.info("🔄 Inicjalizacja Neo4j Graph Store (z retry logic)")
-
-        delay = initial_delay
-        for attempt in range(1, max_retries + 1):
-            try:
-                graph_store = Neo4jGraph(
-                    url=settings.NEO4J_URI,
-                    username=settings.NEO4J_USER,
-                    password=settings.NEO4J_PASSWORD,
-                )
-                logger.info("✅ Neo4j Graph Store połączony (próba %d/%d)", attempt, max_retries)
-                return graph_store
-
-            except Exception as exc:
-                if attempt < max_retries:
-                    logger.warning(
-                        "⚠️  Neo4j Graph Store - próba %d/%d failed: %s. Retry za %.1fs...",
-                        attempt, max_retries, str(exc)[:100], delay
-                    )
-                    time.sleep(delay)
-                    delay = min(delay * 1.5, 10.0)  # Exponential backoff (cap at 10s)
-                else:
-                    logger.error(
-                        "❌ Neo4j Graph Store - wszystkie %d prób failed. GraphRAG wyłączony.",
-                        max_retries,
-                        exc_info=True
-                    )
-                    return None
-
-        return None
+        # Połączenia do Neo4j (współdzielone, z retry logic)
+        self.vector_store = get_vector_store(logger)
+        self.graph_store = get_graph_store(logger)
 
     async def ingest_document(self, file_path: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Przetwarza dokument przez pełny pipeline: load → chunk → graph → vector.
@@ -363,12 +257,9 @@ Priorytet: JAKOŚĆ > ilość. MAX 3 węzły, TYLKO pewne informacje. Mniej = le
                     )
                     graph_documents = await transformer.aconvert_to_graph_documents(chunks)
 
-                    # Wzbogacenie węzłów o metadane dokumentu
-                    # Uwaga: _enrich_graph_nodes jest teraz w GraphRAGService
-                    # Ale dla document ingest używamy lokalnej metody
+                    # Wzbogacenie węzłów o metadane dokumentu (współdzielona logika GraphRAGService)
                     from app.services.rag_graph_service import GraphRAGService
-                    graph_service = GraphRAGService()
-                    enriched_graph_documents = graph_service._enrich_graph_nodes(
+                    enriched_graph_documents = GraphRAGService.enrich_graph_nodes(
                         graph_documents,
                         doc_id=str(doc_id),
                         metadata=metadata

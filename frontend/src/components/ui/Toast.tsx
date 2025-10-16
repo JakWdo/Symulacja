@@ -52,6 +52,17 @@ function ToastItem({ toast }: { toast: Toast }) {
           {toast.message && (
             <p className="text-sm opacity-80 mt-1 leading-relaxed">{toast.message}</p>
           )}
+          {toast.actionLabel && toast.onAction && (
+            <button
+              onClick={() => {
+                toast.onAction?.();
+                removeToast(toast.id);
+              }}
+              className="mt-3 inline-flex items-center justify-center rounded-md bg-primary/90 px-3 py-1 text-xs font-semibold text-white shadow hover:bg-primary"
+            >
+              {toast.actionLabel}
+            </button>
+          )}
         </div>
         <button
           onClick={() => removeToast(toast.id)}

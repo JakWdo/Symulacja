@@ -29,9 +29,6 @@ neo4j
 redis
 hiredis
 
-# Task Queue
-celery[redis]
-
 # LangChain Core
 langchain
 langchain-core

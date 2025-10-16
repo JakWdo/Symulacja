@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AlertCircle, BarChart3, Lightbulb, TrendingUp, ChevronDown, Users } from 'lucide-react';
+import { AlertCircle, Lightbulb, ChevronDown, Users, Sparkles, Circle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
@@ -44,7 +44,6 @@ interface GraphInsight {
 export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
   const [expanded, setExpanded] = useState({
     brief: false,
-    context: false,
     allocation: false,
     allInsights: false,
   });
@@ -69,6 +68,11 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
     if (!reasoning?.graph_insights) return [];
     return reasoning.graph_insights;
   }, [reasoning?.graph_insights]);
+
+  const segmentContext = useMemo(() => {
+    if (!reasoning) return null;
+    return reasoning.segment_social_context || reasoning.overall_context || null;
+  }, [reasoning]);
 
   // Validation: check if persona age matches segment
   // IMPORTANT: This hook must be called BEFORE any early returns (React Rules of Hooks)
@@ -138,78 +142,53 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
   }
 
   const renderInsight = (insight: GraphInsight, index: number) => (
-    <div
-      key={index}
-      className="relative overflow-hidden rounded-lg border-l-4 p-4 bg-gradient-to-r transition-all hover:scale-[1.02]"
-      style={{
-        borderColor: insight.confidence === 'high' ? '#22c55e' :
-                     insight.confidence === 'medium' ? '#eab308' : '#9ca3af',
-        backgroundImage: insight.confidence === 'high'
-          ? 'linear-gradient(to right, rgba(34, 197, 94, 0.05), transparent)'
-          : insight.confidence === 'medium'
-          ? 'linear-gradient(to right, rgba(234, 179, 8, 0.05), transparent)'
-          : 'linear-gradient(to right, rgba(156, 163, 175, 0.05), transparent)'
-      }}
-    >
-      {/* Badges Row */}
-      <div className="flex items-center gap-2 flex-wrap mb-2">
-        <Badge variant="secondary" className="text-xs">
-          {insight.type}
-        </Badge>
-
-        {insight.source && (
-          <Badge variant="outline" className="text-xs font-bold border-primary/30">
-            {insight.source}
-          </Badge>
-        )}
-
-        {insight.time_period && (
-          <Badge variant="outline" className="text-xs">
-            {insight.time_period}
-          </Badge>
-        )}
-
-        <div className="flex-1" />
-
-        <Badge
-          variant={insight.confidence === 'high' ? 'default' : 'outline'}
-          className={cn(
-            "text-xs",
-            insight.confidence === 'high' && 'bg-green-500/10 text-green-700 border-green-500',
-            insight.confidence === 'medium' && 'bg-yellow-500/10 text-yellow-700 border-yellow-500',
-            insight.confidence === 'low' && 'bg-gray-500/10 text-gray-700 border-gray-500'
-          )}
-        >
-          {insight.confidence === 'high' ? 'Wysoka pewność' :
-           insight.confidence === 'medium' ? 'Średnia pewność' : 'Niska pewność'}
-        </Badge>
-      </div>
-
-      {/* Content */}
-      <div className="space-y-2">
-        <div className="flex items-baseline gap-2">
-          {insight.magnitude && (
-            <span className="text-2xl font-bold text-primary">
-              {insight.magnitude}
+    <div key={index} className="flex gap-3 text-sm">
+      <Circle className="w-1.5 h-1.5 mt-1.5 flex-shrink-0 fill-current text-amber-600" />
+      <div className="flex-1 space-y-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            {insight.magnitude && (
+              <span className="font-bold text-amber-900 dark:text-amber-100 mr-2">
+                {insight.magnitude}
+              </span>
+            )}
+            <span className="text-foreground font-medium">
+              {insight.summary}
             </span>
-          )}
-          <p className="text-sm font-medium text-foreground flex-1">
-            {insight.summary}
-          </p>
-        </div>
-
-        {insight.why_matters && (
-          <div className="text-xs text-muted-foreground leading-relaxed pt-2 border-t border-border/40">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                p: ({ children }) => <span>{children}</span>,
-              }}
-            >
-              {insight.why_matters}
-            </ReactMarkdown>
           </div>
+          {insight.source && (
+            <Badge variant="outline" className="text-[10px] shrink-0 border-amber-300 text-amber-700">
+              {insight.source}
+            </Badge>
+          )}
+        </div>
+        {insight.why_matters && (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {insight.why_matters}
+          </p>
         )}
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          {insight.time_period && (
+            <span>{insight.time_period}</span>
+          )}
+          {insight.confidence && (
+            <>
+              {insight.time_period && <span>•</span>}
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] h-4 px-1.5",
+                  insight.confidence === 'high' && 'border-green-500 text-green-700',
+                  insight.confidence === 'medium' && 'border-yellow-500 text-yellow-700',
+                  insight.confidence === 'low' && 'border-gray-400 text-gray-600'
+                )}
+              >
+                {insight.confidence === 'high' ? 'Wysoka pewność' :
+                 insight.confidence === 'medium' ? 'Średnia pewność' : 'Niska pewność'}
+              </Badge>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -252,6 +231,13 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
           </CardHeader>
 
           <CardContent>
+            {segmentContext && (
+              <div className="prose prose-sm dark:prose-invert max-w-none mb-4">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {segmentContext}
+                </ReactMarkdown>
+              </div>
+            )}
             {/* Demographics Grid */}
             {reasoning.demographics && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-muted/30 rounded-lg">
@@ -267,23 +253,45 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                 ))}
               </div>
             )}
+
+            {/* Segment Characteristics */}
+            {reasoning.segment_characteristics && reasoning.segment_characteristics.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Kluczowe cechy segmentu
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {reasoning.segment_characteristics.map((characteristic, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="border-primary/40 text-primary bg-primary/5 hover:bg-primary/10 transition-colors text-sm px-3 py-1"
+                    >
+                      {characteristic}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* 2. Top 3 Graph Insights - Always visible */}
       {topInsights.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              Kluczowe Wskaźniki z Grafu Wiedzy
-            </CardTitle>
-            <CardDescription>
+        <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-600" />
+              <CardTitle className="text-base font-semibold text-amber-900 dark:text-amber-100">
+                Kluczowe Spostrzeżenia AI
+              </CardTitle>
+            </div>
+            <CardDescription className="text-amber-700 dark:text-amber-300">
               Najważniejsze dane z raportów o polskim społeczeństwie
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {topInsights.map((insight, idx) => renderInsight(insight, idx))}
 
             {/* Show All Insights button */}
@@ -292,7 +300,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => setExpanded(prev => ({ ...prev, allInsights: true }))}
-                className="w-full mt-4"
+                className="w-full mt-4 border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40"
               >
                 Pokaż wszystkie wskaźniki ({allInsights.length})
                 <ChevronDown className="ml-2 h-4 w-4" />
@@ -301,8 +309,8 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
 
             {/* All remaining insights */}
             {expanded.allInsights && allInsights.length > 3 && (
-              <div className="space-y-3 mt-4 pt-4 border-t">
-                <p className="text-sm font-medium text-muted-foreground mb-3">
+              <div className="space-y-4 mt-4 pt-4 border-t border-amber-200 dark:border-amber-800">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-3">
                   Pozostałe wskaźniki:
                 </p>
                 {allInsights.slice(3).map((insight, idx) => renderInsight(insight, idx + 3))}
@@ -310,7 +318,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                   variant="ghost"
                   size="sm"
                   onClick={() => setExpanded(prev => ({ ...prev, allInsights: false }))}
-                  className="w-full mt-2"
+                  className="w-full mt-2 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40"
                 >
                   <ChevronDown className="mr-2 h-4 w-4 rotate-180" />
                   Zwiń wskaźniki
@@ -370,53 +378,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
         </Card>
       )}
 
-      {/* 4. Segment Social Context - Collapsible, collapsed by default */}
-      {(reasoning.segment_social_context || reasoning.overall_context) && (
-        <Card>
-          <Collapsible
-            open={expanded.context}
-            onOpenChange={(open) => setExpanded(prev => ({ ...prev, context: open }))}
-          >
-            <CardHeader className="pb-3">
-              <CollapsibleTrigger asChild>
-                <button
-                  className="flex w-full items-center justify-between text-left hover:opacity-80 transition-opacity"
-                  aria-label="Pokaż kontekst społeczny"
-                >
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    Kontekst Społeczny dla {reasoning.segment_name || "tego segmentu"}
-                  </CardTitle>
-                  <ChevronDown
-                    className={cn(
-                      "h-5 w-5 transition-transform duration-200 text-muted-foreground",
-                      expanded.context && "rotate-180"
-                    )}
-                  />
-                </button>
-              </CollapsibleTrigger>
-            </CardHeader>
-
-            <CardContent>
-              {!expanded.context && (
-                <p className="text-sm text-muted-foreground line-clamp-3">
-                  {(reasoning.segment_social_context || reasoning.overall_context)?.slice(0, 180)}...
-                </p>
-              )}
-
-              <CollapsibleContent className="space-y-2">
-                <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {reasoning.segment_social_context || reasoning.overall_context || ''}
-                  </ReactMarkdown>
-                </div>
-              </CollapsibleContent>
-            </CardContent>
-          </Collapsible>
-        </Card>
-      )}
-
-      {/* 5. Allocation Reasoning - Collapsible, collapsed by default */}
+      {/* 4. Allocation Reasoning - Collapsible, collapsed by default */}
       {reasoning.allocation_reasoning && (
         <Card>
           <Collapsible

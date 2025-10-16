@@ -16,7 +16,6 @@ from typing import Dict, List, Any, Tuple, Optional
 from scipy import stats
 from dataclasses import dataclass
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnablePassthrough
@@ -40,6 +39,7 @@ from app.core.constants import (
     POLISH_SURNAMES,
 )
 from app.models import Persona
+from app.services.clients import build_chat_model
 
 settings = get_settings()
 
@@ -88,9 +88,8 @@ class PersonaGeneratorLangChain:
         # Inicjalizujemy model Gemini z wyższą temperaturą dla większej różnorodności
         persona_model = getattr(settings, "PERSONA_GENERATION_MODEL", settings.DEFAULT_MODEL)
 
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = build_chat_model(
             model=persona_model,
-            google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.9,  # Podniesiona wartość dla bardziej kreatywnych, zróżnicowanych person
             max_tokens=settings.MAX_TOKENS,
             top_p=0.95,

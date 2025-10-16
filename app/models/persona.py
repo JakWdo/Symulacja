@@ -139,11 +139,23 @@ class Persona(Base):
     segment_id = Column(String(100), nullable=True, index=True)
     segment_name = Column(String(100), nullable=True)
 
+    # === PERSONA DETAILS (MVP - Szczegółowy widok persony) ===
+    # Needs and Pains (Jobs-to-be-done, desired outcomes, pain points)
+    # Generated with RAG context for consistency with segment data
+    needs_and_pains = Column(JSONB, nullable=True)
+    # NOTE: kpi_snapshot i customer_journey zostały usunięte - używamy dedykowanych serwisów
+
     # Metadane
     personality_prompt = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
     )
     is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
 
@@ -162,6 +174,14 @@ class Persona(Base):
         passive_deletes=True,
         order_by="PersonaEvent.sequence_number",
     )
+    audit_logs = relationship(
+        "PersonaAuditLog",
+        back_populates="persona",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(PersonaAuditLog.timestamp)",
+    )
+    deleted_by_user = relationship("User", foreign_keys=[deleted_by])
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Persona id={self.id} project_id={self.project_id}>"

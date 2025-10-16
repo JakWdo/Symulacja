@@ -16,13 +16,13 @@ import re
 from neo4j import AsyncGraphDatabase, AsyncDriver
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 from app.models import PersonaResponse, Persona, FocusGroup
+from app.services.clients import build_chat_model
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -77,15 +77,14 @@ class GraphService:
         self.driver: Optional[AsyncDriver] = None
         self.settings = settings
 
-        self.llm: Optional[ChatGoogleGenerativeAI] = None
+        self.llm: Optional[Any] = None
         self.extraction_prompt: Optional[ChatPromptTemplate] = None
 
         if self.settings.GOOGLE_API_KEY:
             try:
                 # Inicjalizujemy model LLM do ekstrakcji konceptów
-                self.llm = ChatGoogleGenerativeAI(
+                self.llm = build_chat_model(
                     model=settings.PERSONA_GENERATION_MODEL,  # Szybszy wariant Flash
-                    google_api_key=settings.GOOGLE_API_KEY,
                     temperature=0.3,  # Niższa temperatura dla spójnego wydobycia
                     max_tokens=500,
                 )

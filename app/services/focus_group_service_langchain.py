@@ -9,7 +9,7 @@ Wydajność: <3s na odpowiedź persony, <30s całkowity czas wykonania
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
@@ -17,13 +17,13 @@ import time
 from datetime import datetime, timezone
 from uuid import UUID
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.models import FocusGroup, Persona, PersonaResponse
 from app.services.memory_service_langchain import MemoryServiceLangChain
 from app.db import AsyncSessionLocal
 from app.core.config import get_settings
+from app.services.clients import build_chat_model
 
 settings = get_settings()
 
@@ -43,9 +43,8 @@ class FocusGroupServiceLangChain:
 
         # Inicjalizujemy model Gemini w LangChain
         # Uwaga: modele gemini-2.5 zużywają więcej tokenów na wnioskowanie, więc podnosimy limit
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = build_chat_model(
             model=settings.DEFAULT_MODEL,
-            google_api_key=settings.GOOGLE_API_KEY,
             temperature=settings.TEMPERATURE,
             max_tokens=2048,  # Większa liczba tokenów na potrzeby rozumowania gemini-2.5
         )

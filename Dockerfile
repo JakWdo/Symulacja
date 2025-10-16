@@ -44,6 +44,7 @@ ENV PYTHONPATH=/app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     redis-tools \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Kopiuj zainstalowane Python packages z builder stage

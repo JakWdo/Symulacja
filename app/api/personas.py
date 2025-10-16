@@ -20,20 +20,20 @@ Używa background tasks - endpoint zwraca 202 Accepted natychmiast.
 """
 
 import asyncio
-from functools import lru_cache
 import json
 import logging
 import random
 import re
 import unicodedata
-from typing import Dict, List, Any, Optional, Tuple
-from uuid import UUID
+from datetime import datetime, timedelta
 from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, BackgroundTasks, Request, HTTPException
+from fastapi import APIRouter, Depends, BackgroundTasks, Request, HTTPException, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import select
+from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import AsyncSessionLocal, get_db
@@ -46,9 +46,26 @@ from app.schemas.persona import (
     PersonaReasoningResponse,
     GraphInsightResponse,
 )
+from app.schemas.persona_details import (
+    PersonaDetailsResponse,
+    PersonaExportRequest,
+    PersonaExportResponse,
+    PersonaDeleteRequest,
+    PersonaDeleteResponse,
+    PersonaUndoDeleteResponse,
+    PersonasSummaryResponse,
+    PersonaMessagingRequest,
+    PersonaMessagingResponse,
+    PersonaComparisonRequest,
+    PersonaComparisonResponse,
+)
 from app.services import DemographicDistribution
 from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PreferredPersonaGenerator
 from app.services.persona_validator import PersonaValidator
+from app.services.persona_details_service import PersonaDetailsService
+from app.services.persona_audit_service import PersonaAuditService
+from app.services.persona_messaging_service import PersonaMessagingService
+from app.services.persona_comparison_service import PersonaComparisonService
 from app.core.constants import (
     DEFAULT_AGE_GROUPS,
     DEFAULT_GENDERS,
@@ -301,6 +318,206 @@ def _polishify_income(raw_income: Optional[str]) -> str:
         if normalized_key in _EN_TO_PL_INCOME:
             return _EN_TO_PL_INCOME[normalized_key]
     return raw_income if raw_income else (_select_weighted(POLISH_INCOME_BRACKETS) or "5 000 - 7 500 zł")
+
+
+_SEGMENT_GENDER_LABELS = {
+    "kobieta": "Kobiety",
+    "kobiety": "Kobiety",
+    "female": "Kobiety",
+    "mężczyzna": "Mężczyźni",
+    "mezczyzna": "Mężczyźni",
+    "mężczyzni": "Mężczyźni",
+    "mężczyźni": "Mężczyźni",
+    "male": "Mężczyźni",
+}
+
+
+def _segment_gender_label(raw_gender: Optional[str]) -> str:
+    normalized = _normalize_text(raw_gender)
+    return _SEGMENT_GENDER_LABELS.get(normalized, "Osoby")
+
+
+def _format_age_segment(raw_age: Optional[str]) -> Optional[str]:
+    if raw_age is None:
+        return None
+    age_str = str(raw_age).strip()
+    if not age_str:
+        return None
+    if age_str.replace("+", "").isdigit() or "-" in age_str:
+        if age_str.endswith("lat"):
+            return age_str
+        return f"{age_str} lat"
+    return age_str
+
+
+def _format_education_phrase(raw_education: Optional[str]) -> Optional[str]:
+    if not raw_education:
+        return None
+    value = str(raw_education).strip()
+    lower = value.lower()
+    if "wyższ" in lower:
+        return "z wyższym wykształceniem"
+    if "średn" in lower:
+        return "ze średnim wykształceniem"
+    if "zawod" in lower:
+        return "z wykształceniem zawodowym"
+    if "podstaw" in lower:
+        return "z wykształceniem podstawowym"
+    if value:
+        return f"z wykształceniem {value}"
+    return None
+
+
+def _format_income_phrase(raw_income: Optional[str]) -> Optional[str]:
+    if not raw_income:
+        return None
+    value = str(raw_income).strip()
+    if not value:
+        return None
+    if any(char.isdigit() for char in value):
+        return f"osiągające dochody około {value}"
+    return f"o dochodach {value}"
+
+
+def _format_location_phrase(raw_location: Optional[str]) -> Optional[str]:
+    if not raw_location:
+        return None
+    value = str(raw_location).strip()
+    if not value:
+        return None
+    normalized = _normalize_text(value)
+    if normalized in {"polska", "kraj", "calapolska", "całapolska", "cała polska"}:
+        return "rozproszone w całej Polsce"
+    return f"mieszkające w {value}"
+
+
+def _slugify_segment(name: str) -> str:
+    normalized = unicodedata.normalize("NFKD", name)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    ascii_text = re.sub(r"[^a-zA-Z0-9]+", "-", ascii_text.lower()).strip("-")
+    return ascii_text
+
+
+def _sanitize_brief_text(text: Optional[str], max_length: int = 900) -> Optional[str]:
+    if not text:
+        return None
+    cleaned = re.sub(r"[`*_#>\[\]]+", "", text)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        return None
+    if max_length and len(cleaned) > max_length:
+        truncated = cleaned[:max_length].rsplit(" ", 1)[0]
+        return f"{truncated}..."
+    return cleaned
+
+
+def _segment_subject_descriptor(gender_label: str, age_phrase: Optional[str]) -> str:
+    base = gender_label.lower() if gender_label and gender_label != "Osoby" else "osoby"
+    if age_phrase:
+        return f"{base} w wieku {age_phrase}"
+    return base
+
+
+def _compose_segment_description(
+    demographics: Dict[str, Any],
+    segment_name: str,
+) -> str:
+    gender_label = _segment_gender_label(demographics.get("gender"))
+    age_phrase = _format_age_segment(demographics.get("age") or demographics.get("age_group"))
+    education_phrase = _format_education_phrase(
+        demographics.get("education") or demographics.get("education_level")
+    )
+    income_phrase = _format_income_phrase(
+        demographics.get("income") or demographics.get("income_bracket")
+    )
+    location_phrase = _format_location_phrase(demographics.get("location"))
+
+    subject = _segment_subject_descriptor(gender_label, age_phrase)
+    segment_label = segment_name or "Ten segment"
+
+    sentences = [f"{segment_label} obejmuje {subject}."]
+    details = [phrase for phrase in [education_phrase, income_phrase, location_phrase] if phrase]
+    if details:
+        detail_sentence = ", ".join(details)
+        sentences.append(f"W tej grupie dominują osoby {detail_sentence}.")
+
+    return " ".join(sentences)
+
+
+def _compose_segment_name(
+    demographics: Dict[str, Any],
+    group_index: int,
+) -> str:
+    gender_label = _segment_gender_label(demographics.get("gender"))
+    age_value = demographics.get("age") or demographics.get("age_group")
+    location = demographics.get("location")
+    education_raw = demographics.get("education") or demographics.get("education_level")
+
+    age_component = None
+    if age_value:
+        age_component = str(age_value).replace("lat", "").strip()
+
+    education_component = None
+    if education_raw:
+        value = str(education_raw).strip()
+        lower = value.lower()
+        if "wyższ" in lower:
+            education_component = "wyższe wykształcenie"
+        elif "średn" in lower:
+            education_component = "średnie wykształcenie"
+        elif "zawod" in lower:
+            education_component = "zawodowe wykształcenie"
+
+    location_component = None
+    if location:
+        normalized_loc = _normalize_text(location)
+        if normalized_loc not in {"polska", "kraj", "calapolska", "całapolska"}:
+            location_component = str(location).strip()
+
+    parts = []
+    if gender_label and gender_label != "Osoby":
+        parts.append(gender_label)
+    else:
+        parts.append("Osoby")
+    if age_component:
+        parts.append(age_component)
+    if education_component:
+        parts.append(education_component)
+    if location_component:
+        parts.append(location_component)
+
+    name = " ".join(parts).strip()
+    if not name:
+        name = f"Segment {group_index + 1}"
+    if len(name) > 60:
+        name = name[:57].rstrip() + "..."
+    return name
+
+
+def _build_segment_metadata(
+    demographics: Dict[str, Any],
+    brief: Optional[str],
+    allocation_reasoning: Optional[str],
+    group_index: int,
+) -> Dict[str, Optional[str]]:
+    segment_name = _compose_segment_name(demographics, group_index)
+    slug = _slugify_segment(segment_name)
+    if not slug:
+        slug = f"segment-{group_index + 1}"
+
+    description = _compose_segment_description(demographics, segment_name)
+    social_context = _sanitize_brief_text(brief)
+    if not social_context:
+        social_context = _sanitize_brief_text(allocation_reasoning)
+    if not social_context:
+        social_context = description
+
+    return {
+        "segment_name": segment_name,
+        "segment_id": slug,
+        "segment_description": description,
+        "segment_social_context": social_context,
+    }
 
 
 def _looks_polish_phrase(text: Optional[str]) -> bool:
@@ -775,7 +992,20 @@ async def _generate_personas_task(
                 # Mapuj briefe do każdej persony
                 # Strategia: Każda grupa ma `count` person, więc przydzielamy briefe sekwencyjnie
                 persona_index = 0
-                for group in allocation_plan.groups:
+                group_metadata: List[Dict[str, Optional[str]]] = []
+                for group_index, group in enumerate(allocation_plan.groups):
+                    demographics = (
+                        group.demographics
+                        if isinstance(group.demographics, dict)
+                        else dict(group.demographics)
+                    )
+                    segment_metadata = _build_segment_metadata(
+                        demographics,
+                        group.brief,
+                        group.allocation_reasoning,
+                        group_index,
+                    )
+                    group_metadata.append(segment_metadata)
                     group_count = group.count
                     for _ in range(group_count):
                         if persona_index < num_personas:
@@ -783,7 +1013,9 @@ async def _generate_personas_task(
                                 "brief": group.brief,
                                 "graph_insights": [insight.model_dump() for insight in group.graph_insights],
                                 "allocation_reasoning": group.allocation_reasoning,
-                                "demographics": group.demographics,
+                                "demographics": demographics,
+                                "segment_characteristics": group.segment_characteristics,
+                                **segment_metadata,
                             }
                             persona_index += 1
 
@@ -802,12 +1034,30 @@ async def _generate_personas_task(
 
                     # Dodaj brakujące persony do mapping (używając briefa ostatniej grupy)
                     last_group = allocation_plan.groups[-1]
+                    if group_metadata:
+                        last_metadata = group_metadata[-1]
+                    else:
+                        last_demographics = (
+                            last_group.demographics
+                            if isinstance(last_group.demographics, dict)
+                            else dict(last_group.demographics)
+                        )
+                        last_metadata = _build_segment_metadata(
+                            last_demographics,
+                            last_group.brief,
+                            last_group.allocation_reasoning,
+                            len(allocation_plan.groups) - 1,
+                        )
                     for i in range(persona_index, num_personas):
                         persona_group_mapping[i] = {
                             "brief": last_group.brief,
                             "graph_insights": [insight.model_dump() for insight in last_group.graph_insights],
                             "allocation_reasoning": last_group.allocation_reasoning,
-                            "demographics": last_group.demographics,
+                            "demographics": last_group.demographics
+                            if isinstance(last_group.demographics, dict)
+                            else dict(last_group.demographics),
+                            "segment_characteristics": last_group.segment_characteristics,
+                            **last_metadata,
                         }
                         persona_index += 1
 
@@ -1135,13 +1385,35 @@ async def _generate_personas_task(
 
                     # Dodaj orchestration reasoning do rag_context_details (jeśli istnieje)
                     if idx in persona_group_mapping:
+                        mapping_entry = persona_group_mapping[idx]
+                        segment_name_meta = mapping_entry.get("segment_name")
+                        segment_id_meta = mapping_entry.get("segment_id")
+                        segment_description_meta = mapping_entry.get("segment_description")
+                        segment_context_meta = mapping_entry.get("segment_social_context")
+
                         rag_context_details["orchestration_reasoning"] = {
-                            "brief": persona_group_mapping[idx]["brief"],
-                            "graph_insights": persona_group_mapping[idx]["graph_insights"],
-                            "allocation_reasoning": persona_group_mapping[idx]["allocation_reasoning"],
-                            "demographics": persona_group_mapping[idx]["demographics"],
+                            "brief": mapping_entry["brief"],
+                            "graph_insights": mapping_entry["graph_insights"],
+                            "allocation_reasoning": mapping_entry["allocation_reasoning"],
+                            "demographics": mapping_entry["demographics"],
+                            "segment_characteristics": mapping_entry["segment_characteristics"],
                             "overall_context": allocation_plan.overall_context if allocation_plan else None,
+                            "segment_name": segment_name_meta,
+                            "segment_id": segment_id_meta,
+                            "segment_description": segment_description_meta,
+                            "segment_social_context": segment_context_meta,
                         }
+
+                        if segment_name_meta and "segment_name" not in rag_context_details:
+                            rag_context_details["segment_name"] = segment_name_meta
+                        if segment_id_meta and "segment_id" not in rag_context_details:
+                            rag_context_details["segment_id"] = segment_id_meta
+                        if segment_description_meta and "segment_description" not in rag_context_details:
+                            rag_context_details["segment_description"] = segment_description_meta
+                        if segment_context_meta and "segment_social_context" not in rag_context_details:
+                            rag_context_details["segment_social_context"] = segment_context_meta
+                        if mapping_entry["segment_characteristics"] and "segment_characteristics" not in rag_context_details:
+                            rag_context_details["segment_characteristics"] = mapping_entry["segment_characteristics"]
 
                     persona_payload = {
                         "project_id": project_id,
@@ -1163,6 +1435,13 @@ async def _generate_personas_task(
                         "rag_context_details": rag_context_details,  # NOWE POLE
                         **psychological
                     }
+
+                    if idx in persona_group_mapping:
+                        mapping_entry = persona_group_mapping[idx]
+                        if mapping_entry.get("segment_id"):
+                            persona_payload["segment_id"] = mapping_entry["segment_id"]
+                        if mapping_entry.get("segment_name"):
+                            persona_payload["segment_name"] = mapping_entry["segment_name"]
 
                     # === VALIDATION: SPRAWDŹ SPÓJNOŚĆ DEMOGRAPHICS ===
                     # Validate że generated persona pasuje do orchestration demographics
@@ -1312,6 +1591,58 @@ def _normalize_rag_citations(citations: Optional[List[Dict[str, Any]]]) -> Optio
     return normalized if normalized else None
 
 
+@router.get("/projects/{project_id}/personas/summary", response_model=PersonasSummaryResponse)
+async def get_personas_summary(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Zwróć podsumowanie person projektu (liczebność, segmenty)."""
+    await get_project_for_user(project_id, current_user, db)
+
+    totals_row = await db.execute(
+        select(
+            func.count().label("total"),
+            func.sum(case((Persona.is_active.is_(True), 1), else_=0)).label("active"),
+            func.sum(case((Persona.is_active.is_(False), 1), else_=0)).label("archived"),
+        ).where(Persona.project_id == project_id)
+    )
+    totals = totals_row.first()
+    total_personas = int(totals.total or 0) if totals else 0
+    active_personas = int(totals.active or 0) if totals else 0
+    archived_personas = int(totals.archived or 0) if totals else 0
+
+    segments_result = await db.execute(
+        select(
+            Persona.segment_id,
+            Persona.segment_name,
+            func.sum(case((Persona.is_active.is_(True), 1), else_=0)).label("active"),
+            func.sum(case((Persona.is_active.is_(False), 1), else_=0)).label("archived"),
+        )
+        .where(Persona.project_id == project_id)
+        .group_by(Persona.segment_id, Persona.segment_name)
+    )
+
+    segment_rows = segments_result.all()
+    segments = [
+        {
+            "segment_id": row.segment_id,
+            "segment_name": row.segment_name,
+            "active_personas": int(row.active or 0),
+            "archived_personas": int(row.archived or 0),
+        }
+        for row in segment_rows
+    ]
+
+    return PersonasSummaryResponse(
+        project_id=project_id,
+        total_personas=total_personas,
+        active_personas=active_personas,
+        archived_personas=archived_personas,
+        segments=segments,
+    )
+
+
 @router.get("/projects/{project_id}/personas", response_model=List[PersonaResponse])
 async def list_personas(
     project_id: UUID,
@@ -1324,7 +1655,11 @@ async def list_personas(
     await get_project_for_user(project_id, current_user, db)
     result = await db.execute(
         select(Persona)
-        .where(Persona.project_id == project_id, Persona.is_active.is_(True))
+        .where(
+            Persona.project_id == project_id,
+            Persona.is_active.is_(True),
+            Persona.deleted_at.is_(None),
+        )
         .offset(skip)
         .limit(limit)
     )
@@ -1354,20 +1689,273 @@ async def get_persona(
     return persona
 
 
-@router.delete("/personas/{persona_id}", status_code=204)
+@router.delete("/personas/{persona_id}", response_model=PersonaDeleteResponse)
 async def delete_persona(
+    persona_id: UUID,
+    delete_request: PersonaDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Soft delete persona z audit logging
+
+    Args:
+        persona_id: UUID persony do usunięcia
+        delete_request: Powód usunięcia (reason + optional reason_detail)
+        db: DB session
+        current_user: Authenticated user
+
+    Returns:
+        PersonaDeleteResponse
+
+    RBAC:
+        - MVP: Wszyscy zalogowani użytkownicy mogą usuwać własne persony
+        - Production: Tylko Admin może usuwać (TODO: add RBAC check)
+
+    Audit:
+        - Loguje delete action z reason w persona_audit_log
+    """
+    persona = await get_persona_for_user(persona_id, current_user, db)
+
+    if persona.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Persona already deleted",
+        )
+
+    deleted_at = datetime.utcnow()
+    undo_deadline = deleted_at + timedelta(seconds=30)
+    permanent_delete_at = deleted_at + timedelta(days=90)
+
+    # Miękkie usunięcie rekordu
+    persona.is_active = False
+    persona.deleted_at = deleted_at
+    persona.deleted_by = current_user.id
+
+    # Log delete action (audit trail)
+    audit_service = PersonaAuditService()
+    await audit_service.log_action(
+        persona_id=persona_id,
+        user_id=current_user.id,
+        action="delete",
+        details={
+            "reason": delete_request.reason,
+            "reason_detail": delete_request.reason_detail,
+        },
+        db=db,
+    )
+
+    await db.commit()
+
+    return PersonaDeleteResponse(
+        persona_id=persona_id,
+        full_name=persona.full_name,
+        status="deleted",
+        deleted_at=deleted_at,
+        deleted_by=current_user.id,
+        undo_available_until=undo_deadline,
+        permanent_deletion_scheduled_at=permanent_delete_at,
+        message="Persona deleted successfully. You can undo this action within 30 seconds.",
+    )
+
+
+@router.post("/personas/{persona_id}/undo-delete", response_model=PersonaUndoDeleteResponse)
+async def undo_delete_persona(
     persona_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Soft delete a persona"""
-    persona = await get_persona_for_user(persona_id, current_user, db)
+    """Przywróć personę jeśli okno undo (30s) nie wygasło."""
+    persona = await get_persona_for_user(
+        persona_id,
+        current_user,
+        db,
+        include_inactive=True,
+    )
 
-    # Miękkie usunięcie rekordu
-    persona.is_active = False
+    if persona.deleted_at is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona is not deleted")
+
+    undo_deadline = persona.deleted_at + timedelta(seconds=30)
+    now = datetime.utcnow()
+    if now > undo_deadline:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Undo window expired. Persona can be restored from Archived view.",
+            headers={
+                "X-Undo-Deadline": undo_deadline.isoformat(),
+                "X-Deleted-At": persona.deleted_at.isoformat(),
+            },
+        )
+
+    persona.is_active = True
+    persona.deleted_at = None
+    persona.deleted_by = None
+
+    audit_service = PersonaAuditService()
+    await audit_service.log_action(
+        persona_id=persona_id,
+        user_id=current_user.id,
+        action="undo_delete",
+        details={"source": "undo"},
+        db=db,
+    )
+
     await db.commit()
 
-    return None
+    return PersonaUndoDeleteResponse(
+        persona_id=persona_id,
+        full_name=persona.full_name,
+        status="active",
+        restored_at=now,
+        restored_by=current_user.id,
+        message="Persona restored successfully",
+    )
+
+
+@router.post(
+    "/personas/{persona_id}/actions/messaging",
+    response_model=PersonaMessagingResponse,
+)
+@limiter.limit("10/hour")
+async def generate_persona_messaging(
+    request: Request,  # Required by slowapi limiter
+    persona_id: UUID,
+    payload: PersonaMessagingRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    persona = await get_persona_for_user(persona_id, current_user, db)
+    messaging_service = PersonaMessagingService()
+    result = await messaging_service.generate_messaging(
+        persona,
+        tone=payload.tone,
+        message_type=payload.message_type,
+        num_variants=payload.num_variants,
+        context=payload.context,
+    )
+
+    audit_service = PersonaAuditService()
+    await audit_service.log_action(
+        persona_id=persona_id,
+        user_id=current_user.id,
+        action="messaging",
+        details={
+            "tone": payload.tone,
+            "type": payload.message_type,
+            "variants": payload.num_variants,
+        },
+        db=db,
+    )
+
+    return PersonaMessagingResponse(**result)
+
+
+@router.post(
+    "/personas/{persona_id}/actions/compare",
+    response_model=PersonaComparisonResponse,
+)
+@limiter.limit("30/minute")
+async def compare_personas_endpoint(
+    request: Request,  # Required by slowapi limiter
+    persona_id: UUID,
+    payload: PersonaComparisonRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    primary_persona = await get_persona_for_user(persona_id, current_user, db)
+    comparison_service = PersonaComparisonService(db)
+    data = await comparison_service.compare_personas(
+        primary_persona,
+        [str(pid) for pid in payload.persona_ids],
+        sections=payload.sections,
+    )
+
+    audit_service = PersonaAuditService()
+    await audit_service.log_action(
+        persona_id=persona_id,
+        user_id=current_user.id,
+        action="compare",
+        details={
+            "persona_ids": [str(pid) for pid in payload.persona_ids],
+            "sections": payload.sections,
+        },
+        db=db,
+    )
+
+    return PersonaComparisonResponse(**data)
+
+
+@router.post(
+    "/personas/{persona_id}/actions/export",
+    response_model=PersonaExportResponse,
+)
+@limiter.limit("30/minute")
+async def export_persona_details(
+    request: Request,  # Required by slowapi limiter
+    persona_id: UUID,
+    payload: PersonaExportRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if payload.format != "json":
+        raise HTTPException(status_code=400, detail="Only JSON export is supported in this environment.")
+
+    details_service = PersonaDetailsService(db)
+    details = await details_service.get_persona_details(
+        persona_id=persona_id,
+        user_id=current_user.id,
+        force_refresh=False,
+    )
+
+    # Note: Removed "journey" section (deprecated customer_journey field)
+    # Available sections: ["overview", "profile", "needs", "insights"]
+    sections = payload.sections or ["overview", "profile", "needs", "insights"]
+    content: Dict[str, Any] = {}
+
+    if "overview" in sections:
+        content["overview"] = {
+            # kpi_snapshot removed - deprecated field
+            "rag_citations": details.rag_citations,
+        }
+    if "profile" in sections:
+        content["profile"] = {
+            "full_name": details.full_name,
+            "persona_title": details.persona_title,
+            "headline": details.headline,
+            "demographics": {
+                "age": details.age,
+                "gender": details.gender,
+                "location": details.location,
+                "education_level": details.education_level,
+                "income_bracket": details.income_bracket,
+                "occupation": details.occupation,
+            },
+            "big_five": details.big_five,
+            "values": details.values,
+            "interests": details.interests,
+            "background_story": details.background_story,
+        }
+    # "journey" section removed - customer_journey field deprecated
+    # For journey data, use PersonaJourneyService directly
+    if "needs" in sections:
+        content["needs"] = details.needs_and_pains.model_dump(mode="json") if details.needs_and_pains else None
+    if "insights" in sections:
+        content["insights"] = {
+            "rag_context_details": details.rag_context_details,
+            "audit_log": [entry.model_dump(mode="json") for entry in details.audit_log],
+        }
+
+    audit_service = PersonaAuditService()
+    await audit_service.log_action(
+        persona_id=persona_id,
+        user_id=current_user.id,
+        action="export",
+        details={"format": payload.format, "sections": sections},
+        db=db,
+    )
+
+    return PersonaExportResponse(format="json", sections=sections, content=content)
 
 
 @router.get("/personas/{persona_id}/reasoning", response_model=PersonaReasoningResponse)
@@ -1446,6 +2034,11 @@ async def get_persona_reasoning(
         or rag_details.get("segment_social_context")
         or rag_details.get("segment_context")
     )
+    segment_characteristics = (
+        orch_reasoning.get("segment_characteristics")
+        or rag_details.get("segment_characteristics")
+        or []
+    )
 
     orchestration_brief = orch_reasoning.get("brief") or rag_details.get("brief")
     allocation_reasoning = orch_reasoning.get("allocation_reasoning") or rag_details.get(
@@ -1458,6 +2051,42 @@ async def get_persona_reasoning(
         or rag_details.get("graph_context")
     )
 
+    if not segment_name or not segment_social_context or not segment_description:
+        fallback_demographics = (
+            orch_reasoning.get("demographics")
+            or rag_details.get("demographics")
+            or {
+                "age": str(persona.age) if persona.age else None,
+                "gender": persona.gender,
+                "education": persona.education_level,
+                "income": persona.income_bracket,
+                "location": persona.location,
+            }
+        )
+        if not isinstance(fallback_demographics, dict):
+            try:
+                fallback_demographics = dict(fallback_demographics)
+            except Exception:
+                fallback_demographics = {
+                    "age": str(persona.age) if persona.age else None,
+                    "gender": persona.gender,
+                    "education": persona.education_level,
+                    "income": persona.income_bracket,
+                    "location": persona.location,
+                }
+
+        fallback_meta = _build_segment_metadata(
+            fallback_demographics,
+            orch_reasoning.get("brief") or rag_details.get("brief"),
+            allocation_reasoning,
+            0,
+        )
+        segment_name = segment_name or fallback_meta.get("segment_name")
+        segment_description = segment_description or fallback_meta.get("segment_description")
+        segment_social_context = segment_social_context or fallback_meta.get("segment_social_context")
+        if not segment_characteristics:
+            segment_characteristics = rag_details.get("segment_characteristics") or []
+
     response = PersonaReasoningResponse(
         orchestration_brief=orchestration_brief,
         graph_insights=graph_insights,
@@ -1468,6 +2097,70 @@ async def get_persona_reasoning(
         segment_id=orch_reasoning.get("segment_id") or rag_details.get("segment_id"),
         segment_description=segment_description,
         segment_social_context=segment_social_context,
+        segment_characteristics=segment_characteristics,
     )
 
     return response
+
+
+@router.get("/personas/{persona_id}/details", response_model=PersonaDetailsResponse)
+async def get_persona_details(
+    persona_id: UUID,
+    force_refresh: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Pobierz pełny detail view persony (MVP)
+
+    Pełny widok szczegółowy persony z:
+    - Base persona data (demographics, psychographics)
+    - Needs and pains (JTBD, desired outcomes, pain points - opcjonalne)
+    - RAG insights (z rag_context_details)
+    - Audit log (last 20 actions)
+
+    Note: KPI snapshot i customer journey zostały usunięte z modelu.
+    Dla KPI metrics użyj PersonaKPIService, dla journey - PersonaJourneyService.
+
+    Args:
+        persona_id: UUID persony
+        force_refresh: Wymuś recalculation (bypass cache)
+        db: DB session
+        current_user: Authenticated user
+
+    Returns:
+        PersonaDetailsResponse z pełnym detail view
+
+    RBAC:
+        - MVP: Wszyscy zalogowani użytkownicy mogą przeglądać persony
+        - Production: Role-based permissions (Viewer+)
+
+    Performance:
+        - Cache hit: < 50ms (Redis) - TODO: implement caching
+        - Cache miss: < 500ms (parallel fetch + 1 DB query)
+
+    Audit:
+        - Loguje "view" action w persona_audit_log (async, non-blocking)
+    """
+    # Verify access
+    await get_persona_for_user(persona_id, current_user, db)
+
+    # Fetch details (orchestration service)
+    details_service = PersonaDetailsService(db)
+    try:
+        details = await details_service.get_persona_details(
+            persona_id=persona_id,
+            user_id=current_user.id,
+            force_refresh=force_refresh,
+        )
+        return details
+    except ValueError as e:
+        # Persona not found
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        # Unexpected error
+        logger.error(f"Failed to fetch persona details: {e}", exc_info=e)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch persona details. Please try again later.",
+        )

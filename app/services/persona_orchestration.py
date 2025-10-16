@@ -18,11 +18,11 @@ import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 from app.services.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.clients import build_chat_model
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -115,6 +115,7 @@ class DemographicGroup(BaseModel):
     brief: str = Field(description="Długi (900-1200 znaków) edukacyjny brief dla generatorów")
     graph_insights: List[GraphInsight] = Field(default_factory=list, description="Insighty z Graph RAG")
     allocation_reasoning: str = Field(description="Dlaczego tyle person w tej grupie")
+    segment_characteristics: List[str] = Field(default_factory=list, description="4-6 kluczowych cech tego segmentu (np. 'Profesjonaliści z wielkich miast')")
 
 
 class PersonaAllocationPlan(BaseModel):
@@ -141,9 +142,8 @@ class PersonaOrchestrationService:
         """Inicjalizuje orchestration agent (Gemini 2.5 Pro) i RAG service."""
 
         # Gemini 2.5 Pro dla complex reasoning i długich analiz
-        self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-pro",  
-            google_api_key=settings.GOOGLE_API_KEY,
+        self.llm = build_chat_model(
+            model="gemini-2.5-pro",
             temperature=0.3,  # Niższa dla analytical tasks
             max_tokens=8000,  # Wystarczająco na pełny plan + briefy
             timeout=120,  # 2 minuty dla complex reasoning
@@ -430,11 +430,17 @@ d) **Typowe wyzwania i zainteresowania** (180-240 znaków)
    - Typowe hobby i sposób spędzania wolnego czasu
    - Dlaczego te zainteresowania pasują do profilu
 
-e) **Graph Insights** (structured data)
+e) **Segment Characteristics** (4-6 kluczowych cech tego segmentu)
+   - Krótkie, mówiące cechy charakterystyczne dla tej grupy
+   - Format: Lista stringów (np. ["Profesjonaliści z wielkich miast", "Wysoko wykształceni", "Stabilna kariera"])
+   - Cechy powinny być KONKRETNE dla tej grupy (nie ogólne!)
+   - Bazowane na demographics + insights z grafu
+
+f) **Graph Insights** (structured data)
    - Lista 3-5 kluczowych wskaźników z Graph RAG
    - Każdy z wyjaśnieniem "why_matters"
 
-f) **Allocation Reasoning**
+g) **Allocation Reasoning**
    - Dlaczego tyle person w tej grupie (X z {num_personas})?
    - Jak to odnosi się do % populacji vs. relevance dla badania?
 
@@ -491,6 +497,12 @@ Generuj JSON zgodny z tym schematem:
         "location": "Warszawa"
       }},
       "brief": "Edukacyjny brief (900-1200 znaków) jak w przykładzie...",
+      "segment_characteristics": [
+        "Profesjonaliści z wielkich miast",
+        "Wysoko wykształceni",
+        "Stabilna kariera",
+        "Wysokie zaangażowanie społeczne"
+      ],
       "graph_insights": [
         {{
           "type": "Wskaznik",
@@ -652,12 +664,11 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
 
         try:
             # Use Gemini Flash for quick naming (cheap, fast)
-            llm_flash = ChatGoogleGenerativeAI(
+            llm_flash = build_chat_model(
                 model="gemini-2.0-flash-exp",
-                google_api_key=settings.GOOGLE_API_KEY,
                 temperature=0.7,
                 max_tokens=50,
-                timeout=10
+                timeout=10,
             )
 
             response = await llm_flash.ainvoke(prompt)
@@ -729,13 +740,13 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
 
         prompt = f"""Stwórz kontekst społeczny dla segmentu "{segment_name}".
 
-DEMOGRAFIA:
+DEMOGRAFIA SEGMENTU:
 - Wiek: {age_range}
 - Płeć: {gender}
 - Wykształcenie: {education}
 - Dochód: {income}
 
-INSIGHTS Z GRAFU:
+INSIGHTS Z GRAFU WIEDZY:
 {insights_text}
 
 CYTATY Z RAG:
@@ -746,18 +757,20 @@ CEL PROJEKTU:
 
 WYTYCZNE:
 1. Długość: 500-800 znaków (WAŻNE!)
-2. Kontekst SPECYFICZNY dla tej grupy (nie ogólny dla całej Polski!)
-3. Opisz:
-   - Kluczowe wyzwania życiowe tej grupy
-   - Wartości i aspiracje typowe dla tego segmentu
-   - Kontekst ekonomiczny i społeczny (np. rynek pracy, stabilność)
-   - Jak insights z grafu i RAG odnoszą się do TEJ grupy
-4. Ton: analityczny, oparty na danych, ale zrozumiały
-5. Unikaj: ogólników, stereotypów, wartościowania
-6. Używaj konkretnych liczb z insights (np. "78.4% zatrudnienia")
+2. Kontekst SPECYFICZNY dla KONKRETNEJ GRUPY (nie ogólny opis Polski!)
+3. Zacznij od opisu charakterystyki grupy (jak w przykładzie)
+4. Struktura:
+   a) Pierwsza część (2-3 zdania): KIM są te osoby, co ich charakteryzuje
+   b) Druga część (2-3 zdania): Ich WARTOŚCI i ASPIRACJE
+   c) Trzecia część (2-3 zdania): WYZWANIA i kontekst ekonomiczny z konkretnymi liczbami
+5. Ton: konkretny, praktyczny, opisujący TYCH ludzi (nie teoretyczny!)
+6. Używaj konkretnych liczb z insights tam gdzie dostępne
+7. Unikaj: ogólników ("polska społeczeństwo"), teoretyzowania
 
-PRZYKŁAD DOBREGO KONTEKSTU (dla "Młodzi Prekariusze"):
-"Młodzi Prekariusze to osoby w wieku 18-24 lat, często w trakcie studiów lub tuż po ich ukończeniu. Wchodzą na rynek pracy w trudnym okresie – inflacja, niestabilność zatrudnienia (umowy śmieciowe, staże), rosnące koszty życia. Mimo wyższego wykształcenia (lub jego zdobywania), zarabiają poniżej średniej krajowej (<3000 PLN). Ich wartości: autonomia, rozwój osobisty, work-life balance. Aspiracje: stabilna praca, własne mieszkanie (często nieosiągalne). Wyzwania: długi kredytowe, niepewność przyszłości, rosnące wymagania pracodawców. Według GUS (2024), 62% osób w tej grupie pracuje na umowach czasowych, a inflacja uderza w nich najmocniej ze względu na brak oszczędności buforowych."
+PRZYKŁAD DOBREGO KONTEKSTU (na wzór Figmy):
+"Tech-Savvy Profesjonaliści to osoby w wieku 28 lat, pracujące jako Marketing Manager w dużych miastach jak Warszawa czy Kraków. Charakteryzują się wysokim wykształceniem (licencjat lub wyżej), stabilną karierą w branży technologicznej i dochodami 8k-12k PLN netto. Są early adopters nowych technologii i cenią sobie work-life balance. Ich główne wartości to innovation, ciągły rozwój i sustainability. Aspirują do awansu na wyższe stanowiska (senior manager, director), własnego mieszkania w atrakcyjnej lokalizacji (co przy cenach 15-20k PLN/m2 wymaga oszczędzania przez 10+ lat) i rozwoju kompetencji w digital marketing oraz AI tools. Wyzwania: rosnąca konkurencja na rynku pracy (według GUS 78% osób z tej grupy ma wyższe wykształcenie), wysokie koszty życia w dużych miastach (średni czynsz ~3500 PLN), presja na ciągły rozwój i keeping up with tech trends."
+
+WAŻNE: Pisz o KONKRETNEJ grupie ludzi, używaj przykładów zawodów, konkretnych liczb, opisuj ICH życie.
 
 ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
 

@@ -383,6 +383,10 @@ class PersonaReasoningResponse(BaseModel):
         None,
         description="Kontekst społeczny dla TEJ grupy demograficznej (500-800 znaków)"
     )
+    segment_characteristics: Optional[List[str]] = Field(
+        None,
+        description="4-6 kluczowych cech segmentu (np. ['Profesjonaliści z wielkich miast', 'Wysoko wykształceni'])"
+    )
 
     # === LEGACY POLA (dla kompatybilności wstecznej) ===
     orchestration_brief: Optional[str] = Field(

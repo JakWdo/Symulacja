@@ -2,6 +2,11 @@ import axios from 'axios';
 import type {
   Project,
   Persona,
+  PersonaDetailsResponse,
+  PersonaMessagingResponse,
+  PersonaMessagingPayload,
+  PersonaComparisonResponse,
+  PersonaExportResponse,
   FocusGroup,
   FocusGroupInsights,
   FocusGroupResponses,
@@ -19,6 +24,8 @@ import type {
   RAGQueryRequest,
   RAGQueryResponse,
   PersonaReasoning,
+  PersonaDeleteResponse,
+  PersonaUndoDeleteResponse,
 } from '@/types';
 
 // === AUTH TYPES ===
@@ -172,6 +179,64 @@ export const personasApi = {
     payload: GeneratePersonasPayload,
   ): Promise<void> => {
     await api.post(`/projects/${projectId}/personas/generate`, payload);
+  },
+  getDetails: async (personaId: string): Promise<PersonaDetailsResponse> => {
+    const { data } = await api.get<PersonaDetailsResponse>(`/personas/${personaId}/details`);
+    return data;
+  },
+  delete: async (
+    personaId: string,
+    reason: string,
+    reasonDetail?: string,
+  ): Promise<PersonaDeleteResponse> => {
+    const { data } = await api.delete<PersonaDeleteResponse>(`/personas/${personaId}`, {
+      data: {
+        reason,
+        reason_detail: reasonDetail,
+      },
+    });
+    return data;
+  },
+  undoDelete: async (personaId: string): Promise<PersonaUndoDeleteResponse> => {
+    const { data } = await api.post<PersonaUndoDeleteResponse>(`/personas/${personaId}/undo-delete`);
+    return data;
+  },
+  generateMessaging: async (
+    personaId: string,
+    payload: PersonaMessagingPayload,
+  ): Promise<PersonaMessagingResponse> => {
+    const { data } = await api.post<PersonaMessagingResponse>(
+      `/personas/${personaId}/actions/messaging`,
+      payload,
+    );
+    return data;
+  },
+  compare: async (
+    personaId: string,
+    personaIds: string[],
+    sections?: string[],
+  ): Promise<PersonaComparisonResponse> => {
+    const { data } = await api.post<PersonaComparisonResponse>(
+      `/personas/${personaId}/actions/compare`,
+      {
+        persona_ids: personaIds,
+        sections,
+      },
+    );
+    return data;
+  },
+  export: async (
+    personaId: string,
+    sections?: string[],
+  ): Promise<PersonaExportResponse> => {
+    const { data } = await api.post<PersonaExportResponse>(
+      `/personas/${personaId}/actions/export`,
+      {
+        format: 'json',
+        sections,
+      },
+    );
+    return data;
   },
 };
 

@@ -41,6 +41,9 @@ from .memory_service_langchain import MemoryServiceLangChain as MemoryService
 from .focus_group_service_langchain import FocusGroupServiceLangChain as FocusGroupService
 from .discussion_summarizer import DiscussionSummarizerService
 from .survey_response_generator import SurveyResponseGenerator
+from .persona_needs_service import PersonaNeedsService
+from .persona_messaging_service import PersonaMessagingService
+from .persona_comparison_service import PersonaComparisonService
 
 __all__ = [
     "PersonaGenerator",
@@ -49,4 +52,7 @@ __all__ = [
     "FocusGroupService",
     "DiscussionSummarizerService",
     "SurveyResponseGenerator",
+    "PersonaNeedsService",
+    "PersonaMessagingService",
+    "PersonaComparisonService",
 ]

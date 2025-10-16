@@ -8,6 +8,8 @@ export interface Toast {
   title: string;
   message?: string;
   duration?: number;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 interface ToastStore {
@@ -24,11 +26,13 @@ export const useToastStore = create<ToastStore>((set) => ({
       toasts: [...state.toasts, { ...toast, id }],
     }));
 
-    setTimeout(() => {
-      set((state) => ({
-        toasts: state.toasts.filter((t) => t.id !== id),
-      }));
-    }, toast.duration || 5000);
+    if (toast.duration !== Infinity) {
+      setTimeout(() => {
+        set((state) => ({
+          toasts: state.toasts.filter((t) => t.id !== id),
+        }));
+      }, toast.duration || 5000);
+    }
   },
   removeToast: (id) =>
     set((state) => ({
@@ -36,14 +40,16 @@ export const useToastStore = create<ToastStore>((set) => ({
     })),
 }));
 
+type ToastOptions = Pick<Toast, 'duration' | 'actionLabel' | 'onAction'>;
+
 export const toast = {
-  success: (title: string, message?: string) => {
-    useToastStore.getState().addToast({ type: 'success', title, message });
+  success: (title: string, message?: string, options?: ToastOptions) => {
+    useToastStore.getState().addToast({ type: 'success', title, message, ...options });
   },
-  error: (title: string, message?: string) => {
-    useToastStore.getState().addToast({ type: 'error', title, message });
+  error: (title: string, message?: string, options?: ToastOptions) => {
+    useToastStore.getState().addToast({ type: 'error', title, message, ...options });
   },
-  info: (title: string, message?: string) => {
-    useToastStore.getState().addToast({ type: 'info', title, message });
+  info: (title: string, message?: string, options?: ToastOptions) => {
+    useToastStore.getState().addToast({ type: 'info', title, message, ...options });
   },
 };

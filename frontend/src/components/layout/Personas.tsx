@@ -4,12 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   MoreVertical,
   Plus,
@@ -21,13 +19,10 @@ import {
   ChevronRight,
   Filter,
   Database,
-  Brain,
-  User,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
-import { PersonaReasoningPanel } from '@/components/personas/PersonaReasoningPanel';
-import { PersonaRAGPanel } from '@/components/personas/PersonaRAGPanel';
+import { PersonaDetailsDrawer } from '@/components/personas/PersonaDetailsDrawer';
 import { projectsApi, personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
@@ -272,7 +267,7 @@ function transformPersona(apiPersona: APIPersona): DisplayPersona {
 export function Personas() {
   const { selectedProject, setSelectedProject: setGlobalProject, setActivePanel } = useAppStore();
   const projectLabel = selectedProject?.name || 'Unknown project';
-  const [selectedPersona, setSelectedPersona] = useState<DisplayPersona | null>(null);
+  const [selectedPersonaForDetails, setSelectedPersonaForDetails] = useState<string | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
   const [currentPersonaIndex, setCurrentPersonaIndex] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(0);
@@ -890,13 +885,9 @@ export function Personas() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => setSelectedPersona(currentPersona)}>
+                            <DropdownMenuItem onClick={() => setSelectedPersonaForDetails(currentPersona.id)}>
                               <Eye className="w-4 h-4 mr-2" />
-                              Zobacz szczegóły
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Users className="w-4 h-4 mr-2" />
-                              Duplikuj personę
+                              Szczegóły persony
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -972,152 +963,12 @@ export function Personas() {
         )}
       </div>
 
-      {/* Persona Detail Dialog */}
-      <Dialog open={!!selectedPersona} onOpenChange={() => setSelectedPersona(null)}>
-        <DialogContent className="bg-background border border-border text-foreground max-w-4xl max-h-[80vh] overflow-y-auto">
-          {selectedPersona && (() => {
-            // Znajdź odpowiednią API persona dla reasoning panel
-            const apiPersona = apiPersonas.find(p => p.id === selectedPersona.id);
-
-            return (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="text-xl">{selectedPersona.name}</DialogTitle>
-                  <DialogDescription>
-                    Szczegółowy profil persony z danymi demograficznymi, psychograficznymi i kontekstem zachowań.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <Tabs defaultValue="profile" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="profile" className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Profil
-                    </TabsTrigger>
-                    <TabsTrigger value="reasoning" className="flex items-center gap-2">
-                      <Brain className="h-4 w-4" />
-                      Uzasadnienie
-                    </TabsTrigger>
-                    <TabsTrigger value="rag" className="flex items-center gap-2">
-                      <Database className="h-4 w-4" />
-                      Kontekst RAG
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="profile" className="space-y-6 mt-6">
-                    {/* Basic Info */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Wiek</p>
-                        <p className="text-foreground">{formatAge(selectedPersona.age)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Zawód</p>
-                        <p className="text-foreground">{selectedPersona.occupation}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Lokalizacja</p>
-                        <p className="text-foreground">{selectedPersona.demographics.location}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Dochód</p>
-                        <p className="text-foreground">{selectedPersona.demographics.income}</p>
-                      </div>
-                    </div>
-
-                    {/* Background */}
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2">Kontekst</p>
-                      <p className="text-foreground">{selectedPersona.background}</p>
-                    </div>
-
-                    {/* Demographics */}
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2">Dane demograficzne</p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Płeć</p>
-                          <p className="text-foreground">{selectedPersona.demographics.gender}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Wykształcenie</p>
-                          <p className="text-foreground">{selectedPersona.demographics.education}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Interests */}
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2">Zainteresowania</p>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedPersona.interests.map((interest, idx) => (
-                          <Badge key={idx} variant="secondary" className="bg-muted text-muted-foreground">
-                            {interest}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Psychographics */}
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">Psychografia</p>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Osobowość</p>
-                          <div className="space-y-1">
-                            {selectedPersona.psychographics.personality.map((trait, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs mr-1">
-                                {trait}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Wartości</p>
-                          <div className="space-y-1">
-                            {selectedPersona.psychographics.values.map((value, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs mr-1">
-                                {value}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Styl życia</p>
-                          <p className="text-xs text-foreground">{selectedPersona.psychographics.lifestyle}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="reasoning" className="mt-6">
-                    {apiPersona ? (
-                      <PersonaReasoningPanel persona={apiPersona} />
-                    ) : (
-                      <div className="text-center text-muted-foreground py-8">
-                        Ładowanie danych reasoning...
-                      </div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="rag" className="mt-6">
-                    {apiPersona ? (
-                      <PersonaRAGPanel persona={apiPersona} />
-                    ) : (
-                      <div className="text-center text-muted-foreground py-8">
-                        Ładowanie kontekstu RAG...
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      {/* Persona Details Drawer */}
+      <PersonaDetailsDrawer
+        personaId={selectedPersonaForDetails}
+        isOpen={!!selectedPersonaForDetails}
+        onClose={() => setSelectedPersonaForDetails(null)}
+      />
 
       {/* Persona Generation Wizard */}
       <PersonaGenerationWizard

@@ -1,23 +1,6 @@
-# ==============================================================================
-# DOCKER COMPOSE - DEVELOPMENT ENVIRONMENT
-# ==============================================================================
-# Ten plik konfiguruje środowisko deweloperskie z:
-# - Hot reload dla backendu (uvicorn --reload)
-# - Hot reload dla frontendu (Vite dev server)
-# - Volume mounts dla live code changes
-# - Postgres + Redis + Neo4j dla pełnego stacku
-#
-# UŻYCIE:
-#   docker-compose up -d              # Start wszystkich serwisów
-#   docker-compose logs -f api        # Logi backendu
-#   docker-compose restart api        # Restart pojedynczego serwisu
-#   docker-compose down               # Stop wszystkich serwisów
-# ==============================================================================
+version: "3.9"
 
 services:
-  # ============================================================================
-  # POSTGRES + pgvector - Główna baza danych
-  # ============================================================================
   postgres:
     image: ankane/pgvector:latest
     container_name: market_research_postgres
@@ -26,10 +9,8 @@ services:
       POSTGRES_PASSWORD: dev_password_change_in_prod
       POSTGRES_DB: market_research_db
     ports:
-      # Port 5433 na hoście (żeby uniknąć konfliktu z lokalnym Postgres na 5432)
       - "5433:5432"
     volumes:
-      # Named volume dla persistence
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U market_research -d market_research_db"]
@@ -37,67 +18,156 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
-  # ============================================================================
-  # REDIS - Cache i session storage
-  # ============================================================================
   redis:
     image: redis:7-alpine
     container_name: market_research_redis
+    command: redis-server --appendonly yes --loglevel warning
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    # Persistence: AOF (Append Only File) dla durability
-    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
-  # ============================================================================
-  # NEO4J - Graf wiedzy dla GraphRAG
-  # ============================================================================
   neo4j:
-    image: neo4j:5.23
+    build:
+      context: .
+      dockerfile: docker/neo4j/Dockerfile
     container_name: market_research_neo4j
     environment:
       NEO4J_AUTH: neo4j/dev_password_change_in_prod
-      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
-      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
       NEO4J_dbms_memory_heap_max__size: 2G
+      NEO4J_dbms_memory_pagecache_size: 512M
+      NEO4J_server_memory_heap_initial__size: 512M
     ports:
-      - "7474:7474"  # HTTP browser interface
-      - "7687:7687"  # Bolt protocol
+      - "7474:7474"
+      - "7687:7687"
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
     healthcheck:
-      # Zwiększone interwały i retries aby dać Neo4j czas na inicjalizację plugins (APOC, GDS)
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
-      interval: 15s  # Zwiększone z 10s
-      timeout: 10s   # Zwiększone z 5s
-      retries: 10    # Zwiększone z 5 (total: 150s = 2.5 min)
-      start_period: 30s  # Grace period przy starcie
+      test: ["CMD-SHELL", "cypher-shell -a bolt://localhost:7687 -u neo4j -p dev_password_change_in_prod --non-interactive 'RETURN 1;'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
     restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
 
-  # ============================================================================
-  # API - FastAPI Backend
-  # ============================================================================
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        TARGET: development
+    container_name: market_research_migrate
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://market_research:dev_password_change_in_prod@postgres:5432/market_research_db
+      WAIT_FOR_POSTGRES: "true"
+      WAIT_FOR_REDIS: "false"
+      WAIT_FOR_NEO4J: "false"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - backend
+
+  neo4j-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        TARGET: development
+    container_name: market_research_neo4j_init
+    command: ["python", "scripts/init_neo4j_indexes.py"]
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: dev_password_change_in_prod
+      WAIT_FOR_POSTGRES: "false"
+      WAIT_FOR_REDIS: "false"
+      WAIT_FOR_NEO4J: "true"
+      WAIT_NEO4J_ATTEMPTS: 60
+      WAIT_NEO4J_DELAY: 4
+    env_file:
+      - .env
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - backend
+
   api:
     build:
       context: .
       dockerfile: Dockerfile
-      # WAŻNE: Budujemy tylko stage "runtime" (multi-stage build)
       target: runtime
       args:
         TARGET: development
     container_name: market_research_api
-    ports:
-      - "8000:8000"
-    # Czekaj na healthy databases przed startem
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+    environment:
+      DATABASE_URL: postgresql+asyncpg://market_research:dev_password_change_in_prod@postgres:5432/market_research_db
+      REDIS_URL: redis://redis:6379/0
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: dev_password_change_in_prod
+      WAIT_FOR_POSTGRES: "true"
+      WAIT_FOR_REDIS: "true"
+      WAIT_FOR_NEO4J: "true"
+    env_file:
+      - .env
+    volumes:
+      - ./:/app
+      - api_static:/app/static
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,97 +175,59 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
-    # Env vars - database URLs nadpisują .env (dla Docker network)
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://market_research:dev_password_change_in_prod@postgres:5432/market_research_db
-      - REDIS_URL=redis://redis:6379/0
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=dev_password_change_in_prod
-      - ENVIRONMENT=development
-      - DEBUG=true
-    # Załaduj resztę env vars z .env (GOOGLE_API_KEY, SECRET_KEY, etc.)
-    env_file:
-      - .env
-    # Volume mount dla live code changes (hot reload)
-    volumes:
-      - ./:/app
-      # Named volume dla static files (avatary) - persist między restartami
-      - api_static:/app/static
+      migrate:
+        condition: service_completed_successfully
+      neo4j-init:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
     restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
 
-  # ============================================================================
-  # FRONTEND - React + Vite Dev Server
-  # ============================================================================
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      # WAŻNE: Budujemy tylko stage "development" (multi-stage build)
       target: development
     container_name: market_research_frontend
     ports:
       - "5173:5173"
-    depends_on:
-      - api
+    environment:
+      VITE_API_URL: http://api:8000
     volumes:
-      # Volume mount dla live code changes (hot reload)
       - ./frontend:/app
-      # WAŻNE: Named volume dla node_modules (unika konfliktów host vs container)
-      # Bez tego, host node_modules (macOS/Windows) nadpisałby container node_modules (Linux)
       - frontend_node_modules:/app/node_modules
-    # CMD jest już zdefiniowany w Dockerfile (npm run dev)
-    # NIE potrzebujemy npm install tutaj - jest w Dockerfile!
-    stdin_open: true  # Dla interaktywnego terminala
-    tty: true
+    depends_on:
+      api:
+        condition: service_started
     restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
-# ==============================================================================
-# NAMED VOLUMES - Persistence i separacja
-# ==============================================================================
 volumes:
-  # Database persistence
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
   neo4j_data:
-    driver: local
   neo4j_logs:
-    driver: local
-
-  # Application data
   api_static:
-    driver: local
-
-  # Frontend node_modules - KLUCZOWE dla uniknięcia konfliktów host vs container
-  # Bez tego: host node_modules (macOS) konfliktują z container (Linux Alpine)
   frontend_node_modules:
-    driver: local
 
-# ==============================================================================
-# DLACZEGO TE ZMIANY?
-# ==============================================================================
-# 1. BRAK DUPLIKACJI npm install:
-#    - Dockerfile już instaluje dependencies w build stage
-#    - docker-compose NIE uruchamia npm install przy każdym up
-#    - Rezultat: Instant starty (0s zamiast 30-60s)
-#
-# 2. NAMED VOLUME dla node_modules:
-#    - Host node_modules (macOS/Windows) != Container node_modules (Linux)
-#    - Named volume zapobiega konfliktom
-#    - Rezultat: Brak błędów "module not found" lub "ENOENT"
-#
-# 3. MULTI-STAGE BUILD targets:
-#    - Backend: target=runtime (bez build tools)
-#    - Frontend: target=development (z node_modules cached)
-#    - Rezultat: Szybsze buildy (~2-3x) + mniejsze images (~40-50%)
-#
-# 4. HEALTHCHECKS + depends_on:
-#    - API startuje DOPIERO gdy Postgres/Redis/Neo4j są healthy
-#    - Rezultat: Brak błędów "connection refused" przy starcie
-#
-# 5. RESTART POLICIES:
-#    - unless-stopped: Automatyczny restart po crash (poza manual stop)
-#    - Rezultat: Bardziej resilient development environment
-# ==============================================================================
+networks:
+  backend:

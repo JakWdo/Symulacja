@@ -8,7 +8,7 @@ Wydajność: Przetwarzanie równoległe dla szybkiego generowania odpowiedzi
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
@@ -18,13 +18,13 @@ from uuid import UUID
 from collections import Counter
 import statistics
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.models import Survey, Persona, SurveyResponse
 from app.schemas.survey import QuestionAnalytics
 from app.db import AsyncSessionLocal
 from app.core.config import get_settings
+from app.services.clients import build_chat_model
 
 settings = get_settings()
 
@@ -45,9 +45,8 @@ class SurveyResponseGenerator:
         self.settings = settings
 
         # Inicjalizujemy model Gemini w LangChain
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = build_chat_model(
             model=settings.DEFAULT_MODEL,
-            google_api_key=settings.GOOGLE_API_KEY,
             temperature=settings.TEMPERATURE,
             max_tokens=1024,  # Krótsze odpowiedzi na potrzeby ankiet
         )

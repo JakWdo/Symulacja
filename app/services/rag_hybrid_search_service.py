@@ -15,23 +15,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
-from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader
-from langchain_community.graphs import Neo4jGraph
-from langchain_community.vectorstores import Neo4jVector
 from langchain_core.documents import Document
-from langchain_experimental.graph_transformers.llm import LLMGraphTransformer
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.core.config import get_settings
-from app.models.rag_document import RAGDocument
+from app.services.rag_clients import get_vector_store
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -48,15 +37,8 @@ class PolishSocietyRAG:
     def __init__(self) -> None:
         """Przygotowuje wektorowe i keywordowe zaplecze wyszukiwawcze."""
 
-        self.settings = settings
-
-        self.embeddings = GoogleGenerativeAIEmbeddings(
-            model=settings.EMBEDDING_MODEL,
-            google_api_key=settings.GOOGLE_API_KEY,
-        )
-
-        # Inicjalizacja Neo4j Vector Store z retry logic (dla Docker startup race condition)
-        self.vector_store = self._init_vector_store_with_retry()
+        # Współdzielone połączenie z Neo4j Vector Store (retry logic w warstwie pomocniczej)
+        self.vector_store = get_vector_store(logger)
 
         if self.vector_store:
             logger.info("✅ PolishSocietyRAG: Neo4j Vector Store połączony")
@@ -96,57 +78,6 @@ class PolishSocietyRAG:
             self._fulltext_index_initialized = False
             self._graph_rag_service = None
             self.reranker = None
-
-    def _init_vector_store_with_retry(self, max_retries: int = 10, initial_delay: float = 1.0):
-        """Inicjalizuje Neo4j Vector Store z retry logic (dla Docker startup).
-
-        Neo4j w Dockerze potrzebuje 10-15s na start (plugins: APOC, GDS).
-        Retry z exponential backoff zapobiega race condition przy startup.
-
-        Args:
-            max_retries: Maksymalna liczba prób (default: 10 = ~30s total)
-            initial_delay: Początkowe opóźnienie w sekundach (default: 1.0s)
-
-        Returns:
-            Neo4jVector instance lub None jeśli wszystkie próby failed
-        """
-        import time
-
-        logger.info("🔄 PolishSocietyRAG: Inicjalizacja Neo4j Vector Store (z retry logic)")
-
-        delay = initial_delay
-        for attempt in range(1, max_retries + 1):
-            try:
-                vector_store = Neo4jVector(
-                    url=settings.NEO4J_URI,
-                    username=settings.NEO4J_USER,
-                    password=settings.NEO4J_PASSWORD,
-                    embedding=self.embeddings,
-                    index_name="rag_document_embeddings",
-                    node_label="RAGChunk",
-                    text_node_property="text",
-                    embedding_node_property="embedding",
-                )
-                logger.info("✅ PolishSocietyRAG: Neo4j Vector Store połączony (próba %d/%d)", attempt, max_retries)
-                return vector_store
-
-            except Exception as exc:
-                if attempt < max_retries:
-                    logger.warning(
-                        "⚠️  PolishSocietyRAG: Neo4j Vector Store - próba %d/%d failed: %s. Retry za %.1fs...",
-                        attempt, max_retries, str(exc)[:100], delay
-                    )
-                    time.sleep(delay)
-                    delay = min(delay * 1.5, 10.0)  # Exponential backoff (cap at 10s)
-                else:
-                    logger.error(
-                        "❌ PolishSocietyRAG: Neo4j Vector Store - wszystkie %d prób failed",
-                        max_retries,
-                        exc_info=True
-                    )
-                    return None
-
-        return None
 
     @property
     def graph_rag_service(self):

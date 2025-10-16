@@ -10,12 +10,12 @@ Obsługuje dwa modele:
 - Gemini 2.5 Pro: bardziej szczegółowa analiza
 """
 
-import json
 import re
-from typing import Dict, List, Any, Optional
 from datetime import datetime
+from typing import Any, Dict, List
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+import numpy as np
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from sqlalchemy import select
@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models import FocusGroup, PersonaResponse, Persona
+from app.services.clients import build_chat_model
 
 settings = get_settings()
 
@@ -91,9 +92,8 @@ class DiscussionSummarizerService:
 
         model_name = analysis_model if use_pro_model else generation_model
 
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = build_chat_model(
             model=model_name,
-            google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.3,  # Niższa temperatura dla bardziej faktycznych podsumowań
             max_tokens=4096,  # Długie odpowiedzi
         )
@@ -504,7 +504,3 @@ Describe the emotional journey of the discussion:
                 elif current_segment and stripped:
                     segments[current_segment] += " " + stripped
             sections[section_name] = segments
-
-
-# Importujemy numpy na potrzeby agregacji demograficznej
-import numpy as np

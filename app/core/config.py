@@ -30,9 +30,14 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "password"
     POSTGRES_DB: str = "market_research_db"
 
-    # === CACHE I KOLEJKI ===
-    # Redis do cache'owania i Celery
+    # === CACHE ===
+    # Redis do cache'owania
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # === TASK QUEUE (opcjonalnie) ===
+    # Umożliwia ustawienie broker backend dla Celery bez wymuszania ich obecności
+    CELERY_BROKER_URL: Optional[str] = None
+    CELERY_RESULT_BACKEND: Optional[str] = None
 
     # === GRAF WIEDZY ===
     # Neo4j używany dla graph analysis i RAG vectorstore
@@ -132,10 +137,6 @@ class Settings(BaseSettings):
     # Wymiarowość wektorów embeddingowych
     # gemini-embedding-001 generuje 3072-wymiarowe wektory (nie 768!)
     EMBEDDING_DIMENSION: int = 3072
-
-    # === CELERY (zadania asynchroniczne) ===
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
 
     # === ŚRODOWISKO ===
     # ENVIRONMENT: development / staging / production

@@ -1,6 +1,6 @@
 """add segment tracking to personas
 
-Revision ID: 20251015_add_segment_tracking
+Revision ID: 20251015_segment_tracking
 Revises: add_rag_context_details
 Create Date: 2025-10-15
 
@@ -14,7 +14,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = '20251015_add_segment_tracking'
+revision: str = '20251015_segment_tracking'
 down_revision: Union[str, Sequence[str], None] = 'add_rag_context_details'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

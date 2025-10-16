@@ -1,0 +1,63 @@
+"""
+Asynchronous Redis client helper.
+
+Provides a shared Redis connection used across the backend for caching persona
+details, undo windows and other low-latency features.
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Optional
+
+from redis.asyncio import Redis
+
+from app.core.config import get_settings
+
+_redis_client: Optional[Redis] = None
+
+
+def get_redis_client() -> Redis:
+    """
+    Return a singleton Redis client configured from settings.
+
+    The connection is created lazily and re-used for subsequent calls.
+    """
+    global _redis_client
+    if _redis_client is None:
+        settings = get_settings()
+        _redis_client = Redis.from_url(
+            settings.REDIS_URL,
+            encoding="utf-8",
+            decode_responses=True,
+        )
+    return _redis_client
+
+
+async def redis_get_json(key: str) -> Optional[Any]:
+    """Fetch JSON data from Redis and decode it."""
+    client = get_redis_client()
+    raw = await client.get(key)
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        await client.delete(key)
+        return None
+
+
+async def redis_set_json(key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
+    """Store JSON-serialisable value in Redis with optional TTL."""
+    client = get_redis_client()
+    payload = json.dumps(value)
+    if ttl_seconds is not None:
+        await client.set(key, payload, ex=ttl_seconds)
+    else:
+        await client.set(key, payload)
+
+
+async def redis_delete(key: str) -> None:
+    """Remove a key from Redis."""
+    client = get_redis_client()
+    await client.delete(key)
