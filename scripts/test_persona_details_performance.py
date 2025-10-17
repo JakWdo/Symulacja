@@ -25,11 +25,11 @@ from app.core.config import get_settings
 from app.db import AsyncSessionLocal
 from app.models.persona import Persona
 from app.services.persona_journey_service import PersonaJourneyService
-from app.services.persona_needs_service import PersonaNeedsService
-from app.services.persona_messaging_service import PersonaMessagingService
+from app.services.personas.persona_needs_service import PersonaNeedsService
+from app.services.personas.persona_messaging_service import PersonaMessagingService
 from app.services.persona_kpi_service import PersonaKPIService
-from app.services.persona_details_service import PersonaDetailsService
-from app.services.persona_batch_processor import PersonaBatchProcessor
+from app.services.personas.persona_details_service import PersonaDetailsService
+from app.services.archived.persona_batch_processor import PersonaBatchProcessor
 
 settings = get_settings()
 

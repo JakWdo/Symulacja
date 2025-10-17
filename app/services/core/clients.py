@@ -17,6 +17,25 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
+def _resolve_api_key(explicit: Optional[str] = None) -> str:
+    """
+    Zwróć skonfigurowany Google API key lub podnieś wyjątek, jeśli go brak.
+
+    Args:
+        explicit: Opcjonalny klucz przekazany bezpośrednio w konfiguracji klienta.
+
+    Raises:
+        RuntimeError: Gdy nie skonfigurowano klucza Google Gemini.
+    """
+    candidate = explicit if explicit is not None else settings.GOOGLE_API_KEY
+    if candidate and str(candidate).strip():
+        return str(candidate).strip()
+    raise RuntimeError(
+        "Google Gemini API key is not configured. "
+        "Ustaw zmienną środowiskową GOOGLE_API_KEY lub przekaż google_api_key w konfiguracji klienta."
+    )
+
+
 def build_chat_model(
     *,
     model: Optional[str] = None,
@@ -43,9 +62,11 @@ def build_chat_model(
         Skonfigurowana instancja ChatGoogleGenerativeAI.
     """
 
+    extra_params = dict(extra)
+    explicit_key = extra_params.pop("google_api_key", None)
+
     params: dict[str, Any] = {
         "model": model or settings.DEFAULT_MODEL,
-        "google_api_key": settings.GOOGLE_API_KEY,
         "temperature": temperature if temperature is not None else settings.TEMPERATURE,
         "max_tokens": max_tokens if max_tokens is not None else settings.MAX_TOKENS,
     }
@@ -57,7 +78,8 @@ def build_chat_model(
     if timeout is not None:
         params["timeout"] = timeout
 
-    params.update(extra)
+    params["google_api_key"] = _resolve_api_key(explicit_key)
+    params.update(extra_params)
     return ChatGoogleGenerativeAI(**params)
 
 
@@ -75,5 +97,5 @@ def get_embeddings(model: Optional[str] = None) -> GoogleGenerativeAIEmbeddings:
     model_name = model or settings.EMBEDDING_MODEL
     return GoogleGenerativeAIEmbeddings(
         model=model_name,
-        google_api_key=settings.GOOGLE_API_KEY,
+        google_api_key=_resolve_api_key(),
     )

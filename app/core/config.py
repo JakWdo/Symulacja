@@ -64,8 +64,17 @@ class Settings(BaseSettings):
     PERSONA_GENERATION_MODEL: str = "gemini-2.5-flash"
     # ANALYSIS_MODEL: Model do analizy i podsumowań (dokładny)
     ANALYSIS_MODEL: str = "gemini-2.5-pro"
-    # GRAPH_MODEL: Model do tworzenia grafu z raportu
+    # GRAPH_MODEL: Model do tworzenia grafu z raportu (DEPRECATED - użyj GRAPH_TRANSFORMER_MODEL)
     GRAPH_MODEL: str = "gemini-2.5-flash"
+
+    # === Graph RAG Models (fine-grained control) ===
+    # GRAPH_TRANSFORMER_MODEL: LLMGraphTransformer - bulk graph extraction (cheap, volume operation)
+    GRAPH_TRANSFORMER_MODEL: str = "gemini-2.5-flash"
+    # CYPHER_GENERATION_MODEL: Cypher query generation - structured task (precision matters)
+    CYPHER_GENERATION_MODEL: str = "gemini-2.5-flash"
+    # GRAPH_ANSWER_MODEL: Final answer synthesis from graph - quality over speed
+    GRAPH_ANSWER_MODEL: str = "gemini-2.5-pro"
+
     # DEFAULT_MODEL: ustawienie utrzymujące zgodność wsteczną
     DEFAULT_MODEL: str = "gemini-2.5-flash"
     # TEMPERATURE: Kreatywność modelu (0.0-1.0, wyższe = bardziej kreatywne)

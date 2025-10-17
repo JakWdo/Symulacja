@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any, Dict, List, Tuple, Union
 
 from langchain_core.documents import Document
+from langchain_google_genai import GoogleGenerativeAIEmbeddings  # noqa: F401 - eksportowany dla kompatybilności z patchami
 
 from app.core.config import get_settings
-from app.services.rag_clients import get_vector_store
+from app.services.rag.rag_clients import get_vector_store
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -83,7 +85,7 @@ class PolishSocietyRAG:
     def graph_rag_service(self):
         """Leniwa inicjalizacja GraphRAGService dla dostępu do strukturalnego kontekstu."""
         if self._graph_rag_service is None:
-            from app.services.rag_graph_service import GraphRAGService
+            from app.services.rag.rag_graph_service import GraphRAGService
 
             self._graph_rag_service = GraphRAGService()
         return self._graph_rag_service
@@ -116,6 +118,16 @@ class PolishSocietyRAG:
             logger.info("Fulltext index 'rag_fulltext_index' jest gotowy.")
         except Exception as exc:  # pragma: no cover - indeks nie jest krytyczny
             logger.warning("Nie udało się utworzyć indeksu fulltext: %s", exc)
+
+    @staticmethod
+    def _sanitize_fulltext_query(raw_query: str) -> str:
+        """Escape Lucene special characters to keep fulltext queries safe."""
+        if not raw_query:
+            return ""
+
+        normalized = " ".join(raw_query.split())
+        pattern = re.compile(r'([+\-=&|><!(){}\[\]^"~*?:\\\/])')
+        return pattern.sub(r'\\\1', normalized)
 
     async def _keyword_search(self, query: str, k: int = 5) -> List[Tuple[Document, float]]:
         """Wykonuje wyszukiwanie pełnotekstowe w Neo4j i zwraca dokumenty LangChain."""
@@ -154,6 +166,7 @@ class PolishSocietyRAG:
                     cleanup = getattr(session, "close", None)
 
                 try:
+                    sanitized_query = self._sanitize_fulltext_query(query)
                     result = session.run(
                         """
                         CALL db.index.fulltext.queryNodes('rag_fulltext_index', $search_query)
@@ -166,7 +179,7 @@ class PolishSocietyRAG:
                         ORDER BY score DESC
                         LIMIT $limit
                         """,
-                        search_query=query,
+                        search_query=sanitized_query,
                         limit=k,
                     )
 

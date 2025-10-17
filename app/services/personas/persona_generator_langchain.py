@@ -11,6 +11,7 @@ Kluczowe funkcjonalności:
 - Integracja z LangChain dla łatwej zmiany modelu LLM
 """
 
+import asyncio
 import numpy as np
 from typing import Dict, List, Any, Tuple, Optional
 from scipy import stats
@@ -21,32 +22,26 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnablePassthrough
 
 from app.core.config import get_settings
-from app.core.constants import (
-    DEFAULT_AGE_GROUPS,
-    DEFAULT_GENDERS,
-    DEFAULT_EDUCATION_LEVELS,
-    DEFAULT_INCOME_BRACKETS,
-    DEFAULT_LOCATIONS,
-    POLISH_LOCATIONS,
-    POLISH_VALUES,
-    POLISH_INTERESTS,
-    POLISH_COMMUNICATION_STYLES,
-    POLISH_DECISION_STYLES,
-    POLISH_INCOME_BRACKETS,
-    POLISH_EDUCATION_LEVELS,
-    POLISH_MALE_NAMES,
-    POLISH_FEMALE_NAMES,
-    POLISH_SURNAMES,
-)
+# NOTE: Imports z constants.py usunięte - demographics teraz z orchestration, nie z sampling
 from app.models import Persona
-from app.services.clients import build_chat_model
+from app.services.core.clients import build_chat_model
+from app.core.prompts import (
+    COMPREHENSIVE_PERSONA_GENERATION_PROMPT,
+    COMPREHENSIVE_PERSONA_GENERATION_SCHEMA,
+    COMPREHENSIVE_PERSONA_MODEL_PARAMS,
+)
 
 settings = get_settings()
+
+try:  # Opcjonalny import wyjątku z pakietu Google API (może nie być dostępny w testach)
+    from google.api_core.exceptions import ServiceUnavailable  # type: ignore
+except Exception:  # pragma: no cover - brak zależności w środowisku testowym
+    ServiceUnavailable = None  # type: ignore
 
 # Import RAG service (opcjonalny - tylko jeśli RAG włączony)
 try:
     if settings.RAG_ENABLED:
-        from app.services.rag_hybrid_search_service import PolishSocietyRAG
+        from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
         _rag_service_available = True
     else:
         _rag_service_available = False
@@ -121,103 +116,8 @@ class PersonaGeneratorLangChain:
             except Exception as e:
                 logger.warning(f"RAG service unavailable: {e}")
 
-    def sample_demographic_profile(
-        self, distribution: DemographicDistribution, n_samples: int = 1
-    ) -> List[Dict[str, Any]]:
-        """
-        Próbkuj profile demograficzne zgodnie z zadanym rozkładem
-
-        Metoda ta tworzy losowe profile demograficzne na podstawie prawdopodobieństw
-        w obiekcie DemographicDistribution. Jeśli jakiś rozkład jest pusty lub niepoprawny,
-        używa domyślnych wartości z constants.py.
-
-        Args:
-            distribution: Obiekt zawierający rozkłady prawdopodobieństw dla każdej kategorii
-            n_samples: Liczba profili do wygenerowania (domyślnie 1)
-
-        Returns:
-            Lista słowników, każdy zawiera klucze: age_group, gender, education_level,
-            income_bracket, location
-        """
-        profiles = []
-
-        for _ in range(n_samples):
-            # Normalizuj każdy rozkład lub użyj wartości domyślnych (polskich)
-            age_groups = self._prepare_distribution(
-                distribution.age_groups, DEFAULT_AGE_GROUPS
-            )
-            genders = self._prepare_distribution(distribution.genders, DEFAULT_GENDERS)
-            education_levels = self._prepare_distribution(
-                distribution.education_levels, POLISH_EDUCATION_LEVELS
-            )
-            income_brackets = self._prepare_distribution(
-                distribution.income_brackets, POLISH_INCOME_BRACKETS
-            )
-            locations = self._prepare_distribution(
-                distribution.locations, POLISH_LOCATIONS
-            )
-
-            # Losuj wartość z każdej kategorii zgodnie z wagami
-            profile = {
-                "age_group": self._weighted_sample(age_groups),
-                "gender": self._weighted_sample(genders),
-                "education_level": self._weighted_sample(education_levels),
-                "income_bracket": self._weighted_sample(income_brackets),
-                "location": self._weighted_sample(locations),
-            }
-            profiles.append(profile)
-
-        return profiles
-
-    def _weighted_sample(self, distribution: Dict[str, float]) -> str:
-        """
-        Losuj element z rozkładu ważonego (weighted sampling)
-
-        Args:
-            distribution: Słownik kategoria -> prawdopodobieństwo (suma = 1.0)
-
-        Returns:
-            Wylosowana kategoria jako string
-
-        Raises:
-            ValueError: Jeśli rozkład jest pusty
-        """
-        if not distribution:
-            raise ValueError("Distribution cannot be empty")
-        categories = list(distribution.keys())
-        weights = list(distribution.values())
-        return self._rng.choice(categories, p=weights)
-
-    def _prepare_distribution(
-        self, distribution: Dict[str, float], fallback: Dict[str, float]
-    ) -> Dict[str, float]:
-        """
-        Przygotuj i znormalizuj rozkład prawdopodobieństw
-
-        Sprawdza czy rozkład jest poprawny, normalizuje go do sumy 1.0,
-        lub zwraca fallback jeśli rozkład jest niepoprawny.
-
-        Args:
-            distribution: Rozkład do znormalizowania
-            fallback: Rozkład domyślny używany gdy distribution jest pusty/błędny
-
-        Returns:
-            Znormalizowany rozkład (suma = 1.0) lub fallback
-        """
-        if not distribution:
-            return fallback
-        total = sum(distribution.values())
-        if total <= 0:
-            return fallback
-        # Pierwsza normalizacja - dziel przez sumę
-        normalized = {key: value / total for key, value in distribution.items()}
-        normalized_total = sum(normalized.values())
-        # Druga normalizacja jeśli są błędy zaokrągleń numerycznych
-        if not np.isclose(normalized_total, 1.0):
-            normalized = {
-                key: value / normalized_total for key, value in normalized.items()
-            }
-        return normalized
+    # NOTE: sample_demographic_profile(), _weighted_sample(), _prepare_distribution()
+    # zostały USUNIĘTE - demographics teraz pochodzą z orchestration, nie z sampling
 
     def sample_big_five_traits(self, personality_skew: Dict[str, float] = None) -> Dict[str, float]:
         """
@@ -487,14 +387,6 @@ class PersonaGeneratorLangChain:
         # Generuj unikalny seed dla tej persony (do różnicowania)
         persona_seed = self._rng.integers(1000, 9999)
 
-        # Losuj polskie imię i nazwisko dla większej różnorodności
-        gender_lower = demographic.get('gender', 'male').lower()
-        if 'female' in gender_lower or 'kobieta' in gender_lower:
-            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
-        else:
-            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
-        suggested_surname = self._rng.choice(POLISH_SURNAMES)
-
         # Pobierz wartości Big Five (interpretację robi LLM)
         openness_val = psychological.get('openness', 0.5)
         conscientiousness_val = psychological.get('conscientiousness', 0.5)
@@ -534,7 +426,7 @@ KONTEKST (RAG + Brief + Audience):
 
         return f"""Expert: Syntetyczne persony dla polskiego rynku - UNIKALNE, REALISTYCZNE, SPÓJNE.
 
-{unified_context}PERSONA #{persona_seed}: {suggested_first_name} {suggested_surname}
+{unified_context}PERSONA #{persona_seed}
 
 PROFIL:
 • Wiek: {demographic.get('age_group')} | Płeć: {demographic.get('gender')} | Lokalizacja: {demographic.get('location')}
@@ -552,8 +444,16 @@ Wykorzystaj te wartości do stworzenia spójnej osobowości i historii życiowej
 
 HOFSTEDE (wartości 0-1): PD={psychological.get('power_distance', 0.5):.2f} | IND={psychological.get('individualism', 0.5):.2f} | UA={psychological.get('uncertainty_avoidance', 0.5):.2f}
 
-ZASADY:
-• Zawód = wykształcenie + dochód
+ZASADY IMION I NAZWISK:
+• Używaj TYPOWYCH POLSKICH imion pasujących do wieku i płci persony
+• Przykłady imion: dla 25-34 lat (Julia, Kacper), dla 45-54 lat (Małgorzata, Krzysztof), dla 55+ (Grażyna, Stanisław)
+• Nazwiska neutralne, popularne (np. Kowalski, Nowak, Wiśniewski, Kowalczyk)
+• Imiona muszą być realistyczne dla Polski 2025 i pasować do pokolenia
+• NIE wymyślaj egzotycznych lub nieprawdopodobnych kombinacji
+
+ZASADY ZAWODÓW:
+• Zawód = wykształcenie + dochód + brief
+• Używaj TYLKO konkretnych, istniejących zawodów w Polsce (nie abstrakcyjnych tytułów)
 • Osobowość → historia (O→podróże, S→planowanie)
 • Detale: dzielnice, marki, konkretne hobby
 
@@ -562,12 +462,12 @@ PRZYKŁAD:
 
 Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
 {{
-  "full_name": "<polskie imię+nazwisko>",
-  "persona_title": "<zawód/etap życia>",
+  "full_name": "<polskie imię+nazwisko - typowe dla tego wieku>",
+  "persona_title": "<konkretny zawód istniejący w Polsce>",
   "headline": "<1 zdanie: wiek, zawód, motywacje>",
   "background_story": "<2-3 zdania: życie, kariera, kontekst>",
-  "values": ["<5-7 wartości>"],
-  "interests": ["<5-7 hobby/aktywności>"],
+  "values": ["<5-7 wartości - konkretne, życiowe>"],
+  "interests": ["<5-7 hobby/aktywności - realistyczne>"],
   "communication_style": "<jak się komunikuje>",
   "decision_making_style": "<jak podejmuje decyzje>",
   "typical_concerns": ["<3-5 zmartwień/priorytetów>"]
@@ -826,6 +726,181 @@ Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
             logger.error(f"❌ Failed to generate persona from segment: {e}", exc_info=True)
             raise ValueError(f"Failed to generate persona from segment '{segment_name}': {e}")
 
+    async def generate_comprehensive_persona(
+        self,
+        orchestration_brief: str,
+        segment_characteristics: List[str],
+        demographic_guidance: Dict[str, Any],
+        rag_context: Optional[str] = None,
+        psychological_profile: Optional[Dict[str, float]] = None
+    ) -> Dict[str, Any]:
+        """
+        Generuj KOMPLETNĄ personę używając comprehensive prompt (LLM generuje ALL DATA).
+
+        Ta metoda różni się od generate_persona_personality():
+        - LLM generuje WSZYSTKIE dane razem (demographics + background_story + values + interests)
+        - Brak post-processing polonizacji - LLM generuje od razu po polsku
+        - demographic_guidance jest tylko sugestią dla LLM, nie requirement
+        - Używa structured output dla reliability
+
+        Args:
+            orchestration_brief: Brief segmentu z orchestration service (kontekst społeczny)
+            segment_characteristics: Lista 4-6 charakterystyk segmentu
+            demographic_guidance: Orientacyjne demographics (guidance, nie requirement)
+            rag_context: Opcjonalny kontekst z RAG
+            psychological_profile: Opcjonalny Big Five + Hofstede (jeśli None → samplingujemy)
+
+        Returns:
+            Dict z ALL DATA:
+            - Demographics: age, gender, location, education_level, income_bracket, occupation
+            - Content: full_name, background_story, values, interests
+            - Psychographics: openness, conscientiousness, ... (z psychological_profile)
+
+        Raises:
+            ValueError: Jeśli generowanie się nie powiedzie
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Sample psychographics jeśli nie podane
+        if not psychological_profile:
+            psychological_profile = {
+                **self.sample_big_five_traits(),
+                **self.sample_cultural_dimensions()
+            }
+
+        # Format segment characteristics
+        segment_chars_text = "\n".join(f"- {char}" for char in segment_characteristics) if segment_characteristics else "Brak dodatkowych charakterystyk"
+
+        # Format demographic guidance
+        demographic_guidance_text = (
+            f"• Wiek: {demographic_guidance.get('age', 'elastyczny')}\n"
+            f"• Płeć: {demographic_guidance.get('gender', 'elastyczna')}\n"
+            f"• Lokalizacja: {demographic_guidance.get('location', 'elastyczna')}\n"
+            f"• Wykształcenie: {demographic_guidance.get('education_level', 'elastyczne')}\n"
+            f"• Dochód: {demographic_guidance.get('income_bracket', 'elastyczny')}"
+        )
+
+        # Build prompt
+        prompt_text = COMPREHENSIVE_PERSONA_GENERATION_PROMPT.format(
+            orchestration_brief=orchestration_brief or "Brak briefu",
+            segment_characteristics=segment_chars_text,
+            rag_context=rag_context or "Brak kontekstu RAG",
+            demographic_guidance=demographic_guidance_text
+        )
+
+        try:
+            # Build model with structured output
+            comprehensive_model = build_chat_model(
+                model=settings.PERSONA_GENERATION_MODEL,
+                temperature=COMPREHENSIVE_PERSONA_MODEL_PARAMS["temperature"],
+                max_tokens=COMPREHENSIVE_PERSONA_MODEL_PARAMS["max_tokens"],
+                top_p=COMPREHENSIVE_PERSONA_MODEL_PARAMS["top_p"],
+                top_k=COMPREHENSIVE_PERSONA_MODEL_PARAMS["top_k"],
+            )
+
+            # Use with_structured_output dla JSON reliability
+            structured_model = comprehensive_model.with_structured_output(
+                COMPREHENSIVE_PERSONA_GENERATION_SCHEMA
+            )
+
+            # Invoke LLM with simple retry logic for transient Gemini failures
+            max_attempts = 3
+            response: Optional[Dict[str, Any]] = None
+            last_exception: Optional[Exception] = None
+
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    logger.info(
+                        "Generating comprehensive persona with LLM (attempt %s/%s)...",
+                        attempt,
+                        max_attempts,
+                    )
+                    result = await structured_model.ainvoke([
+                        {"role": "system", "content": "Jesteś ekspertem od badań rynkowych tworzącym realistyczne syntetyczne persony dla polskiego rynku."},
+                        {"role": "user", "content": prompt_text}
+                    ])
+                except Exception as invoke_exc:  # pragma: no cover - zależne od klienta Gemini
+                    if attempt < max_attempts and self._is_retryable_gemini_error(invoke_exc):
+                        logger.warning(
+                            "Gemini API call failed (attempt %s/%s): %s. Retrying...",
+                            attempt,
+                            max_attempts,
+                            invoke_exc,
+                        )
+                        last_exception = invoke_exc
+                        await asyncio.sleep(0.5 * attempt)
+                        continue
+                    raise
+
+                if isinstance(result, dict):
+                    response = result
+                    break
+
+                if result is None and attempt < max_attempts:
+                    logger.warning(
+                        "Structured output zwrócił None (attempt %s/%s). Retrying...",
+                        attempt,
+                        max_attempts,
+                    )
+                    await asyncio.sleep(0.5 * attempt)
+                    continue
+
+                raise ValueError(f"Expected dict from structured output, got {type(result)}")
+
+            if response is None:
+                if last_exception:
+                    raise ValueError(f"Failed to generate comprehensive persona after retries: {last_exception}") from last_exception
+                raise ValueError("Expected dict from structured output, got <class 'NoneType'>")
+
+            # Normalizuj gender do standardowego formatu (case-insensitive, obsługa wariantów)
+            if 'gender' in response:
+                gender_raw = str(response['gender']).strip().lower()
+                if gender_raw in ['kobieta', 'woman', 'female', 'f']:
+                    response['gender'] = 'Kobieta'
+                elif gender_raw in ['mężczyzna', 'mezczyzna', 'man', 'male', 'm']:
+                    response['gender'] = 'Mężczyzna'
+                else:
+                    # Fallback do capitalize jeśli nieznany format
+                    response['gender'] = response['gender'].capitalize()
+
+            # Dodaj psychographics do response
+            response.update(psychological_profile)
+
+            # Dodaj persona_title jako alias dla occupation (backward compatibility)
+            if 'occupation' in response and 'persona_title' not in response:
+                response['persona_title'] = response['occupation']
+
+            # Dodaj headline jeśli brakuje (fallback)
+            if 'headline' not in response or not response.get('headline'):
+                response['headline'] = f"{response.get('full_name', 'Persona')}, {response.get('age', '?')} lat - {response.get('occupation', 'Zawód')}"
+
+            logger.info(
+                f"✅ Comprehensive persona generated: {response.get('full_name')} "
+                f"({response.get('age')} lat, {response.get('gender')}, {response.get('location')})"
+            )
+
+            return response
+
+        except Exception as e:
+            logger.error(f"❌ Failed to generate comprehensive persona: {e}", exc_info=True)
+            raise ValueError(f"Failed to generate comprehensive persona: {e}")
+
+    @staticmethod
+    def _is_retryable_gemini_error(exc: Exception) -> bool:
+        """Heurystycznie określ, czy błąd Gemini warto spróbować ponowić."""
+        if ServiceUnavailable is not None and isinstance(exc, ServiceUnavailable):
+            return True
+
+        message = str(exc).lower()
+        retry_markers = (
+            "503",
+            "service unavailable",
+            "temporarily overloaded",
+            "retry later",
+        )
+        return any(marker in message for marker in retry_markers)
+
     def _create_segment_persona_prompt(
         self,
         demographic: Dict[str, Any],
@@ -837,15 +912,8 @@ Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
     ) -> str:
         """Create prompt for segment-based persona generation."""
 
-        # Suggest Polish name
-        gender_lower = demographic.get('gender', 'kobieta').lower()
-        if 'female' in gender_lower or 'kobieta' in gender_lower:
-            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
-        else:
-            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
-        suggested_surname = self._rng.choice(POLISH_SURNAMES)
-
         age = demographic.get('age', 30)
+        gender = demographic.get('gender', 'kobieta')
 
         # Format insights
         insights_text = ""
@@ -859,7 +927,7 @@ Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
 
 CONSTRAINTS (MUSISZ PRZESTRZEGAĆ!):
 • Wiek: {age} lat
-• Płeć: {demographic.get('gender')}
+• Płeć: {gender}
 • Wykształcenie: {demographic.get('education_level')}
 • Dochód: {demographic.get('income_bracket')}
 • Lokalizacja: {demographic.get('location')}
@@ -875,15 +943,20 @@ OSOBOWOŚĆ (Big Five):
 • Sumienność: {psychological.get('conscientiousness', 0.5):.2f}
 • Ekstrawersja: {psychological.get('extraversion', 0.5):.2f}
 
+ZASADY IMION:
+• Używaj TYPOWYCH POLSKICH imion pasujących do wieku {age} lat i płci {gender}
+• Przykłady: dla 25-34 lat (Julia, Kacper), dla 45-54 lat (Małgorzata, Krzysztof)
+• Nazwiska popularne (Kowalski, Nowak, Wiśniewski)
+
 ZASADY:
 • Persona MUSI pasować do constraints
-• Zawód = wykształcenie + dochód
+• Zawód = wykształcenie + dochód + kontekst segmentu
 • Używaj kontekstu jako tła (nie cytuj statystyk!)
 
 ZWRÓĆ JSON:
 {{
-  "full_name": "{suggested_first_name} {suggested_surname}",
-  "persona_title": "<zawód>",
+  "full_name": "<typowe polskie imię+nazwisko dla tego wieku i płci>",
+  "persona_title": "<konkretny zawód>",
   "headline": "<{age} lat, zawód, motywacje>",
   "background_story": "<2-3 zdania>",
   "values": ["<5-7 wartości>"],

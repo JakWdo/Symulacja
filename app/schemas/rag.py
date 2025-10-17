@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -55,26 +55,6 @@ class RAGQueryResponse(BaseModel):
     context: str
     citations: List[RAGCitation]
     num_results: int
-
-
-class GraphRAGQuestionRequest(BaseModel):
-    """Schemat zapytania użytkownika do zaawansowanego Graph RAG."""
-
-    question: str = Field(
-        ...,
-        min_length=1,
-        description="Pytanie analityczne, które ma zostać rozpatrzone w oparciu o graf wiedzy.",
-        example="Jak zmieniało się zaufanie do rządu wśród młodych Polaków?",
-    )
-
-
-class GraphRAGQuestionResponse(BaseModel):
-    """Odpowiedź Graph RAG obejmująca wynik, kontekst i zapytanie Cypher."""
-
-    answer: str
-    graph_context: List[Dict[str, Any]]
-    vector_context: List[Any]
-    cypher_query: str
 
 
 class GraphRAGQuery(BaseModel):

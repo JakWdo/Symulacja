@@ -18,9 +18,13 @@ from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.core.config import get_settings
+from app.core.prompts import (
+    CYPHER_GENERATION_SYSTEM_PROMPT,
+    GRAPH_RAG_ANSWER_SYSTEM_PROMPT,
+)
 from app.schemas.rag import GraphRAGQuery
-from app.services.clients import build_chat_model
-from app.services.rag_clients import get_graph_store, get_vector_store
+from app.services.core.clients import build_chat_model
+from app.services.rag.rag_clients import get_graph_store, get_vector_store
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -46,9 +50,15 @@ class GraphRAGService:
 
         self.settings = settings
 
-        # Model konwersacyjny do generowania zapytań Cypher i odpowiedzi
-        self.llm = build_chat_model(
-            model=settings.GRAPH_MODEL,
+        # Model dla Cypher query generation (structured task, precision matters)
+        self.llm_cypher = build_chat_model(
+            model=settings.CYPHER_GENERATION_MODEL,
+            temperature=0,
+        )
+
+        # Model dla final answer synthesis (quality over speed)
+        self.llm_answer = build_chat_model(
+            model=settings.GRAPH_ANSWER_MODEL,
             temperature=0,
         )
 
@@ -178,49 +188,12 @@ class GraphRAGService:
         graph_schema = self.graph_store.get_schema()
         cypher_prompt = ChatPromptTemplate.from_messages(
             [
-                (
-                    "system",
-                    """
-                    Analityk badań społecznych. Pytanie → Cypher na grafie.
-
-                    === WĘZŁY (5) ===
-                    Obserwacja, Wskaznik, Demografia, Trend, Lokalizacja
-
-                    === RELACJE (5) ===
-                    OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W, POWIAZANY_Z (przyczynowość)
-
-                    === PROPERTIES WĘZŁÓW (polskie!) ===
-                    • streszczenie (max 150 znaków)
-                    • skala (np. "78.4%")
-                    • pewnosc ("wysoka"|"srednia"|"niska")
-                    • okres_czasu (YYYY lub YYYY-YYYY)
-                    • kluczowe_fakty (max 3, semicolons)
-
-                    === PROPERTIES RELACJI ===
-                    • sila ("silna"|"umiarkowana"|"slaba")
-
-                    === ZASADY ===
-                    1. ZAWSZE zwracaj streszczenie + kluczowe_fakty
-                    2. Filtruj: pewnosc dla pewnych faktów, sila dla silnych zależności
-                    3. Sortuj: skala (toFloat) dla największych
-                    4. POWIAZANY_Z dla przyczyn/skutków
-
-                    === PRZYKŁADY ===
-                    // Największe wskaźniki
-                    MATCH (n:Wskaznik) WHERE n.skala IS NOT NULL
-                    RETURN n.streszczenie, n.skala ORDER BY toFloat(split(n.skala,'%')[0]) DESC LIMIT 10
-
-                    // Pewne fakty
-                    MATCH (n:Obserwacja) WHERE n.pewnosc='wysoka' RETURN n.streszczenie, n.kluczowe_fakty
-
-                    Schema: {graph_schema}
-                    """.strip(),
-                ),
+                ("system", CYPHER_GENERATION_SYSTEM_PROMPT),
                 ("human", "Pytanie: {question}"),
             ]
         )
 
-        chain = cypher_prompt | self.llm.with_structured_output(GraphRAGQuery)
+        chain = cypher_prompt | self.llm_cypher.with_structured_output(GraphRAGQuery)
         return chain.invoke({"question": question, "graph_schema": graph_schema})
 
     async def answer_question(self, question: str) -> Dict[str, Any]:
@@ -256,19 +229,12 @@ class GraphRAGService:
 
         answer_prompt = ChatPromptTemplate.from_messages(
             [
-                (
-                    "system",
-                    """
-                    Jesteś ekspertem od analiz społecznych. Odpowiadasz wyłącznie na
-                    podstawie dostarczonego kontekstu z grafu i dokumentów. Udzielaj
-                    precyzyjnych, zweryfikowalnych odpowiedzi po polsku.
-                    """.strip(),
-                ),
+                ("system", GRAPH_RAG_ANSWER_SYSTEM_PROMPT),
                 ("human", "Pytanie: {question}\n\nKontekst:\n{context}"),
             ]
         )
 
-        response = await (answer_prompt | self.llm).ainvoke(
+        response = await (answer_prompt | self.llm_answer).ainvoke(
             {"question": question, "context": final_context}
         )
 

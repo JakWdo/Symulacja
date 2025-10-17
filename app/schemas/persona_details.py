@@ -21,6 +21,42 @@ from pydantic import BaseModel, Field
 # KPISnapshot model removed - deprecated in favor of real-time metrics
 
 
+class PersonaNarratives(BaseModel):
+    """
+    Narracje biznesowe persony (generowane przez PersonaNarrativeService).
+
+    5 typów narracji:
+    - person_profile: 1 akapit profilu (Flash)
+    - person_motivations: 2-3 akapity motywacji JTBD (Pro)
+    - segment_hero: Nazwa + tagline + opis segmentu (Pro)
+    - segment_significance: 1 akapit znaczenia biznesowego (Pro)
+    - evidence_context: Tło dowodowe + cytowania (Pro structured output)
+
+    Graceful degradation: Jeśli LLM call fails, pole może być None.
+    """
+
+    person_profile: Optional[str] = Field(
+        None,
+        description="1 akapit profilu persony (fakty demograficzne)"
+    )
+    person_motivations: Optional[str] = Field(
+        None,
+        description="2-3 akapity motywacji (JTBD + outcomes + pains)"
+    )
+    segment_hero: Optional[str] = Field(
+        None,
+        description="Segment hero: nazwa + tagline + opis grupy"
+    )
+    segment_significance: Optional[str] = Field(
+        None,
+        description="1 akapit znaczenia biznesowego segmentu"
+    )
+    evidence_context: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Tło dowodowe: {background_narrative, key_citations[]}"
+    )
+
+
 class PersonaDetailsResponse(BaseModel):
     """
     Response dla GET /personas/{id}/details
@@ -66,6 +102,13 @@ class PersonaDetailsResponse(BaseModel):
     rag_context_used: bool = False
     rag_citations: Optional[List[Dict[str, Any]]] = None
     rag_context_details: Optional[Dict[str, Any]] = None
+
+    # Narratives (nowe pole - generowane narracje biznesowe)
+    narratives: Optional["PersonaNarratives"] = None
+    narratives_status: str = Field(
+        default="ok",
+        description="Status narracji: ok | degraded | pending | offline"
+    )
 
     # Audit log (last 10 actions)
     audit_log: List["PersonaAuditEntry"] = Field(default_factory=list)
@@ -273,25 +316,6 @@ class PersonaUndoDeleteResponse(BaseModel):
     restored_at: datetime
     restored_by: UUID
     message: str
-
-
-class PersonasSummarySegment(BaseModel):
-    """Informacje o segmencie w podsumowaniu person projektu."""
-
-    segment_id: Optional[str]
-    segment_name: Optional[str]
-    active_personas: int
-    archived_personas: int
-
-
-class PersonasSummaryResponse(BaseModel):
-    """Podsumowanie person projektu (dashboard view)."""
-
-    project_id: UUID
-    total_personas: int
-    active_personas: int
-    archived_personas: int
-    segments: List[PersonasSummarySegment] = Field(default_factory=list)
 
 
 class PersonaAuditEntry(BaseModel):

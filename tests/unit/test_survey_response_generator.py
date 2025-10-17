@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.services.survey_response_generator import SurveyResponseGenerator
+from app.services.focus_groups.survey_response_generator import SurveyResponseGenerator
 
 
 class DummyLLM:

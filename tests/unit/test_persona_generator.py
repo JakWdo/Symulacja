@@ -12,7 +12,7 @@ Ten moduł testuje kluczowe funkcjonalności generatora person:
 import pytest
 import numpy as np
 from app.core.config import get_settings
-from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PersonaGenerator, DemographicDistribution
+from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain as PersonaGenerator, DemographicDistribution
 
 
 @pytest.fixture
@@ -63,62 +63,31 @@ def generator():
     return gen
 
 
+@pytest.mark.skip(reason="DEPRECATED: _weighted_sample() removed in comprehensive generation refactor. Demographics now from orchestration, not sampling.")
 def test_weighted_sampling(generator, sample_distribution):
     """
     Test losowania z wagami (weighted sampling)
 
-    Sprawdza czy metoda _weighted_sample respektuje zadane rozkłady prawdopodobieństw:
-    1. Generuje 1000 próbek z rozkładu grup wiekowych
-    2. Weryfikuje że wszystkie kategorie są reprezentowane
-    3. Sprawdza czy obserwowane proporcje są bliskie oczekiwanym (tolerancja ±5%)
+    DEPRECATED: Ta metoda została usunięta w refactorze comprehensive generation.
+    Demographics są teraz generowane przez orchestration service (Gemini 2.5 Pro),
+    nie przez statistical sampling.
 
-    Np. jeśli grupa "25-34" ma wagę 0.25, to ~250/1000 próbek powinno należeć do tej grupy
+    Zachowane dla historii - testy dla nowego flow w test_comprehensive_generation().
     """
-    samples = []
-    for _ in range(1000):
-        sample = generator._weighted_sample(sample_distribution.age_groups)
-        samples.append(sample)
-
-    # Check that all categories are represented
-    unique_values = set(samples)
-    assert unique_values == set(sample_distribution.age_groups.keys())
-
-    # Check proportions (with some tolerance)
-    for category, expected_prob in sample_distribution.age_groups.items():
-        observed_prob = samples.count(category) / len(samples)
-        assert abs(observed_prob - expected_prob) < 0.05  # 5% tolerance
+    pass
 
 
+@pytest.mark.skip(reason="DEPRECATED: sample_demographic_profile() removed in comprehensive generation refactor. Demographics now from orchestration.")
 def test_sample_demographic_profile(generator, sample_distribution):
     """
     Test generowania profili demograficznych
 
-    Sprawdza czy metoda sample_demographic_profile generuje kompletne profile osoby:
-    1. Generuje 10 profili demograficznych
-    2. Weryfikuje że każdy profil zawiera wszystkie wymagane pola:
-       - age_group (grupa wiekowa)
-       - gender (płeć)
-       - education_level (poziom wykształcenia)
-       - income_bracket (przedział dochodowy)
-       - location (lokalizacja)
-    3. Sprawdza czy wartości należą do zdefiniowanych kategorii w rozkładzie
+    DEPRECATED: Ta metoda została usunięta w refactorze comprehensive generation.
+    Demographics są teraz generowane przez orchestration service, nie sampling.
+
+    Zachowane dla historii - testy dla nowego flow w test_comprehensive_generation().
     """
-    profiles = generator.sample_demographic_profile(sample_distribution, n_samples=10)
-
-    assert len(profiles) == 10
-
-    for profile in profiles:
-        assert "age_group" in profile
-        assert "gender" in profile
-        assert "education_level" in profile
-        assert "income_bracket" in profile
-        assert "location" in profile
-
-        assert profile["age_group"] in sample_distribution.age_groups
-        assert profile["gender"] in sample_distribution.genders
-        assert profile["education_level"] in sample_distribution.education_levels
-        assert profile["income_bracket"] in sample_distribution.income_brackets
-        assert profile["location"] in sample_distribution.locations
+    pass
 
 
 def test_big_five_traits_sampling(generator):
@@ -181,76 +150,29 @@ def test_cultural_dimensions_sampling(generator):
         assert 0 <= dimensions[dim] <= 1
 
 
+@pytest.mark.skip(reason="DEPRECATED: Statistical validation removed - demographics from orchestration, not sampling.")
 def test_chi_square_validation(generator, sample_distribution):
     """
     Test walidacji statystycznej chi-kwadrat
 
-    Test chi-kwadrat (χ²) sprawdza czy obserwowany rozkład pasuje do oczekiwanego.
-    Jest to kluczowa walidacja dla generatora person - musi tworzyć populacje zgodne
-    z założonymi rozkładami demograficznymi.
+    DEPRECATED: Statistical validation został usunięty w comprehensive generation refactor.
+    Demographics są teraz generowane przez orchestration service (Gemini 2.5 Pro) z intelligent
+    allocation, nie przez statistical sampling. Orchestration zapewnia odpowiednią dystrybucję
+    demograficzną bez potrzeby chi-square validation.
 
-    Proces testu:
-    1. Generuje 200 person z zadanym rozkładem demograficznym
-    2. Przeprowadza testy χ² dla każdej kategorii (wiek, płeć, wykształcenie, dochód, lokalizacja)
-    3. Sprawdza strukturę wyniku - każdy test zwraca:
-       - p_value - prawdopodobieństwo (p > 0.05 oznacza zgodność)
-       - chi_square_statistic - wartość statystyki χ²
-       - degrees_of_freedom - stopnie swobody
-    4. Weryfikuje overall_valid=True (wszystkie rozkłady są poprawne)
-
-    Z 200 próbkami rozkład powinien być statystycznie zgodny z oczekiwanym
+    Zachowane dla historii - nowy system waliduje spójność z orchestration briefs.
     """
-    # Generate personas that match distribution
-    personas = []
-    for _ in range(200):
-        profile = generator.sample_demographic_profile(sample_distribution)[0]
-        personas.append(profile)
-
-    # Validate distribution
-    validation = generator.validate_distribution(personas, sample_distribution)
-
-    # Check structure
-    assert "age" in validation
-    assert "gender" in validation
-    assert "education" in validation
-    assert "income" in validation
-    assert "location" in validation
-    assert "overall_valid" in validation
-
-    # Each test should have p_value
-    for key in ["age", "gender", "education", "income", "location"]:
-        assert "p_value" in validation[key]
-        assert "chi_square_statistic" in validation[key]
-        assert "degrees_of_freedom" in validation[key]
-
-    # With 200 samples, distribution should be valid (p > 0.05)
-    assert validation["overall_valid"] is True
+    pass
 
 
+@pytest.mark.skip(reason="DEPRECATED: Statistical validation removed - demographics from orchestration, not sampling.")
 def test_chi_square_validation_small_sample(generator, sample_distribution):
     """
     Test walidacji chi-kwadrat z małą próbką
 
-    Sprawdza zachowanie testu χ² przy niewystarczającej liczbie próbek.
+    DEPRECATED: Statistical validation został usunięty w comprehensive generation refactor.
+    Demographics są teraz generowane przez orchestration service, nie sampling.
 
-    Z zaledwie 20 personami:
-    - Test może wykazać rozbieżność od oczekiwanego rozkładu (to normalne)
-    - Struktura wyników powinna być prawidłowa (zawierać overall_valid)
-    - Test powinien zakończyć się bez błędów (nawet jeśli validacja = False)
-
-    Ten test pokazuje że generator działa poprawnie nawet z małymi próbkami,
-    ale ostrzega że walidacja statystyczna wymaga większej liczby person.
+    Zachowane dla historii.
     """
-    # Generate only 20 personas (too small for good statistical validation)
-    personas = []
-    for _ in range(20):
-        profile = generator.sample_demographic_profile(sample_distribution)[0]
-        personas.append(profile)
-
-    validation = generator.validate_distribution(personas, sample_distribution)
-
-    # Structure should still be correct
-    assert "overall_valid" in validation
-
-    # With small sample, might fail validation (that's expected)
-    # Just verify the test completes without error
+    pass

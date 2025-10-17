@@ -31,28 +31,86 @@ Zawiera serwisy implementujące główną funkcjonalność platformy:
 
 Architektura: Service Layer Pattern (API → Services → Models)
 Framework: LangChain + Google Gemini (Flash dla szybkości, Pro dla analiz)
+
+Struktura folderów:
+- personas/: Serwisy związane z generacją i zarządzaniem personami
+- rag/: System RAG (document management, hybrid search, graph RAG)
+- focus_groups/: Focus groups, dyskusje, memory, surveys
+- core/: Współdzielone utility services
+- archived/: Legacy features (nie używane w obecnej wersji)
 """
 
-from .persona_generator_langchain import (
+# Personas
+from .personas import (
     PersonaGeneratorLangChain as PersonaGenerator,
-    DemographicDistribution,
+    PersonaOrchestrationService,
+    PersonaValidator,
+    PersonaDetailsService,
+    PersonaNarrativeService,
+    PersonaAuditService,
+    PersonaComparisonService,
+    PersonaNeedsService,
+    PersonaMessagingService,
 )
-from .memory_service_langchain import MemoryServiceLangChain as MemoryService
-from .focus_group_service_langchain import FocusGroupServiceLangChain as FocusGroupService
-from .discussion_summarizer import DiscussionSummarizerService
-from .survey_response_generator import SurveyResponseGenerator
-from .persona_needs_service import PersonaNeedsService
-from .persona_messaging_service import PersonaMessagingService
-from .persona_comparison_service import PersonaComparisonService
+
+# RAG
+from .rag import (
+    RAGDocumentService,
+    GraphRAGService,
+    PolishSocietyRAG,
+    GraphContextProvider,
+    HybridContextProvider,
+    get_vector_store,
+    get_graph_store,
+)
+
+# Focus Groups
+from .focus_groups import (
+    FocusGroupServiceLangChain as FocusGroupService,
+    DiscussionSummarizerService,
+    MemoryServiceLangChain as MemoryService,
+    SurveyResponseGenerator,
+)
+
+# Core
+from .core import build_chat_model, get_embeddings
+
+# Legacy exports for backwards compatibility
+# TODO: Remove these aliases once all imports are updated
+from .personas.persona_generator_langchain import DemographicDistribution
+
+# Utrzymaj kompatybilność ścieżek importu z poprzednich wersji pakietu
+import sys
+from .rag import rag_hybrid_search_service as _rag_hybrid_search_service
+
+sys.modules.setdefault("app.services.rag_hybrid_search_service", _rag_hybrid_search_service)
 
 __all__ = [
+    # Personas
     "PersonaGenerator",
-    "DemographicDistribution",
-    "MemoryService",
-    "FocusGroupService",
-    "DiscussionSummarizerService",
-    "SurveyResponseGenerator",
+    "PersonaOrchestrationService",
+    "PersonaValidator",
+    "PersonaDetailsService",
+    "PersonaNarrativeService",
+    "PersonaAuditService",
+    "PersonaComparisonService",
     "PersonaNeedsService",
     "PersonaMessagingService",
-    "PersonaComparisonService",
+    "DemographicDistribution",
+    # RAG
+    "RAGDocumentService",
+    "GraphRAGService",
+    "PolishSocietyRAG",
+    "GraphContextProvider",
+    "HybridContextProvider",
+    "get_vector_store",
+    "get_graph_store",
+    # Focus Groups
+    "FocusGroupService",
+    "DiscussionSummarizerService",
+    "MemoryService",
+    "SurveyResponseGenerator",
+    # Core
+    "build_chat_model",
+    "get_embeddings",
 ]

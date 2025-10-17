@@ -27,7 +27,7 @@ import re
 import time
 import unicodedata
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from uuid import UUID
 
 from sqlalchemy import select
@@ -36,10 +36,11 @@ from pydantic import ValidationError
 
 from app.db import AsyncSessionLocal
 from app.models import Persona
-from app.services.persona_audit_service import PersonaAuditService
-from app.services.persona_needs_service import PersonaNeedsService
+from app.services.personas.persona_audit_service import PersonaAuditService
+from app.services.personas.persona_needs_service import PersonaNeedsService
+from app.services.personas.persona_narrative_service import PersonaNarrativeService
 from app.core.redis import redis_get_json, redis_set_json, redis_delete
-from app.schemas.persona_details import PersonaDetailsResponse, PersonaAuditEntry
+from app.schemas.persona_details import PersonaDetailsResponse, PersonaAuditEntry, PersonaNarratives
 
 logger = logging.getLogger(__name__)
 
@@ -225,6 +226,7 @@ class PersonaDetailsService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.audit_service = PersonaAuditService()
+        self.narrative_service = PersonaNarrativeService()
 
     async def get_persona_details(
         self,
@@ -299,9 +301,10 @@ class PersonaDetailsService:
         # Jeśli któraś operacja failuje, catch exception i zwróć None (graceful degradation)
 
         parallel_start = time.time()
-        needs_and_pains, audit_log = await asyncio.gather(
+        needs_and_pains, audit_log, narratives_data = await asyncio.gather(
             self._fetch_needs_and_pains(persona, force_refresh=force_refresh),
             self._fetch_audit_log(persona_id),
+            self._fetch_narratives(persona_id, force_refresh=force_refresh),
             return_exceptions=True,  # Nie failuj całego requesta jeśli 1 operacja failuje
         )
         parallel_elapsed_ms = int((time.time() - parallel_start) * 1000)
@@ -322,6 +325,21 @@ class PersonaDetailsService:
                 exc_info=audit_log,
             )
             audit_log = []
+
+        # Extract narratives + status (graceful degradation)
+        narratives = None
+        narratives_status = "pending"
+        if isinstance(narratives_data, Exception):
+            logger.warning(
+                f"Failed to fetch narratives for persona {persona_id}: {narratives_data}",
+                exc_info=narratives_data,
+            )
+            narratives_status = "offline"
+        elif narratives_data:
+            narratives, narratives_status = narratives_data
+            if narratives:
+                # Convert to PersonaNarratives schema
+                narratives = PersonaNarratives(**narratives)
 
         enriched_rag_details = _ensure_segment_metadata(persona)
         segment_id = persona.segment_id or (enriched_rag_details.get("segment_id") if enriched_rag_details else None)
@@ -366,6 +384,9 @@ class PersonaDetailsService:
             rag_context_used=persona.rag_context_used,
             rag_citations=persona.rag_citations,
             rag_context_details=enriched_rag_details,
+            # Narratives (nowe pole)
+            narratives=narratives,
+            narratives_status=narratives_status,
             # Audit log
             audit_log=audit_log if isinstance(audit_log, list) else [],
             # Metadata
@@ -394,11 +415,58 @@ class PersonaDetailsService:
                 "db_fetch_ms": fetch_elapsed_ms,
                 "parallel_fetch_ms": parallel_elapsed_ms,
                 "needs_available": needs_and_pains is not None and not isinstance(needs_and_pains, Exception),
+                "narratives_status": narratives_status,
                 "force_refresh": force_refresh,
             }
         )
 
         return response
+
+    async def _fetch_narratives(
+        self,
+        persona_id: UUID,
+        *,
+        force_refresh: bool,
+    ) -> Tuple[Optional[Dict[str, Any]], str]:
+        """
+        Fetch narratives from PersonaNarrativeService with timeout.
+
+        Args:
+            persona_id: UUID persony
+            force_refresh: Whether to bypass cache
+
+        Returns:
+            Tuple[narratives_dict, status] lub Exception on failure
+
+        Performance:
+            - Cache hit: < 50ms (PersonaNarrativeService cache)
+            - Cache miss: < 20s (LLM generation with timeout)
+            - Timeout: 15s dla całego flow
+        """
+        try:
+            # Timeout 15s dla narratives (aby nie opóźniać całego detail view)
+            narratives, status = await asyncio.wait_for(
+                self.narrative_service.get_narratives(
+                    persona_id=persona_id,
+                    scope='all',
+                    force_regenerate=force_refresh
+                ),
+                timeout=15.0
+            )
+            return narratives, status
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"Narratives generation timeout for persona {persona_id}",
+                extra={"persona_id": str(persona_id)}
+            )
+            return None, "pending"
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch narratives for persona {persona_id}: {e}",
+                exc_info=e,
+                extra={"persona_id": str(persona_id)}
+            )
+            raise  # Propagate dla graceful degradation w get_persona_details
 
     async def _fetch_needs_and_pains(
         self,

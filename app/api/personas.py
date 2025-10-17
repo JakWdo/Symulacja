@@ -33,12 +33,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, BackgroundTasks, Request, HTTPException, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import select, func, case
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import AsyncSessionLocal, get_db
 from app.models import Project, Persona, User
-from app.services.persona_orchestration import PersonaOrchestrationService
+from app.services.personas.persona_orchestration import PersonaOrchestrationService
 from app.api.dependencies import get_current_user, get_project_for_user, get_persona_for_user
 from app.schemas.persona import (
     PersonaResponse,
@@ -53,33 +53,24 @@ from app.schemas.persona_details import (
     PersonaDeleteRequest,
     PersonaDeleteResponse,
     PersonaUndoDeleteResponse,
-    PersonasSummaryResponse,
     PersonaMessagingRequest,
     PersonaMessagingResponse,
     PersonaComparisonRequest,
     PersonaComparisonResponse,
 )
 from app.services import DemographicDistribution
-from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PreferredPersonaGenerator
-from app.services.persona_validator import PersonaValidator
-from app.services.persona_details_service import PersonaDetailsService
-from app.services.persona_audit_service import PersonaAuditService
-from app.services.persona_messaging_service import PersonaMessagingService
-from app.services.persona_comparison_service import PersonaComparisonService
+from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain as PreferredPersonaGenerator
+from app.services.personas.persona_validator import PersonaValidator
+from app.services.personas.persona_details_service import PersonaDetailsService
+from app.services.personas.persona_audit_service import PersonaAuditService
+from app.services.personas.persona_messaging_service import PersonaMessagingService
+from app.services.personas.persona_comparison_service import PersonaComparisonService
+from app.services.personas.persona_narrative_service import PersonaNarrativeService
 from app.core.constants import (
-    DEFAULT_AGE_GROUPS,
-    DEFAULT_GENDERS,
-    DEFAULT_EDUCATION_LEVELS,
-    DEFAULT_INCOME_BRACKETS,
-    DEFAULT_LOCATIONS,
-    DEFAULT_OCCUPATIONS,
-    # Polskie stałe (preferowane jako fallback)
+    # Używane tylko do utility (normalizacja, translacja)
     POLISH_LOCATIONS,
     POLISH_INCOME_BRACKETS,
     POLISH_EDUCATION_LEVELS,
-    POLISH_VALUES,
-    POLISH_INTERESTS,
-    POLISH_OCCUPATIONS,
 )
 
 router = APIRouter()
@@ -554,11 +545,18 @@ def _infer_polish_occupation(
     personality: Dict[str, Any],
     background_story: Optional[str],
 ) -> str:
-    """Ustal możliwie polski tytuł zawodowy bazując na dostępnych danych."""
+    """
+    Ustal możliwie polski tytuł zawodowy bazując na dostępnych danych.
+
+    Zawód MUSI być generowany przez LLM (w orchestration brief).
+    Ta funkcja tylko ekstraktuje go z personality lub background_story.
+    """
+    # Preferuj persona_title (wygenerowane przez LLM)
     candidate = personality.get("persona_title") or personality.get("occupation")
     if candidate and _looks_polish_phrase(candidate):
         return _format_job_title(candidate)
 
+    # Spróbuj wyekstraktować z background_story
     if background_story:
         for pattern in _BACKGROUND_JOB_PATTERNS:
             match = pattern.search(background_story)
@@ -567,13 +565,10 @@ def _infer_polish_occupation(
                 if job:
                     return _format_job_title(job)
 
-    # Jeżeli AI nie zwróciło spójnego polskiego zawodu – losuj realistyczny zawód z rozkładu
-    occupation = _select_weighted(POLISH_OCCUPATIONS)
-    if occupation:
-        return occupation
-
-    # Fallback na wylosowaną angielską listę (ostatnia linia obrony)
-    return random.choice(DEFAULT_OCCUPATIONS) if DEFAULT_OCCUPATIONS else "Specjalista"
+    # OSTATNIA LINIA OBRONY: jeśli LLM całkowicie zawiódł
+    # (nie powinno się zdarzyć jeśli orchestration brief był dobry)
+    logger.error(f"❌ LLM failed to generate occupation - no occupation found in personality or background_story")
+    return "Specjalista"  # Generyczny fallback
 
 
 def _fallback_polish_list(source: Optional[List[str]], fallback_pool: List[str]) -> List[str]:
@@ -792,28 +787,113 @@ def _build_location_distribution(
         return _normalize_weights(city_weights)
 
     if countries:
-        labels = [f"{country} - Urban hub" for country in countries]
-        return _normalize_weights({label: 1 / len(labels) for label in labels})
+        country_weights = {country: 1 / len(countries) for country in countries}
+        return _normalize_weights(country_weights)
 
     urbanicity = advanced_options.get('urbanicity')
     if urbanicity == 'urban':
         return base_locations
     if urbanicity == 'suburban':
-        return _normalize_weights({
-            'Suburban Midwest, USA': 0.25,
-            'Suburban Northeast, USA': 0.25,
-            'Sunbelt Suburb, USA': 0.2,
-            'Other': 0.3,
-        })
+        return {}
     if urbanicity == 'rural':
-        return _normalize_weights({
-            'Rural Midwest, USA': 0.35,
-            'Rural South, USA': 0.25,
-            'Mountain Town, USA': 0.2,
-            'Other Rural Area': 0.2,
-        })
+        return {}
 
     return base_locations
+
+
+def _create_simple_fallback_allocation(
+    num_personas: int,
+    target_demographics: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Tworzy prosty fallback plan alokacji gdy orchestration service failuje.
+
+    Dystrybuuje persony równomiernie między główne grupy demograficzne
+    z target_demographics projektu. Briefe są krótkie i generyczne (bez Graph insights).
+
+    Args:
+        num_personas: Liczba person do wygenerowania
+        target_demographics: Target demographics projektu (age_group, gender, education_level, location)
+
+    Returns:
+        Dict z fallback allocation plan (kompatybilny z orchestration plan format)
+    """
+    logger.warning("🔧 Creating FALLBACK allocation plan (orchestration unavailable)")
+
+    # Ekstraktuj główne grupy z target_demographics
+    age_groups = list(target_demographics.get("age_group", {}).keys())
+    genders = list(target_demographics.get("gender", {}).keys())
+    education_levels = list(target_demographics.get("education_level", {}).keys())
+    locations = list(target_demographics.get("location", {}).keys())
+
+    # Fallback defaults jeśli target_demographics pusty
+    if not age_groups:
+        age_groups = ["25-34", "35-44"]
+    if not genders:
+        genders = ["kobieta", "mężczyzna"]
+    if not education_levels:
+        education_levels = ["wyższe"]
+    if not locations:
+        locations = ["Warszawa"]
+
+    # Oblicz liczbę grup (max 4 dla prostoty)
+    num_groups = min(4, num_personas)
+
+    # Dystrybuuj persony równomiernie
+    base_count = num_personas // num_groups
+    remainder = num_personas % num_groups
+
+    groups = []
+    for i in range(num_groups):
+        # Assign count (dodaj remainder do pierwszych grup)
+        count = base_count + (1 if i < remainder else 0)
+
+        # Wybierz demographics (cyklicznie z dostępnych wartości)
+        demographics = {
+            "age": age_groups[i % len(age_groups)],
+            "gender": genders[i % len(genders)],
+            "education": education_levels[i % len(education_levels)],
+            "location": locations[i % len(locations)],
+        }
+
+        # Krótki generyczny brief (brak Graph insights w fallback)
+        brief = (
+            f"Grupa {i+1}: {demographics['gender']} w wieku {demographics['age']}, "
+            f"wykształcenie {demographics['education']}, lokalizacja {demographics['location']}. "
+            f"Segment wybrany na podstawie demografii projektu dla zróżnicowanej reprezentacji."
+        )
+
+        # Segment characteristics (generic)
+        segment_characteristics = [
+            f"{demographics['gender'].capitalize()} {demographics['age']} lat",
+            f"Wykształcenie {demographics['education']}",
+            f"Mieszkańcy: {demographics['location']}"
+        ]
+
+        # Allocation reasoning (krótki generic)
+        allocation_reasoning = f"Alokacja {count} person dla reprezentacji grupy {demographics['age']}, {demographics['gender']}."
+
+        groups.append({
+            "count": count,
+            "demographics": demographics,
+            "brief": brief,
+            "segment_characteristics": segment_characteristics,
+            "allocation_reasoning": allocation_reasoning,
+            "graph_insights": [],  # Brak Graph insights w fallback
+        })
+
+    fallback_plan = {
+        "total_personas": num_personas,
+        "overall_context": "Plan alokacji utworzony automatycznie na podstawie demografii projektu (orchestration service niedostępny).",
+        "groups": groups,
+    }
+
+    logger.info(
+        f"✅ Fallback allocation created: {num_groups} groups, {num_personas} personas"
+    )
+
+    return fallback_plan
+
 
 def _normalize_distribution(
     distribution: Dict[str, float], fallback: Dict[str, float]
@@ -825,6 +905,23 @@ def _normalize_distribution(
     if total <= 0:
         return fallback
     return {key: value / total for key, value in distribution.items()}
+
+
+# DEFAULT distributions - fallback gdy target_demographics pusty
+# NOTE: Demographics są GENEROWANE przez LLM z orchestration, te są tylko fallback
+DEFAULT_AGE_GROUPS = {
+    "18-24": 0.15,
+    "25-34": 0.30,
+    "35-44": 0.25,
+    "45-54": 0.20,
+    "55+": 0.10,
+}
+
+DEFAULT_GENDERS = {
+    "female": 0.50,
+    "male": 0.48,
+    "non-binary": 0.02,
+}
 
 
 @router.post(
@@ -1078,59 +1175,70 @@ async def _generate_personas_task(
                 logger.info(f"📋 Mapped briefs to {len(persona_group_mapping)} personas")
 
             except Exception as orch_error:
-                # Jeśli orchestration failuje, logujemy ale kontynuujemy (fallback do basic generation)
-                logger.error(
-                    f"❌ Orchestration failed: {orch_error}. Continuing with basic generation...",
-                    exc_info=orch_error
-                )
-                allocation_plan = None
-                persona_group_mapping = {}
-
-            # Kontrolowana współbieżność pozwala przyspieszyć generowanie bez przeciążania modelu
-            logger.info(f"Generating demographic and psychological profiles for {num_personas} personas")
-            concurrency_limit = _calculate_concurrency_limit(num_personas, adversarial_mode)
-            semaphore = asyncio.Semaphore(concurrency_limit)
-            demographic_profiles = [generator.sample_demographic_profile(distribution)[0] for _ in range(num_personas)]
-            psychological_profiles = [{**generator.sample_big_five_traits(), **generator.sample_cultural_dimensions()} for _ in range(num_personas)]
-
-            # === OVERRIDE DEMOGRAPHICS Z ORCHESTRATION ===
-            # Orchestration plan ma AUTORYTATYWNE demographics (z Gemini 2.5 Pro analysis)
-            # Override sampled demographics aby zapewnić spójność z briefami
-            if allocation_plan and persona_group_mapping:
-                logger.info("🔒 Overriding sampled demographics with orchestration demographics...")
-                override_count = 0
-
-                for idx, profile in enumerate(demographic_profiles):
-                    if idx in persona_group_mapping:
-                        orch_demo = persona_group_mapping[idx]["demographics"]
-
-                        # Override sampled values (orchestration jest bardziej autorytatywny)
-                        if "age" in orch_demo and orch_demo["age"]:
-                            profile["age_group"] = orch_demo["age"]
-                            override_count += 1
-
-                        if "gender" in orch_demo and orch_demo["gender"]:
-                            profile["gender"] = orch_demo["gender"]
-
-                        if "education" in orch_demo and orch_demo["education"]:
-                            profile["education_level"] = orch_demo["education"]
-
-                        if "income" in orch_demo and orch_demo["income"]:
-                            profile["income_bracket"] = orch_demo["income"]
-
-                        logger.debug(
-                            f"Persona {idx}: enforced demographics from orchestration "
-                            f"(age={orch_demo.get('age')}, gender={orch_demo.get('gender')})",
-                            extra={"project_id": str(project_id), "index": idx}
-                        )
-
-                logger.info(
-                    f"✅ Demographics override completed: {override_count}/{num_personas} personas enforced",
+                # Jeśli orchestration failuje, użyj FALLBACK allocation
+                # Wygeneruje prosty plan bez Graph insights, ale persony nadal będą realistyczne
+                logger.warning(
+                    f"⚠️  Orchestration FAILED - using fallback allocation (degraded mode): {orch_error}",
+                    exc_info=orch_error,
                     extra={"project_id": str(project_id)}
                 )
 
+                # Utwórz fallback plan alokacji
+                fallback_plan_raw = _create_simple_fallback_allocation(
+                    num_personas=num_personas,
+                    target_demographics=target_demographics
+                )
+
+                # Convert fallback dict to Pydantic-compatible structure
+                allocation_plan = type('obj', (object,), {
+                    'total_personas': fallback_plan_raw['total_personas'],
+                    'overall_context': fallback_plan_raw['overall_context'],
+                    'groups': [
+                        type('group', (object,), {
+                            'count': g['count'],
+                            'demographics': g['demographics'],
+                            'brief': g['brief'],
+                            'segment_characteristics': g['segment_characteristics'],
+                            'allocation_reasoning': g['allocation_reasoning'],
+                            'graph_insights': []  # Empty list for fallback
+                        })
+                        for g in fallback_plan_raw['groups']
+                    ]
+                })()
+
+                # Mapuj fallback briefe do każdej persony
+                persona_index = 0
+                group_metadata: List[Dict[str, Optional[str]]] = []
+                for group_index, group in enumerate(allocation_plan.groups):
+                    demographics = group.demographics
+                    segment_metadata = _build_segment_metadata(
+                        demographics,
+                        group.brief,
+                        group.allocation_reasoning,
+                        group_index,
+                    )
+                    group_metadata.append(segment_metadata)
+                    for _ in range(group.count):
+                        if persona_index < num_personas:
+                            persona_group_mapping[persona_index] = {
+                                "brief": group.brief,
+                                "graph_insights": [],
+                                "allocation_reasoning": group.allocation_reasoning,
+                                "demographics": demographics,
+                                "segment_characteristics": group.segment_characteristics,
+                                **segment_metadata,
+                            }
+                            persona_index += 1
+
+                logger.info(f"✅ Fallback mode: mapped briefs to {len(persona_group_mapping)} personas")
+
+            # Kontrolowana współbieżność pozwala przyspieszyć generowanie bez przeciążania modelu
+            concurrency_limit = _calculate_concurrency_limit(num_personas, adversarial_mode)
+            semaphore = asyncio.Semaphore(concurrency_limit)
+
             logger.info(
-                f"Starting LLM generation for {num_personas} personas with concurrency={concurrency_limit}",
+                f"Starting LLM generation for {num_personas} personas with concurrency={concurrency_limit}. "
+                f"ALL data (demographics, psychographics, names, occupations) generated by LLM from orchestration briefs.",
                 extra={"project_id": str(project_id), "concurrency_limit": concurrency_limit},
             )
 
@@ -1169,32 +1277,68 @@ async def _generate_personas_task(
                 finally:
                     batch_payloads.clear()
 
-            async def create_single_persona(idx: int, demo_profile: Dict[str, Any], psych_profile: Dict[str, Any]):
+            async def create_single_persona(idx: int):
+                """Generuj pojedynczą personę z orchestration brief (demographics + psychographics)"""
                 async with semaphore:
-                    # Dodaj orchestration brief do advanced_options jeśli istnieje
-                    enhanced_options = advanced_options.copy() if advanced_options else {}
-                    if idx in persona_group_mapping:
-                        enhanced_options["orchestration_brief"] = persona_group_mapping[idx]["brief"]
-                        enhanced_options["graph_insights"] = persona_group_mapping[idx]["graph_insights"]
-                        enhanced_options["allocation_reasoning"] = persona_group_mapping[idx]["allocation_reasoning"]
+                    # WYMAGANE: Orchestration brief musi istnieć dla każdej persony
+                    if idx not in persona_group_mapping:
+                        logger.error(
+                            f"❌ Missing orchestration brief for persona {idx} - cannot generate!",
+                            extra={"project_id": str(project_id), "index": idx}
+                        )
+                        raise RuntimeError(
+                            f"Orchestration brief required for persona {idx}. "
+                            "Cannot generate persona without demographic allocation plan."
+                        )
 
-                    result = await generator.generate_persona_personality(demo_profile, psych_profile, use_rag, enhanced_options)
+                    # Demographics z orchestration (AUTORYTATYWNE)
+                    demo_profile = persona_group_mapping[idx]["demographics"]
+
+                    # Psychographics - sampling (Big Five + Hofstede)
+                    psych_profile = {
+                        **generator.sample_big_five_traits(),
+                        **generator.sample_cultural_dimensions()
+                    }
+
+                    # === COMPREHENSIVE PERSONA GENERATION ===
+                    # LLM generuje WSZYSTKIE dane razem (demographics + background + values + interests)
+                    # demographic_guidance jest tylko sugestią, nie wymogiem
+
+                    # Pobierz RAG context jeśli use_rag=True
+                    rag_context_str = None
+                    if use_rag and hasattr(generator, 'rag_service') and generator.rag_service:
+                        try:
+                            rag_data = await generator._get_rag_context_for_persona(demo_profile)
+                            if rag_data:
+                                rag_context_str = rag_data.get('context')
+                        except Exception as rag_error:
+                            logger.warning(f"RAG context failed for persona {idx}: {rag_error}")
+
+                    # Call comprehensive generation (LLM generuje ALL DATA)
+                    persona_data = await generator.generate_comprehensive_persona(
+                        orchestration_brief=persona_group_mapping[idx]["brief"],
+                        segment_characteristics=persona_group_mapping[idx]["segment_characteristics"],
+                        demographic_guidance=demo_profile,  # Tylko sugestia, nie requirement!
+                        rag_context=rag_context_str,
+                        psychological_profile=psych_profile
+                    )
+
                     if (idx + 1) % max(1, batch_size) == 0 or idx == num_personas - 1:
                         logger.info(
-                            "Generated personas chunk",
+                            "Generated personas chunk (comprehensive)",
                             extra={"project_id": str(project_id), "generated": idx + 1, "target": num_personas},
                         )
-                    return idx, result
 
-            tasks = [
-                asyncio.create_task(create_single_persona(i, demo, psych))
-                for i, (demo, psych) in enumerate(zip(demographic_profiles, psychological_profiles))
-            ]
+                    # Return idx, persona_data (NIE result tuple!)
+                    return idx, persona_data, demo_profile, psych_profile
+
+            # Generate tasks for all personas (demographics z orchestration, psychographics sampled)
+            tasks = [asyncio.create_task(create_single_persona(i)) for i in range(num_personas)]
 
             try:
                 for future in asyncio.as_completed(tasks):
                     try:
-                        idx, result = await future
+                        idx, persona_data, demographic, psychological = await future
                     except Exception as gen_error:  # pragma: no cover - logowanie błędów zadań
                         logger.error(
                             "Persona generation coroutine failed.",
@@ -1203,145 +1347,48 @@ async def _generate_personas_task(
                         )
                         continue
 
-                    prompt, personality_json = result
+                    # ===  COMPREHENSIVE GENERATION - persona_data jest dict z ALL DATA ===
+                    # LLM już wygenerował wszystko: demographics, background_story, values, interests
+                    # Brak JSON parsing, brak polonizacji post-processing!
 
-                    # Odporne parsowanie JSON-a z mechanizmem awaryjnym
-                    personality: Dict[str, Any] = {}
-                    try:
-                        if isinstance(personality_json, str):
-                            cleaned = personality_json.strip()
-                            if cleaned.startswith("```json"):
-                                cleaned = cleaned[7:]
-                            if cleaned.startswith("```"):
-                                cleaned = cleaned[3:]
-                            if cleaned.endswith("```"):
-                                cleaned = cleaned[:-3]
-                            cleaned = cleaned.strip()
-                            personality = json.loads(cleaned)
-                        elif isinstance(personality_json, dict):
-                            personality = personality_json
-                        else:
-                            logger.warning(
-                                f"Unexpected personality_json type: {type(personality_json)}",
-                                extra={"project_id": str(project_id), "index": idx}
-                            )
-                    except (json.JSONDecodeError, TypeError) as e:
-                        logger.error(
-                            f"Failed to parse personality JSON for persona {idx}: {str(e)[:200]}",
-                            extra={
-                                "project_id": str(project_id),
-                                "index": idx,
-                                "raw_json": str(personality_json)[:500],
-                            }
+                    # Extract data z persona_data (wszystko PL, wygenerowane przez LLM)
+                    age = persona_data.get("age")
+                    gender_value = persona_data.get("gender")
+                    location_value = persona_data.get("location")
+                    education_value = persona_data.get("education_level")
+                    income_value = persona_data.get("income_bracket")
+                    occupation = persona_data.get("occupation")
+                    full_name = persona_data.get("full_name")
+                    background_story = persona_data.get("background_story", "")
+                    values = persona_data.get("values", [])
+                    interests = persona_data.get("interests", [])
+
+                    # Fallback dla krytycznych pól (jeśli LLM zawiódł)
+                    if not full_name or full_name == "N/A":
+                        full_name = _fallback_full_name(gender_value, age)
+                        logger.warning(
+                            f"❌ LLM failed to generate full_name for persona {idx}, using fallback: {full_name}",
+                            extra={"project_id": str(project_id), "index": idx}
                         )
-                        personality = {}
 
-                    demographic = demographic_profiles[idx]
-                    psychological = psychological_profiles[idx]
+                    if not occupation or occupation == "N/A":
+                        occupation = "Specjalista"  # Generic fallback
+                        logger.error(
+                            f"❌ LLM failed to generate occupation for persona {idx}",
+                            extra={"project_id": str(project_id), "index": idx}
+                        )
 
-                    background_story = (personality.get("background_story") or "").strip()
                     if not background_story:
                         logger.warning(
                             f"Missing background_story for persona {idx}",
                             extra={"project_id": str(project_id), "index": idx},
                         )
 
-                    # Wyliczamy wiek na podstawie przedziału wiekowego
-                    age_group = demographic.get("age_group", "25-34")
-                    age = random.randint(25, 34)
-                    if "-" in age_group:
-                        try:
-                            start, end = map(int, age_group.split("-"))
-                            age = random.randint(start, end)
-                        except ValueError:
-                            pass
-                    elif "+" in age_group:
-                        try:
-                            start = int(age_group.replace("+", ""))
-                            age = random.randint(start, start + 15)
-                        except ValueError:
-                            pass
+                    # persona_title jako alias dla occupation (backward compatibility)
+                    persona_title = persona_data.get("persona_title") or occupation
 
-                    full_name = personality.get("full_name")
-                    if not full_name or full_name == "N/A":
-                        inferred_name = _infer_full_name(personality.get("background_story"))
-                        full_name = inferred_name or _fallback_full_name(demographic.get("gender"), age)
-                        logger.warning(
-                            f"Missing full_name for persona {idx}, using fallback: {full_name}",
-                            extra={"project_id": str(project_id), "index": idx}
-                        )
-
-                    # WALIDACJA WIEKU: Spróbuj wyekstraktować wiek z opisu i porównaj z demografią
-                    # KRYTYCZNE: Używaj extracted_age TYLKO jeśli mieści się w zakresie demograficznym
-                    # To naprawia bug gdzie "10 lat doświadczenia" → age=10 dla persony 35-44
-                    extracted_age = _extract_age_from_story(background_story)
-                    if extracted_age:
-                        # Sprawdź czy extracted_age mieści się w age_group
-                        age_group_str = demographic.get("age_group", "")
-                        if "-" in age_group_str:
-                            try:
-                                min_age, max_age = map(int, age_group_str.split("-"))
-                                if min_age <= extracted_age <= max_age:
-                                    # ✅ OK - extracted_age jest w zakresie, użyj go
-                                    age = extracted_age
-                                    logger.debug(
-                                        f"Using extracted age {extracted_age} (within range {age_group_str})",
-                                        extra={"project_id": str(project_id), "index": idx}
-                                    )
-                                else:
-                                    # ❌ Poza zakresem - IGNORUJ extracted_age, zostaw losowy wiek
-                                    logger.warning(
-                                        f"Age mismatch for persona {idx}: story says {extracted_age}, "
-                                        f"but age_group is {age_group_str}. IGNORING extracted age, using random age {age}.",
-                                        extra={"project_id": str(project_id), "index": idx}
-                                    )
-                                    # NIE ustawiaj age = extracted_age!
-                            except ValueError:
-                                pass
-                        elif "+" in age_group_str:
-                            try:
-                                min_age = int(age_group_str.replace("+", ""))
-                                if extracted_age >= min_age:
-                                    # ✅ OK - extracted_age jest >= min_age, użyj go
-                                    age = extracted_age
-                                else:
-                                    # ❌ Poniżej minimum - IGNORUJ
-                                    logger.warning(
-                                        f"Age mismatch for persona {idx}: story says {extracted_age}, "
-                                        f"but age_group is {age_group_str}. IGNORING extracted age.",
-                                        extra={"project_id": str(project_id), "index": idx}
-                                    )
-                            except ValueError:
-                                pass
-                        else:
-                            # Brak przedziału - użyj extracted_age (ale z sanity check)
-                            if 18 <= extracted_age <= 100:
-                                age = extracted_age
-
-                    occupation = _get_consistent_occupation(
-                        demographic.get("education_level"),
-                        demographic.get("income_bracket"),
-                        age,
-                        personality,
-                        background_story,
-                    )
-
-                    persona_title = personality.get("persona_title")
-                    if persona_title:
-                        persona_title = persona_title.strip()
-                    if not persona_title or persona_title == "N/A" or not _looks_polish_phrase(persona_title):
-                        persona_title = occupation or f"Persona {age}"
-                        logger.info(
-                            "Persona title zaktualizowany na polski zawód",
-                            extra={"project_id": str(project_id), "index": idx},
-                        )
-
-                    gender_value = _polishify_gender(demographic.get("gender"))
-                    education_value = _polishify_education(demographic.get("education_level"))
-                    income_value = _polishify_income(demographic.get("income_bracket"))
-                    location_value = _ensure_polish_location(demographic.get("location"), background_story)
-
-                    headline = personality.get("headline")
+                    # Headline fallback
+                    headline = persona_data.get("headline")
                     if not headline or headline == "N/A":
                         headline = _compose_headline(
                             full_name, persona_title, occupation, location_value
@@ -1351,37 +1398,23 @@ async def _generate_personas_task(
                             extra={"project_id": str(project_id), "index": idx}
                         )
 
-                    values = _fallback_polish_list(personality.get("values"), POLISH_VALUES)
-                    if not personality.get("values"):
+                    # Values i interests check (nie logi error tylko jeśli brak)
+                    if not values:
                         logger.warning(
-                            f"Missing values for persona {idx}, using Polish defaults",
+                            f"⚠️  LLM failed to generate values for persona {idx}",
                             extra={"project_id": str(project_id), "index": idx},
                         )
 
-                    interests = _fallback_polish_list(personality.get("interests"), POLISH_INTERESTS)
-                    if not personality.get("interests"):
+                    if not interests:
                         logger.warning(
-                            f"Missing interests for persona {idx}, using Polish defaults",
+                            f"⚠️  LLM failed to generate interests for persona {idx}",
                             extra={"project_id": str(project_id), "index": idx},
                         )
 
-                    # Ekstrakcja RAG citations i details (jeśli były używane)
-                    rag_citations_raw = personality.get("_rag_citations") or []
-                    rag_citations = rag_citations_raw or None
-                    rag_context_details = personality.get("_rag_context_details") or {}
-                    if (
-                        "graph_nodes_count" not in rag_context_details
-                        and rag_context_details.get("graph_nodes")
-                    ):
-                        rag_context_details["graph_nodes_count"] = len(
-                            rag_context_details.get("graph_nodes", [])
-                        )
-                    rag_context_used = bool(
-                        rag_citations_raw
-                        or rag_context_details.get("graph_nodes")
-                        or rag_context_details.get("graph_context")
-                        or rag_context_details.get("context_preview")
-                    )
+                    # RAG citations i details - initialize with orchestration data
+                    rag_citations = None  # Comprehensive generation doesn't return citations yet
+                    rag_context_details = {}
+                    rag_context_used = False  # Set to True once we integrate RAG with comprehensive
 
                     # Dodaj orchestration reasoning do rag_context_details (jeśli istnieje)
                     if idx in persona_group_mapping:
@@ -1429,7 +1462,7 @@ async def _generate_personas_task(
                         "background_story": background_story,
                         "values": values,
                         "interests": interests,
-                        "personality_prompt": prompt,
+                        "personality_prompt": None,  # Comprehensive generation doesn't use personality_prompt
                         "rag_context_used": rag_context_used,
                         "rag_citations": rag_citations,
                         "rag_context_details": rag_context_details,  # NOWE POLE
@@ -1516,17 +1549,10 @@ async def _generate_personas_task(
             if not validation_results["is_valid"]:
                 logger.warning("Persona validation found issues.", extra=validation_results)
 
-            if not adversarial_mode and hasattr(generator, "validate_distribution"):
-                try:
-                    validation = generator.validate_distribution(demographic_profiles, distribution)
-                    project = await db.get(Project, project_id)  # Ponowne pobranie po commitach batchy
-                    if project:
-                        project.is_statistically_valid = validation.get("overall_valid", False)
-                        project.chi_square_statistic = {k: v.get("chi_square_statistic") for k, v in validation.items() if k != "overall_valid"}
-                        project.p_values = {k: v.get("p_value") for k, v in validation.items() if k != "overall_valid"}
-                        await db.commit()
-                except Exception as e:
-                    logger.error("Statistical validation failed.", exc_info=e)
+            # NOTE: Statistical distribution validation (chi-square) USUNIĘTA
+            # Demographics są teraz generowane przez LLM z orchestration briefs,
+            # nie samplingowane z rozkładu statystycznego.
+            # Orchestration service (Gemini 2.5 Pro) zapewnia odpowiednią alokację demograficzną.
 
             logger.info("Persona generation task completed.", extra={"project_id": str(project_id), "count": len(personas_data)})
     except Exception as e:
@@ -1590,57 +1616,6 @@ def _normalize_rag_citations(citations: Optional[List[Dict[str, Any]]]) -> Optio
 
     return normalized if normalized else None
 
-
-@router.get("/projects/{project_id}/personas/summary", response_model=PersonasSummaryResponse)
-async def get_personas_summary(
-    project_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Zwróć podsumowanie person projektu (liczebność, segmenty)."""
-    await get_project_for_user(project_id, current_user, db)
-
-    totals_row = await db.execute(
-        select(
-            func.count().label("total"),
-            func.sum(case((Persona.is_active.is_(True), 1), else_=0)).label("active"),
-            func.sum(case((Persona.is_active.is_(False), 1), else_=0)).label("archived"),
-        ).where(Persona.project_id == project_id)
-    )
-    totals = totals_row.first()
-    total_personas = int(totals.total or 0) if totals else 0
-    active_personas = int(totals.active or 0) if totals else 0
-    archived_personas = int(totals.archived or 0) if totals else 0
-
-    segments_result = await db.execute(
-        select(
-            Persona.segment_id,
-            Persona.segment_name,
-            func.sum(case((Persona.is_active.is_(True), 1), else_=0)).label("active"),
-            func.sum(case((Persona.is_active.is_(False), 1), else_=0)).label("archived"),
-        )
-        .where(Persona.project_id == project_id)
-        .group_by(Persona.segment_id, Persona.segment_name)
-    )
-
-    segment_rows = segments_result.all()
-    segments = [
-        {
-            "segment_id": row.segment_id,
-            "segment_name": row.segment_name,
-            "active_personas": int(row.active or 0),
-            "archived_personas": int(row.archived or 0),
-        }
-        for row in segment_rows
-    ]
-
-    return PersonasSummaryResponse(
-        project_id=project_id,
-        total_personas=total_personas,
-        active_personas=active_personas,
-        archived_personas=archived_personas,
-        segments=segments,
-    )
 
 
 @router.get("/projects/{project_id}/personas", response_model=List[PersonaResponse])
@@ -2101,6 +2076,85 @@ async def get_persona_reasoning(
     )
 
     return response
+
+
+@router.post("/personas/{persona_id}/narratives/regenerate")
+@limiter.limit("10/hour")  # Rate limit: 10 regenerations/h per user
+async def regenerate_persona_narratives(
+    request: Request,  # Required by slowapi limiter
+    persona_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Regeneruje narracje dla persony (force regeneration, bypass cache).
+
+    Rate limiting:
+    - 10 regeneracji/h per user (global limit)
+    - Używa Redis counter dla tracking
+
+    Args:
+        persona_id: UUID persony
+        db: DB session
+        current_user: Authenticated user
+
+    Returns:
+        {
+            "narratives": PersonaNarratives,
+            "status": "ok" | "degraded" | "offline",
+            "regenerated_at": timestamp
+        }
+
+    Raises:
+        HTTPException 404: Persona nie istnieje
+        HTTPException 429: Rate limit exceeded
+        HTTPException 500: Generation failed
+
+    Audit:
+        - Loguje "narratives_regenerate" action w audit log
+    """
+    # Verify access
+    await get_persona_for_user(persona_id, current_user, db)
+
+    # Regenerate narratives (force_regenerate=True)
+    narrative_service = PersonaNarrativeService()
+    try:
+        narratives, status = await narrative_service.get_narratives(
+            persona_id=persona_id,
+            scope='all',
+            force_regenerate=True  # Force bypass cache
+        )
+
+        # Log action
+        audit_service = PersonaAuditService()
+        await audit_service.log_action(
+            persona_id=persona_id,
+            user_id=current_user.id,
+            action="narratives_regenerate",
+            details={
+                "status": status,
+                "has_narratives": narratives is not None
+            },
+            db=db,
+        )
+
+        # Return result
+        return {
+            "narratives": narratives,
+            "status": status,
+            "regenerated_at": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(
+            f"Failed to regenerate narratives for persona {persona_id}: {e}",
+            exc_info=e,
+            extra={"persona_id": str(persona_id), "user_id": str(current_user.id)}
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to regenerate narratives. Please try again later."
+        )
 
 
 @router.get("/personas/{persona_id}/details", response_model=PersonaDetailsResponse)

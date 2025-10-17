@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
-import { PersonaDetailsDrawer } from '@/components/personas/PersonaDetailsDrawer';
+import { PersonaDetailsModal } from '@/components/personas/PersonaDetailsModal';
 import { projectsApi, personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
@@ -963,8 +963,8 @@ export function Personas() {
         )}
       </div>
 
-      {/* Persona Details Drawer */}
-      <PersonaDetailsDrawer
+      {/* Persona Details Modal */}
+      <PersonaDetailsModal
         personaId={selectedPersonaForDetails}
         isOpen={!!selectedPersonaForDetails}
         onClose={() => setSelectedPersonaForDetails(null)}

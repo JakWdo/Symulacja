@@ -27,16 +27,13 @@ from app.db.session import AsyncSessionLocal
 from app.models.rag_document import RAGDocument
 from app.models.user import User
 from app.schemas.rag import (
-    GraphRAGQuestionRequest,
-    GraphRAGQuestionResponse,
     RAGCitation,
     RAGDocumentResponse,
     RAGQueryRequest,
     RAGQueryResponse,
 )
-from app.services.rag_document_service import RAGDocumentService
-from app.services.rag_hybrid_search_service import PolishSocietyRAG
-from app.services.rag_graph_service import GraphRAGService
+from app.services.rag.rag_document_service import RAGDocumentService
+from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
 
 settings = get_settings()
 router = APIRouter(prefix="/rag", tags=["RAG Knowledge Base"])
@@ -45,9 +42,6 @@ limiter = Limiter(key_func=get_remote_address)
 
 _rag_document_service: RAGDocumentService | None = None
 _polish_society_rag: PolishSocietyRAG | None = None
-_graph_rag_service: GraphRAGService | None = None
-
-
 def get_rag_document_service() -> RAGDocumentService:
     """Zwraca singleton serwisu dokumentów RAG."""
 
@@ -64,15 +58,6 @@ def get_polish_society_rag() -> PolishSocietyRAG:
     if _polish_society_rag is None:
         _polish_society_rag = PolishSocietyRAG()
     return _polish_society_rag
-
-
-def get_graph_rag_service() -> GraphRAGService:
-    """Zwraca singleton serwisu Graph RAG."""
-
-    global _graph_rag_service
-    if _graph_rag_service is None:
-        _graph_rag_service = GraphRAGService()
-    return _graph_rag_service
 
 
 async def _process_document_background(doc_id: uuid.UUID, file_path: str, metadata: dict) -> None:
@@ -242,22 +227,6 @@ async def query_rag(
     except Exception as exc:
         logger.error("Błąd podczas zapytania RAG: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Zapytanie RAG nie powiodło się.")
-
-
-@router.post("/query/graph", response_model=GraphRAGQuestionResponse)
-async def query_graph_rag(
-    request: GraphRAGQuestionRequest,
-    current_user: User = Depends(get_current_user),
-):
-    """Zadaje pytanie do grafu wiedzy i zwraca wynik Graph RAG."""
-
-    service = get_graph_rag_service()
-    try:
-        result = await service.answer_question(request.question)
-        return GraphRAGQuestionResponse(**result)
-    except Exception as exc:
-        logger.error("Błąd podczas zapytania Graph RAG: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail="Nie udało się uzyskać odpowiedzi Graph RAG.")
 
 
 @router.delete("/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)

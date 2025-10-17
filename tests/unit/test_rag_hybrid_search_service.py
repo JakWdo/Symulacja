@@ -13,7 +13,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from langchain_core.documents import Document
 
-from app.services.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
 
 
 class TestPolishSocietyRAGInit:
@@ -121,6 +121,24 @@ class TestKeywordSearch:
             assert len(results) == 2
             assert results[0][0].page_content == "Test result 1"
             assert results[0][1] == 5.0
+
+    async def test_keyword_search_escapes_lucene_chars(self, polish_society_rag_with_mocks):
+        """Test: _keyword_search escapuje znaki specjalne Lucene w zapytaniu."""
+        service = polish_society_rag_with_mocks
+        service._fulltext_index_initialized = True
+
+        with patch.object(service.vector_store, '_driver') as mock_driver:
+            mock_session = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.data.return_value = []
+            mock_session.run.return_value = mock_result
+            mock_driver.session.return_value.__aenter__.return_value = mock_session
+
+            raw_query = "Miasta uniwersyteckie / Mniejsze miejscowości: 25-34?"
+            await service._keyword_search(raw_query, k=3)
+
+            called_kwargs = mock_session.run.call_args.kwargs
+            assert called_kwargs["search_query"] == "Miasta uniwersyteckie \\/ Mniejsze miejscowości\\: 25\\-34\\?"
 
 
 class TestFormatGraphContext:

@@ -26,6 +26,8 @@ import type {
   PersonaReasoning,
   PersonaDeleteResponse,
   PersonaUndoDeleteResponse,
+  PersonaNarratives,
+  NarrativeStatus,
 } from '@/types';
 
 // === AUTH TYPES ===
@@ -167,6 +169,12 @@ export const projectsApi = {
   },
 };
 
+export interface RegenerateNarrativesResponse {
+  narratives: PersonaNarratives;
+  status: NarrativeStatus;
+  regenerated_at: string;
+}
+
 export const personasApi = {
   getByProject: async (projectId: string): Promise<Persona[]> => {
     const { data } = await api.get<Persona[]>(
@@ -182,6 +190,16 @@ export const personasApi = {
   },
   getDetails: async (personaId: string): Promise<PersonaDetailsResponse> => {
     const { data } = await api.get<PersonaDetailsResponse>(`/personas/${personaId}/details`);
+    return data;
+  },
+  regenerateNarratives: async (
+    personaId: string,
+    scope?: 'person' | 'segment' | 'all',
+  ): Promise<RegenerateNarrativesResponse> => {
+    const { data } = await api.post<RegenerateNarrativesResponse>(
+      `/personas/${personaId}/narratives/regenerate`,
+      { scope: scope || 'all' },
+    );
     return data;
   },
   delete: async (

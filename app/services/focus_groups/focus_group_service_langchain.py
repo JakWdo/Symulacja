@@ -20,10 +20,10 @@ from uuid import UUID
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.models import FocusGroup, Persona, PersonaResponse
-from app.services.memory_service_langchain import MemoryServiceLangChain
+from app.services.focus_groups.memory_service_langchain import MemoryServiceLangChain
 from app.db import AsyncSessionLocal
 from app.core.config import get_settings
-from app.services.clients import build_chat_model
+from app.services.core.clients import build_chat_model
 
 settings = get_settings()
 
@@ -103,7 +103,7 @@ class FocusGroupServiceLangChain:
 
             # Przetwarzamy każde pytanie z listy
             all_responses = []
-            response_times = []
+            response_durations_ms: List[int] = []
 
             print(f"🔄 FOCUS GROUP: {len(focus_group.questions)} questions to process")
             for question in focus_group.questions:
@@ -121,7 +121,16 @@ class FocusGroupServiceLangChain:
                 logger.info(f"Got {len(responses)} responses for question: {question}")
 
                 question_time = (time.time() - question_start) * 1000
-                response_times.append(question_time)
+
+                response_durations_ms.extend(
+                    [
+                        resp["response_time_ms"]
+                        for resp in responses
+                        if isinstance(resp, dict)
+                        and not resp.get("error")
+                        and resp.get("response_time_ms") is not None
+                    ]
+                )
 
                 all_responses.append(
                     {"question": question, "responses": responses, "time_ms": question_time}
@@ -129,13 +138,17 @@ class FocusGroupServiceLangChain:
 
             # Wyliczamy metryki wykonywania
             total_time = (time.time() - start_time) * 1000
-            avg_response_time = sum(response_times) / len(response_times)
+            avg_response_time = (
+                sum(response_durations_ms) / len(response_durations_ms)
+                if response_durations_ms
+                else None
+            )
 
             # Aktualizujemy rekord grupy fokusowej
             focus_group.status = "completed"
             focus_group.completed_at = datetime.now(timezone.utc)
             focus_group.total_execution_time_ms = int(total_time)
-            focus_group.avg_response_time_ms = avg_response_time
+            focus_group.avg_response_time_ms = float(avg_response_time) if avg_response_time is not None else None
 
             await db.commit()
 
@@ -282,6 +295,7 @@ class FocusGroupServiceLangChain:
             start_time = time.time()
             response_text = await self._generate_response(persona, question, context)
             response_time = time.time() - start_time
+            response_time_ms = int(response_time * 1000)
 
             print(f"💬 Generated response (length={len(response_text) if response_text else 0}): {response_text[:50] if response_text else 'EMPTY'}...")
 
@@ -300,7 +314,7 @@ class FocusGroupServiceLangChain:
                 focus_group_id=focus_group_uuid,
                 question_text=question,
                 response_text=response_text,
-                response_time_ms=int(response_time * 1000),  # Konwersja sekund na milisekundy
+                response_time_ms=response_time_ms,  # Konwersja sekund na milisekundy
             )
 
             print(f"💾 Adding PersonaResponse to db...")
@@ -316,6 +330,7 @@ class FocusGroupServiceLangChain:
             "persona_id": str(persona.id),
             "response": response_text,
             "context_used": len(context),
+            "response_time_ms": response_time_ms,
         }
 
     async def _generate_response(

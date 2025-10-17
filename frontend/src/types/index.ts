@@ -700,10 +700,31 @@ export interface PersonaAuditEntry {
   details?: Record<string, any>;
 }
 
+export interface Citation {
+  document_title: string;
+  chunk_text: string;
+  relevance_score: number;
+}
+
+export interface PersonaNarratives {
+  person_profile: string | null;
+  person_motivations: string | null;
+  segment_hero: string | null;
+  segment_significance: string | null;
+  evidence_context: {
+    background_narrative: string;
+    key_citations: Citation[];
+  } | null;
+}
+
+export type NarrativeStatus = "ok" | "degraded" | "offline" | "timeout" | "loading" | "pending";
+
 export interface PersonaDetailsResponse extends Persona {
   // Additional fields for details view
   needs_and_pains?: NeedsAndPains | null;
   audit_log: PersonaAuditEntry[];
+  narratives?: PersonaNarratives;
+  narratives_status?: NarrativeStatus;
 }
 
 export interface PersonaDeleteResponse {

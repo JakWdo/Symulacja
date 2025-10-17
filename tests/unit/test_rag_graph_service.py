@@ -12,7 +12,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
 
-from app.services.rag_graph_service import GraphRAGService
+from app.services.rag.rag_graph_service import GraphRAGService
 
 
 class TestGraphRAGServiceInit:
@@ -20,9 +20,9 @@ class TestGraphRAGServiceInit:
 
     def test_init_creates_dependencies(self):
         """Test: __init__ tworzy wszystkie zależności (graph_store, embeddings, vector_store)"""
-        with patch('app.services.rag_graph_service.GoogleGenerativeAIEmbeddings'):
-            with patch('app.services.rag_graph_service.Neo4jGraph'):
-                with patch('app.services.rag_graph_service.Neo4jVector'):
+        with patch('app.services.rag.rag_graph_service.GoogleGenerativeAIEmbeddings'):
+            with patch('app.services.rag.rag_graph_service.Neo4jGraph'):
+                with patch('app.services.rag.rag_graph_service.Neo4jVector'):
                     service = GraphRAGService()
 
                     assert service.graph_store is not None
@@ -35,9 +35,9 @@ class TestEnrichGraphNodes:
 
     def test_enrich_graph_nodes_adds_metadata(self):
         """Test: _enrich_graph_nodes dodaje doc_id i chunk_index do nodes"""
-        with patch('app.services.rag_graph_service.GoogleGenerativeAIEmbeddings'):
-            with patch('app.services.rag_graph_service.Neo4jGraph'):
-                with patch('app.services.rag_graph_service.Neo4jVector'):
+        with patch('app.services.rag.rag_graph_service.GoogleGenerativeAIEmbeddings'):
+            with patch('app.services.rag.rag_graph_service.Neo4jGraph'):
+                with patch('app.services.rag.rag_graph_service.Neo4jVector'):
                     service = GraphRAGService()
 
         nodes = [
@@ -55,9 +55,9 @@ class TestEnrichGraphNodes:
 
     def test_enrich_graph_nodes_validates_required_properties(self):
         """Test: _enrich_graph_nodes waliduje wymagane properties (streszczenie, pewnosc)"""
-        with patch('app.services.rag_graph_service.GoogleGenerativeAIEmbeddings'):
-            with patch('app.services.rag_graph_service.Neo4jGraph'):
-                with patch('app.services.rag_graph_service.Neo4jVector'):
+        with patch('app.services.rag.rag_graph_service.GoogleGenerativeAIEmbeddings'):
+            with patch('app.services.rag.rag_graph_service.Neo4jGraph'):
+                with patch('app.services.rag.rag_graph_service.Neo4jVector'):
                     service = GraphRAGService()
 
         nodes = [
@@ -74,9 +74,9 @@ class TestEnrichGraphNodes:
 
     def test_enrich_graph_nodes_handles_empty_list(self):
         """Test: _enrich_graph_nodes obsługuje pustą listę nodes"""
-        with patch('app.services.rag_graph_service.GoogleGenerativeAIEmbeddings'):
-            with patch('app.services.rag_graph_service.Neo4jGraph'):
-                with patch('app.services.rag_graph_service.Neo4jVector'):
+        with patch('app.services.rag.rag_graph_service.GoogleGenerativeAIEmbeddings'):
+            with patch('app.services.rag.rag_graph_service.Neo4jGraph'):
+                with patch('app.services.rag.rag_graph_service.Neo4jVector'):
                     service = GraphRAGService()
 
         enriched = service._enrich_graph_nodes([], {"doc_id": "test"})
@@ -89,10 +89,10 @@ class TestGenerateCypherQuery:
 
     def test_generate_cypher_query_returns_valid_query(self):
         """Test: _generate_cypher_query zwraca poprawne Cypher query"""
-        with patch('app.services.rag_graph_service.GoogleGenerativeAIEmbeddings'):
-            with patch('app.services.rag_graph_service.Neo4jGraph'):
-                with patch('app.services.rag_graph_service.Neo4jVector'):
-                    with patch('app.services.rag_graph_service.ChatGoogleGenerativeAI') as mock_llm_class:
+        with patch('app.services.rag.rag_graph_service.GoogleGenerativeAIEmbeddings'):
+            with patch('app.services.rag.rag_graph_service.Neo4jGraph'):
+                with patch('app.services.rag.rag_graph_service.Neo4jVector'):
+                    with patch('app.services.rag.rag_graph_service.ChatGoogleGenerativeAI') as mock_llm_class:
                         mock_llm = AsyncMock()
                         mock_llm.ainvoke.return_value = MagicMock(
                             content='```json\n{"cypher": "MATCH (n:Wskaznik) RETURN n LIMIT 10", "reasoning": "Test"}\n```'
@@ -108,10 +108,10 @@ class TestGenerateCypherQuery:
 
     def test_generate_cypher_query_handles_json_parse_error(self):
         """Test: _generate_cypher_query obsługuje błędy parsowania JSON"""
-        with patch('app.services.rag_graph_service.GoogleGenerativeAIEmbeddings'):
-            with patch('app.services.rag_graph_service.Neo4jGraph'):
-                with patch('app.services.rag_graph_service.Neo4jVector'):
-                    with patch('app.services.rag_graph_service.ChatGoogleGenerativeAI') as mock_llm_class:
+        with patch('app.services.rag.rag_graph_service.GoogleGenerativeAIEmbeddings'):
+            with patch('app.services.rag.rag_graph_service.Neo4jGraph'):
+                with patch('app.services.rag.rag_graph_service.Neo4jVector'):
+                    with patch('app.services.rag.rag_graph_service.ChatGoogleGenerativeAI') as mock_llm_class:
                         mock_llm = AsyncMock()
                         mock_llm.ainvoke.return_value = MagicMock(
                             content='invalid json'
@@ -129,10 +129,10 @@ class TestAnswerQuestion:
 
     async def test_answer_question_success(self):
         """Test: answer_question zwraca odpowiedź z graph context i vector context"""
-        with patch('app.services.rag_graph_service.GoogleGenerativeAIEmbeddings'):
-            with patch('app.services.rag_graph_service.Neo4jGraph') as mock_graph:
-                with patch('app.services.rag_graph_service.Neo4jVector') as mock_vector:
-                    with patch('app.services.rag_graph_service.ChatGoogleGenerativeAI') as mock_llm_class:
+        with patch('app.services.rag.rag_graph_service.GoogleGenerativeAIEmbeddings'):
+            with patch('app.services.rag.rag_graph_service.Neo4jGraph') as mock_graph:
+                with patch('app.services.rag.rag_graph_service.Neo4jVector') as mock_vector:
+                    with patch('app.services.rag.rag_graph_service.ChatGoogleGenerativeAI') as mock_llm_class:
                         # Mock LLM for Cypher generation
                         mock_cypher_llm = AsyncMock()
                         mock_cypher_llm.ainvoke.return_value = MagicMock(
@@ -173,9 +173,9 @@ class TestGetDemographicGraphContext:
 
     def test_get_demographic_graph_context_builds_query(self):
         """Test: get_demographic_graph_context buduje Cypher query dla demografii"""
-        with patch('app.services.rag_graph_service.GoogleGenerativeAIEmbeddings'):
-            with patch('app.services.rag_graph_service.Neo4jGraph') as mock_graph:
-                with patch('app.services.rag_graph_service.Neo4jVector'):
+        with patch('app.services.rag.rag_graph_service.GoogleGenerativeAIEmbeddings'):
+            with patch('app.services.rag.rag_graph_service.Neo4jGraph') as mock_graph:
+                with patch('app.services.rag.rag_graph_service.Neo4jVector'):
                     mock_graph_instance = MagicMock()
                     mock_graph_instance.query.return_value = []
                     mock_graph.return_value = mock_graph_instance
@@ -199,9 +199,9 @@ class TestGetDemographicGraphContext:
 
     def test_get_demographic_graph_context_handles_empty_results(self):
         """Test: get_demographic_graph_context obsługuje brak wyników z grafu"""
-        with patch('app.services.rag_graph_service.GoogleGenerativeAIEmbeddings'):
-            with patch('app.services.rag_graph_service.Neo4jGraph') as mock_graph:
-                with patch('app.services.rag_graph_service.Neo4jVector'):
+        with patch('app.services.rag.rag_graph_service.GoogleGenerativeAIEmbeddings'):
+            with patch('app.services.rag.rag_graph_service.Neo4jGraph') as mock_graph:
+                with patch('app.services.rag.rag_graph_service.Neo4jVector'):
                     mock_graph_instance = MagicMock()
                     mock_graph_instance.query.return_value = []
                     mock_graph.return_value = mock_graph_instance

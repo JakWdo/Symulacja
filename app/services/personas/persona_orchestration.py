@@ -21,8 +21,12 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
-from app.services.rag_hybrid_search_service import PolishSocietyRAG
-from app.services.clients import build_chat_model
+from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.core.clients import build_chat_model
+from app.core.prompts import (
+    PersonaAllocationPlan as PersonaAllocationPlanSchema,
+    ORCHESTRATION_SYSTEM_PROMPT,
+)
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -161,12 +165,15 @@ class PersonaOrchestrationService:
         project_description: Optional[str] = None,
         additional_context: Optional[str] = None,
     ) -> PersonaAllocationPlan:
-        """Tworzy szczegółowy plan alokacji person z długimi briefami.
+        """Tworzy szczegółowy plan alokacji person używając structured output.
+
+        ZMIANA: Używa LangChain with_structured_output() zamiast ręcznego JSON parsing.
+        Eliminuje JSON parsing errors, gwarantuje poprawną strukturę danych.
 
         Gemini 2.5 Pro przeprowadza głęboką analizę:
         1. Pobiera Graph RAG context (hybrid search dla rozkładów demograficznych)
         2. Analizuje trendy społeczne i wskaźniki statystyczne
-        3. Tworzy spójne (900-1200 znaków) edukacyjne briefe
+        3. Tworzy spójne (500-700 znaków) edukacyjne briefe
         4. Wyjaśnia "dlaczego" dla każdej decyzji alokacyjnej
 
         Args:
@@ -179,16 +186,16 @@ class PersonaOrchestrationService:
             PersonaAllocationPlan z grupami demograficznymi i szczegółowymi briefami
 
         Raises:
-            Exception: Jeśli LLM nie może wygenerować planu lub JSON parsing fails
+            Exception: Jeśli LLM nie może wygenerować planu po 2 próbach
         """
         logger.info(f"🎯 Orchestration: Tworzenie planu alokacji dla {num_personas} person...")
 
         # Krok 1: Pobierz comprehensive Graph RAG context
         graph_context = await self._get_comprehensive_graph_context(target_demographics)
-        logger.info(f"📊 Pobrano {len(graph_context)} fragmentów z Graph RAG")
+        logger.info(f"📊 Pobrano graph RAG context ({len(graph_context)} chars)")
 
-        # Krok 2: Zbuduj prompt w stylu edukacyjnym
-        prompt = self._build_orchestration_prompt(
+        # Krok 2: Zbuduj prompt używając nowego ORCHESTRATION_SYSTEM_PROMPT
+        user_prompt = self._build_user_prompt(
             target_demographics=target_demographics,
             num_personas=num_personas,
             graph_context=graph_context,
@@ -196,34 +203,52 @@ class PersonaOrchestrationService:
             additional_context=additional_context,
         )
 
-        # Krok 3: Gemini 2.5 Pro generuje plan (długa analiza)
-        try:
-            logger.info(f"🤖 Wywołuję Gemini 2.5 Pro dla orchestration (max_tokens=8000, timeout=120s)...")
-            response = await self.llm.ainvoke(prompt)
+        # Krok 3: Structured output z retry logic (2 próby)
+        structured_llm = self.llm.with_structured_output(PersonaAllocationPlanSchema)
 
-            # DEBUG: Log surowej odpowiedzi od Gemini
-            response_text = response.content if hasattr(response, 'content') else str(response)
-            logger.info(f"📝 Gemini response length: {len(response_text)} chars")
-            logger.info(f"📝 Gemini response preview (first 500 chars): {response_text[:500]}")
-            logger.info(f"📝 Gemini response preview (last 500 chars): {response_text[-500:]}")
+        for attempt in range(2):  # Max 2 attempts (total 2 tries)
+            try:
+                logger.info(
+                    f"🤖 Wywołuję Gemini 2.5 Pro (structured output, attempt {attempt + 1}/2, "
+                    f"max_tokens=8000, timeout=120s)..."
+                )
 
-            plan_json = self._extract_json_from_response(response_text)
+                # Wywołaj z system + user prompt
+                messages = [
+                    {"role": "system", "content": ORCHESTRATION_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ]
 
-            # DEBUG: Log sparsowanego JSON
-            logger.info(f"✅ JSON parsed successfully: {len(plan_json)} top-level keys")
-            logger.info(f"✅ JSON keys: {list(plan_json.keys())}")
+                plan = await structured_llm.ainvoke(messages)
 
-            # Parse do Pydantic model (walidacja)
-            plan = PersonaAllocationPlan(**plan_json)
+                # Walidacja: sprawdź czy suma counts zgadza się z num_personas
+                total_allocated = sum(group.count for group in plan.groups)
+                if total_allocated != num_personas:
+                    logger.warning(
+                        f"⚠️ Count mismatch: requested {num_personas}, got {total_allocated}. "
+                        f"Attempt {attempt + 1}/2"
+                    )
+                    if attempt == 0:  # Retry
+                        await asyncio.sleep(2)
+                        continue
+                    else:  # Last attempt - adjust counts
+                        logger.warning("⚙️ Adjusting counts on last attempt")
+                        plan = self._adjust_counts(plan, num_personas)
 
-            logger.info(f"✅ Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
-            return plan
+                logger.info(f"✅ Plan alokacji utworzony: {len(plan.groups)} grup (attempt {attempt + 1})")
+                return plan
 
-        except Exception as e:
-            logger.error(f"❌ Błąd podczas tworzenia planu alokacji: {e}")
-            logger.error(f"❌ Exception type: {type(e).__name__}")
-            logger.error(f"❌ Exception details: {str(e)[:1000]}")
-            raise
+            except Exception as e:
+                logger.error(f"❌ Orchestration attempt {attempt + 1} failed: {e}")
+                if attempt == 0:  # Retry
+                    await asyncio.sleep(2)
+                else:  # Last attempt - raise
+                    logger.error(f"❌ Exception type: {type(e).__name__}")
+                    logger.error(f"❌ Exception details: {str(e)[:1000]}")
+                    raise
+
+        # Should never reach here
+        raise RuntimeError("Orchestration failed after 2 attempts")
 
     async def _get_comprehensive_graph_context(
         self,
@@ -323,6 +348,94 @@ class PersonaOrchestrationService:
             formatted += "\n"
 
         return formatted
+
+    def _build_user_prompt(
+        self,
+        target_demographics: Dict[str, Any],
+        num_personas: int,
+        graph_context: str,
+        project_description: Optional[str],
+        additional_context: Optional[str],
+    ) -> str:
+        """Buduje user prompt dla orchestration (uproszczona wersja).
+
+        ZMIANA: Krótszy prompt, bez długich instrukcji (te są w ORCHESTRATION_SYSTEM_PROMPT).
+        Fokus na danych wejściowych i zadaniu.
+
+        Args:
+            target_demographics: Rozkład demograficzny
+            num_personas: Liczba person
+            graph_context: Kontekst z Graph RAG
+            project_description: Opis projektu
+            additional_context: Dodatkowy kontekst od użytkownika
+
+        Returns:
+            User prompt string
+        """
+        prompt = f"""Stwórz plan alokacji dla {num_personas} person.
+
+**PROJEKT:**
+{project_description or "Badanie syntetycznych person"}
+
+**DODATKOWY KONTEKST:**
+{additional_context or "Brak dodatkowego kontekstu"}
+
+**ROZKŁAD DEMOGRAFICZNY DOCELOWY:**
+```json
+{json.dumps(target_demographics, indent=2, ensure_ascii=False)}
+```
+
+**LICZBA PERSON:** {num_personas}
+
+{graph_context}
+
+**TWOJE ZADANIE:**
+Przeanalizuj dane i stwórz plan alokacji zgodny ze schematem PersonaAllocationPlan.
+
+- Briefe: 500-700 znaków (konkretne, praktyczne, edukacyjne)
+- Graph insights: max 5 najważniejszych
+- Segment characteristics: 3-6 cech
+- Allocation reasoning: max 400 znaków
+- Demographics: age, gender, education, location (BEZ income_bracket!)
+
+Zwróć JSON zgodny ze schematem."""
+        return prompt
+
+    def _adjust_counts(
+        self,
+        plan: PersonaAllocationPlanSchema,
+        target_count: int
+    ) -> PersonaAllocationPlanSchema:
+        """Dostosowuje counts proporcjonalnie gdy suma nie zgadza się z target.
+
+        Args:
+            plan: Oryginalny plan z niepoprawną sumą
+            target_count: Docelowa liczba person
+
+        Returns:
+            Zaktualizowany plan z poprawioną sumą
+        """
+        current_total = sum(group.count for group in plan.groups)
+
+        if current_total == target_count:
+            return plan
+
+        # Proportional scaling
+        for group in plan.groups:
+            group.count = max(1, round(group.count * target_count / current_total))
+
+        # Ensure exact match (handle rounding errors)
+        adjusted_total = sum(group.count for group in plan.groups)
+        diff = target_count - adjusted_total
+
+        if diff != 0:
+            # Add/subtract from largest group
+            largest_group = max(plan.groups, key=lambda g: g.count)
+            largest_group.count = max(1, largest_group.count + diff)
+
+        plan.total_personas = target_count
+        logger.info(f"⚙️ Adjusted counts: {current_total} → {target_count}")
+        return plan
 
     def _build_orchestration_prompt(
         self,
@@ -533,62 +646,6 @@ KLUCZOWE ZASADY:
 Generuj plan alokacji:
 """
         return prompt
-
-    def _extract_json_from_response(self, response_text: str) -> Dict[str, Any]:
-        """Ekstraktuje JSON z odpowiedzi LLM (może być otoczony markdown lub preambułą).
-
-        Args:
-            response_text: Surowa odpowiedź od LLM
-
-        Returns:
-            Parsed JSON jako dict
-
-        Raises:
-            ValueError: Jeśli nie można sparsować JSON
-        """
-        text = response_text.strip()
-
-        # Strategia 1: Znajdź blok ```json ... ``` (może być w środku tekstu)
-        import re
-        json_block_match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
-        if json_block_match:
-            json_text = json_block_match.group(1).strip()
-            try:
-                return json.loads(json_text)
-            except json.JSONDecodeError as e:
-                logger.error(f"❌ Nie można sparsować JSON z bloku markdown: {e}")
-                logger.error(f"JSON block text: {json_text[:500]}...")
-                # Kontynuuj do następnej strategii
-
-        # Strategia 2: Znajdź blok ``` ... ``` (bez json)
-        code_block_match = re.search(r'```\s*(.*?)\s*```', text, re.DOTALL)
-        if code_block_match:
-            json_text = code_block_match.group(1).strip()
-            try:
-                return json.loads(json_text)
-            except json.JSONDecodeError as e:
-                logger.error(f"❌ Nie można sparsować JSON z bloku kodu: {e}")
-                # Kontynuuj do następnej strategii
-
-        # Strategia 3: Znajdź pierwszy { ... } (może być po preambule)
-        brace_match = re.search(r'\{.*\}', text, re.DOTALL)
-        if brace_match:
-            json_text = brace_match.group(0).strip()
-            try:
-                return json.loads(json_text)
-            except json.JSONDecodeError as e:
-                logger.error(f"❌ Nie można sparsować JSON z braces: {e}")
-                logger.error(f"Braces text: {json_text[:500]}...")
-
-        # Strategia 4: Spróbuj sparsować cały tekst (fallback)
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Nie można sparsować JSON (all strategies failed): {e}")
-            logger.error(f"❌ Response text length: {len(text)} chars")
-            logger.error(f"❌ Response text (first 1000 chars): {text[:1000]}")
-            logger.error(f"❌ Response text (last 1000 chars): {text[-1000:]}")
-            raise ValueError(f"LLM nie zwrócił poprawnego JSON: {e}")
 
     # === NEW METHODS FOR SEGMENT-BASED ARCHITECTURE ===
 

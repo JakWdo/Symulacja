@@ -30,7 +30,7 @@ import pytest
 
 from langchain_core.documents import Document
 
-from app.services.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
 from app.core.config import get_settings
 
 pytestmark = pytest.mark.manual

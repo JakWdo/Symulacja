@@ -15,7 +15,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from app.services.rag_document_service import RAGDocumentService
+from app.services.rag.rag_document_service import RAGDocumentService
 
 
 class TestRAGDocumentServiceInit:
@@ -23,7 +23,7 @@ class TestRAGDocumentServiceInit:
 
     def test_init_creates_embeddings(self):
         """Test: __init__ tworzy embeddings model"""
-        with patch('app.services.rag_document_service.GoogleGenerativeAIEmbeddings') as mock_embeddings_class:
+        with patch('app.services.rag.rag_document_service.GoogleGenerativeAIEmbeddings') as mock_embeddings_class:
             service = RAGDocumentService()
 
             assert service.embeddings is not None
@@ -31,7 +31,7 @@ class TestRAGDocumentServiceInit:
 
     def test_init_creates_vector_store(self):
         """Test: __init__ tworzy vector store (z retry)"""
-        with patch('app.services.rag_document_service.GoogleGenerativeAIEmbeddings'):
+        with patch('app.services.rag.rag_document_service.GoogleGenerativeAIEmbeddings'):
             with patch.object(RAGDocumentService, '_init_vector_store_with_retry') as mock_init_vector:
                 mock_init_vector.return_value = MagicMock()
 
@@ -42,7 +42,7 @@ class TestRAGDocumentServiceInit:
 
     def test_init_creates_graph_store(self):
         """Test: __init__ tworzy graph store (z retry)"""
-        with patch('app.services.rag_document_service.GoogleGenerativeAIEmbeddings'):
+        with patch('app.services.rag.rag_document_service.GoogleGenerativeAIEmbeddings'):
             with patch.object(RAGDocumentService, '_init_vector_store_with_retry', return_value=MagicMock()):
                 with patch.object(RAGDocumentService, '_init_graph_store_with_retry') as mock_init_graph:
                     mock_init_graph.return_value = MagicMock()
@@ -58,8 +58,8 @@ class TestVectorStoreRetry:
 
     def test_vector_store_retry_success_first_attempt(self):
         """Test: Vector store połączenie udaje się za pierwszym razem"""
-        with patch('app.services.rag_document_service.Neo4jVector') as mock_neo4j_vector:
-            with patch('app.services.rag_document_service.GoogleGenerativeAIEmbeddings'):
+        with patch('app.services.rag.rag_document_service.Neo4jVector') as mock_neo4j_vector:
+            with patch('app.services.rag.rag_document_service.GoogleGenerativeAIEmbeddings'):
                 mock_neo4j_vector.from_existing_index.return_value = MagicMock()
 
                 service = RAGDocumentService()
@@ -69,9 +69,9 @@ class TestVectorStoreRetry:
 
     def test_vector_store_retry_success_after_failures(self):
         """Test: Vector store połączenie udaje się po kilku niepowodzeniach"""
-        with patch('app.services.rag_document_service.Neo4jVector') as mock_neo4j_vector:
-            with patch('app.services.rag_document_service.GoogleGenerativeAIEmbeddings'):
-                with patch('app.services.rag_document_service.time.sleep'):  # Speed up test
+        with patch('app.services.rag.rag_document_service.Neo4jVector') as mock_neo4j_vector:
+            with patch('app.services.rag.rag_document_service.GoogleGenerativeAIEmbeddings'):
+                with patch('app.services.rag.rag_document_service.time.sleep'):  # Speed up test
                     # Fail 2 times, then succeed
                     mock_neo4j_vector.from_existing_index.side_effect = [
                         Exception("Connection refused"),
@@ -86,9 +86,9 @@ class TestVectorStoreRetry:
 
     def test_vector_store_retry_max_retries_exceeded(self):
         """Test: Vector store raise exception po wyczerpaniu retry"""
-        with patch('app.services.rag_document_service.Neo4jVector') as mock_neo4j_vector:
-            with patch('app.services.rag_document_service.GoogleGenerativeAIEmbeddings'):
-                with patch('app.services.rag_document_service.time.sleep'):
+        with patch('app.services.rag.rag_document_service.Neo4jVector') as mock_neo4j_vector:
+            with patch('app.services.rag.rag_document_service.GoogleGenerativeAIEmbeddings'):
+                with patch('app.services.rag.rag_document_service.time.sleep'):
                     mock_neo4j_vector.from_existing_index.side_effect = Exception("Connection refused")
 
                     with pytest.raises(Exception, match="Connection refused"):
@@ -100,8 +100,8 @@ class TestGraphStoreRetry:
 
     def test_graph_store_retry_success_first_attempt(self):
         """Test: Graph store połączenie udaje się za pierwszym razem"""
-        with patch('app.services.rag_document_service.Neo4jGraph') as mock_neo4j_graph:
-            with patch('app.services.rag_document_service.GoogleGenerativeAIEmbeddings'):
+        with patch('app.services.rag.rag_document_service.Neo4jGraph') as mock_neo4j_graph:
+            with patch('app.services.rag.rag_document_service.GoogleGenerativeAIEmbeddings'):
                 with patch.object(RAGDocumentService, '_init_vector_store_with_retry', return_value=MagicMock()):
                     mock_neo4j_graph.return_value = MagicMock()
 
@@ -112,10 +112,10 @@ class TestGraphStoreRetry:
 
     def test_graph_store_retry_success_after_failures(self):
         """Test: Graph store połączenie udaje się po kilku niepowodzeniach"""
-        with patch('app.services.rag_document_service.Neo4jGraph') as mock_neo4j_graph:
-            with patch('app.services.rag_document_service.GoogleGenerativeAIEmbeddings'):
+        with patch('app.services.rag.rag_document_service.Neo4jGraph') as mock_neo4j_graph:
+            with patch('app.services.rag.rag_document_service.GoogleGenerativeAIEmbeddings'):
                 with patch.object(RAGDocumentService, '_init_vector_store_with_retry', return_value=MagicMock()):
-                    with patch('app.services.rag_document_service.time.sleep'):
+                    with patch('app.services.rag.rag_document_service.time.sleep'):
                         # Fail 2 times, then succeed
                         mock_neo4j_graph.side_effect = [
                             Exception("Connection refused"),

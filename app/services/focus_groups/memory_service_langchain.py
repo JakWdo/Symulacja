@@ -14,7 +14,7 @@ import numpy as np
 
 from app.models import PersonaEvent, PersonaResponse, Persona
 from app.core.config import get_settings
-from app.services.clients import get_embeddings
+from app.services.core.clients import get_embeddings
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -165,6 +165,7 @@ class MemoryServiceLangChain:
             similarity = self._cosine_similarity(query_embedding, event.embedding)
 
             # Zastosuj temporal decay jeśli włączony
+            time_diff = 0.0
             if time_decay:
                 time_diff = (current_time - event.timestamp).total_seconds()
                 # Współczynnik zaniku: exp(-t/30 dni) – po 30 dniach wynik maleje do ~37%
@@ -178,7 +179,7 @@ class MemoryServiceLangChain:
                     "event": event,
                     "score": score,
                     "similarity": similarity,
-                    "age_days": time_diff / (24 * 3600) if time_decay else 0,
+                    "age_days": time_diff / (24 * 3600) if time_decay else 0.0,
                 }
             )
 

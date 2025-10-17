@@ -17,7 +17,7 @@ from langchain_community.graphs import Neo4jGraph
 from langchain_community.vectorstores import Neo4jVector
 
 from app.core.config import get_settings
-from app.services.clients import get_embeddings
+from app.services.core.clients import get_embeddings
 
 settings = get_settings()
 
