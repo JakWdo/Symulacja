@@ -30,7 +30,13 @@ export const CitationsCollapsible = memo<CitationsCollapsibleProps>(
     const [isOpen, setIsOpen] = useState(false);
 
     const sortedCitations = useMemo(() => {
-      return [...citations].sort((a, b) => b.relevance_score - a.relevance_score);
+      return [...citations].sort((a, b) => {
+        const scoreA =
+          typeof a.relevance_score === 'number' ? a.relevance_score : -1;
+        const scoreB =
+          typeof b.relevance_score === 'number' ? b.relevance_score : -1;
+        return scoreB - scoreA;
+      });
     }, [citations]);
 
     if (!citations || citations.length === 0) {
@@ -75,13 +81,19 @@ export const CitationsCollapsible = memo<CitationsCollapsibleProps>(
                 className="overflow-hidden"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                  {sortedCitations.map((citation, index) => (
-                    <CitationCard
-                      key={`${citation.document_title}-${index}`}
-                      citation={citation}
-                      index={index}
-                    />
-                  ))}
+                  {sortedCitations.map((citation, index) => {
+                    const key =
+                      (citation.document_title && `${citation.document_title}-${index}`) ||
+                      (citation.source && `${citation.source}-${index}`) ||
+                      `citation-${index}`;
+                    return (
+                      <CitationCard
+                        key={key}
+                        citation={citation}
+                        index={index}
+                      />
+                    );
+                  })}
                 </div>
               </motion.div>
             </CollapsibleContent>

@@ -40,7 +40,13 @@ from app.services.personas.persona_audit_service import PersonaAuditService
 from app.services.personas.persona_needs_service import PersonaNeedsService
 from app.services.personas.persona_narrative_service import PersonaNarrativeService
 from app.core.redis import redis_get_json, redis_set_json, redis_delete
-from app.schemas.persona_details import PersonaDetailsResponse, PersonaAuditEntry, PersonaNarratives
+from app.schemas.persona_details import (
+    PersonaDetailsResponse,
+    PersonaAuditEntry,
+    PersonaNarratives,
+    SegmentRules,
+    SimilarPersona,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -301,13 +307,17 @@ class PersonaDetailsService:
         # Jeśli któraś operacja failuje, catch exception i zwróć None (graceful degradation)
 
         parallel_start = time.time()
-        needs_and_pains, audit_log, narratives_data = await asyncio.gather(
+        needs_and_pains, audit_log, narratives_data, similar_personas_data = await asyncio.gather(
             self._fetch_needs_and_pains(persona, force_refresh=force_refresh),
             self._fetch_audit_log(persona_id),
             self._fetch_narratives(persona_id, force_refresh=force_refresh),
+            self._fetch_similar_personas(persona, limit=5),
             return_exceptions=True,  # Nie failuj całego requesta jeśli 1 operacja failuje
         )
         parallel_elapsed_ms = int((time.time() - parallel_start) * 1000)
+
+        # Fetch segment rules (sync operation - quick, no DB call)
+        segment_rules_data = self._fetch_segment_rules(persona)
 
         # Handle exceptions from parallel fetch (graceful degradation)
         if isinstance(needs_and_pains, Exception):
@@ -340,6 +350,22 @@ class PersonaDetailsService:
             if narratives:
                 # Convert to PersonaNarratives schema
                 narratives = PersonaNarratives(**narratives)
+
+        # Handle similar personas (graceful degradation)
+        similar_personas = []
+        if isinstance(similar_personas_data, Exception):
+            logger.warning(
+                f"Failed to fetch similar personas for {persona_id}: {similar_personas_data}",
+                exc_info=similar_personas_data,
+            )
+        elif similar_personas_data:
+            # Convert to SimilarPersona schema
+            similar_personas = [SimilarPersona(**p) for p in similar_personas_data]
+
+        # Convert segment_rules to SegmentRules schema
+        segment_rules = None
+        if segment_rules_data:
+            segment_rules = SegmentRules(**segment_rules_data)
 
         enriched_rag_details = _ensure_segment_metadata(persona)
         segment_id = persona.segment_id or (enriched_rag_details.get("segment_id") if enriched_rag_details else None)
@@ -389,11 +415,15 @@ class PersonaDetailsService:
             narratives_status=narratives_status,
             # Audit log
             audit_log=audit_log if isinstance(audit_log, list) else [],
+            # Segment data (nowe pola)
+            segment_rules=segment_rules,
+            similar_personas=similar_personas,
             # Metadata
             segment_id=segment_id,
             segment_name=segment_name,
             created_at=persona.created_at,
             updated_at=persona.updated_at,
+            data_freshness=persona.updated_at,  # Bazuje na updated_at
             is_active=persona.is_active,
         )
 
@@ -475,35 +505,34 @@ class PersonaDetailsService:
         force_refresh: bool,
     ) -> Optional[Dict[str, Any]]:
         """
-        Fetch needs & pains analysis from cache or generate via LLM with RAG context.
+        Fetch needs & pains analysis (read-only, no LLM generation).
+
+        Needs are now pre-generated during persona creation.
+        If NULL, returns None (no lazy generation to avoid blocking GET requests).
 
         Args:
             persona: Persona object
-            force_refresh: Whether to bypass cache
+            force_refresh: Ignored (kept for backward compatibility)
 
         Returns:
-            Dict with JTBD, desired outcomes, and pain points
+            Dict with JTBD, desired outcomes, and pain points (or None if not generated)
 
         Performance:
-            - Cache hit: < 10ms (return persona.needs_and_pains)
-            - Cache miss: < 2s (LLM with structured output + RAG context)
+            - Always < 10ms (read-only, no LLM calls)
+
+        Note:
+            force_refresh is deprecated - needs are pre-generated during persona creation.
+            For manual regeneration, use POST /personas/{id}/needs/regenerate endpoint.
         """
-        service = PersonaNeedsService(self.db)
-        try:
-            if persona.needs_and_pains and not force_refresh:
-                return persona.needs_and_pains
+        if not persona.needs_and_pains:
+            logger.warning(
+                "Persona %s has NULL needs_and_pains - should be pre-generated during creation",
+                persona.id,
+                extra={"persona_id": str(persona.id)}
+            )
+            return None
 
-            # Extract RAG context for consistency with segment data
-            rag_context = self._extract_rag_context(persona)
-
-            # Generate needs with RAG context
-            needs_data = await service.generate_needs_analysis(persona, rag_context=rag_context)
-            persona.needs_and_pains = needs_data
-            asyncio.create_task(self._persist_persona_field(persona.id, "needs_and_pains", needs_data))
-            return needs_data
-        except Exception as exc:
-            logger.error("Failed to generate needs for persona %s: %s", persona.id, exc, exc_info=True)
-            return persona.needs_and_pains
+        return persona.needs_and_pains
 
     async def _fetch_audit_log(self, persona_id: UUID) -> List[PersonaAuditEntry]:
         """
@@ -590,3 +619,198 @@ class PersonaDetailsService:
             if isinstance(candidate, str) and candidate.strip():
                 return candidate.strip()
         return None
+
+    def _fetch_segment_rules(self, persona: Persona) -> Optional[Dict[str, Any]]:
+        """
+        Wyciągnij segment rules z orchestration_reasoning lub infer z danych persony.
+
+        Args:
+            persona: Persona object
+
+        Returns:
+            Dict z polami: age_range, gender_options, location_filters, required_values
+
+        Example:
+            {
+                "age_range": "30-40",
+                "gender_options": ["Kobieta"],
+                "location_filters": ["Warszawa", "Kraków"],
+                "required_values": ["Niezależność", "Innowacja"]
+            }
+        """
+        try:
+            details = persona.rag_context_details or {}
+            orchestration = details.get("orchestration_reasoning") or {}
+
+            # Spróbuj wyciągnąć z orchestration (jeśli LLM wygenerował)
+            segment_rules = orchestration.get("segment_rules")
+            if segment_rules and isinstance(segment_rules, dict):
+                return segment_rules
+
+            # Infer z danych persony (fallback)
+            age_range = None
+            if persona.age:
+                # Round to 5-year brackets
+                lower_bound = (persona.age // 5) * 5
+                upper_bound = lower_bound + 5
+                age_range = f"{lower_bound}-{upper_bound}"
+
+            gender_options = [persona.gender] if persona.gender else []
+
+            location_filters = []
+            if persona.location and persona.location.lower() not in {"polska", "kraj"}:
+                location_filters.append(persona.location)
+
+            # Top 3 values (jeśli dostępne)
+            required_values = persona.values[:3] if persona.values else []
+
+            return {
+                "age_range": age_range,
+                "gender_options": gender_options,
+                "location_filters": location_filters,
+                "required_values": required_values,
+            }
+        except Exception as e:
+            logger.warning(f"Failed to extract segment rules for persona {persona.id}: {e}")
+            return None
+
+    async def _fetch_similar_personas(
+        self, persona: Persona, limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Znajdź podobne persony (ten sam segment_id).
+
+        Args:
+            persona: Persona object
+            limit: Max liczba podobnych person
+
+        Returns:
+            Lista dict z polami: id, name, distinguishing_trait
+
+        Performance:
+            - Query z index na (project_id, segment_id, is_active)
+            - Limit 5 osób
+        """
+        try:
+            if not persona.segment_id:
+                return []
+
+            query = select(Persona).where(
+                Persona.project_id == persona.project_id,
+                Persona.segment_id == persona.segment_id,
+                Persona.id != persona.id,
+                Persona.is_active == True,
+                Persona.deleted_at.is_(None),
+            ).limit(limit)
+
+            result = await self.db.execute(query)
+            similar = result.scalars().all()
+
+            return [
+                {
+                    "id": str(p.id),
+                    "name": self._generate_persona_name(p),
+                    "distinguishing_trait": self._get_distinguishing_trait(persona, p),
+                }
+                for p in similar
+            ]
+        except Exception as e:
+            logger.error(f"Failed to fetch similar personas for {persona.id}: {e}", exc_info=e)
+            return []
+
+    def _generate_persona_name(self, persona: Persona) -> str:
+        """
+        Generuj krótką nazwę persony (dla listy podobnych).
+
+        Args:
+            persona: Persona object
+
+        Returns:
+            String w formacie: "Occupation, age lat" lub "Kobieta, 32 lata"
+        """
+        parts = []
+        if persona.occupation:
+            parts.append(persona.occupation)
+        elif persona.gender:
+            parts.append(persona.gender)
+
+        if persona.age:
+            parts.append(f"{persona.age} lat")
+
+        if not parts:
+            return f"Persona #{str(persona.id)[:8]}"
+
+        return ", ".join(parts)
+
+    def _get_distinguishing_trait(self, base_persona: Persona, other_persona: Persona) -> str:
+        """
+        Generuj krótki opis różnicy między dwiema personami.
+
+        Args:
+            base_persona: Persona bazowa (do której porównujemy)
+            other_persona: Inna persona (z tego samego segmentu)
+
+        Returns:
+            Brief description np. "Młodsza o 5 lat, z Krakowa"
+
+        Example:
+            >>> trait = service._get_distinguishing_trait(persona1, persona2)
+            >>> print(trait)  # "Starsza o 3 lata, zarabia więcej"
+        """
+        traits = []
+
+        # Age difference
+        if base_persona.age and other_persona.age:
+            age_diff = other_persona.age - base_persona.age
+            if age_diff > 0:
+                traits.append(f"starsza o {age_diff} lat" if other_persona.gender == "Kobieta" else f"starszy o {age_diff} lat")
+            elif age_diff < 0:
+                traits.append(f"młodsza o {abs(age_diff)} lat" if other_persona.gender == "Kobieta" else f"młodszy o {abs(age_diff)} lat")
+
+        # Location difference
+        if base_persona.location != other_persona.location and other_persona.location:
+            if other_persona.location.lower() not in {"polska", "kraj"}:
+                traits.append(f"z {other_persona.location}")
+
+        # Occupation difference
+        if base_persona.occupation != other_persona.occupation and other_persona.occupation:
+            traits.append(f"{other_persona.occupation.lower()}")
+
+        # Income difference
+        if base_persona.income_bracket != other_persona.income_bracket and other_persona.income_bracket:
+            # Parse income brackets to compare (basic comparison)
+            if other_persona.income_bracket and base_persona.income_bracket:
+                base_income = self._extract_income_value(base_persona.income_bracket)
+                other_income = self._extract_income_value(other_persona.income_bracket)
+                if base_income and other_income:
+                    if other_income > base_income:
+                        traits.append("zarabia więcej")
+                    elif other_income < base_income:
+                        traits.append("zarabia mniej")
+
+        # Default fallback
+        if not traits:
+            return "podobny profil"
+
+        # Join max 2 traits
+        return ", ".join(traits[:2]).capitalize()
+
+    def _extract_income_value(self, income_bracket: str) -> Optional[int]:
+        """
+        Wyciągnij wartość liczbową z income bracket (dla porównania).
+
+        Args:
+            income_bracket: String np. "7500-10000 PLN" lub "5000 PLN"
+
+        Returns:
+            Średnia wartość z zakresu lub single value
+        """
+        import re
+        # Extract numbers from string
+        numbers = re.findall(r'\d+', income_bracket)
+        if not numbers:
+            return None
+        # Take average if range, otherwise first number
+        if len(numbers) >= 2:
+            return (int(numbers[0]) + int(numbers[1])) // 2
+        return int(numbers[0])

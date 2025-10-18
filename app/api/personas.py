@@ -1314,13 +1314,22 @@ async def _generate_personas_task(
                         except Exception as rag_error:
                             logger.warning(f"RAG context failed for persona {idx}: {rag_error}")
 
-                    # Call comprehensive generation (LLM generuje ALL DATA)
-                    persona_data = await generator.generate_comprehensive_persona(
+                    # Call comprehensive generation with FALLBACK strategy (2025-10-18)
+                    # Zwraca tuple (persona_data, metrics) - rozpakuj i loguj metrics
+                    persona_data, generation_metrics = await generator.generate_persona_with_fallback(
                         orchestration_brief=persona_group_mapping[idx]["brief"],
                         segment_characteristics=persona_group_mapping[idx]["segment_characteristics"],
                         demographic_guidance=demo_profile,  # Tylko sugestia, nie requirement!
                         rag_context=rag_context_str,
-                        psychological_profile=psych_profile
+                        psychological_profile=psych_profile,
+                        use_comprehensive=True  # Try comprehensive first, fallback jeśli fail
+                    )
+
+                    # Log generation metrics dla monitorowania success rate
+                    logger.info(
+                        f"Persona {idx+1} generated via {generation_metrics['method']} "
+                        f"in {generation_metrics['latency_ms']}ms "
+                        f"(attempts: {generation_metrics['attempts']})"
                     )
 
                     if (idx + 1) % max(1, batch_size) == 0 or idx == num_personas - 1:
@@ -1524,6 +1533,64 @@ async def _generate_personas_task(
                                     "mismatches": mismatches,
                                 }
                             )
+
+                    # === PRE-GENERATE NEEDS_AND_PAINS ===
+                    # Generate needs during persona creation (not lazy during GET)
+                    # This ensures instant detail view load (<50ms vs 2-5s)
+                    from app.services.personas.persona_needs_service import PersonaNeedsService
+
+                    try:
+                        # Create minimal Persona object for needs generation
+                        # (needs service requires Persona instance for _build_prompt)
+                        # Note: persona.id will be None (no DB responses), but that's OK
+                        temp_persona = Persona(
+                            id=None,  # Not saved yet - fetch_recent_responses will return []
+                            project_id=persona_payload["project_id"],
+                            age=persona_payload["age"],
+                            gender=persona_payload["gender"],
+                            location=persona_payload["location"],
+                            education_level=persona_payload["education_level"],
+                            income_bracket=persona_payload["income_bracket"],
+                            occupation=persona_payload["occupation"],
+                            full_name=persona_payload["full_name"],
+                            background_story=persona_payload.get("background_story"),
+                            values=persona_payload.get("values", []),
+                            interests=persona_payload.get("interests", []),
+                        )
+
+                        # Extract RAG context from orchestration
+                        rag_context_str = None
+                        if idx in persona_group_mapping:
+                            orch_reasoning = persona_group_mapping[idx]
+                            segment_social_context = orch_reasoning.get("segment_social_context")
+                            overall_context = orch_reasoning.get("overall_context")
+                            rag_context_str = segment_social_context or overall_context
+
+                        # Generate needs with RAG context (2-3s LLM call)
+                        needs_service = PersonaNeedsService(db)
+                        needs_data = await needs_service.generate_needs_analysis(
+                            temp_persona,
+                            rag_context=rag_context_str
+                        )
+
+                        # Add to persona payload
+                        persona_payload["needs_and_pains"] = needs_data
+
+                        logger.info(
+                            f"✅ Pre-generated needs_and_pains for persona {idx+1} "
+                            f"({len(needs_data.get('jobs_to_be_done', []))} jobs, "
+                            f"{len(needs_data.get('pain_points', []))} pains)"
+                        )
+
+                    except Exception as needs_error:
+                        # Non-blocking: If needs generation fails, continue with NULL
+                        # User can regenerate later via POST /personas/{id}/needs/regenerate
+                        logger.warning(
+                            f"⚠️  Failed to pre-generate needs for persona {idx}: {needs_error}",
+                            exc_info=needs_error,
+                            extra={"project_id": str(project_id), "persona_index": idx}
+                        )
+                        persona_payload["needs_and_pains"] = None
 
                     personas_data.append(persona_payload)
                     batch_payloads.append(persona_payload)

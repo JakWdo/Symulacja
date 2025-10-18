@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { PersonaDetailsResponse } from '@/types';
+import { Lightbulb } from 'lucide-react';
+import type { PersonaDetailsResponse, GraphInsight } from '@/types';
 
 interface OverviewSectionProps {
   persona: PersonaDetailsResponse;
@@ -154,6 +155,77 @@ export function OverviewSection({ persona }: OverviewSectionProps) {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Top RAG Insights */}
+      {persona.rag_context_details?.orchestration_reasoning?.graph_insights &&
+        persona.rag_context_details.orchestration_reasoning.graph_insights.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-amber-500" />
+                <CardTitle className="text-base">Top Insights z RAG</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {persona.rag_context_details.orchestration_reasoning.graph_insights
+                  .slice(0, 5)
+                  .map((insight: GraphInsight, idx: number) => (
+                  <div
+                    key={idx}
+                    className="border-l-2 border-primary/50 pl-4 py-2 space-y-1"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{insight.summary}</p>
+                        {insight.why_matters && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {insight.why_matters}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {insight.confidence && (
+                          <Badge
+                            variant={
+                              insight.confidence === 'high'
+                                ? 'default'
+                                : insight.confidence === 'medium'
+                                ? 'secondary'
+                                : 'outline'
+                            }
+                            className="text-xs"
+                          >
+                            {insight.confidence}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {insight.type && (
+                        <span className="text-xs text-muted-foreground">
+                          Typ: {insight.type}
+                        </span>
+                      )}
+                      {insight.source && (
+                        <span className="text-xs text-muted-foreground">
+                          • Źródło: {insight.source}
+                        </span>
+                      )}
+                      {insight.time_period && (
+                        <span className="text-xs text-muted-foreground">
+                          • Okres: {insight.time_period}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Segment Context Card */}
       {segmentInfo.segmentName && (segmentInfo.segmentSocialContext || segmentInfo.segmentDescription) && (

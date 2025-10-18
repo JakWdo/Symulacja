@@ -784,9 +784,7 @@ COMPREHENSIVE_PERSONA_GENERATION_SCHEMA = {
     "properties": {
         "age": {
             "type": "integer",
-            "description": "Age in years (18-100)",
-            "minimum": 18,
-            "maximum": 100
+            "description": "Age in years"
         },
         "gender": {
             "type": "string",
@@ -819,15 +817,15 @@ COMPREHENSIVE_PERSONA_GENERATION_SCHEMA = {
         "values": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "4-6 personal values in Polish",
-            "minItems": 4,
+            "description": "2-6 personal values in Polish",
+            "minItems": 2,
             "maxItems": 6
         },
         "interests": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "4-6 interests in Polish",
-            "minItems": 4,
+            "description": "2-6 interests in Polish",
+            "minItems": 2,
             "maxItems": 6
         }
     },
@@ -839,7 +837,7 @@ COMPREHENSIVE_PERSONA_GENERATION_SCHEMA = {
 
 COMPREHENSIVE_PERSONA_MODEL_PARAMS: ModelParams = {
     "temperature": 0.3,  # Low-moderate - creative but grounded in brief
-    "max_tokens": 600,   # ~400 input + 600 output for comprehensive data
+    "max_tokens": 1500,  # Increased from 800 - comprehensive JSON schema with 10 fields needs ~1000-1200 tokens
     "top_p": 0.9,
     "top_k": 40,
 }

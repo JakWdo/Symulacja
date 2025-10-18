@@ -781,13 +781,32 @@ Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
             f"• Dochód: {demographic_guidance.get('income_bracket', 'elastyczny')}"
         )
 
+        # TRUNCATE long inputs to avoid MAX_TOKENS on input
+        # Increased limits (2025-10-18): More context = better persona quality
+        # With max_tokens=1500, we can afford more input context
+        MAX_RAG_CONTEXT_CHARS = 3000
+        MAX_ORCHESTRATION_BRIEF_CHARS = 1000
+
+        truncated_rag_context = rag_context or "Brak kontekstu RAG"
+        if len(truncated_rag_context) > MAX_RAG_CONTEXT_CHARS:
+            truncated_rag_context = truncated_rag_context[:MAX_RAG_CONTEXT_CHARS] + "... [truncated]"
+            logger.warning(f"RAG context truncated from {len(rag_context)} to {MAX_RAG_CONTEXT_CHARS} chars")
+
+        truncated_brief = orchestration_brief or "Brak briefu"
+        if len(truncated_brief) > MAX_ORCHESTRATION_BRIEF_CHARS:
+            truncated_brief = truncated_brief[:MAX_ORCHESTRATION_BRIEF_CHARS] + "... [truncated]"
+            logger.warning(f"Orchestration brief truncated from {len(orchestration_brief)} to {MAX_ORCHESTRATION_BRIEF_CHARS} chars")
+
         # Build prompt
         prompt_text = COMPREHENSIVE_PERSONA_GENERATION_PROMPT.format(
-            orchestration_brief=orchestration_brief or "Brak briefu",
+            orchestration_brief=truncated_brief,
             segment_characteristics=segment_chars_text,
-            rag_context=rag_context or "Brak kontekstu RAG",
+            rag_context=truncated_rag_context,
             demographic_guidance=demographic_guidance_text
         )
+
+        # Log prompt length for debugging MAX_TOKENS issues
+        logger.info(f"📝 Prompt length: {len(prompt_text)} chars (~{len(prompt_text)//4} tokens estimated)")
 
         try:
             # Build model with structured output
@@ -800,8 +819,10 @@ Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
             )
 
             # Use with_structured_output dla JSON reliability
+            # include_raw=True returns {"raw": raw_message, "parsed": dict}
             structured_model = comprehensive_model.with_structured_output(
-                COMPREHENSIVE_PERSONA_GENERATION_SCHEMA
+                COMPREHENSIVE_PERSONA_GENERATION_SCHEMA,
+                include_raw=True
             )
 
             # Invoke LLM with simple retry logic for transient Gemini failures
@@ -833,20 +854,52 @@ Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
                         continue
                     raise
 
-                if isinstance(result, dict):
-                    response = result
+                # With include_raw=True, result is {"raw": AIMessage, "parsed": dict or None}
+                if isinstance(result, dict) and "raw" in result:
+                    raw_message = result["raw"]
+                    parsed_response = result.get("parsed")
+
+                    # Log raw response metadata for debugging
+                    response_metadata = getattr(raw_message, 'response_metadata', {})
+                    finish_reason = response_metadata.get('finish_reason', 'unknown')
+                    logger.info(f"LLM finish_reason: {finish_reason}")
+
+                    if parsed_response is None:
+                        # Parsing failed - log raw content for debugging
+                        raw_content = getattr(raw_message, 'content', '')
+                        logger.error(
+                            f"❌ Structured output parsing failed (attempt {attempt}/{max_attempts}). "
+                            f"finish_reason={finish_reason}, raw_content_length={len(raw_content)}"
+                        )
+
+                        # Enhanced diagnostic logging (2025-10-18)
+                        if len(raw_content) == 0:
+                            logger.warning(
+                                f"⚠️ Empty raw_content! This suggests LLM call failed before response. "
+                                f"finish_reason={finish_reason}, response_metadata={response_metadata}"
+                            )
+                        else:
+                            # Log more content for better debugging (500 → 1000 chars)
+                            logger.warning(f"Raw content (first 1000 chars):\n{raw_content[:1000]}")
+                            if len(raw_content) > 1000:
+                                logger.warning(f"Raw content (last 500 chars):\n...{raw_content[-500:]}")
+
+                        if attempt < max_attempts:
+                            await asyncio.sleep(0.5 * attempt)
+                            continue
+                        else:
+                            raise ValueError(
+                                f"Structured output parsing failed after {max_attempts} attempts. "
+                                f"finish_reason={finish_reason}, see logs for raw content."
+                            )
+
+                    # Success - parsed response is valid dict
+                    response = parsed_response
+                    logger.info(f"✅ Structured output parsed successfully on attempt {attempt}")
                     break
 
-                if result is None and attempt < max_attempts:
-                    logger.warning(
-                        "Structured output zwrócił None (attempt %s/%s). Retrying...",
-                        attempt,
-                        max_attempts,
-                    )
-                    await asyncio.sleep(0.5 * attempt)
-                    continue
-
-                raise ValueError(f"Expected dict from structured output, got {type(result)}")
+                # Unexpected result format
+                raise ValueError(f"Expected dict with 'raw' key from structured output, got {type(result)}")
 
             if response is None:
                 if last_exception:
@@ -965,3 +1018,299 @@ ZWRÓĆ JSON:
   "decision_making_style": "<styl>",
   "typical_concerns": ["<3-5 zmartwień>"]
 }}"""
+
+    async def _generate_simple_persona_split(
+        self,
+        orchestration_brief: str,
+        segment_characteristics: List[str],
+        demographic_guidance: Dict[str, Any],
+        rag_context: Optional[str] = None,
+        psychological_profile: Optional[Dict[str, float]] = None
+    ) -> Dict[str, Any]:
+        """
+        FALLBACK: Prostsze generowanie persony bez structured output (split na 2 LLM calls).
+
+        Ta metoda jest używana jako fallback gdy generate_comprehensive_persona() failuje
+        z MAX_TOKENS lub MALFORMED_FUNCTION_CALL. Używa prostszego podejścia:
+        1. LLM Call 1: Generuj demographics + occupation (JSON parser, nie structured output)
+        2. LLM Call 2: Generuj background_story + values + interests (JSON parser)
+        3. Merge results
+
+        Zalety fallback:
+        - Mniejsze prompty = mniej problemów z MAX_TOKENS
+        - Prostszy JSON = mniej MALFORMED_FUNCTION_CALL
+        - Gemini Flash działa lepiej z prostszymi requestami
+
+        Args:
+            orchestration_brief: Brief segmentu (może być dłuższy niż w comprehensive)
+            segment_characteristics: Lista charakterystyk segmentu
+            demographic_guidance: Guidance dla demographics
+            rag_context: Opcjonalny kontekst RAG
+            psychological_profile: Opcjonalny Big Five + Hofstede
+
+        Returns:
+            Dict z ALL DATA (demografia + background + values + interests)
+
+        Raises:
+            ValueError: Jeśli generowanie się nie powiedzie po retries
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Sample psychographics jeśli nie podane
+        if not psychological_profile:
+            psychological_profile = {
+                **self.sample_big_five_traits(),
+                **self.sample_cultural_dimensions()
+            }
+
+        # === CALL 1: Demographics + Occupation ===
+        demographics_prompt = f"""Wygeneruj demografię i zawód osoby pasującej do tego segmentu.
+
+BRIEF SEGMENTU:
+{orchestration_brief[:600]}
+
+GUIDANCE (orientacyjne wartości):
+• Wiek: {demographic_guidance.get('age', 'elastyczny')}
+• Płeć: {demographic_guidance.get('gender', 'elastyczna')}
+• Lokalizacja: {demographic_guidance.get('location', 'elastyczna')}
+• Wykształcenie: {demographic_guidance.get('education_level', 'elastyczne')}
+• Dochód: {demographic_guidance.get('income_bracket', 'elastyczny')}
+
+ZADANIE:
+Zwróć JSON z demografią:
+
+{{
+  "age": <konkretny wiek, nie przedział>,
+  "gender": "Kobieta" lub "Mężczyzna",
+  "location": "<polskie miasto>",
+  "education_level": "<polski poziom wykształcenia>",
+  "income_bracket": "<polski przedział dochodowy w PLN>",
+  "occupation": "<polski tytuł zawodowy>",
+  "full_name": "<polskie imię i nazwisko>"
+}}
+
+TYLKO JSON, bez markdown."""
+
+        try:
+            logger.info("🔄 Fallback: Generating demographics (Call 1/2)...")
+            demo_response = await self.persona_chain.ainvoke({"prompt": demographics_prompt})
+
+            # Waliduj demographics
+            required_demo_fields = ["age", "gender", "location", "education_level", "income_bracket", "occupation", "full_name"]
+            missing_demo = [f for f in required_demo_fields if not demo_response.get(f)]
+            if missing_demo:
+                raise ValueError(f"Demographics response missing fields: {missing_demo}")
+
+        except Exception as e:
+            logger.error(f"❌ Fallback demographics generation failed: {e}", exc_info=True)
+            raise ValueError(f"Fallback demographics generation failed: {e}")
+
+        # === CALL 2: Background Story + Values + Interests ===
+        content_prompt = f"""Wygeneruj historię życiową, wartości i zainteresowania dla tej osoby.
+
+OSOBA:
+• {demo_response['full_name']}, {demo_response['age']} lat
+• {demo_response['gender']}, {demo_response['location']}
+• Wykształcenie: {demo_response['education_level']}
+• Zawód: {demo_response['occupation']}
+• Dochód: {demo_response['income_bracket']}
+
+KONTEKST SEGMENTU:
+{orchestration_brief[:500]}
+
+ZADANIE:
+Zwróć JSON z treścią:
+
+{{
+  "background_story": "<3-5 zdań historii życiowej pasującej do demografii>",
+  "values": ["<4-6 wartości po polsku>"],
+  "interests": ["<4-6 zainteresowań po polsku>"]
+}}
+
+TYLKO JSON, bez markdown."""
+
+        try:
+            logger.info("🔄 Fallback: Generating content (Call 2/2)...")
+            content_response = await self.persona_chain.ainvoke({"prompt": content_prompt})
+
+            # Waliduj content
+            required_content_fields = ["background_story", "values", "interests"]
+            missing_content = [f for f in required_content_fields if not content_response.get(f)]
+            if missing_content:
+                raise ValueError(f"Content response missing fields: {missing_content}")
+
+        except Exception as e:
+            logger.error(f"❌ Fallback content generation failed: {e}", exc_info=True)
+            raise ValueError(f"Fallback content generation failed: {e}")
+
+        # === MERGE RESULTS ===
+        merged_response = {
+            **demo_response,
+            **content_response,
+            **psychological_profile,  # Add Big Five + Hofstede
+        }
+
+        # Normalizuj gender
+        if 'gender' in merged_response:
+            gender_raw = str(merged_response['gender']).strip().lower()
+            if gender_raw in ['kobieta', 'woman', 'female', 'f']:
+                merged_response['gender'] = 'Kobieta'
+            elif gender_raw in ['mężczyzna', 'mezczyzna', 'man', 'male', 'm']:
+                merged_response['gender'] = 'Mężczyzna'
+            else:
+                merged_response['gender'] = merged_response['gender'].capitalize()
+
+        # Dodaj persona_title jako alias dla occupation (backward compatibility)
+        if 'occupation' in merged_response and 'persona_title' not in merged_response:
+            merged_response['persona_title'] = merged_response['occupation']
+
+        # Dodaj headline jeśli brakuje (fallback)
+        if 'headline' not in merged_response or not merged_response.get('headline'):
+            merged_response['headline'] = (
+                f"{merged_response.get('full_name', 'Persona')}, "
+                f"{merged_response.get('age', '?')} lat - "
+                f"{merged_response.get('occupation', 'Zawód')}"
+            )
+
+        logger.info(
+            f"✅ Fallback persona generated: {merged_response.get('full_name')} "
+            f"({merged_response.get('age')} lat, {merged_response.get('gender')})"
+        )
+
+        return merged_response
+
+    async def generate_persona_with_fallback(
+        self,
+        orchestration_brief: str,
+        segment_characteristics: List[str],
+        demographic_guidance: Dict[str, Any],
+        rag_context: Optional[str] = None,
+        psychological_profile: Optional[Dict[str, float]] = None,
+        use_comprehensive: bool = True
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Generuj personę z FALLBACK STRATEGY (try comprehensive → fallback to simple).
+
+        Ta metoda jest głównym entry point dla generowania person. Próbuje użyć
+        comprehensive generation (1 LLM call, structured output), a jeśli failuje
+        z MAX_TOKENS/MALFORMED_FUNCTION_CALL, używa fallback metody (2 LLM calls, prostszy JSON).
+
+        Flow:
+        1. Try: generate_comprehensive_persona() - Gemini Pro, structured output, 1 call
+        2. Catch MAX_TOKENS/MALFORMED → fallback: _generate_simple_persona_split() - Flash, 2 calls
+        3. Log metrics: which method succeeded, latency, success rate
+
+        Args:
+            orchestration_brief: Brief segmentu z orchestration service
+            segment_characteristics: Lista charakterystyk segmentu (4-6)
+            demographic_guidance: Guidance dla demographics (orientacyjny)
+            rag_context: Opcjonalny kontekst RAG
+            psychological_profile: Opcjonalny Big Five + Hofstede (jeśli None → samplingujemy)
+            use_comprehensive: Czy próbować comprehensive (default: True). Jeśli False → od razu fallback.
+
+        Returns:
+            Tuple (persona_data, metrics) gdzie:
+            - persona_data: Dict z ALL DATA (demographics + background + values + interests + psychographics)
+            - metrics: Dict z kluczami:
+                - method: "comprehensive" | "fallback"
+                - latency_ms: czas generowania w ms
+                - attempts: liczba prób
+                - error: błąd jeśli był (optional)
+
+        Raises:
+            ValueError: Jeśli OBA metody failują
+        """
+        import logging
+        import time
+        logger = logging.getLogger(__name__)
+
+        start_time = time.time()
+        metrics = {
+            "method": None,
+            "latency_ms": 0,
+            "attempts": 0,
+            "error": None
+        }
+
+        # === TRY COMPREHENSIVE (if enabled) ===
+        if use_comprehensive:
+            try:
+                logger.info("🚀 Trying comprehensive persona generation (Gemini Pro, structured output)...")
+                metrics["attempts"] += 1
+
+                persona_data = await self.generate_comprehensive_persona(
+                    orchestration_brief=orchestration_brief,
+                    segment_characteristics=segment_characteristics,
+                    demographic_guidance=demographic_guidance,
+                    rag_context=rag_context,
+                    psychological_profile=psychological_profile
+                )
+
+                # Success!
+                metrics["method"] = "comprehensive"
+                metrics["latency_ms"] = int((time.time() - start_time) * 1000)
+
+                logger.info(
+                    f"✅ Comprehensive generation succeeded in {metrics['latency_ms']}ms"
+                )
+
+                return persona_data, metrics
+
+            except ValueError as e:
+                error_msg = str(e).lower()
+
+                # Check if this is a retryable error (MAX_TOKENS or MALFORMED)
+                is_retryable = any(marker in error_msg for marker in [
+                    "max_tokens",
+                    "malformed_function_call",
+                    "structured output parsing failed"
+                ])
+
+                if is_retryable:
+                    logger.warning(
+                        f"⚠️ Comprehensive generation failed with retryable error: {e}. "
+                        f"Falling back to simple method..."
+                    )
+                    metrics["error"] = str(e)
+                else:
+                    # Non-retryable error - propagate
+                    logger.error(f"❌ Comprehensive generation failed with non-retryable error: {e}")
+                    raise
+
+        # === FALLBACK: SIMPLE SPLIT METHOD ===
+        try:
+            logger.info("🔄 Using fallback: simple persona split (Gemini Flash, 2 calls)...")
+            metrics["attempts"] += 1
+
+            persona_data = await self._generate_simple_persona_split(
+                orchestration_brief=orchestration_brief,
+                segment_characteristics=segment_characteristics,
+                demographic_guidance=demographic_guidance,
+                rag_context=rag_context,
+                psychological_profile=psychological_profile
+            )
+
+            # Success!
+            metrics["method"] = "fallback"
+            metrics["latency_ms"] = int((time.time() - start_time) * 1000)
+
+            logger.info(
+                f"✅ Fallback generation succeeded in {metrics['latency_ms']}ms "
+                f"(total attempts: {metrics['attempts']})"
+            )
+
+            return persona_data, metrics
+
+        except Exception as e:
+            # Both methods failed!
+            metrics["latency_ms"] = int((time.time() - start_time) * 1000)
+            logger.error(
+                f"❌ Both comprehensive AND fallback generation failed after {metrics['attempts']} attempts. "
+                f"Last error: {e}",
+                exc_info=True
+            )
+            raise ValueError(
+                f"Failed to generate persona using both comprehensive and fallback methods. "
+                f"Attempts: {metrics['attempts']}, Last error: {e}"
+            )

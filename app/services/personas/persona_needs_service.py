@@ -196,8 +196,15 @@ Extract JTBD insights for:
 Generate:
 1. Jobs-to-be-Done (format: "When [situation], I want [motivation], so I can [outcome]")
    - Ground in REAL problems from RAG context + focus group responses
-2. Desired outcomes (importance 1-10, satisfaction 1-10, opportunity score)
-   - Based on persona's actual life situation (not generic)
+   - Include priority_score (1-10), quotes from focus group responses
+
+2. Desired outcomes (based on persona's actual life situation - NOT generic):
+   - outcome_statement: Clear statement of desired outcome
+   - importance: How important is this outcome (0-10 scale, 10 = critical)
+   - satisfaction: Current satisfaction level with available solutions (0-10 scale, 10 = fully satisfied)
+   - opportunity_score: Calculate as (importance - satisfaction), or estimate separately (0-10 scale)
+   - quotes: 1-2 supporting quotes from focus group responses
+
 3. Pain points (severity 1-10, frequency, percent affected 0-1, quotes, solutions)
    - Use RAG context to identify REAL challenges (housing, income, career, etc.)
 

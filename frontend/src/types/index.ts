@@ -701,9 +701,12 @@ export interface PersonaAuditEntry {
 }
 
 export interface Citation {
-  document_title: string;
-  chunk_text: string;
-  relevance_score: number;
+  document_title?: string | null;
+  chunk_text?: string | null;
+  relevance_score?: number | null;
+  source?: string | null;
+  insight?: string | null;
+  relevance?: string | null;
 }
 
 export interface PersonaNarratives {
@@ -719,12 +722,35 @@ export interface PersonaNarratives {
 
 export type NarrativeStatus = "ok" | "degraded" | "offline" | "timeout" | "loading" | "pending";
 
+// === SEGMENT & SIMILAR PERSONAS TYPES ===
+
+export interface SegmentRules {
+  age_range?: string;  // e.g. "30-40"
+  gender_options?: string[];  // e.g. ["Kobieta"]
+  location_filters?: string[];  // e.g. ["Warszawa", "Kraków"]
+  required_values?: string[];  // e.g. ["Niezależność", "Innowacja"]
+}
+
+export interface SimilarPersona {
+  id: string;  // UUID persony
+  name: string;  // e.g. "Product Manager, 32 lata"
+  distinguishing_trait: string;  // e.g. "Młodsza o 5 lat, z Krakowa"
+}
+
 export interface PersonaDetailsResponse extends Persona {
   // Additional fields for details view
   needs_and_pains?: NeedsAndPains | null;
   audit_log: PersonaAuditEntry[];
   narratives?: PersonaNarratives;
   narratives_status?: NarrativeStatus;
+
+  // Segment data (NEW - for Segment Section)
+  segment_rules?: SegmentRules | null;
+  similar_personas?: SimilarPersona[];
+
+  // Metadata (NEW - for data freshness badge)
+  data_freshness?: string;  // ISO datetime (bazuje na updated_at)
+  updated_at?: string;  // ISO datetime
 }
 
 export interface PersonaDeleteResponse {
@@ -757,9 +783,10 @@ export interface JTBDJob {
 
 export interface DesiredOutcome {
   outcome_statement: string;
-  importance?: number;
-  satisfaction_current_solutions?: number;
-  opportunity_score?: number;
+  importance?: number;  // 0-10 scale
+  satisfaction?: number;  // 0-10 scale (renamed from satisfaction_current_solutions)
+  opportunity_score?: number;  // 0-10 scale (importance - satisfaction)
+  quotes?: string[];  // Supporting quotes
   is_measurable?: boolean;
 }
 

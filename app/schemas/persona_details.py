@@ -113,11 +113,22 @@ class PersonaDetailsResponse(BaseModel):
     # Audit log (last 10 actions)
     audit_log: List["PersonaAuditEntry"] = Field(default_factory=list)
 
+    # Segment data (nowe pola dla Segment Section)
+    segment_rules: Optional["SegmentRules"] = Field(
+        None, description="Reguły definiujące segment (age_range, gender, locations, values)"
+    )
+    similar_personas: List["SimilarPersona"] = Field(
+        default_factory=list, description="Lista podobnych person (ten sam segment_id)"
+    )
+
     # Metadata
     segment_id: Optional[str] = None
     segment_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    data_freshness: datetime = Field(
+        ..., description="Timestamp świeżości danych (bazuje na updated_at) - do badge'a"
+    )
     is_active: bool
 
     class Config:
@@ -172,9 +183,10 @@ class JTBDJob(BaseModel):
 
 class DesiredOutcome(BaseModel):
     outcome_statement: str
-    importance: Optional[int] = Field(default=None, ge=1, le=10)
-    satisfaction_current_solutions: Optional[int] = Field(default=None, ge=1, le=10)
-    opportunity_score: Optional[float] = None
+    importance: Optional[int] = Field(default=None, ge=0, le=10, description="Jak ważny jest ten outcome (0-10)")
+    satisfaction: Optional[int] = Field(default=None, ge=0, le=10, description="Obecny poziom satysfakcji (0-10)")
+    opportunity_score: Optional[int] = Field(default=None, ge=0, le=10, description="Opportunity = importance - satisfaction")
+    quotes: List[str] = Field(default_factory=list, description="Cytaty wspierające ten outcome")
     is_measurable: Optional[bool] = None
 
 
@@ -194,6 +206,30 @@ class NeedsAndPains(BaseModel):
     pain_points: List[PainPoint] = Field(default_factory=list)
     generated_at: Optional[datetime] = None
     generated_by: Optional[str] = None
+
+
+class SegmentRules(BaseModel):
+    """
+    Reguły definiujące segment persony.
+
+    Parsowane z orchestration_reasoning lub inferred z danych persony.
+    Używane w Segment Section do pokazania jak segment jest definiowany.
+    """
+    age_range: Optional[str] = Field(None, description="Zakres wiekowy np. '25-35', '40-50'")
+    gender_options: Optional[List[str]] = Field(default_factory=list, description="Opcje płci np. ['Kobieta', 'Mężczyzna']")
+    location_filters: Optional[List[str]] = Field(default_factory=list, description="Lokalizacje np. ['Warszawa', 'Kraków']")
+    required_values: Optional[List[str]] = Field(default_factory=list, description="Wymagane wartości np. ['Niezależność', 'Innowacja']")
+
+
+class SimilarPersona(BaseModel):
+    """
+    Krótki opis podobnej persony (z tego samego segmentu).
+
+    Używane w Segment Section do pokazania podobnych person.
+    """
+    id: str = Field(..., description="UUID persony")
+    name: str = Field(..., description="Opis persony np. 'Product Manager, 32 lata'")
+    distinguishing_trait: str = Field(..., description="Czym się wyróżnia np. 'Młodsza o 5 lat, z Krakowa'")
 
 
 class PersonaMessagingRequest(BaseModel):

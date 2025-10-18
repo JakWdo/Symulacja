@@ -368,6 +368,8 @@ class PersonaNarrativeService:
             )
 
             profile_text = response.content.strip()
+            if not profile_text:
+                raise ValueError("Empty response for person_profile")
 
             logger.debug(
                 f"Generated person_profile for persona {persona.id}",
@@ -463,6 +465,8 @@ class PersonaNarrativeService:
             )
 
             motivations_text = response.content.strip()
+            if not motivations_text:
+                raise ValueError("Empty response for person_motivations")
 
             logger.debug(
                 f"Generated person_motivations for persona {persona.id}",
@@ -554,6 +558,8 @@ class PersonaNarrativeService:
             )
 
             hero_text = response.content.strip()
+            if not hero_text:
+                raise ValueError("Empty response for segment_hero")
 
             logger.debug(
                 f"Generated segment_hero for persona {persona.id}",
@@ -640,6 +646,8 @@ class PersonaNarrativeService:
             )
 
             significance_text = response.content.strip()
+            if not significance_text:
+                raise ValueError("Empty response for segment_significance")
 
             logger.debug(
                 f"Generated segment_significance for persona {persona.id}",
@@ -749,6 +757,38 @@ class PersonaNarrativeService:
             if "background_narrative" not in response or "key_citations" not in response:
                 raise ValueError(f"Missing required fields in response: {list(response.keys())}")
 
+            background_raw = response.get("background_narrative", "")
+            if not isinstance(background_raw, str) or not background_raw.strip():
+                raise ValueError("Empty background_narrative from structured output")
+
+            cleaned_background = background_raw.strip()
+            raw_citations = response.get("key_citations", [])
+            if not isinstance(raw_citations, list):
+                raise ValueError("key_citations is not a list")
+
+            cleaned_citations: List[Dict[str, Any]] = []
+            for entry in raw_citations:
+                if not isinstance(entry, dict):
+                    continue
+                source = str(entry.get("source", "")).strip()
+                insight = str(entry.get("insight", "")).strip()
+                relevance_value = entry.get("relevance", "")
+                relevance = str(relevance_value).strip() if relevance_value is not None else ""
+
+                if not (source or insight or relevance):
+                    continue
+
+                cleaned_citations.append(
+                    {
+                        "source": source or "Źródło nieznane",
+                        "insight": insight or "Brak opisu",
+                        "relevance": relevance or "Istotne dla segmentu",
+                    }
+                )
+
+            if not cleaned_citations:
+                raise ValueError("key_citations empty after cleaning")
+
             logger.debug(
                 f"Generated evidence_context for persona {persona.id}",
                 extra={
@@ -758,7 +798,10 @@ class PersonaNarrativeService:
                 }
             )
 
-            return response
+            return {
+                "background_narrative": cleaned_background,
+                "key_citations": cleaned_citations,
+            }
 
         except asyncio.TimeoutError:
             logger.warning(

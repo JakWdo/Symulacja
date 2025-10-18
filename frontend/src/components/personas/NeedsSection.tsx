@@ -172,9 +172,9 @@ function OutcomeCard({ outcome, index }: { outcome: DesiredOutcome; index: numbe
                   Ważność: {outcome.importance}/10
                 </Badge>
               )}
-              {typeof outcome.satisfaction_current_solutions === 'number' && (
+              {typeof outcome.satisfaction === 'number' && (
                 <Badge variant="secondary" className="text-[10px]">
-                  Satysfakcja: {outcome.satisfaction_current_solutions}/10
+                  Satysfakcja: {outcome.satisfaction}/10
                 </Badge>
               )}
               {outcome.is_measurable && (

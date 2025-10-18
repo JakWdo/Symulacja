@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dialog,
@@ -7,15 +7,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Eye, User, Lightbulb, HeartPulse } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { usePersonaDetails } from '@/hooks/usePersonaDetails';
 import { OverviewSection } from './OverviewSection';
 import { ProfileSection } from './ProfileSection';
+import { SegmentSection } from './SegmentSection';
 import { NeedsSection } from './NeedsSection';
-import { PersonaReasoningPanel } from './PersonaReasoningPanel';
+import { MethodologySection } from './MethodologySection';
+import { DataFreshnessBadge } from './DataFreshnessBadge';
 
 interface PersonaDetailsDrawerProps {
   personaId: string | null;
@@ -24,48 +25,27 @@ interface PersonaDetailsDrawerProps {
 }
 
 /**
- * PersonaDetailsDrawer - pełny widok persony z nawigacją po sekcjach i szyną akcji.
+ * PersonaDetailsDrawer - Floating modal z pełnym widokiem persony.
  *
- * Sekcje: Przegląd, Profil, Customer Journey, Potrzeby/Bóle, Insights.
- * Prawa szyna: akcje (porównanie, messaging, eksport, usunięcie z undo) oraz dialogi pomocnicze.
+ * Redesign (2025-10-18):
+ * - Floating modal (max-width 70%, centrowany)
+ * - Horizontal tabs navigation (Overview, Profile, Segment, Needs, Metodologia)
+ * - Brak akcji (read-only modal)
+ * - Data freshness badge w header
+ * - Mobile responsive (tabs → select, full-screen)
  */
 export function PersonaDetailsDrawer({
   personaId,
   isOpen,
   onClose,
 }: PersonaDetailsDrawerProps) {
-  const [activeSection, setActiveSection] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const { data: persona, isLoading, error } = usePersonaDetails(personaId);
 
-  const sectionOptions = useMemo(
-    () => [
-      { id: 'overview', label: 'Przegląd', icon: Eye },
-      { id: 'profile', label: 'Profil', icon: User },
-      { id: 'needs', label: 'Potrzeby i bóle', icon: HeartPulse },
-      { id: 'insights', label: 'Insights', icon: Lightbulb },
-    ],
-    []
-  );
-
-  const renderSection = () => {
-    if (!persona) return null;
-    switch (activeSection) {
-      case 'overview':
-        return <OverviewSection persona={persona} />;
-      case 'profile':
-        return <ProfileSection persona={persona} />;
-      case 'needs':
-        return <NeedsSection data={persona.needs_and_pains} />;
-      case 'insights':
-        return <PersonaReasoningPanel persona={persona} />;
-      default:
-        return null;
-    }
-  };
-
+  // Reset tab when modal opens
   useEffect(() => {
     if (isOpen) {
-      setActiveSection('overview');
+      setActiveTab('overview');
     }
   }, [isOpen, personaId]);
 
@@ -73,9 +53,9 @@ export function PersonaDetailsDrawer({
     <AnimatePresence>
       {isOpen && (
         <Dialog open={isOpen} onOpenChange={onClose}>
-          <DialogContent className="max-w-[90vw] w-full h-[90vh] p-0 overflow-hidden flex flex-col">
-            {/* Header */}
-            <DialogHeader className="p-6 border-b border-border shrink-0">
+          <DialogContent className="max-w-[70vw] sm:max-w-full sm:h-full sm:max-h-screen h-[85vh] p-0 overflow-hidden flex flex-col">
+            {/* Sticky Header */}
+            <DialogHeader className="sticky top-0 bg-background z-10 p-6 border-b border-border shrink-0">
               {isLoading ? (
                 <>
                   <DialogTitle className="sr-only">Ładowanie szczegółów persony</DialogTitle>
@@ -94,13 +74,17 @@ export function PersonaDetailsDrawer({
                 </>
               ) : persona ? (
                 <>
-                  <DialogTitle className="text-xl">
-                    {persona.full_name || 'Nieznana persona'}, {persona.age} lat
-                  </DialogTitle>
-                  <DialogDescription className="text-sm">
-                    {persona.occupation || 'Zawód nieokreślony'} •{' '}
-                    {persona.location || 'Lokalizacja nieznana'}
-                  </DialogDescription>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <DialogTitle className="text-xl">
+                        {persona.occupation || 'Osoba'}, {persona.age} lat - {persona.location || 'Polska'}
+                      </DialogTitle>
+                      <DialogDescription className="text-sm mt-1">
+                        {persona.segment_name || 'Segment nieokreślony'}
+                      </DialogDescription>
+                    </div>
+                    <DataFreshnessBadge timestamp={persona.data_freshness || persona.updated_at || persona.created_at} />
+                  </div>
                 </>
               ) : (
                 <>
@@ -110,71 +94,91 @@ export function PersonaDetailsDrawer({
               )}
             </DialogHeader>
 
-            {/* Content */}
-            <motion.div
-              className="flex-1 overflow-y-auto p-6"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.3 }}
-            >
+            {/* Tabs Navigation & Content */}
             {isLoading ? (
-              <div className="space-y-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-64 w-full" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
               </div>
             ) : error ? (
-              <div className="text-center py-12">
-                <p className="text-destructive mb-4">
-                  {error instanceof Error ? error.message : 'Wystąpił błąd'}
-                </p>
-                <Button variant="outline" onClick={onClose}>
-                  Zamknij
-                </Button>
+              <div className="flex-1 flex items-center justify-center p-6">
+                <div className="text-center">
+                  <p className="text-destructive mb-4">
+                    {error instanceof Error ? error.message : 'Wystąpił błąd podczas ładowania danych'}
+                  </p>
+                </div>
               </div>
             ) : persona ? (
-              <div className="flex flex-col gap-6 lg:flex-row">
-                {/* Left navigation for desktop */}
-                <nav className="hidden lg:flex lg:w-52 lg:flex-col lg:gap-2">
-                  {sectionOptions.map((section) => {
-                    const Icon = section.icon;
-                    const isActive = activeSection === section.id;
-                    return (
-                      <Button
-                        key={section.id}
-                        variant={isActive ? 'secondary' : 'ghost'}
-                        className="justify-start gap-2"
-                        onClick={() => setActiveSection(section.id)}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {section.label}
-                      </Button>
-                    );
-                  })}
-                </nav>
-
-                {/* Mobile select */}
-                <div className="lg:hidden">
-                  <Select value={activeSection} onValueChange={setActiveSection}>
-                    <SelectTrigger className="w-full mb-4">
-                      <SelectValue placeholder="Wybierz sekcję" />
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+                {/* Mobile Select (visible on sm screens) */}
+                <div className="sm:hidden px-6 pt-4">
+                  <Select value={activeTab} onValueChange={setActiveTab}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {sectionOptions.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          {section.label}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="overview">Overview</SelectItem>
+                      <SelectItem value="profile">Profile</SelectItem>
+                      <SelectItem value="segment">Segment</SelectItem>
+                      <SelectItem value="needs">Potrzeby</SelectItem>
+                      <SelectItem value="methodology">Metodologia</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="flex-1 min-w-0 space-y-6">
-                  {renderSection()}
+                {/* Desktop Horizontal Tabs */}
+                <TabsList className="hidden sm:flex w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+                  <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="profile" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    Profile
+                  </TabsTrigger>
+                  <TabsTrigger value="segment" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    Segment
+                  </TabsTrigger>
+                  <TabsTrigger value="needs" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    Potrzeby
+                  </TabsTrigger>
+                  <TabsTrigger value="methodology" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    Metodologia
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Tab Content (scrollable) */}
+                <div className="flex-1 overflow-y-auto">
+                  <motion.div
+                    className="p-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <TabsContent value="overview" className="mt-0">
+                      <OverviewSection persona={persona} />
+                    </TabsContent>
+
+                    <TabsContent value="profile" className="mt-0">
+                      <ProfileSection persona={persona} />
+                    </TabsContent>
+
+                    <TabsContent value="segment" className="mt-0">
+                      <SegmentSection persona={persona} />
+                    </TabsContent>
+
+                    <TabsContent value="needs" className="mt-0">
+                      <NeedsSection data={persona.needs_and_pains} />
+                    </TabsContent>
+
+                    <TabsContent value="methodology" className="mt-0">
+                      <MethodologySection persona={persona} />
+                    </TabsContent>
+                  </motion.div>
                 </div>
-                </div>
-              ) : null}
-            </motion.div>
+              </Tabs>
+            ) : null}
           </DialogContent>
         </Dialog>
       )}
