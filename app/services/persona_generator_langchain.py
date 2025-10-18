@@ -11,6 +11,7 @@ Kluczowe funkcjonalności:
 - Integracja z LangChain dla łatwej zmiany modelu LLM
 """
 
+import re
 import numpy as np
 from typing import Dict, List, Any, Tuple, Optional
 from scipy import stats
@@ -187,6 +188,44 @@ class PersonaGeneratorLangChain:
         categories = list(distribution.keys())
         weights = list(distribution.values())
         return self._rng.choice(categories, p=weights)
+
+    def _sanitize_text(self, text: str, preserve_paragraphs: bool = False) -> str:
+        """
+        Sanityzuj tekst wygenerowany przez LLM, usuwając nadmierne białe znaki
+
+        Metoda ta usuwa:
+        - Nadmiarowe znaki nowej linii (\\n\\n -> pojedyncza spacja lub akapit)
+        - Nadmiarowe spacje (wiele spacji -> jedna spacja)
+        - Leading/trailing whitespace
+
+        Args:
+            text: Tekst do sanityzacji
+            preserve_paragraphs: Czy zachować podział na akapity (dla background_story)
+                                Jeśli True, zachowuje podział na paragrafy (\\n\\n)
+                                Jeśli False, zamienia wszystkie \\n na spacje
+
+        Returns:
+            Zsanityzowany tekst bez nadmiarowych białych znaków
+
+        Przykłady:
+            >>> _sanitize_text("Zawód\\n\\nJuż")
+            "Zawód Już"
+            >>> _sanitize_text("Tekst  z   wieloma    spacjami")
+            "Tekst z wieloma spacjami"
+            >>> _sanitize_text("Para 1\\n\\nPara 2", preserve_paragraphs=True)
+            "Para 1\\n\\nPara 2"
+        """
+        if not text:
+            return text
+
+        if preserve_paragraphs:
+            # Dla background_story - zachowaj podział na akapity ale znormalizuj każdy akapit
+            paragraphs = text.split('\n')
+            paragraphs = [re.sub(r'\s+', ' ', p).strip() for p in paragraphs if p.strip()]
+            return '\n\n'.join(paragraphs)
+        else:
+            # Dla pól jednoliniowych - usuń wszystkie \\n i znormalizuj spacje
+            return re.sub(r'\s+', ' ', text).strip()
 
     def _prepare_distribution(
         self, distribution: Dict[str, float], fallback: Dict[str, float]
@@ -441,6 +480,20 @@ class PersonaGeneratorLangChain:
                     f"Response keys: {list(response.keys()) if isinstance(response, dict) else 'NOT A DICT'}"
                 )
 
+            # Sanityzuj wszystkie pola tekstowe (usuń nadmiarowe \n\n i whitespace)
+            # KLUCZOWE: Zapobiega wyświetlaniu "Zawód\n\nJuż" w UI
+            text_fields_single = [
+                'occupation', 'full_name', 'location', 'headline',
+                'persona_title', 'communication_style', 'decision_making_style'
+            ]
+            for field in text_fields_single:
+                if field in response and isinstance(response[field], str):
+                    response[field] = self._sanitize_text(response[field], preserve_paragraphs=False)
+
+            # Sanityzuj background_story zachowując podział na akapity
+            if 'background_story' in response and isinstance(response['background_story'], str):
+                response['background_story'] = self._sanitize_text(response['background_story'], preserve_paragraphs=True)
+
             # Dodaj RAG citations i details do response (jeśli były używane)
             if rag_citations:
                 response['_rag_citations'] = rag_citations
@@ -494,6 +547,16 @@ class PersonaGeneratorLangChain:
         else:
             suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
         suggested_surname = self._rng.choice(POLISH_SURNAMES)
+
+        if demographic.get('age'):
+            headline_age_rule = f"• HEADLINE: Musi zawierać liczbę {demographic['age']} lat i realną motywację tej osoby.\n"
+        elif demographic.get('age_group'):
+            headline_age_rule = (
+                f"• HEADLINE: Podaj konkretną liczbę lat zgodną z przedziałem {demographic['age_group']} "
+                "i pokaż realną motywację tej osoby.\n"
+            )
+        else:
+            headline_age_rule = "• HEADLINE: Podaj konkretny wiek w latach i realną motywację tej osoby.\n"
 
         # Pobierz wartości Big Five (interpretację robi LLM)
         openness_val = psychological.get('openness', 0.5)
@@ -556,21 +619,37 @@ ZASADY:
 • Zawód = wykształcenie + dochód
 • Osobowość → historia (O→podróże, S→planowanie)
 • Detale: dzielnice, marki, konkretne hobby
+• UNIKALNOŚĆ: Każda persona MUSI mieć RÓŻNĄ historię życiową - nie kopiuj opisów!
+• Background_story NIE może kopiować briefu segmentu ani powtarzać całych akapitów z kontekstu
+{headline_age_rule}• Pokaż codzienne wybory i motywacje tej osoby - zero ogólników
+
+⚠️ CATCHY SEGMENT NAME (2-4 słowa):
+Wygeneruj krótką, chwytliwą nazwę marketingową dla segmentu tej persony.
+• Powinna odzwierciedlać wiek, wartości, styl życia, status ekonomiczny
+• Przykłady: "Pasywni Liberałowie", "Młodzi Prekariusze", "Aktywni Seniorzy", "Cyfrowi Nomadzi", "Stabilni Tradycjonaliści"
+• UNIKAJ długich opisów technicznych jak "Kobiety 35-44 wyższe wykształcenie"
+• Polski język, kulturowo relevantne, konkretne
 
 PRZYKŁAD:
-{{"full_name": "Marek Kowalczyk", "persona_title": "Główny Księgowy", "headline": "Poznański księgowy (56) planujący emeryturę", "background_story": "28 lat w firmie, żonaty, dwoje dorosłych dzieci, kupił działkę pod Poznaniem, skarbnik parafii", "values": ["Stabilność", "Lojalność", "Rodzina", "Odpowiedzialność"], "interests": ["Wędkarstwo", "Majsterkowanie", "Grillowanie"], "communication_style": "formalny, face-to-face", "decision_making_style": "metodyczny, unika ryzyka", "typical_concerns": ["Emerytura", "Sukcesja", "Zdrowie"]}}
+{{"full_name": "Marek Kowalczyk", "catchy_segment_name": "Stabilni Tradycjonaliści", "persona_title": "Główny Księgowy", "headline": "Poznański księgowy (56) planujący emeryturę", "background_story": "28 lat w firmie, żonaty, dwoje dorosłych dzieci, kupił działkę pod Poznaniem, skarbnik parafii", "values": ["Stabilność", "Lojalność", "Rodzina", "Odpowiedzialność"], "interests": ["Wędkarstwo", "Majsterkowanie", "Grillowanie"], "communication_style": "formalny, face-to-face", "decision_making_style": "metodyczny, unika ryzyka", "typical_concerns": ["Emerytura", "Sukcesja", "Zdrowie"]}}
 
-Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
+⚠️ KRYTYCZNE: Generuj KOMPLETNIE INNĄ personę z UNIKALNĄ historią życiową!
+• NIE kopiuj ogólnych opisów segmentu do background_story
+• Fokus na TEJ KONKRETNEJ OSOBY, jej specyficznych doświadczeniach
+• Użyj persona_seed #{persona_seed} jako źródło różnorodności
+
+WYŁĄCZNIE JSON (bez markdown):
 {{
   "full_name": "<polskie imię+nazwisko>",
+  "catchy_segment_name": "<2-4 słowa, krótka marketingowa nazwa segmentu>",
   "persona_title": "<zawód/etap życia>",
-  "headline": "<1 zdanie: wiek, zawód, motywacje>",
-  "background_story": "<2-3 zdania: życie, kariera, kontekst>",
+  "headline": "<1 zdanie: wiek, zawód, UNIKALNE motywacje>",
+  "background_story": "<2-3 zdania: KONKRETNA historia TEJ OSOBY - jej życie, kariera, sytuacja>",
   "values": ["<5-7 wartości>"],
   "interests": ["<5-7 hobby/aktywności>"],
   "communication_style": "<jak się komunikuje>",
   "decision_making_style": "<jak podejmuje decyzje>",
-  "typical_concerns": ["<3-5 zmartwień/priorytetów>"]
+  "typical_concerns": ["<3-5 SPECYFICZNYCH zmartwień/priorytetów>"]
 }}"""
 
     def validate_distribution(
@@ -812,6 +891,19 @@ Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
             response['income_bracket'] = income
             response['location'] = location
 
+            # Sanityzuj wszystkie pola tekstowe (usuń nadmiarowe \n\n i whitespace)
+            text_fields_single = [
+                'occupation', 'full_name', 'location', 'headline',
+                'persona_title', 'communication_style', 'decision_making_style'
+            ]
+            for field in text_fields_single:
+                if field in response and isinstance(response[field], str):
+                    response[field] = self._sanitize_text(response[field], preserve_paragraphs=False)
+
+            # Sanityzuj background_story zachowując podział na akapity
+            if 'background_story' in response and isinstance(response['background_story'], str):
+                response['background_story'] = self._sanitize_text(response['background_story'], preserve_paragraphs=True)
+
             # Add segment tracking
             response['_segment_id'] = segment_id
             response['_segment_name'] = segment_name
@@ -847,6 +939,9 @@ Generuj KOMPLETNIE INNĄ personę. WYŁĄCZNIE JSON (bez markdown):
 
         age = demographic.get('age', 30)
 
+        # Generate unique persona seed for diversity
+        persona_seed = self._rng.integers(1000, 9999)
+
         # Format insights
         insights_text = ""
         if graph_insights:
@@ -879,16 +974,33 @@ ZASADY:
 • Persona MUSI pasować do constraints
 • Zawód = wykształcenie + dochód
 • Używaj kontekstu jako tła (nie cytuj statystyk!)
+• UNIKALNOŚĆ: Każda persona w segmencie MUSI mieć RÓŻNĄ historię życiową!
+• HEADLINE: Musi zawierać liczbę {age} lat i realną motywację tej osoby
+• Background_story NIE może kopiować briefu segmentu ani powtarzać całych akapitów z kontekstu
+• Pokaż codzienne wybory i motywacje tej osoby - zero ogólników
+
+⚠️ CATCHY SEGMENT NAME (2-4 słowa):
+Wygeneruj krótką, chwytliwą nazwę marketingową dla tego segmentu.
+• Powinna odzwierciedlać wiek, wartości, styl życia, status ekonomiczny
+• Przykłady: "Pasywni Liberałowie", "Młodzi Prekariusze", "Aktywni Seniorzy", "Cyfrowi Nomadzi"
+• UNIKAJ długich opisów technicznych jak "Kobiety 35-44 wyższe wykształcenie"
+• Polski język, kulturowo relevantne
+
+⚠️ KRYTYCZNE: Generuj UNIKALNĄ personę (Persona #{persona_seed})!
+• NIE kopiuj ogólnych opisów segmentu do background_story
+• Fokus na TEJ KONKRETNEJ OSOBY, jej specyficznych doświadczeniach
+• Każda persona w segmencie ma INNĄ historię życiową, inne detale, różne zainteresowania
 
 ZWRÓĆ JSON:
 {{
   "full_name": "{suggested_first_name} {suggested_surname}",
+  "catchy_segment_name": "<2-4 słowa, krótka marketingowa nazwa segmentu>",
   "persona_title": "<zawód>",
-  "headline": "<{age} lat, zawód, motywacje>",
-  "background_story": "<2-3 zdania>",
+  "headline": "<{age} lat, zawód, UNIKALNE motywacje>",
+  "background_story": "<2-3 zdania: KONKRETNA historia TEJ OSOBY - nie ogólny opis segmentu!>",
   "values": ["<5-7 wartości>"],
   "interests": ["<5-7 hobby>"],
   "communication_style": "<styl>",
   "decision_making_style": "<styl>",
-  "typical_concerns": ["<3-5 zmartwień>"]
+  "typical_concerns": ["<3-5 SPECYFICZNYCH zmartwień>"]
 }}"""

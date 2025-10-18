@@ -121,22 +121,53 @@ def _build_segment_description_from_persona(persona: Persona, segment_name: str)
 
 
 def _build_segment_social_context(persona: Persona, details: Dict[str, Any], fallback_description: str) -> str:
-    for key in (
-        "segment_social_context",
-        "graph_context",
-        "context_preview",
-        "overall_context",
-    ):
-        sanitized = _sanitize_context_text(details.get(key))
-        if sanitized:
-            return sanitized
+    orchestration = dict((details.get("orchestration_reasoning") or {}))
+    demographics = orchestration.get("demographics") or details.get("demographics") or {
+        "age": persona.age,
+        "gender": persona.gender,
+        "education": persona.education_level,
+        "income": persona.income_bracket,
+        "location": persona.location,
+    }
+    if not isinstance(demographics, dict):
+        try:
+            demographics = dict(demographics)
+        except Exception:
+            demographics = {
+                "age": persona.age,
+                "gender": persona.gender,
+                "education": persona.education_level,
+                "income": persona.income_bracket,
+                "location": persona.location,
+            }
 
-    if persona.background_story:
-        story_sanitized = _sanitize_context_text(persona.background_story, max_length=700)
-        if story_sanitized:
-            return story_sanitized
+    segment_name = (
+        orchestration.get("segment_name")
+        or details.get("segment_name")
+        or persona.segment_name
+        or _build_segment_name_from_persona(persona)
+    )
 
-    return fallback_description
+    def first_sentences(text: str, limit: int = 2) -> str:
+        sentences = re.split(r"(?<=[.!?])\s+", text)
+        return " ".join(sentences[:limit]).strip()
+
+    raw_characteristics = orchestration.get("segment_characteristics") or details.get("segment_characteristics") or []
+    characteristics = [str(item).strip() for item in raw_characteristics if str(item).strip()]
+
+    description = _build_segment_description_from_persona(persona, segment_name or "Segment demograficzny")
+    sentences = [description]
+
+    allocation_summary = orchestration.get("allocation_reasoning") or details.get("allocation_reasoning")
+    allocation_summary = _sanitize_context_text(allocation_summary, max_length=220)
+    if allocation_summary:
+        sentences.append(first_sentences(allocation_summary))
+
+    if characteristics:
+        sentences.append("Kluczowe wyróżniki: " + ", ".join(characteristics[:4]) + ".")
+
+    combined = " ".join(sentences).strip()
+    return _sanitize_context_text(combined, max_length=400) or "Kontekst segmentu nie został jeszcze zdefiniowany."
 
 
 def _ensure_segment_metadata(persona: Persona) -> Optional[Dict[str, Any]]:
@@ -148,20 +179,18 @@ def _ensure_segment_metadata(persona: Persona) -> Optional[Dict[str, Any]]:
     orchestration = dict(details_copy.get("orchestration_reasoning") or {})
     mutated = False
 
-    segment_name = (
-        orchestration.get("segment_name")
-        or details_copy.get("segment_name")
-        or persona.segment_name
-    )
+    existing_segment_name = orchestration.get("segment_name") or details_copy.get("segment_name")
+    segment_name = persona.segment_name or existing_segment_name
+    if segment_name and segment_name != existing_segment_name:
+        mutated = True
     if not segment_name:
         segment_name = _build_segment_name_from_persona(persona)
         mutated = True
 
-    segment_id = (
-        orchestration.get("segment_id")
-        or details_copy.get("segment_id")
-        or persona.segment_id
-    )
+    existing_segment_id = orchestration.get("segment_id") or details_copy.get("segment_id")
+    segment_id = persona.segment_id or existing_segment_id
+    if segment_id and segment_id != existing_segment_id:
+        mutated = True
     if not segment_id and segment_name:
         slug = _slugify_segment_name(segment_name)
         segment_id = slug or f"segment-{persona.id}"
@@ -179,23 +208,27 @@ def _ensure_segment_metadata(persona: Persona) -> Optional[Dict[str, Any]]:
         orchestration.get("segment_social_context")
         or details_copy.get("segment_social_context")
     )
-    if not segment_social_context:
-        segment_social_context = _build_segment_social_context(persona, details_copy, segment_description or "")
+    computed_social_context = _build_segment_social_context(persona, details_copy, segment_description or "")
+    if computed_social_context and computed_social_context != segment_social_context:
+        segment_social_context = computed_social_context
+        mutated = True
+    elif not segment_social_context and computed_social_context:
+        segment_social_context = computed_social_context
         mutated = True
 
     if mutated:
         if segment_name:
-            orchestration.setdefault("segment_name", segment_name)
-            details_copy.setdefault("segment_name", segment_name)
+            orchestration["segment_name"] = segment_name
+            details_copy["segment_name"] = segment_name
         if segment_id:
-            orchestration.setdefault("segment_id", segment_id)
-            details_copy.setdefault("segment_id", segment_id)
+            orchestration["segment_id"] = segment_id
+            details_copy["segment_id"] = segment_id
         if segment_description:
-            orchestration.setdefault("segment_description", segment_description)
-            details_copy.setdefault("segment_description", segment_description)
+            orchestration["segment_description"] = segment_description
+            details_copy["segment_description"] = segment_description
         if segment_social_context:
-            orchestration.setdefault("segment_social_context", segment_social_context)
-            details_copy.setdefault("segment_social_context", segment_social_context)
+            orchestration["segment_social_context"] = segment_social_context
+            details_copy["segment_social_context"] = segment_social_context
 
     details_copy["orchestration_reasoning"] = orchestration
     return details_copy

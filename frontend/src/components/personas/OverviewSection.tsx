@@ -62,15 +62,15 @@ export function OverviewSection({ persona }: OverviewSectionProps) {
     };
 
     const segmentName = resolveString(
+      persona.segment_name,
       fromRecord(orchestration, 'segment_name'),
       fromRecord(ragDetails, 'segment_name'),
-      persona.segment_name,
     );
 
     const segmentId = resolveString(
+      persona.segment_id,
       fromRecord(orchestration, 'segment_id'),
       fromRecord(ragDetails, 'segment_id'),
-      persona.segment_id,
     );
 
     const segmentDescription = resolveString(

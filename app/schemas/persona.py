@@ -9,6 +9,7 @@ Definiuje struktury danych dla:
 Uwaga: To jest wersja v1. Nowsze projekty powinny używać persona_v2.py
 """
 
+import re
 from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime
 from uuid import UUID
@@ -213,6 +214,45 @@ class PersonaResponse(BaseModel):
         None,
         description="Szczegółowe dane RAG (graph nodes, search type, enrichment info) - dla View Details"
     )
+
+    @validator('occupation', 'full_name', 'location', 'headline', 'persona_title', pre=True)
+    def sanitize_single_line_fields(cls, v):
+        """
+        Validator Pydantic do sanityzacji pól jednoliniowych
+
+        Usuwa nadmiarowe znaki nowej linii i białe znaki z pól tekstowych.
+        Zapobiega wyświetlaniu "Zawód\\n\\nJuż" w UI.
+
+        Args:
+            v: Wartość pola do sanityzacji
+
+        Returns:
+            Zsanityzowana wartość (wszystkie \\n zamienione na spacje)
+        """
+        if isinstance(v, str):
+            # Usuń wszystkie \\n i znormalizuj spacje
+            return re.sub(r'\s+', ' ', v).strip()
+        return v
+
+    @validator('background_story', pre=True)
+    def sanitize_background_story(cls, v):
+        """
+        Validator Pydantic do sanityzacji background_story
+
+        Zachowuje podział na akapity (\\n\\n) ale normalizuje każdy akapit.
+
+        Args:
+            v: Wartość pola do sanityzacji
+
+        Returns:
+            Zsanityzowana wartość z zachowanymi podziałami akapitów
+        """
+        if isinstance(v, str):
+            # Zachowaj podział na akapity ale znormalizuj każdy akapit
+            paragraphs = v.split('\n')
+            paragraphs = [re.sub(r'\s+', ' ', p).strip() for p in paragraphs if p.strip()]
+            return '\n\n'.join(paragraphs)
+        return v
 
     class Config:
         from_attributes = True

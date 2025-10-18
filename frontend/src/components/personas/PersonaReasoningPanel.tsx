@@ -54,6 +54,15 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
     staleTime: 10 * 60 * 1000, // 10 minut cache
   });
 
+  const personaStory = persona.background_story?.trim() ?? '';
+  const personaStoryParagraphs = useMemo(() => {
+    if (!personaStory) return [];
+    return personaStory
+      .split(/\n+/)
+      .map((paragraph) => paragraph.trim())
+      .filter((paragraph) => paragraph.length > 0);
+  }, [personaStory]);
+
   // Get top 3 high-confidence insights
   const topInsights = useMemo(() => {
     if (!reasoning?.graph_insights) return [];
@@ -206,7 +215,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
         </Alert>
       )}
 
-      {/* === HERO: SEGMENT SPOŁECZEŃSTWA === */}
+      {/* === HERO: SEGMENT SPOŁECZNY === */}
       {reasoning.segment_name && (
         <Card className="bg-gradient-to-br from-primary/5 via-background to-background border-2 border-primary/20">
           <CardHeader className="pb-3">
@@ -216,7 +225,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
               </div>
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                  Segment Społeczeństwa
+                  Segment społeczny
                 </p>
                 <h2 className="text-2xl font-bold text-foreground">
                   {reasoning.segment_name}
@@ -329,56 +338,87 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
         </Card>
       )}
 
-      {/* 3. Orchestration Brief - Collapsible, collapsed by default */}
-      {reasoning.orchestration_brief && (
+      {/* 3. Persona Story */}
+      {personaStoryParagraphs.length > 0 && (
         <Card>
-          <Collapsible
-            open={expanded.brief}
-            onOpenChange={(open) => setExpanded(prev => ({ ...prev, brief: open }))}
-          >
-            <CardHeader className="pb-3">
-              <CollapsibleTrigger asChild>
-                <button
-                  className="flex w-full items-center justify-between text-left hover:opacity-80 transition-opacity"
-                  aria-label="Pokaż szczegółową analizę"
-                >
-                  <CardTitle className="flex items-center gap-2">
-                    <Lightbulb className="h-5 w-5 text-primary" />
-                    Dlaczego {persona.full_name}?
-                  </CardTitle>
-                  <ChevronDown
-                    className={cn(
-                      "h-5 w-5 transition-transform duration-200 text-muted-foreground",
-                      expanded.brief && "rotate-180"
-                    )}
-                  />
-                </button>
-              </CollapsibleTrigger>
-              <CardDescription>
-                Szczegółowa analiza demograficzna i społeczna
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent>
-              {!expanded.brief && (
-                <p className="text-sm text-muted-foreground line-clamp-3">
-                  {reasoning.orchestration_brief?.slice(0, 180)}...
-                </p>
-              )}
-
-              <CollapsibleContent className="space-y-2">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {reasoning.orchestration_brief}
-                  </ReactMarkdown>
-                </div>
-              </CollapsibleContent>
-            </CardContent>
-          </Collapsible>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Lightbulb className="h-5 w-5 text-primary" />
+              Historia {persona.full_name || 'tej osoby'}
+            </CardTitle>
+            <CardDescription>
+              Dlaczego ta persona jest wyjątkowa w swoim segmencie
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {personaStoryParagraphs.map((paragraph, idx) => (
+              <p
+                key={`persona-story-${idx}`}
+                className="text-sm text-foreground leading-relaxed"
+              >
+                {paragraph}
+              </p>
+            ))}
+          </CardContent>
         </Card>
       )}
 
-      {/* 4. Allocation Reasoning - Collapsible, collapsed by default */}
+      {/* 4. Orchestration Brief - Collapsible, collapsed by default */}
+      {(() => {
+        const orchestrationBrief = reasoning?.orchestration_brief?.trim() ?? '';
+        if (!orchestrationBrief) return null;
+        if (personaStory && orchestrationBrief === personaStory) return null;
+
+        return (
+          <Card>
+            <Collapsible
+              open={expanded.brief}
+              onOpenChange={(open) => setExpanded(prev => ({ ...prev, brief: open }))}
+            >
+              <CardHeader className="pb-3">
+                <CollapsibleTrigger asChild>
+                  <button
+                    className="flex w-full items-center justify-between text-left hover:opacity-80 transition-opacity"
+                    aria-label="Pokaż szczegółową analizę segmentu"
+                  >
+                    <CardTitle className="flex items-center gap-2">
+                      <Lightbulb className="h-5 w-5 text-primary" />
+                      Brief segmentu (orchestration)
+                    </CardTitle>
+                    <ChevronDown
+                      className={cn(
+                        "h-5 w-5 transition-transform duration-200 text-muted-foreground",
+                        expanded.brief && "rotate-180"
+                      )}
+                    />
+                  </button>
+                </CollapsibleTrigger>
+                <CardDescription>
+                  Edukacyjny kontekst społeczny przygotowany przez orchestration agent
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent>
+                {!expanded.brief && (
+                  <p className="text-sm text-muted-foreground line-clamp-3">
+                    {orchestrationBrief.slice(0, 180)}...
+                  </p>
+                )}
+
+                <CollapsibleContent className="space-y-2">
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {orchestrationBrief}
+                    </ReactMarkdown>
+                  </div>
+                </CollapsibleContent>
+              </CardContent>
+            </Collapsible>
+          </Card>
+        );
+      })()}
+
+      {/* 5. Allocation Reasoning - Collapsible, collapsed by default */}
       {reasoning.allocation_reasoning && (
         <Card>
           <Collapsible

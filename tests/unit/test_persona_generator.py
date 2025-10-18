@@ -254,3 +254,93 @@ def test_chi_square_validation_small_sample(generator, sample_distribution):
 
     # With small sample, might fail validation (that's expected)
     # Just verify the test completes without error
+
+
+def test_sanitize_text_single_line(generator):
+    """
+    Test sanityzacji tekstu jednoliniowego (usuwa wszystkie \\n)
+
+    Bug fix test: LLM generowało pola tekstowe z nadmiarowymi \\n\\n,
+    powodując wyświetlanie "Zawód\\n\\nJuż" zamiast "Zawód Już" w UI.
+
+    Test sprawdza czy _sanitize_text():
+    1. Usuwa wszystkie znaki nowej linii (\\n)
+    2. Normalizuje nadmiarowe spacje (wiele spacji -> jedna spacja)
+    3. Usuwa leading/trailing whitespace
+    """
+    # Test 1: Usuwa \n\n (używamy raw string lub literalnych znaków nowej linii)
+    assert generator._sanitize_text("Zawód\n\nJuż", preserve_paragraphs=False) == "Zawód Już"
+
+    # Test 2: Usuwa pojedyncze \n
+    assert generator._sanitize_text("First line\nSecond line", preserve_paragraphs=False) == "First line Second line"
+
+    # Test 3: Normalizuje nadmiarowe spacje
+    assert generator._sanitize_text("Tekst  z   wieloma    spacjami", preserve_paragraphs=False) == "Tekst z wieloma spacjami"
+
+    # Test 4: Usuwa leading/trailing whitespace
+    assert generator._sanitize_text("  Tekst z padding  ", preserve_paragraphs=False) == "Tekst z padding"
+
+    # Test 5: Łączy wszystkie problemy
+    assert generator._sanitize_text("  Line 1\n\n  Line 2  \n  Line 3  ", preserve_paragraphs=False) == "Line 1 Line 2 Line 3"
+
+    # Test 6: Pusta wartość zwraca pustą wartość
+    assert generator._sanitize_text("", preserve_paragraphs=False) == ""
+    assert generator._sanitize_text(None, preserve_paragraphs=False) is None
+
+
+def test_sanitize_text_preserve_paragraphs(generator):
+    """
+    Test sanityzacji background_story (zachowuje podział na akapity)
+
+    background_story może zawierać podział na akapity (\n\n) który chcemy zachować.
+    Ale wciąż chcemy znormalizować nadmiarowe spacje w każdym akapicie.
+
+    Test sprawdza czy _sanitize_text(preserve_paragraphs=True):
+    1. Zachowuje podział na akapity (\n\n)
+    2. Normalizuje spacje w każdym akapicie
+    3. Usuwa puste linie
+    """
+    # Test 1: Zachowuje podział na akapity
+    input_text = "Paragraph 1\n\nParagraph 2\n\nParagraph 3"
+    expected = "Paragraph 1\n\nParagraph 2\n\nParagraph 3"
+    assert generator._sanitize_text(input_text, preserve_paragraphs=True) == expected
+
+    # Test 2: Normalizuje spacje w każdym akapicie
+    input_text = "Paragraph  with  spaces\n\nAnother  paragraph  here"
+    expected = "Paragraph with spaces\n\nAnother paragraph here"
+    assert generator._sanitize_text(input_text, preserve_paragraphs=True) == expected
+
+    # Test 3: Usuwa puste linie
+    input_text = "Para 1\n\n\n\nPara 2\n\nPara 3"
+    expected = "Para 1\n\nPara 2\n\nPara 3"
+    assert generator._sanitize_text(input_text, preserve_paragraphs=True) == expected
+
+    # Test 4: Usuwa leading/trailing whitespace z każdego akapitu
+    input_text = "  Para 1  \n\n  Para 2  \n\n  Para 3  "
+    expected = "Para 1\n\nPara 2\n\nPara 3"
+    assert generator._sanitize_text(input_text, preserve_paragraphs=True) == expected
+
+
+def test_sanitize_text_edge_cases(generator):
+    """
+    Test edge cases dla sanityzacji tekstu
+
+    Sprawdza zachowanie dla nietypowych inputów:
+    - Tylko whitespace
+    - Tylko \n
+    - Mixed whitespace (spacje, tabulatory, \n)
+    """
+    # Test 1: Tylko whitespace -> pusty string
+    assert generator._sanitize_text("   ", preserve_paragraphs=False) == ""
+    assert generator._sanitize_text("   ", preserve_paragraphs=True) == ""
+
+    # Test 2: Tylko \n -> pusty string
+    assert generator._sanitize_text("\n\n\n", preserve_paragraphs=False) == ""
+    assert generator._sanitize_text("\n\n\n", preserve_paragraphs=True) == ""
+
+    # Test 3: Mixed whitespace (spacje + tabulatory + \n)
+    assert generator._sanitize_text("Text\twith\ttabs\nand\nnewlines", preserve_paragraphs=False) == "Text with tabs and newlines"
+
+    # Test 4: Unicode whitespace (non-breaking space, etc.) - should be normalized
+    # Note: re.sub(r'\s+', ' ', ...) catches all unicode whitespace
+    assert generator._sanitize_text("Text\u00A0with\u00A0NBSP", preserve_paragraphs=False) == "Text with NBSP"

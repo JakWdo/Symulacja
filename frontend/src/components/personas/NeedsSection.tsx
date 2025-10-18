@@ -14,7 +14,7 @@ interface NeedsSectionProps {
 /**
  * Komponent pojedynczego Job-to-be-Done
  */
-function JobCard({ job, index }: { job: JTBDJob; index: number }) {
+export function JobCard({ job, index }: { job: JTBDJob; index: number }) {
   const priorityColor = job.priority_score
     ? job.priority_score >= 8
       ? 'bg-red-500'
@@ -114,7 +114,7 @@ function JobCard({ job, index }: { job: JTBDJob; index: number }) {
 /**
  * Komponent pojedynczego Desired Outcome
  */
-function OutcomeCard({ outcome, index }: { outcome: DesiredOutcome; index: number }) {
+export function OutcomeCard({ outcome, index }: { outcome: DesiredOutcome; index: number }) {
   const opportunityLevel =
     typeof outcome.opportunity_score === 'number'
       ? outcome.opportunity_score >= 75
@@ -193,7 +193,7 @@ function OutcomeCard({ outcome, index }: { outcome: DesiredOutcome; index: numbe
 /**
  * Komponent pojedynczego Pain Point
  */
-function PainCard({ pain, index }: { pain: PainPoint; index: number }) {
+export function PainCard({ pain, index }: { pain: PainPoint; index: number }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const severityColor =

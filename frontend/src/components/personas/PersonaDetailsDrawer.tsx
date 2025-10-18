@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dialog,
@@ -9,12 +9,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Eye, User, Lightbulb, HeartPulse } from 'lucide-react';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Eye, User, Users, HeartPulse, Sparkles } from 'lucide-react';
 import { usePersonaDetails } from '@/hooks/usePersonaDetails';
 import { OverviewSection } from './OverviewSection';
 import { ProfileSection } from './ProfileSection';
-import { NeedsSection } from './NeedsSection';
+import { NeedsDashboard } from './NeedsDashboard';
 import { PersonaReasoningPanel } from './PersonaReasoningPanel';
 
 interface PersonaDetailsDrawerProps {
@@ -24,56 +24,28 @@ interface PersonaDetailsDrawerProps {
 }
 
 /**
- * PersonaDetailsDrawer - pełny widok persony z nawigacją po sekcjach i szyną akcji.
+ * PersonaDetailsDrawer - pełny widok persony z nawigacją w formie tabów.
  *
- * Sekcje: Przegląd, Profil, Customer Journey, Potrzeby/Bóle, Insights.
- * Prawa szyna: akcje (porównanie, messaging, eksport, usunięcie z undo) oraz dialogi pomocnicze.
+ * Tabs:
+ * - "Osoba" - Przegląd, Profil, Potrzeby i bóle (dashboard view)
+ * - "Segment" - Wnioski o segmencie i dane kontekstowe
  */
 export function PersonaDetailsDrawer({
   personaId,
   isOpen,
   onClose,
 }: PersonaDetailsDrawerProps) {
-  const [activeSection, setActiveSection] = useState<string>('overview');
   const { data: persona, isLoading, error } = usePersonaDetails(personaId);
 
-  const sectionOptions = useMemo(
-    () => [
-      { id: 'overview', label: 'Przegląd', icon: Eye },
-      { id: 'profile', label: 'Profil', icon: User },
-      { id: 'needs', label: 'Potrzeby i bóle', icon: HeartPulse },
-      { id: 'insights', label: 'Insights', icon: Lightbulb },
-    ],
-    []
-  );
-
-  const renderSection = () => {
-    if (!persona) return null;
-    switch (activeSection) {
-      case 'overview':
-        return <OverviewSection persona={persona} />;
-      case 'profile':
-        return <ProfileSection persona={persona} />;
-      case 'needs':
-        return <NeedsSection data={persona.needs_and_pains} />;
-      case 'insights':
-        return <PersonaReasoningPanel persona={persona} />;
-      default:
-        return null;
-    }
-  };
-
   useEffect(() => {
-    if (isOpen) {
-      setActiveSection('overview');
-    }
+    // Reset state when drawer opens
   }, [isOpen, personaId]);
 
   return (
     <AnimatePresence>
       {isOpen && (
         <Dialog open={isOpen} onOpenChange={onClose}>
-          <DialogContent className="max-w-[90vw] w-full h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogContent className="max-w-[90vw] w-full h-[90vh] p-0 overflow-hidden flex flex-col min-h-0">
             {/* Header */}
             <DialogHeader className="p-6 border-b border-border shrink-0">
               {isLoading ? (
@@ -110,71 +82,98 @@ export function PersonaDetailsDrawer({
               )}
             </DialogHeader>
 
-            {/* Content */}
-            <motion.div
-              className="flex-1 overflow-y-auto p-6"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.3 }}
-            >
+            {/* Content with Tabs */}
             {isLoading ? (
-              <div className="space-y-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-64 w-full" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
               </div>
             ) : error ? (
-              <div className="text-center py-12">
-                <p className="text-destructive mb-4">
-                  {error instanceof Error ? error.message : 'Wystąpił błąd'}
-                </p>
-                <Button variant="outline" onClick={onClose}>
-                  Zamknij
-                </Button>
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="text-center py-12">
+                  <p className="text-destructive mb-4">
+                    {error instanceof Error ? error.message : 'Wystąpił błąd'}
+                  </p>
+                  <Button variant="outline" onClick={onClose}>
+                    Zamknij
+                  </Button>
+                </div>
               </div>
             ) : persona ? (
-              <div className="flex flex-col gap-6 lg:flex-row">
-                {/* Left navigation for desktop */}
-                <nav className="hidden lg:flex lg:w-52 lg:flex-col lg:gap-2">
-                  {sectionOptions.map((section) => {
-                    const Icon = section.icon;
-                    const isActive = activeSection === section.id;
-                    return (
-                      <Button
-                        key={section.id}
-                        variant={isActive ? 'secondary' : 'ghost'}
-                        className="justify-start gap-2"
-                        onClick={() => setActiveSection(section.id)}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {section.label}
-                      </Button>
-                    );
-                  })}
-                </nav>
+              <div className="flex-1 flex flex-col min-h-0">
+                <Tabs defaultValue="osoba" className="flex-1 flex flex-col min-h-0">
+                  <div className="px-6 pt-4 pb-2 border-b border-border shrink-0 bg-muted/30">
+                    <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                      <TabsTrigger value="osoba" className="gap-2">
+                        <User className="w-4 h-4" />
+                        Osoba
+                      </TabsTrigger>
+                      <TabsTrigger value="segment" className="gap-2">
+                        <Users className="w-4 h-4" />
+                        Segment
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
 
-                {/* Mobile select */}
-                <div className="lg:hidden">
-                  <Select value={activeSection} onValueChange={setActiveSection}>
-                    <SelectTrigger className="w-full mb-4">
-                      <SelectValue placeholder="Wybierz sekcję" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sectionOptions.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          {section.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <TabsContent value="osoba" className="flex-1 overflow-y-auto p-6 space-y-8 mt-0 min-h-0">
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-8"
+                    >
+                      {/* Przegląd Section */}
+                      <section id="przeglad">
+                        <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                          <Eye className="w-5 h-5 text-primary" />
+                          Przegląd
+                        </h2>
+                        <OverviewSection persona={persona} />
+                      </section>
 
-                <div className="flex-1 min-w-0 space-y-6">
-                  {renderSection()}
-                </div>
-                </div>
-              ) : null}
-            </motion.div>
+                      {/* Profil Section */}
+                      <section id="profil">
+                        <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                          <User className="w-5 h-5 text-primary" />
+                          Profil
+                        </h2>
+                        <ProfileSection persona={persona} />
+                      </section>
+
+                      {/* Potrzeby i bóle Section (Dashboard) */}
+                      <section id="potrzeby-i-bole">
+                        <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                          <HeartPulse className="w-5 h-5 text-primary" />
+                          Potrzeby i bóle
+                        </h2>
+                        <NeedsDashboard data={persona.needs_and_pains} />
+                      </section>
+                    </motion.div>
+                  </TabsContent>
+
+                  <TabsContent value="segment" className="flex-1 overflow-y-auto p-6 space-y-8 mt-0 min-h-0">
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-8"
+                    >
+                      {/* Segment context section */}
+                      <section id="kontekst-rag">
+                        <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-primary" />
+                          Segment społeczny i wnioski
+                        </h2>
+                        <PersonaReasoningPanel persona={persona} />
+                      </section>
+                    </motion.div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            ) : null}
           </DialogContent>
         </Dialog>
       )}

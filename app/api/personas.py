@@ -1443,6 +1443,30 @@ async def _generate_personas_task(
                         if mapping_entry.get("segment_name"):
                             persona_payload["segment_name"] = mapping_entry["segment_name"]
 
+                    # OVERRIDE segment_name with catchy_segment_name from LLM if available
+                    # This replaces long technical names like "Kobiety 35-44 wyższe wykształcenie"
+                    # with catchy marketing names like "Pasywni Liberałowie", "Młodzi Prekariusze"
+                    catchy_segment_name = personality.get("catchy_segment_name")
+                    if catchy_segment_name and isinstance(catchy_segment_name, str):
+                        catchy_segment_name = catchy_segment_name.strip()
+                        # Validate length (2-4 words = roughly 10-60 chars)
+                        if 5 <= len(catchy_segment_name) <= 60:
+                            persona_payload["segment_name"] = catchy_segment_name
+                            if isinstance(rag_context_details, dict):
+                                rag_context_details["segment_name"] = catchy_segment_name
+                                orchestration_info = rag_context_details.get("orchestration_reasoning")
+                                if isinstance(orchestration_info, dict):
+                                    orchestration_info["segment_name"] = catchy_segment_name
+                            logger.info(
+                                f"Using catchy segment name: '{catchy_segment_name}' (persona {idx})",
+                                extra={"project_id": str(project_id), "index": idx}
+                            )
+                        else:
+                            logger.warning(
+                                f"Catchy segment name too short/long: '{catchy_segment_name}' ({len(catchy_segment_name)} chars), keeping original",
+                                extra={"project_id": str(project_id), "index": idx}
+                            )
+
                     # === VALIDATION: SPRAWDŹ SPÓJNOŚĆ DEMOGRAPHICS ===
                     # Validate że generated persona pasuje do orchestration demographics
                     if idx in persona_group_mapping:
@@ -2034,11 +2058,12 @@ async def get_persona_reasoning(
         or rag_details.get("segment_social_context")
         or rag_details.get("segment_context")
     )
-    segment_characteristics = (
+    raw_characteristics = (
         orch_reasoning.get("segment_characteristics")
         or rag_details.get("segment_characteristics")
         or []
     )
+    segment_characteristics = [str(item).strip() for item in raw_characteristics if str(item).strip()]
 
     orchestration_brief = orch_reasoning.get("brief") or rag_details.get("brief")
     allocation_reasoning = orch_reasoning.get("allocation_reasoning") or rag_details.get(
@@ -2051,41 +2076,64 @@ async def get_persona_reasoning(
         or rag_details.get("graph_context")
     )
 
-    if not segment_name or not segment_social_context or not segment_description:
-        fallback_demographics = (
-            orch_reasoning.get("demographics")
-            or rag_details.get("demographics")
-            or {
+    # Fallback demografia (używana również do budowania opisów segmentu)
+    fallback_demographics = demographics or {
+        "age": str(persona.age) if persona.age else None,
+        "gender": persona.gender,
+        "education": persona.education_level,
+        "income": persona.income_bracket,
+        "location": persona.location,
+    }
+    if not isinstance(fallback_demographics, dict):
+        try:
+            fallback_demographics = dict(fallback_demographics)
+        except Exception:
+            fallback_demographics = {
                 "age": str(persona.age) if persona.age else None,
                 "gender": persona.gender,
                 "education": persona.education_level,
                 "income": persona.income_bracket,
                 "location": persona.location,
             }
-        )
-        if not isinstance(fallback_demographics, dict):
-            try:
-                fallback_demographics = dict(fallback_demographics)
-            except Exception:
-                fallback_demographics = {
-                    "age": str(persona.age) if persona.age else None,
-                    "gender": persona.gender,
-                    "education": persona.education_level,
-                    "income": persona.income_bracket,
-                    "location": persona.location,
-                }
 
-        fallback_meta = _build_segment_metadata(
+    # Preferuj catchy segment name zapisany przy personie
+    if persona.segment_name:
+        segment_name = persona.segment_name
+    if persona.segment_id:
+        segment_id_value = persona.segment_id
+    else:
+        segment_id_value = orch_reasoning.get("segment_id") or rag_details.get("segment_id")
+
+    if not segment_name:
+        segment_name = _build_segment_metadata(
             fallback_demographics,
-            orch_reasoning.get("brief") or rag_details.get("brief"),
+            orchestration_brief,
             allocation_reasoning,
             0,
+        ).get("segment_name")
+
+    if not segment_description and segment_name:
+        segment_description = _compose_segment_description(fallback_demographics, segment_name)
+
+    if not segment_social_context:
+        characteristic_summary = ""
+        if segment_characteristics:
+            characteristic_summary = (
+                " Kluczowe wyróżniki: "
+                + ", ".join(segment_characteristics[:4])
+                + "."
+            )
+        demographic_sentence = _compose_segment_description(
+            fallback_demographics,
+            segment_name or "Ten segment",
         )
-        segment_name = segment_name or fallback_meta.get("segment_name")
-        segment_description = segment_description or fallback_meta.get("segment_description")
-        segment_social_context = segment_social_context or fallback_meta.get("segment_social_context")
-        if not segment_characteristics:
-            segment_characteristics = rag_details.get("segment_characteristics") or []
+        brief_snippet = _sanitize_brief_text(orchestration_brief, max_length=280)
+        segment_social_context = (
+            f"{demographic_sentence}{characteristic_summary} "
+            f"{brief_snippet}" if brief_snippet else f"{demographic_sentence}{characteristic_summary}"
+        ).strip()
+
+    segment_social_context = _sanitize_brief_text(segment_social_context)
 
     response = PersonaReasoningResponse(
         orchestration_brief=orchestration_brief,
@@ -2094,7 +2142,7 @@ async def get_persona_reasoning(
         demographics=demographics,
         overall_context=overall_context,
         segment_name=segment_name,
-        segment_id=orch_reasoning.get("segment_id") or rag_details.get("segment_id"),
+        segment_id=segment_id_value,
         segment_description=segment_description,
         segment_social_context=segment_social_context,
         segment_characteristics=segment_characteristics,
