@@ -17,7 +17,7 @@ steps:
       - '-t'
       - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:latest'
       - '-t'
-      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:$SHORT_SHA'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:$COMMIT_SHA'
       - '.'
     id: 'build-api'
 
@@ -68,7 +68,7 @@ steps:
       - '-t'
       - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/frontend:latest'
       - '-t'
-      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/frontend:$SHORT_SHA'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/frontend:$COMMIT_SHA'
       - './frontend'
     id: 'build-frontend'
 
