@@ -13,7 +13,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from langchain_core.documents import Document
 
-from app.services.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
 
 
 class TestPolishSocietyRAGInit:

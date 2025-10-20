@@ -18,7 +18,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from app.models.persona import Persona
 from app.schemas.persona_details import PersonaMessagingResponse
-from app.services.clients import build_chat_model
+from app.services.shared.clients import build_chat_model
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)

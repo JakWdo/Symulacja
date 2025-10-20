@@ -4,13 +4,13 @@ PersonaComparisonService - compare personas and highlight differences.
 
 from __future__ import annotations
 
-import math
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.persona import Persona
+from app.utils.math_utils import cosine_similarity
 
 
 class PersonaComparisonService:
@@ -143,7 +143,7 @@ class PersonaComparisonService:
                     row[str(persona_b.id)] = 1.0
                 else:
                     vector_b = self._personality_vector(persona_b)
-                    row[str(persona_b.id)] = self._cosine_similarity(vector_a, vector_b)
+                    row[str(persona_b.id)] = cosine_similarity(vector_a, vector_b)
             matrix[str(persona_a.id)] = row
         return matrix
 
@@ -155,11 +155,3 @@ class PersonaComparisonService:
             float(persona.agreeableness or 0.5),
             float(persona.neuroticism or 0.5),
         ]
-
-    def _cosine_similarity(self, a: List[float], b: List[float]) -> float:
-        dot = sum(x * y for x, y in zip(a, b, strict=False))
-        norm_a = math.sqrt(sum(x * x for x in a))
-        norm_b = math.sqrt(sum(y * y for y in b))
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
-        return round(dot / (norm_a * norm_b), 4)

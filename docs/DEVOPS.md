@@ -1,6 +1,6 @@
-# DevOps & Infrastruktura Market Research SaaS
+# DevOps & Infrastruktura Sight
 
-Market Research SaaS to zaawansowana platforma do wirtualnych grup fokusowych z wykorzystaniem AI, która kładzie nacisk na wydajność, bezpieczeństwo i skalowalność. Nasza architektura kontenerowa oparta jest na Docker Compose, zapewniając spójne środowisko deweloperskie i produkcyjne. System składa się z pięciu kluczowych usług: PostgreSQL z pgvector, Redis, Neo4j z pluginami APOC i Graph Data Science, FastAPI oraz React.
+Sight to zaawansowana platforma do wirtualnych grup fokusowych z wykorzystaniem AI, która kładzie nacisk na wydajność, bezpieczeństwo i skalowalność. Nasza architektura kontenerowa oparta jest na Docker Compose, zapewniając spójne środowisko deweloperskie i produkcyjne. System składa się z pięciu kluczowych usług: PostgreSQL z pgvector, Redis, Neo4j z pluginami APOC i Graph Data Science, FastAPI oraz React.
 
 Projekt został zoptymalizowany pod kątem wydajności – zmniejszyliśmy rozmiar obrazów Docker o 84%, zredukowano czas budowania, wprowadzono zaawansowane zarządzanie zasobami i wielowarstwowe bezpieczeństwo.
 

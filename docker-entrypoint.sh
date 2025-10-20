@@ -1,15 +1,15 @@
 #!/bin/sh
 set -e
 
-printf '=== Docker Entrypoint: Market Research SaaS ===\n'
+printf '=== Docker Entrypoint: Sight ===\n'
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Domyślne konfiguracje – można nadpisać zmiennymi środowiskowymi
 # ──────────────────────────────────────────────────────────────────────────────
 POSTGRES_HOST=${POSTGRES_HOST:-postgres}
 POSTGRES_PORT=${POSTGRES_PORT:-5432}
-POSTGRES_USER=${POSTGRES_USER:-market_research}
-POSTGRES_DB=${POSTGRES_DB:-market_research_db}
+POSTGRES_USER=${POSTGRES_USER:-sight}
+POSTGRES_DB=${POSTGRES_DB:-sight_db}
 
 REDIS_HOST=${REDIS_HOST:-redis}
 REDIS_PORT=${REDIS_PORT:-6379}

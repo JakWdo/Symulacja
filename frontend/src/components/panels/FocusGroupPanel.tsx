@@ -88,7 +88,8 @@ function FocusGroupCard({
   index: number;
   onEdit: () => void;
 }) {
-  const { setSelectedFocusGroup } = useAppStore();
+  // Use Zustand selector to prevent unnecessary re-renders
+  const setSelectedFocusGroup = useAppStore(state => state.setSelectedFocusGroup);
   const queryClient = useQueryClient();
 
   const runMutation = useMutation({
@@ -658,16 +659,15 @@ function FocusGroupForm({
 }
 
 export function FocusGroupPanel() {
-  const {
-    activePanel,
-    setActivePanel,
-    selectedProject,
-    selectedFocusGroup,
-    personas,
-    focusGroups,
-    setFocusGroups,
-    setSelectedFocusGroup,
-  } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const activePanel = useAppStore(state => state.activePanel);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const selectedFocusGroup = useAppStore(state => state.selectedFocusGroup);
+  const personas = useAppStore(state => state.personas);
+  const focusGroups = useAppStore(state => state.focusGroups);
+  const setFocusGroups = useAppStore(state => state.setFocusGroups);
+  const setSelectedFocusGroup = useAppStore(state => state.setSelectedFocusGroup);
   const [formState, setFormState] = useState<
     | { mode: 'create' }
     | { mode: 'edit'; focusGroup: FocusGroup }

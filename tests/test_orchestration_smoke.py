@@ -6,7 +6,7 @@ NIE testują quality ani szczegółów - tylko czy kod się wykonuje bez błęd�
 """
 
 import pytest
-from app.services.persona_orchestration import PersonaOrchestrationService, PersonaAllocationPlan
+from app.services.personas.persona_orchestration import PersonaOrchestrationService, PersonaAllocationPlan
 
 
 class TestOrchestrationSmoke:
@@ -31,7 +31,7 @@ class TestOrchestrationSmoke:
         assert "2.5-pro" in service.llm.model.lower()
 
         # Individual generation używa Flash (sprawdzamy w generator)
-        from app.services.persona_generator_langchain import PersonaGeneratorLangChain
+        from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain
         generator = PersonaGeneratorLangChain()
         # Generator może używać różnych modeli, ale sprawdzamy że się inicjalizuje
         assert generator.llm is not None
@@ -51,7 +51,7 @@ class TestOrchestrationSmoke:
 
     def test_graph_insight_structure(self):
         """Test struktury GraphInsight (Pydantic validation)."""
-        from app.services.persona_orchestration import GraphInsight
+        from app.services.personas.persona_orchestration import GraphInsight
 
         insight = GraphInsight(
             type="Indicator",
@@ -69,7 +69,7 @@ class TestOrchestrationSmoke:
 
     def test_demographic_group_structure(self):
         """Test struktury DemographicGroup (Pydantic validation)."""
-        from app.services.persona_orchestration import DemographicGroup, GraphInsight
+        from app.services.personas.persona_orchestration import DemographicGroup, GraphInsight
 
         group = DemographicGroup(
             count=5,
@@ -123,7 +123,7 @@ class TestPersonaGeneratorOrchestration:
 
     def test_generator_accepts_orchestration_brief(self):
         """Test czy generator akceptuje orchestration brief w advanced_options."""
-        from app.services.persona_generator_langchain import PersonaGeneratorLangChain
+        from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain
 
         generator = PersonaGeneratorLangChain()
 

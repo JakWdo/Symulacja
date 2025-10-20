@@ -31,7 +31,7 @@ from app.schemas.focus_group import (
     FocusGroupResponse,
     FocusGroupResultResponse,
 )
-from app.services import FocusGroupService
+from app.services.focus_groups import FocusGroupServiceLangChain as FocusGroupService
 
 router = APIRouter()
 

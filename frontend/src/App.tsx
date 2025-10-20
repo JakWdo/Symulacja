@@ -32,11 +32,11 @@ export default function App() {
   useTheme();
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
-  const {
-    selectedProject,
-    setPersonas,
-    setSelectedPersona,
-  } = useAppStore();
+
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const setPersonas = useAppStore(state => state.setPersonas);
+  const setSelectedPersona = useAppStore(state => state.setSelectedPersona);
 
   const [currentView, setCurrentView] = useState('dashboard');
   const [viewProject, setViewProject] = useState<Project | null>(null);
@@ -44,13 +44,11 @@ export default function App() {
   const [viewSurvey, setViewSurvey] = useState<Survey | null>(null);
 
   // Fetch personas for selected project
-  useQuery({
+  const { data: personas } = useQuery({
     queryKey: ['personas', selectedProject?.id],
     queryFn: async () => {
       if (!selectedProject) return [];
-      const data = await personasApi.getByProject(selectedProject.id);
-      setPersonas(data);
-      return data;
+      return await personasApi.getByProject(selectedProject.id);
     },
     enabled: !!selectedProject,
   });
@@ -60,8 +58,10 @@ export default function App() {
     if (!selectedProject) {
       setPersonas([]);
       setSelectedPersona(null);
+    } else if (personas) {
+      setPersonas(personas);
     }
-  }, [selectedProject, setPersonas, setSelectedPersona]);
+  }, [selectedProject, personas]);
 
   const renderContent = () => {
     switch (currentView) {

@@ -25,10 +25,10 @@ class Settings(BaseSettings):
 
     # === BAZA DANYCH ===
     # PostgreSQL z asyncpg driver (wymagane dla SQLAlchemy async)
-    DATABASE_URL: str = "postgresql+asyncpg://market_research:password@localhost:5432/market_research_db"
-    POSTGRES_USER: str = "market_research"
+    DATABASE_URL: str = "postgresql+asyncpg://sight:password@localhost:5432/sight_db"
+    POSTGRES_USER: str = "sight"
     POSTGRES_PASSWORD: str = "password"
-    POSTGRES_DB: str = "market_research_db"
+    POSTGRES_DB: str = "sight_db"
 
     # === CACHE ===
     # Redis do cache'owania
@@ -148,7 +148,7 @@ class Settings(BaseSettings):
     # Prefix dla wszystkich endpointów API v1
     API_V1_PREFIX: str = "/api/v1"
     # Nazwa projektu (wyświetlana w docs)
-    PROJECT_NAME: str = "Market Research SaaS"
+    PROJECT_NAME: str = "Sight"
     # ALLOWED_ORIGINS: Lista origin dozwolonych dla CORS (rozdzielone przecinkami)
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 

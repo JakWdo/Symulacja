@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.persona import Persona
 from app.models.persona_events import PersonaResponse
 from app.schemas.persona_details import NeedsAndPains
-from app.services.clients import build_chat_model
+from app.services.shared.clients import build_chat_model
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)

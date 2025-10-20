@@ -19,8 +19,8 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from app.core.config import get_settings
 from app.schemas.rag import GraphRAGQuery
-from app.services.clients import build_chat_model
-from app.services.rag_clients import get_graph_store, get_vector_store
+from app.services.shared.clients import build_chat_model
+from app.services.rag.rag_clients import get_graph_store, get_vector_store
 
 settings = get_settings()
 logger = logging.getLogger(__name__)

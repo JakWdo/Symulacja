@@ -14,7 +14,8 @@ import numpy as np
 
 from app.models import PersonaEvent, PersonaResponse, Persona
 from app.core.config import get_settings
-from app.services.clients import get_embeddings
+from app.services.shared.clients import get_embeddings
+from app.utils.math_utils import cosine_similarity
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -162,7 +163,7 @@ class MemoryServiceLangChain:
                 continue
 
             # Cosine similarity (miara podobieństwa semantycznego)
-            similarity = self._cosine_similarity(query_embedding, event.embedding)
+            similarity = cosine_similarity(query_embedding, event.embedding)
 
             # Zastosuj temporal decay jeśli włączony
             if time_decay:
@@ -257,48 +258,3 @@ class MemoryServiceLangChain:
             return f"Question: {event_data.get('question', '')}"
         else:
             return str(event_data)
-
-    def _format_context(self, context: List[Dict[str, Any]]) -> str:
-        """
-        Sformatuj kontekst do konsumpcji przez LLM
-
-        Tworzy czytelny tekst z listy eventów do wstawienia w prompt.
-
-        Args:
-            context: Lista eventów (słowniki z retrieve_relevant_context)
-
-        Returns:
-            Sformatowany tekst kontekstu
-        """
-        formatted = []
-        for i, ctx in enumerate(context, 1):
-            event_type = ctx["event_type"]
-            event_data = ctx["event_data"]
-            timestamp = ctx["timestamp"]
-
-            formatted.append(f"{i}. [{timestamp}] {event_type}:")
-            if event_type == "response_given":
-                formatted.append(f"   Q: {event_data.get('question', '')}")
-                formatted.append(f"   A: {event_data.get('response', '')}")
-            else:
-                formatted.append(f"   {event_data}")
-
-        return "\n".join(formatted)
-
-    def _cosine_similarity(self, a: List[float], b: List[float]) -> float:
-        """
-        Oblicz cosine similarity między dwoma wektorami
-
-        Cosine similarity to miara podobieństwa wektorów w przestrzeni n-wymiarowej.
-        Wartość 1.0 = identyczne, 0.0 = ortogonalne, -1.0 = przeciwne.
-
-        Args:
-            a: Pierwszy wektor (lista floatów)
-            b: Drugi wektor (lista floatów)
-
-        Returns:
-            Cosine similarity w przedziale [-1, 1]
-        """
-        a_arr = np.array(a)
-        b_arr = np.array(b)
-        return float(np.dot(a_arr, b_arr) / (np.linalg.norm(a_arr) * np.linalg.norm(b_arr)))

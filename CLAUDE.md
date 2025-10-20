@@ -4,7 +4,7 @@ Instrukcje dla Claude Code podczas pracy z tym projektem.
 
 ## Przegląd Projektu
 
-**Market Research SaaS** - Platforma do wirtualnych grup fokusowych z AI.
+**Sight** - Platforma do wirtualnych grup fokusowych z AI.
 
 **Stack:**
 - Backend: FastAPI, PostgreSQL + pgvector, Redis, Neo4j
@@ -69,6 +69,7 @@ Claude może pracować w różnych trybach w zależności od zadania:
 - **CLAUDE.md** - Ten plik (instrukcje dla Claude)
 - **PLAN.md** - Strategic roadmap (20-30 najważniejszych zadań)
 - **docs/README.md** - Indeks dokumentacji technicznej
+- **docs/SERVICES.md** - **NOWY** - Struktura serwisów (reorganizacja 2025-10-20)
 - **docs/DEVOPS.md** - DevOps, Docker, CI/CD, monitoring
 - **docs/TESTING.md** - Test suite (380 testów, fixtures, performance)
 - **docs/RAG.md** - System RAG (Hybrid Search + GraphRAG)
@@ -82,20 +83,40 @@ Claude może pracować w różnych trybach w zależności od zadania:
 ```
 API Endpoints (app/api/*.py) - validation, routing
     ↓
-Service Layer (app/services/*.py) - business logic
+Service Layer (app/services/domain/*.py) - business logic
     ↓
 Models/DB (app/models/*.py) - data access
 ```
 
+**Nowa struktura (2025-10-20):** Serwisy pogrupowane w foldery:
+- `app/services/shared/` - Wspólne (LLM clients)
+- `app/services/personas/` - Zarządzanie personami
+- `app/services/focus_groups/` - Grupy fokusowe
+- `app/services/rag/` - RAG & Knowledge Graph
+- `app/services/surveys/` - Ankiety
+
+**Import (nowy):**
+```python
+from app.services.personas import PersonaGeneratorLangChain, SegmentBriefService
+from app.services.rag import PolishSocietyRAG
+```
+
 ### Kluczowe Serwisy
 
+**Personas:**
 - `PersonaGeneratorLangChain` - Generuje persony z RAG + statistical sampling
+- `SegmentBriefService` - Briefe segmentów (Redis cache 7 dni, storytelling)
+- `PersonaDetailsService` - Detail View orchestrator
+- `PersonaNeedsService` - JTBD analysis
+
+**Focus Groups:**
 - `FocusGroupServiceLangChain` - Orkiestracja dyskusji (async parallelization)
 - `MemoryServiceLangChain` - Event sourcing z semantic search
+
+**RAG:**
 - `RAGDocumentService` - Zarządzanie dokumentami (ingest, CRUD)
 - `GraphRAGService` - Graph RAG (Cypher queries, answer_question)
 - `PolishSocietyRAG` - Hybrid search (vector + keyword + RRF fusion)
-- `GraphService` - *(archived)* Analiza focus groups (Neo4j concepts/emotions)
 
 ### Archived Services
 
@@ -128,7 +149,7 @@ Models/DB (app/models/*.py) - data access
 GOOGLE_API_KEY=your_gemini_api_key
 
 # Database
-DATABASE_URL=postgresql+asyncpg://market_research:password@postgres:5432/market_research_db
+DATABASE_URL=postgresql+asyncpg://sight:password@postgres:5432/sight_db
 REDIS_URL=redis://redis:6379/0
 NEO4J_URI=bolt://neo4j:7687
 NEO4J_USER=neo4j

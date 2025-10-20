@@ -765,7 +765,7 @@ def main():
         print()
         print("Jeśli coś poszło nie tak, przywróć backup:")
         print("  1. Zatrzymaj aplikację: docker-compose down")
-        print("  2. Usuń Neo4j volume: docker volume rm market-research-saas_neo4j_data")
+        print("  2. Usuń Neo4j volume: docker volume rm sight_neo4j_data")
         print("  3. Uruchom Neo4j: docker-compose up -d neo4j")
         print("  4. Załaduj backup: cypher-shell < data/backups/neo4j-backup-TIMESTAMP.cypher")
         print()

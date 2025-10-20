@@ -48,7 +48,9 @@ const getStatusBadge = (focusGroup: any) => {
 };
 
 export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGroupsProps) {
-  const { selectedProject, setSelectedProject } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const setSelectedProject = useAppStore(state => state.setSelectedProject);
   const queryClient = useQueryClient();
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; focusGroup: any | null }>({
     open: false,

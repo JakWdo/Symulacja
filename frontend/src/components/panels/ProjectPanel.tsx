@@ -116,8 +116,11 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
 
 
 export function ProjectPanel() {
-  const { activePanel, setActivePanel, selectedProject, setSelectedProject } =
-    useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const activePanel = useAppStore(state => state.activePanel);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const setSelectedProject = useAppStore(state => state.setSelectedProject);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const { data: projects = [], isLoading, isError, error } = useQuery<Project[]>({

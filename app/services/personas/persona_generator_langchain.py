@@ -40,14 +40,14 @@ from app.core.constants import (
     POLISH_SURNAMES,
 )
 from app.models import Persona
-from app.services.clients import build_chat_model
+from app.services.shared.clients import build_chat_model
 
 settings = get_settings()
 
 # Import RAG service (opcjonalny - tylko jeśli RAG włączony)
 try:
     if settings.RAG_ENABLED:
-        from app.services.rag_hybrid_search_service import PolishSocietyRAG
+        from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
         _rag_service_available = True
     else:
         _rag_service_available = False
@@ -630,8 +630,8 @@ Wygeneruj krótką, chwytliwą nazwę marketingową dla segmentu tej persony.
 • UNIKAJ długich opisów technicznych jak "Kobiety 35-44 wyższe wykształcenie"
 • Polski język, kulturowo relevantne, konkretne
 
-PRZYKŁAD:
-{{"full_name": "Marek Kowalczyk", "catchy_segment_name": "Stabilni Tradycjonaliści", "persona_title": "Główny Księgowy", "headline": "Poznański księgowy (56) planujący emeryturę", "background_story": "28 lat w firmie, żonaty, dwoje dorosłych dzieci, kupił działkę pod Poznaniem, skarbnik parafii", "values": ["Stabilność", "Lojalność", "Rodzina", "Odpowiedzialność"], "interests": ["Wędkarstwo", "Majsterkowanie", "Grillowanie"], "communication_style": "formalny, face-to-face", "decision_making_style": "metodyczny, unika ryzyka", "typical_concerns": ["Emerytura", "Sukcesja", "Zdrowie"]}}
+PRZYKŁAD (z rozbudowanym background_story):
+{{"full_name": "Marek Kowalczyk", "catchy_segment_name": "Stabilni Tradycjonaliści", "persona_title": "Główny Księgowy", "headline": "Poznański księgowy (56) planujący emeryturę", "background_story": "Marek zaczął swoją karierę w latach 90., kiedy polska gospodarka przechodziła transformację. Po ukończeniu ekonomii na UAM w Poznaniu, dostał pracę w lokalnej firmie produkcyjnej jako młodszy księgowy. Przez 28 lat z zaangażowaniem budował struktury finansowe firmy, przechodząc od ręcznych ksiąg rachunkowych do nowoczesnych systemów ERP. Pamięta czasy hiperinflacji, kiedy ceny zmieniały się z dnia na dzień - to ukształtowało jego konserwatywne podejście do finansów.\\n\\nW życiu prywatnym stabilność była dla niego priorytetem. Ożenił się z Anną, koleżanką ze studiów, i razem wychowali dwoje dzieci - córkę Kasię (dziś prawniczkę w Warszawie) i syna Tomka (inżyniera w Wrocławiu). Trzy lata temu, po latach oszczędzania, spełnił marzenie i kupił działkę pod Poznaniem. Każdy weekend spędza tam, budując dom na emeryturę - to jego sposób na relaks i ucieczkę od codziennych obowiązków.\\n\\nMarek jest również skarbnikiem parafii w swojej dzielnicy. Pilnuje każdego grosza w budżecie kościoła, co czasami prowadzi do konfliktów z proboszczem, który ma bardziej 'wizjonerskie' podejście do wydatków. Ale Marek nie ustępuje - wie, że jego konserwatywne podejście chroni wspólnotę przed nieprzemyślanymi decyzjami.\\n\\nTeraz, na rok przed emeryturą, Marek czuje mieszankę ulgi i niepokoju. Z jednej strony cieszy się na czas dla siebie, wędkowanie i dokończenie domu. Z drugiej martwi się, czy jego emerytura (około 3500 zł netto) wystarczy na godne życie, zwłaszcza przy rosnącej inflacji. Obserwuje też z niepokojem, jak zmienia się świat - digitalizacja, którą wspierał w firmie, teraz wydaje mu się obca. Często zastanawia się, czy jego dzieci poradzą sobie w tym szybko zmieniającym się świecie.", "values": ["Stabilność", "Lojalność", "Rodzina", "Odpowiedzialność", "Oszczędność"], "interests": ["Wędkarstwo", "Majsterkowanie", "Grillowanie", "Historia Polski", "Budowa domu"], "communication_style": "formalny, face-to-face, ceni bezpośrednie rozmowy", "decision_making_style": "metodyczny, analityczny, unika ryzyka, bazuje na doświadczeniu", "typical_concerns": ["Wysokość emerytury i inflacja", "Zdrowie i dostęp do opieki medycznej", "Przyszłość dzieci", "Zakończenie budowy domu", "Cyfryzacja i nowe technologie"]}}
 
 ⚠️ KRYTYCZNE: Generuj KOMPLETNIE INNĄ personę z UNIKALNĄ historią życiową!
 • NIE kopiuj ogólnych opisów segmentu do background_story
@@ -644,7 +644,7 @@ WYŁĄCZNIE JSON (bez markdown):
   "catchy_segment_name": "<2-4 słowa, krótka marketingowa nazwa segmentu>",
   "persona_title": "<zawód/etap życia>",
   "headline": "<1 zdanie: wiek, zawód, UNIKALNE motywacje>",
-  "background_story": "<2-3 zdania: KONKRETNA historia TEJ OSOBY - jej życie, kariera, sytuacja>",
+  "background_story": "<3-5 akapitów (400-600 słów): SZCZEGÓŁOWA historia TEJ OSOBY - jej życie, kariera, wyzwania, aspiracje, konkretne wydarzenia. Pokaż jej drogę życiową, kluczowe decyzje, obecną sytuację i marzenia. Każdy akapit powinien pokazywać inny aspekt jej życia (przeszłość, praca, relacje, wyzwania, cele). Pisz jak storyteller - używaj konkretnych detali, emocji, wewnętrznych dylemotów.>",
   "values": ["<5-7 wartości>"],
   "interests": ["<5-7 hobby/aktywności>"],
   "communication_style": "<jak się komunikuje>",

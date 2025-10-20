@@ -1,0 +1,19 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'Dockerfile.cloudrun'
+      - '-t'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:latest'
+      - '.'
+    id: 'build-api-image'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:latest'
+    id: 'push-api-image'
+
+images:
+  - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:latest'

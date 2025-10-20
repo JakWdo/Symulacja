@@ -29,20 +29,20 @@ neo4j
 redis
 hiredis
 
-# LangChain Core
-langchain
-langchain-core
-langchain-community
-langchain-text-splitters
+# LangChain Core (compatible 0.2.x versions)
+langchain>=0.2.0,<0.3.0
+langchain-core>=0.2.38,<0.3.0
+langchain-community>=0.2.0,<0.3.0
+langchain-text-splitters>=0.2.0,<0.3.0
 
 # LangChain LLM Providers
-langchain-google-genai
-langchain-openai
-langchain-anthropic
-langchain-experimental
+langchain-google-genai>=1.0.0,<2.0.0
+langchain-openai>=0.1.0,<0.2.0
+langchain-anthropic>=0.1.0,<0.2.0
+langchain-experimental>=0.0.60,<0.1.0
 
 # LangGraph (for complex workflows)
-langgraph
+langgraph>=0.2.0,<0.3.0
 
 # Legacy LLM Integration (optional fallback)
 openai

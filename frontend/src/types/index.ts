@@ -630,6 +630,20 @@ export interface RagContextOrchestrationReasoning {
   segment_description?: string;
   segment_social_context?: string;
   segment_id?: string;
+  // NEW: Segment Brief (from SegmentBriefService)
+  segment_brief?: {
+    segment_id: string;
+    segment_name: string;
+    description: string; // 400-800 words storytelling
+    social_context: string;
+    characteristics: string[];
+    based_on_personas_count: number;
+    demographics: Record<string, any>;
+    generated_at: string;
+    generated_by: string;
+  };
+  // NEW: Persona Uniqueness
+  persona_uniqueness?: string; // 2-4 sentences about why this persona is unique in segment
 }
 
 export interface RAGGraphNode {

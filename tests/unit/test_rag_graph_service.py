@@ -12,7 +12,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
 
-from app.services.rag_graph_service import GraphRAGService
+from app.services.rag.rag_graph_service import GraphRAGService
 
 
 class TestGraphRAGServiceInit:

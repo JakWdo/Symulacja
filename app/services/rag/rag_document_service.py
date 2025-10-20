@@ -27,8 +27,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.core.config import get_settings
 from app.models.rag_document import RAGDocument
-from app.services.clients import build_chat_model
-from app.services.rag_clients import get_graph_store, get_vector_store
+from app.services.shared.clients import build_chat_model
+from app.services.rag.rag_clients import get_graph_store, get_vector_store
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -258,7 +258,7 @@ Priorytet: JAKOŚĆ > ilość. MAX 3 węzły, TYLKO pewne informacje. Mniej = le
                     graph_documents = await transformer.aconvert_to_graph_documents(chunks)
 
                     # Wzbogacenie węzłów o metadane dokumentu (współdzielona logika GraphRAGService)
-                    from app.services.rag_graph_service import GraphRAGService
+                    from app.services.rag.rag_graph_service import GraphRAGService
                     enriched_graph_documents = GraphRAGService.enrich_graph_nodes(
                         graph_documents,
                         doc_id=str(doc_id),

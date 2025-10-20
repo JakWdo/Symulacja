@@ -409,7 +409,7 @@ def main():
         print()
         print("Aby przywrócić backup:")
         print(f"  1. Zatrzymaj aplikację: docker-compose down")
-        print(f"  2. Usuń Neo4j volume: docker volume rm market-research-saas_neo4j_data")
+        print(f"  2. Usuń Neo4j volume: docker volume rm sight_neo4j_data")
         print(f"  3. Uruchom Neo4j: docker-compose up -d neo4j")
         print(f"  4. Załaduj backup: cypher-shell < {output_path}")
         print(f"  5. Ponownie utwórz embeddings: POST /api/v1/rag/documents/upload")

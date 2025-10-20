@@ -34,9 +34,9 @@ from app.schemas.rag import (
     RAGQueryRequest,
     RAGQueryResponse,
 )
-from app.services.rag_document_service import RAGDocumentService
-from app.services.rag_hybrid_search_service import PolishSocietyRAG
-from app.services.rag_graph_service import GraphRAGService
+from app.services.rag.rag_document_service import RAGDocumentService
+from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.rag.rag_graph_service import GraphRAGService
 
 settings = get_settings()
 router = APIRouter(prefix="/rag", tags=["RAG Knowledge Base"])

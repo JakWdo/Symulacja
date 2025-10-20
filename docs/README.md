@@ -1,4 +1,4 @@
-# 📚 Dokumentacja Techniczna - Market Research SaaS
+# 📚 Dokumentacja Techniczna - Sight
 
 Indeks dokumentacji technicznej dla deweloperów.
 
@@ -36,7 +36,7 @@ Indeks dokumentacji technicznej dla deweloperów.
 ## 📂 Struktura Projektu
 
 ```
-market-research-saas/
+sight/
 ├── README.md              # User-facing documentation
 ├── CLAUDE.md              # Claude Code instructions (architecture, patterns)
 ├── PLAN.md                # Roadmap & task tracking (używany przez Claude)

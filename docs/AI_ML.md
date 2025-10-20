@@ -1,4 +1,4 @@
-# System AI/ML w Market Research SaaS
+# System AI/ML w Sight
 
 ## Wprowadzenie
 

@@ -1,5 +1,5 @@
 """
-Główna aplikacja FastAPI - Market Research SaaS
+Główna aplikacja FastAPI - Sight
 
 System do przeprowadzania wirtualnych grup fokusowych z wykorzystaniem AI.
 Wykorzystuje Google Gemini do generowania person i symulacji dyskusji.

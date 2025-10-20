@@ -6,7 +6,7 @@ Endpointy do generowania i zarządzania syntetycznymi personami dla badań rynko
 Główne funkcjonalności:
 - POST /projects/{project_id}/personas/generate - generuje persony z AI (async background task)
 - GET /projects/{project_id}/personas - pobiera wszystkie persony projektu
-- GET /personas/{persona_id} - pobiera szczegóły pojedynczej persony
+- GET /personas/{persona_id}/details - pobiera pełny detail view persony (MVP)
 - DELETE /personas/{persona_id} - usuwa personę (soft delete)
 
 Generowanie person:
@@ -38,7 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import AsyncSessionLocal, get_db
 from app.models import Project, Persona, User
-from app.services.persona_orchestration import PersonaOrchestrationService
+from app.services.personas.persona_orchestration import PersonaOrchestrationService
 from app.api.dependencies import get_current_user, get_project_for_user, get_persona_for_user
 from app.schemas.persona import (
     PersonaResponse,
@@ -48,32 +48,19 @@ from app.schemas.persona import (
 )
 from app.schemas.persona_details import (
     PersonaDetailsResponse,
-    PersonaExportRequest,
-    PersonaExportResponse,
     PersonaDeleteRequest,
     PersonaDeleteResponse,
     PersonaUndoDeleteResponse,
     PersonasSummaryResponse,
-    PersonaMessagingRequest,
-    PersonaMessagingResponse,
-    PersonaComparisonRequest,
-    PersonaComparisonResponse,
 )
-from app.services import DemographicDistribution
-from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PreferredPersonaGenerator
-from app.services.persona_validator import PersonaValidator
-from app.services.persona_details_service import PersonaDetailsService
-from app.services.persona_audit_service import PersonaAuditService
-from app.services.persona_messaging_service import PersonaMessagingService
-from app.services.persona_comparison_service import PersonaComparisonService
-from app.core.constants import (
-    DEFAULT_AGE_GROUPS,
-    DEFAULT_GENDERS,
-    DEFAULT_EDUCATION_LEVELS,
-    DEFAULT_INCOME_BRACKETS,
-    DEFAULT_LOCATIONS,
-    DEFAULT_OCCUPATIONS,
-    # Polskie stałe (preferowane jako fallback)
+from app.services.personas import (
+    PersonaGeneratorLangChain,
+    PersonaValidator,
+    PersonaDetailsService,
+    PersonaAuditService,
+)
+from app.services.personas.persona_generator_langchain import DemographicDistribution
+from app.core.demographics.polish_constants import (
     POLISH_LOCATIONS,
     POLISH_INCOME_BRACKETS,
     POLISH_EDUCATION_LEVELS,
@@ -81,6 +68,17 @@ from app.core.constants import (
     POLISH_INTERESTS,
     POLISH_OCCUPATIONS,
 )
+from app.core.demographics.international_constants import (
+    DEFAULT_AGE_GROUPS,
+    DEFAULT_GENDERS,
+    DEFAULT_EDUCATION_LEVELS,
+    DEFAULT_INCOME_BRACKETS,
+    DEFAULT_LOCATIONS,
+    DEFAULT_OCCUPATIONS,
+)
+
+# Alias dla kompatybilności
+PreferredPersonaGenerator = PersonaGeneratorLangChain
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -1697,22 +1695,6 @@ async def list_personas(
     return personas
 
 
-@router.get("/personas/{persona_id}", response_model=PersonaResponse)
-async def get_persona(
-    persona_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Get a specific persona"""
-    persona = await get_persona_for_user(persona_id, current_user, db)
-
-    # Normalizuj rag_citations (backward compatibility)
-    if persona.rag_citations:
-        persona.rag_citations = _normalize_rag_citations(persona.rag_citations)
-
-    return persona
-
-
 @router.delete("/personas/{persona_id}", response_model=PersonaDeleteResponse)
 async def delete_persona(
     persona_id: UUID,
@@ -1835,151 +1817,6 @@ async def undo_delete_persona(
         restored_by=current_user.id,
         message="Persona restored successfully",
     )
-
-
-@router.post(
-    "/personas/{persona_id}/actions/messaging",
-    response_model=PersonaMessagingResponse,
-)
-@limiter.limit("10/hour")
-async def generate_persona_messaging(
-    request: Request,  # Required by slowapi limiter
-    persona_id: UUID,
-    payload: PersonaMessagingRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    persona = await get_persona_for_user(persona_id, current_user, db)
-    messaging_service = PersonaMessagingService()
-    result = await messaging_service.generate_messaging(
-        persona,
-        tone=payload.tone,
-        message_type=payload.message_type,
-        num_variants=payload.num_variants,
-        context=payload.context,
-    )
-
-    audit_service = PersonaAuditService()
-    await audit_service.log_action(
-        persona_id=persona_id,
-        user_id=current_user.id,
-        action="messaging",
-        details={
-            "tone": payload.tone,
-            "type": payload.message_type,
-            "variants": payload.num_variants,
-        },
-        db=db,
-    )
-
-    return PersonaMessagingResponse(**result)
-
-
-@router.post(
-    "/personas/{persona_id}/actions/compare",
-    response_model=PersonaComparisonResponse,
-)
-@limiter.limit("30/minute")
-async def compare_personas_endpoint(
-    request: Request,  # Required by slowapi limiter
-    persona_id: UUID,
-    payload: PersonaComparisonRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    primary_persona = await get_persona_for_user(persona_id, current_user, db)
-    comparison_service = PersonaComparisonService(db)
-    data = await comparison_service.compare_personas(
-        primary_persona,
-        [str(pid) for pid in payload.persona_ids],
-        sections=payload.sections,
-    )
-
-    audit_service = PersonaAuditService()
-    await audit_service.log_action(
-        persona_id=persona_id,
-        user_id=current_user.id,
-        action="compare",
-        details={
-            "persona_ids": [str(pid) for pid in payload.persona_ids],
-            "sections": payload.sections,
-        },
-        db=db,
-    )
-
-    return PersonaComparisonResponse(**data)
-
-
-@router.post(
-    "/personas/{persona_id}/actions/export",
-    response_model=PersonaExportResponse,
-)
-@limiter.limit("30/minute")
-async def export_persona_details(
-    request: Request,  # Required by slowapi limiter
-    persona_id: UUID,
-    payload: PersonaExportRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if payload.format != "json":
-        raise HTTPException(status_code=400, detail="Only JSON export is supported in this environment.")
-
-    details_service = PersonaDetailsService(db)
-    details = await details_service.get_persona_details(
-        persona_id=persona_id,
-        user_id=current_user.id,
-        force_refresh=False,
-    )
-
-    # Note: Removed "journey" section (deprecated customer_journey field)
-    # Available sections: ["overview", "profile", "needs", "insights"]
-    sections = payload.sections or ["overview", "profile", "needs", "insights"]
-    content: Dict[str, Any] = {}
-
-    if "overview" in sections:
-        content["overview"] = {
-            # kpi_snapshot removed - deprecated field
-            "rag_citations": details.rag_citations,
-        }
-    if "profile" in sections:
-        content["profile"] = {
-            "full_name": details.full_name,
-            "persona_title": details.persona_title,
-            "headline": details.headline,
-            "demographics": {
-                "age": details.age,
-                "gender": details.gender,
-                "location": details.location,
-                "education_level": details.education_level,
-                "income_bracket": details.income_bracket,
-                "occupation": details.occupation,
-            },
-            "big_five": details.big_five,
-            "values": details.values,
-            "interests": details.interests,
-            "background_story": details.background_story,
-        }
-    # "journey" section removed - customer_journey field deprecated
-    # For journey data, use PersonaJourneyService directly
-    if "needs" in sections:
-        content["needs"] = details.needs_and_pains.model_dump(mode="json") if details.needs_and_pains else None
-    if "insights" in sections:
-        content["insights"] = {
-            "rag_context_details": details.rag_context_details,
-            "audit_log": [entry.model_dump(mode="json") for entry in details.audit_log],
-        }
-
-    audit_service = PersonaAuditService()
-    await audit_service.log_action(
-        persona_id=persona_id,
-        user_id=current_user.id,
-        action="export",
-        details={"format": payload.format, "sections": sections},
-        db=db,
-    )
-
-    return PersonaExportResponse(format="json", sections=sections, content=content)
 
 
 @router.get("/personas/{persona_id}/reasoning", response_model=PersonaReasoningResponse)

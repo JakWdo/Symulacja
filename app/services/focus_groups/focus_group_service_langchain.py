@@ -20,10 +20,10 @@ from uuid import UUID
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.models import FocusGroup, Persona, PersonaResponse
-from app.services.memory_service_langchain import MemoryServiceLangChain
+from app.services.focus_groups.memory_service_langchain import MemoryServiceLangChain
 from app.db import AsyncSessionLocal
 from app.core.config import get_settings
-from app.services.clients import build_chat_model
+from app.services.shared.clients import build_chat_model
 
 settings = get_settings()
 

@@ -21,8 +21,8 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
-from app.services.rag_hybrid_search_service import PolishSocietyRAG
-from app.services.clients import build_chat_model
+from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.shared.clients import build_chat_model
 
 settings = get_settings()
 logger = logging.getLogger(__name__)

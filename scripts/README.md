@@ -1,4 +1,4 @@
-# 🛠️ Scripts - Utility Scripts dla Market Research SaaS
+# 🛠️ Scripts - Utility Scripts dla Sight
 
 Ten folder zawiera skrypty pomocnicze (utility scripts) do zarządzania infrastrukturą i inicjalizacji systemu.
 
@@ -235,7 +235,7 @@ async def test_init_db_script():
 # Rozwiązanie: Uruchom jako moduł lub dodaj do PYTHONPATH
 python -m scripts.init_db
 # LUB
-PYTHONPATH=/Users/jakubwdowicz/market-research-saas python scripts/init_db.py
+PYTHONPATH=/Users/jakubwdowicz/sight python scripts/init_db.py
 ```
 
 #### ❌ "Connection refused" (PostgreSQL)
@@ -329,14 +329,14 @@ python scripts/backup_neo4j.py --output /path/to/backup.cypher
 docker-compose down
 
 # 2. Usuń Neo4j volume (UWAGA: usuwa wszystkie dane!)
-docker volume rm market-research-saas_neo4j_data
+docker volume rm sight_neo4j_data
 
 # 3. Uruchom Neo4j
 docker-compose up -d neo4j
 
 # 4. Załaduj backup
 cat data/backups/neo4j-backup-2025-10-15-12-00.cypher | \
-  docker exec -i market-research-saas-neo4j-1 cypher-shell \
+  docker exec -i sight-neo4j-1 cypher-shell \
   -u neo4j -p dev_password_change_in_prod
 
 # 5. Re-create indexes
@@ -514,7 +514,7 @@ python scripts/init_neo4j_indexes.py
 
 # 7. (Opcjonalnie) Restore backup jeśli chcesz
 # cat data/backups/neo4j-backup-YYYY-MM-DD-HH-MM.cypher | \
-#   docker exec -i market-research-saas-neo4j-1 cypher-shell \
+#   docker exec -i sight-neo4j-1 cypher-shell \
 #   -u neo4j -p dev_password_change_in_prod
 ```
 

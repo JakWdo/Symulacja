@@ -11,7 +11,10 @@ import { formatDate, cn } from '@/lib/utils';
 import { Logo } from '@/components/ui/Logo';
 
 export function AnalysisPanel() {
-  const { selectedFocusGroup, activePanel, setActivePanel } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const selectedFocusGroup = useAppStore(state => state.selectedFocusGroup);
+  const activePanel = useAppStore(state => state.activePanel);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
   const [activeView, setActiveView] = useState<'responses' | 'ai-summary'>('responses');
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set([0]));
 

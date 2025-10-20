@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models import FocusGroup, PersonaResponse, Persona
-from app.services.clients import build_chat_model
+from app.services.shared.clients import build_chat_model
 
 settings = get_settings()
 

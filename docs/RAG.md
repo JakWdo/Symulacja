@@ -1,4 +1,4 @@
-# System RAG - Retrieval-Augmented Generation w Market Research SaaS
+# System RAG - Retrieval-Augmented Generation w Sight
 
 System RAG (Retrieval-Augmented Generation) stanowi zaawansowany mechanizm wzbogacania generowanych person o precyzyjny, kontekstowy wgląd w polskie społeczeństwo. Łączy on dwie kluczowe strategie: Hybrid Search (semantyczne i leksykalne dopasowanie dokumentów) oraz Graph RAG (strukturalna wiedza z grafów), tworząc wielowarstwowy, inteligentny system pozyskiwania i przetwarzania informacji.
 

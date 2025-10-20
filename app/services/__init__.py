@@ -1,58 +1,99 @@
 """
-Moduł Services - Logika Biznesowa
+Services module - organized by functional domain.
 
-Zawiera serwisy implementujące główną funkcjonalność platformy:
+Structure (REORGANIZED 2025-10-20):
+- shared/       - Shared utilities and LLM clients
+- personas/     - Persona management services
+- focus_groups/ - Focus group and discussion services
+- rag/          - RAG and knowledge graph services
+- surveys/      - Survey services
+- archived/     - Legacy/archived services
 
-- PersonaGenerator: Generuje realistyczne persony z AI (Gemini Flash)
-  * Sampling demografii z rozkładów prawdopodobieństwa
-  * Sampling cech osobowości (Big Five, Hofstede)
-  * Walidacja statystyczna (chi-kwadrat)
-  * ~1.5-3s na personę
+All services are re-exported from this module for backward compatibility.
 
+Main services:
+- PersonaGenerator: Generuje realistyczne persony z AI (Gemini Flash + RAG)
 - FocusGroupService: Orkiestruje dyskusje grup fokusowych
-  * Równoległe przetwarzanie odpowiedzi person (asyncio)
-  * Integracja z MemoryService dla kontekstu
-  * Target: <3s per persona, <30s całkowity czas
-
 - MemoryService: Event sourcing + semantic search
-  * Przechowuje historię działań person (PersonaEvent)
-  * Embeddingi (Google Gemini) dla similarity search
-  * Temporal decay - nowsze eventy mają większą wagę
-
 - DiscussionSummarizerService: AI-powered podsumowania
-  * Sentiment analysis
-  * Idea Score (0-100)
-  * Consensus level
-  * Executive summary (Gemini Pro/Flash)
-
-- SurveyResponseGenerator: Generuje odpowiedzi na ankiety
-  * 4 typy pytań: single/multiple choice, rating scale, open text
-  * Persony odpowiadają zgodnie z demografią i osobowością
+- RAG services: Document management, Graph RAG, Hybrid Search
 
 Architektura: Service Layer Pattern (API → Services → Models)
 Framework: LangChain + Google Gemini (Flash dla szybkości, Pro dla analiz)
 """
 
-from .persona_generator_langchain import (
-    PersonaGeneratorLangChain as PersonaGenerator,
-    DemographicDistribution,
+# Shared utilities
+from .shared import build_chat_model
+
+# Persona services (with backward-compatible aliases)
+from .personas import (
+    PersonaGeneratorLangChain,
+    PersonaOrchestrationService,
+    PersonaValidator,
+    PersonaDetailsService,
+    PersonaNeedsService,
+    PersonaAuditService,
+    SegmentBriefService,
 )
-from .memory_service_langchain import MemoryServiceLangChain as MemoryService
-from .focus_group_service_langchain import FocusGroupServiceLangChain as FocusGroupService
-from .discussion_summarizer import DiscussionSummarizerService
-from .survey_response_generator import SurveyResponseGenerator
-from .persona_needs_service import PersonaNeedsService
-from .persona_messaging_service import PersonaMessagingService
-from .persona_comparison_service import PersonaComparisonService
+
+# Focus group services (with backward-compatible aliases)
+from .focus_groups import (
+    FocusGroupServiceLangChain,
+    DiscussionSummarizerService,
+    MemoryServiceLangChain,
+)
+
+# RAG services
+from .rag import (
+    RAGDocumentService,
+    GraphRAGService,
+    PolishSocietyRAG,
+    get_graph_store,
+    get_vector_store,
+)
+
+# Survey services
+from .surveys import (
+    SurveyResponseGenerator,
+)
+
+# Backward-compatible aliases (DEPRECATED - use full names instead)
+PersonaGenerator = PersonaGeneratorLangChain
+MemoryService = MemoryServiceLangChain
+FocusGroupService = FocusGroupServiceLangChain
+
+# DemographicDistribution - legacy export (now in PersonaGeneratorLangChain)
+try:
+    from .personas.persona_generator_langchain import DemographicDistribution
+except ImportError:
+    DemographicDistribution = None
 
 __all__ = [
+    # Shared
+    "build_chat_model",
+    # Personas
+    "PersonaGeneratorLangChain",
+    "PersonaOrchestrationService",
+    "PersonaValidator",
+    "PersonaDetailsService",
+    "PersonaNeedsService",
+    "PersonaAuditService",
+    "SegmentBriefService",
+    # Focus groups
+    "FocusGroupServiceLangChain",
+    "DiscussionSummarizerService",
+    "MemoryServiceLangChain",
+    # RAG
+    "RAGDocumentService",
+    "GraphRAGService",
+    "PolishSocietyRAG",
+    "get_graph_store",
+    "get_vector_store",
+    # Surveys
+    "SurveyResponseGenerator",
+    # Backward-compatible aliases (DEPRECATED)
     "PersonaGenerator",
-    "DemographicDistribution",
     "MemoryService",
     "FocusGroupService",
-    "DiscussionSummarizerService",
-    "SurveyResponseGenerator",
-    "PersonaNeedsService",
-    "PersonaMessagingService",
-    "PersonaComparisonService",
+    "DemographicDistribution",
 ]

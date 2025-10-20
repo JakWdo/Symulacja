@@ -36,8 +36,9 @@ from pydantic import ValidationError
 
 from app.db import AsyncSessionLocal
 from app.models import Persona
-from app.services.persona_audit_service import PersonaAuditService
-from app.services.persona_needs_service import PersonaNeedsService
+from app.services.personas.persona_audit_service import PersonaAuditService
+from app.services.personas.persona_needs_service import PersonaNeedsService
+from app.services.personas.segment_brief_service import SegmentBriefService
 from app.core.redis import redis_get_json, redis_set_json, redis_delete
 from app.schemas.persona_details import PersonaDetailsResponse, PersonaAuditEntry
 
@@ -332,9 +333,10 @@ class PersonaDetailsService:
         # Jeśli któraś operacja failuje, catch exception i zwróć None (graceful degradation)
 
         parallel_start = time.time()
-        needs_and_pains, audit_log = await asyncio.gather(
+        needs_and_pains, audit_log, segment_brief_data = await asyncio.gather(
             self._fetch_needs_and_pains(persona, force_refresh=force_refresh),
             self._fetch_audit_log(persona_id),
+            self._fetch_segment_brief(persona, force_refresh=force_refresh),
             return_exceptions=True,  # Nie failuj całego requesta jeśli 1 operacja failuje
         )
         parallel_elapsed_ms = int((time.time() - parallel_start) * 1000)
@@ -356,7 +358,24 @@ class PersonaDetailsService:
             )
             audit_log = []
 
+        if isinstance(segment_brief_data, Exception):
+            logger.warning(
+                "Failed to fetch segment brief for persona %s: %s",
+                persona_id,
+                segment_brief_data,
+                exc_info=segment_brief_data,
+            )
+            segment_brief_data = None
+
+        # Enrich RAG details with segment brief data
         enriched_rag_details = _ensure_segment_metadata(persona)
+        if segment_brief_data and enriched_rag_details:
+            # Merge segment brief into orchestration_reasoning
+            orchestration = enriched_rag_details.get("orchestration_reasoning") or {}
+            orchestration["segment_brief"] = segment_brief_data.get("segment_brief")
+            orchestration["persona_uniqueness"] = segment_brief_data.get("persona_uniqueness")
+            enriched_rag_details["orchestration_reasoning"] = orchestration
+
         segment_id = persona.segment_id or (enriched_rag_details.get("segment_id") if enriched_rag_details else None)
         segment_name = persona.segment_name or (enriched_rag_details.get("segment_name") if enriched_rag_details else None)
 
@@ -555,3 +574,70 @@ class PersonaDetailsService:
             if isinstance(candidate, str) and candidate.strip():
                 return candidate.strip()
         return None
+
+    async def _fetch_segment_brief(
+        self,
+        persona: Persona,
+        *,
+        force_refresh: bool,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Fetch segment brief i persona uniqueness używając SegmentBriefService.
+
+        Args:
+            persona: Persona object
+            force_refresh: Whether to bypass cache
+
+        Returns:
+            Dict z segment_brief i persona_uniqueness lub None jeśli failuje
+
+        Performance:
+            - Cache hit (segment brief): < 50ms
+            - Cache miss: < 5s (RAG + LLM dla briefu + uniqueness)
+        """
+        try:
+            segment_service = SegmentBriefService(self.db)
+
+            # Przygotuj demographics z persony
+            demographics = {
+                "age": persona.age or "unknown",
+                "gender": persona.gender or "unknown",
+                "education": persona.education_level or "unknown",
+                "location": persona.location or "unknown",
+                "income": persona.income_bracket or "unknown",
+            }
+
+            # Generuj/pobierz segment brief (z cache jeśli !force_refresh)
+            segment_brief = await segment_service.generate_segment_brief(
+                demographics=demographics,
+                project_id=persona.project_id,
+                max_example_personas=3,
+                force_refresh=force_refresh
+            )
+
+            # Generuj persona uniqueness
+            persona_uniqueness = await segment_service.generate_persona_uniqueness(
+                persona=persona,
+                segment_brief=segment_brief
+            )
+
+            logger.info(
+                "✅ Segment brief fetched for persona %s (segment: %s, from_cache: %s)",
+                persona.id,
+                segment_brief.segment_id,
+                not force_refresh
+            )
+
+            return {
+                "segment_brief": segment_brief.model_dump(mode="json"),
+                "persona_uniqueness": persona_uniqueness,
+            }
+
+        except Exception as exc:
+            logger.error(
+                "Failed to generate segment brief for persona %s: %s",
+                persona.id,
+                exc,
+                exc_info=True
+            )
+            return None

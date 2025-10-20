@@ -24,7 +24,7 @@ from app.models import Survey, Persona, SurveyResponse
 from app.schemas.survey import QuestionAnalytics
 from app.db import AsyncSessionLocal
 from app.core.config import get_settings
-from app.services.clients import build_chat_model
+from app.services.shared.clients import build_chat_model
 
 settings = get_settings()
 
