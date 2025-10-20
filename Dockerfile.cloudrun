@@ -78,8 +78,8 @@ EXPOSE $PORT
 # app.main:app               → FastAPI app object
 #
 # exec = forward signals (SIGTERM) properly dla graceful shutdown
-# DODANE dla debugowania: --log-level debug --preload-app (pokazuje błędy podczas load)
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 --log-level debug --preload-app --access-logfile - --error-logfile - app.main:app --worker-class uvicorn.workers.UvicornWorker
+# Production config: debug logging but NO preload-app (not supported in gunicorn 23)
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 --log-level info --access-logfile - --error-logfile - app.main:app --worker-class uvicorn.workers.UvicornWorker
 
 # Switch na non-root user OSTATNI krok (po wszystkich chown operations)
 USER appuser
