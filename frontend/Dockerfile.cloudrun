@@ -1,0 +1,50 @@
+# ==============================================================================
+# frontend/Dockerfile.cloudrun - Production-optimized dla Google Cloud Run
+# ==============================================================================
+# Build React app i serve przez nginx
+# Cloud Run differences: port 8080, env var injection, static build
+# ==============================================================================
+
+# ==============================================================================
+# STAGE 1: BUILDER - Build React application
+# ==============================================================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files for caching
+COPY package*.json ./
+
+# Install ALL dependencies (including dev for build)
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build production bundle
+# Vite will use env vars from build-time
+RUN npm run build
+
+# ==============================================================================
+# STAGE 2: PRODUCTION - Nginx serving static files
+# ==============================================================================
+FROM nginx:alpine
+
+# Cloud Run requires port 8080
+# Nginx default is 80, so we need to reconfigure
+ENV PORT=8080
+
+# Copy built assets from builder
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration template
+COPY nginx.cloudrun.conf /etc/nginx/templates/default.conf.template
+
+# nginx:alpine automatically substitutes $PORT in templates and starts nginx
+# No need for custom CMD - the base image handles it with envsubst
+
+EXPOSE $PORT
+
+# Health check for Cloud Run
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:$PORT/ || exit 1

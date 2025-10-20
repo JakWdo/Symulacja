@@ -1,4 +1,14 @@
+# ==============================================================================
+# cloudbuild.yaml - Complete CI/CD for Sight (Backend + Frontend)
+# ==============================================================================
+# This builds and deploys BOTH backend API and frontend in one pipeline
+# Triggered automatically by GitHub push to cleanup/dead-code-removal branch
+# ==============================================================================
+
 steps:
+  # ==========================================================================
+  # BACKEND: Build API Docker Image
+  # ==========================================================================
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -6,14 +16,104 @@ steps:
       - 'Dockerfile.cloudrun'
       - '-t'
       - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:latest'
+      - '-t'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:$SHORT_SHA'
       - '.'
-    id: 'build-api-image'
+    id: 'build-api'
 
+  # ==========================================================================
+  # BACKEND: Push API Image
+  # ==========================================================================
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:latest'
-    id: 'push-api-image'
+      - '--all-tags'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api'
+    id: 'push-api'
+    waitFor: ['build-api']
 
+  # ==========================================================================
+  # BACKEND: Deploy to Cloud Run
+  # ==========================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'sight-api'
+      - '--image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:latest'
+      - '--region=europe-central2'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+      - '--memory=2Gi'
+      - '--cpu=1'
+      - '--timeout=300'
+      - '--min-instances=0'
+      - '--max-instances=3'
+      - '--add-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight'
+      - '--set-secrets=DATABASE_URL=DATABASE_URL_CLOUD:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,NEO4J_PASSWORD=NEO4J_PASSWORD:latest,NEO4J_URI=NEO4J_URI:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD:latest,REDIS_URL=REDIS_URL:latest,SECRET_KEY=SECRET_KEY:latest'
+      - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash'
+    id: 'deploy-api'
+    waitFor: ['push-api']
+
+  # ==========================================================================
+  # FRONTEND: Build React App Docker Image
+  # ==========================================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'frontend/Dockerfile.cloudrun'
+      - '-t'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/frontend:latest'
+      - '-t'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/frontend:$SHORT_SHA'
+      - './frontend'
+    id: 'build-frontend'
+
+  # ==========================================================================
+  # FRONTEND: Push Frontend Image
+  # ==========================================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/frontend'
+    id: 'push-frontend'
+    waitFor: ['build-frontend']
+
+  # ==========================================================================
+  # FRONTEND: Deploy to Cloud Run
+  # ==========================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'sight-frontend'
+      - '--image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/frontend:latest'
+      - '--region=europe-central2'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--timeout=60'
+      - '--min-instances=0'
+      - '--max-instances=10'
+      - '--set-env-vars=BACKEND_URL=https://sight-api-193742683473.europe-central2.run.app'
+    id: 'deploy-frontend'
+    waitFor: ['push-frontend', 'deploy-api']  # Deploy frontend AFTER api is ready
+
+# Output images
 images:
   - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:latest'
+  - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/frontend:latest'
+
+# Build options
+options:
+  machineType: 'N1_HIGHCPU_8'  # Fast build
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: '3600s'  # 1 hour total timeout
