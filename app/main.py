@@ -37,36 +37,12 @@ async def lifespan(app: FastAPI):
     print("🚀 LIFESPAN: Inicjalizacja aplikacji...")
     logger.info("🚀 LIFESPAN: Inicjalizacja aplikacji...")
 
-    # Inicjalizuj RAG serwisy przy starcie aby wykryć błędy konfiguracji wcześnie
-    try:
-        print("LIFESPAN: Inicjalizacja RAG Document Service...")
-        logger.info("LIFESPAN: Inicjalizacja RAG Document Service...")
-        from app.api.rag import get_rag_document_service
-        doc_service = get_rag_document_service()
-        if doc_service.vector_store:
-            print(f"✓ LIFESPAN: RAG Document Service OK - vector_store={type(doc_service.vector_store)}")
-            logger.info("✓ LIFESPAN: RAG Document Service zainicjalizowany pomyślnie")
-        else:
-            print("✗ LIFESPAN: RAG Document Service: vector_store is None!")
-            logger.error("✗ LIFESPAN: RAG Document Service: vector_store is None!")
-    except Exception as exc:
-        print(f"✗ LIFESPAN: Błąd RAG Document Service: {exc}")
-        logger.error("✗ Błąd podczas inicjalizacji RAG Document Service: %s", exc, exc_info=True)
-
-    try:
-        print("LIFESPAN: Inicjalizacja Polish Society RAG...")
-        logger.info("LIFESPAN: Inicjalizacja Polish Society RAG...")
-        from app.api.rag import get_polish_society_rag
-        rag_service = get_polish_society_rag()
-        if rag_service.vector_store:
-            print(f"✓ LIFESPAN: Polish Society RAG OK - vector_store={type(rag_service.vector_store)}")
-            logger.info("✓ LIFESPAN: Polish Society RAG zainicjalizowany pomyślnie")
-        else:
-            print("✗ LIFESPAN: Polish Society RAG: vector_store is None!")
-            logger.error("✗ LIFESPAN: Polish Society RAG: vector_store is None!")
-    except Exception as exc:
-        print(f"✗ LIFESPAN: Błąd Polish Society RAG: {exc}")
-        logger.error("✗ Błąd podczas inicjalizacji Polish Society RAG: %s", exc, exc_info=True)
+    # DISABLED: Eager initialization RAG services (causes crash in Cloud Run with Google API)
+    # RAG services będą inicjalizowane lazy (przy pierwszym użyciu) aby uniknąć:
+    # - "503 Illegal metadata" błędów z Google Gemini API podczas startu
+    # - Timeouts w Cloud Run health checks
+    # - Niepotrzebnych wywołań API gdy RAG nie jest używany
+    logger.info("✓ LIFESPAN: RAG services skonfigurowane (lazy initialization)")
 
     print("✓ LIFESPAN: Aplikacja gotowa do obsługi żądań")
     logger.info("✓ LIFESPAN: Aplikacja gotowa do obsługi żądań")
