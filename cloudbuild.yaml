@@ -40,7 +40,7 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'sight-api'
+      - 'sight'
       - '--image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/api:latest'
       - '--region=europe-central2'
       - '--platform=managed'
@@ -102,7 +102,7 @@ steps:
       - '--timeout=60'
       - '--min-instances=0'
       - '--max-instances=10'
-      - '--set-env-vars=BACKEND_URL=https://sight-api-193742683473.europe-central2.run.app'
+      - '--set-env-vars=BACKEND_URL=https://sight-193742683473.europe-central2.run.app'
     id: 'deploy-frontend'
     waitFor: ['push-frontend', 'deploy-api']  # Deploy frontend AFTER api is ready
 
