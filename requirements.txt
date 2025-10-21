@@ -22,6 +22,7 @@ sqlalchemy
 asyncpg
 psycopg2-binary
 alembic
+aiosqlite  # Async SQLite driver for tests (Cloud Build)
 
 # Vector Database & Graph DB
 pgvector
