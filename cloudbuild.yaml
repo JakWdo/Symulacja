@@ -302,40 +302,40 @@ steps:
 
         # Get deployed service URL
         SERVICE_URL=$(gcloud run services describe sight --region=europe-central2 --format="value(status.url)")
-        echo "Testing deployment at: $SERVICE_URL"
+        echo "Testing deployment at: $$SERVICE_URL"
 
         # Test 1: Health endpoint
-        echo "Test 1/4: Health check..."
-        HEALTH_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/health" || echo "FAIL")
-        if [ "$HEALTH_STATUS" != "200" ]; then
-          echo "❌ Health check FAILED (HTTP $HEALTH_STATUS)"
+        echo "Test 1/5: Health check..."
+        HEALTH_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$$SERVICE_URL/health" || echo "FAIL")
+        if [ "$$HEALTH_STATUS" != "200" ]; then
+          echo "❌ Health check FAILED (HTTP $$HEALTH_STATUS)"
           exit 1
         fi
         echo "✅ Health check passed"
 
         # Test 2: Startup probe
-        echo "Test 2/4: Startup probe..."
-        STARTUP_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/startup" || echo "FAIL")
-        if [ "$STARTUP_STATUS" != "200" ]; then
-          echo "❌ Startup probe FAILED (HTTP $STARTUP_STATUS)"
+        echo "Test 2/5: Startup probe..."
+        STARTUP_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$$SERVICE_URL/startup" || echo "FAIL")
+        if [ "$$STARTUP_STATUS" != "200" ]; then
+          echo "❌ Startup probe FAILED (HTTP $$STARTUP_STATUS)"
           exit 1
         fi
         echo "✅ Startup probe passed"
 
         # Test 3: API docs (OpenAPI)
-        echo "Test 3/4: API documentation..."
-        DOCS_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/docs" || echo "FAIL")
-        if [ "$DOCS_STATUS" != "200" ]; then
-          echo "❌ API docs FAILED (HTTP $DOCS_STATUS)"
+        echo "Test 3/5: API documentation..."
+        DOCS_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$$SERVICE_URL/docs" || echo "FAIL")
+        if [ "$$DOCS_STATUS" != "200" ]; then
+          echo "❌ API docs FAILED (HTTP $$DOCS_STATUS)"
           exit 1
         fi
         echo "✅ API docs accessible"
 
         # Test 4: Frontend (React SPA)
         echo "Test 4/5: Frontend application..."
-        FRONTEND_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/" || echo "FAIL")
-        if [ "$FRONTEND_STATUS" != "200" ]; then
-          echo "❌ Frontend FAILED (HTTP $FRONTEND_STATUS)"
+        FRONTEND_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$$SERVICE_URL/" || echo "FAIL")
+        if [ "$$FRONTEND_STATUS" != "200" ]; then
+          echo "❌ Frontend FAILED (HTTP $$FRONTEND_STATUS)"
           exit 1
         fi
         echo "✅ Frontend accessible"
@@ -343,17 +343,17 @@ steps:
         # Test 5: API endpoint (POST /api/v1/auth/register - public endpoint)
         echo "Test 5/5: API endpoint (same-origin, no CORS needed)..."
         # Test public endpoint that doesn't require auth
-        API_TEST=$(curl -f -s -X POST "$SERVICE_URL/api/v1/auth/register" \
+        API_TEST=$(curl -f -s -X POST "$$SERVICE_URL/api/v1/auth/register" \
           -H "Content-Type: application/json" \
           -d '{"email":"test@example.com","password":"test123","full_name":"Test"}' \
           -w "%{http_code}" -o /tmp/api_response.txt 2>&1 || echo "FAIL")
 
         # Expect either 200 (success) or 400 (validation error - email exists)
         # Both mean API is working, just testing connectivity
-        if echo "$API_TEST" | grep -qE "200|400|422"; then
-          echo "✅ API endpoint accessible (HTTP $API_TEST)"
+        if echo "$$API_TEST" | grep -qE "200|400|422"; then
+          echo "✅ API endpoint accessible (HTTP $$API_TEST)"
         else
-          echo "⚠️  API test returned unexpected status: $API_TEST"
+          echo "⚠️  API test returned unexpected status: $$API_TEST"
           cat /tmp/api_response.txt
           # Non-fatal - API might have rate limiting or other protections
         fi
@@ -362,7 +362,7 @@ steps:
         echo ""
         echo "🎉 All smoke tests PASSED!"
         echo "   Deployment verified and healthy"
-        echo "   Service URL: $SERVICE_URL"
+        echo "   Service URL: $$SERVICE_URL"
     waitFor: ['neo4j-init']
 
   # ==========================================================================
