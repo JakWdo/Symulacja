@@ -102,20 +102,37 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Middleware CORS - ograniczenie origin w zależności od środowiska
 # Security: NIE używaj wildcard ["*"] z credentials nawet w development
-# Tryb deweloperski: localhost origins (frontend dev servers)
-# Tryb produkcyjny: tylko originy z ALLOWED_ORIGINS (np. https://app.example.com)
-allowed_origins = (
-    ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"]
-    if settings.ENVIRONMENT == "development"
-    else settings.ALLOWED_ORIGINS.split(",")
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,  # Lista dozwolonych origin
-    allow_credentials=True,  # Zezwalamy na ciasteczka i nagłówki uwierzytelniające
-    allow_methods=["*"],  # Wszystkie metody HTTP (GET, POST, PUT, DELETE itp.)
-    allow_headers=["*"],  # Wszystkie nagłówki
-)
+#
+# IMPORTANT: W single service deployment (backend + frontend w tym samym kontenerze)
+# CORS NIE JEST POTRZEBNY w production, bo requests są same-origin:
+# - Frontend: https://sight-XXX.run.app (serwowany przez FastAPI static files)
+# - Backend: https://sight-XXX.run.app/api/v1/* (ten sam origin!)
+# - Browser: Same-origin requests NIE WYMAGAJĄ CORS headers
+#
+# CORS jest potrzebny TYLKO w development, gdy frontend dev server (localhost:5173)
+# robi requesty do backend (localhost:8000) - to są cross-origin requests.
+if settings.ENVIRONMENT == "development":
+    # Development: frontend na localhost:5173, backend na localhost:8000
+    # To są cross-origin requests, wymagają CORS
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000"
+    ]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,  # Lista dozwolonych origin
+        allow_credentials=True,  # Zezwalamy na ciasteczka i nagłówki uwierzytelniające
+        allow_methods=["*"],  # Wszystkie metody HTTP
+        allow_headers=["*"],  # Wszystkie nagłówki
+    )
+    logger.info(f"🔓 CORS enabled for development origins: {allowed_origins}")
+else:
+    # Production: single service deployment (backend + frontend same origin)
+    # Same-origin requests NIE WYMAGAJĄ CORS middleware
+    # Security benefit: Mniejszy attack surface
+    logger.info("🔒 CORS disabled for production (same-origin deployment)")
 
 # Security Headers Middleware
 # Dodaje OWASP-recommended headers: X-Frame-Options, CSP, X-Content-Type-Options, etc.

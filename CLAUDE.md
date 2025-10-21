@@ -67,10 +67,10 @@ Claude może pracować w różnych trybach w zależności od zadania:
 **Główne pliki:**
 - **README.md** - User-facing docs, quick start
 - **CLAUDE.md** - Ten plik (instrukcje dla Claude)
-- **PLAN.md** - Strategic roadmap (20-30 najważniejszych zadań)
+- **PLAN.md** - Strategic roadmap (27 aktywnych zadań + 9 completed)
 - **docs/README.md** - Indeks dokumentacji technicznej
-- **docs/SERVICES.md** - **NOWY** - Struktura serwisów (reorganizacja 2025-10-20)
-- **docs/DEVOPS.md** - DevOps, Docker, CI/CD, monitoring
+- **docs/INFRASTRUCTURE.md** - **NOWY** - Docker, CI/CD, Cloud Run, monitoring (narracyjny styl)
+- **docs/SERVICES.md** - Struktura serwisów (reorganizacja 2025-10-20)
 - **docs/TESTING.md** - Test suite (380 testów, fixtures, performance)
 - **docs/RAG.md** - System RAG (Hybrid Search + GraphRAG)
 - **docs/AI_ML.md** - AI/LLM system, persona generation
@@ -380,9 +380,10 @@ Możesz poprosić o konkretnego agenta:
 
 Szczegółowe informacje znajdziesz w:
 - **docs/README.md** - Indeks całej dokumentacji technicznej
-- **docs/DEVOPS.md** - Docker, CI/CD, monitoring, deployment
+- **docs/INFRASTRUCTURE.md** - Docker, CI/CD, Cloud Run, monitoring (narracyjny styl)
 - **docs/TESTING.md** - Test suite (380 testów), fixtures, performance
 - **docs/RAG.md** - Hybrid Search, GraphRAG, 3 serwisy RAG
 - **docs/AI_ML.md** - AI/LLM system, persona generation, LangChain
 - **docs/PERSONA_DETAILS.md** - Persona details MVP feature
+- **PLAN.md** - Strategic roadmap (27 aktywnych zadań)
 - **README.md** - User-facing documentation, quick start
