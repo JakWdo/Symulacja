@@ -97,6 +97,9 @@ LABEL org.opencontainers.image.title="Sight - Market Research SaaS"
 LABEL org.opencontainers.image.description="AI-powered market research platform with synthetic personas"
 LABEL org.opencontainers.image.vendor="Sight"
 
+# Switch to non-root user (MUST be before CMD for security)
+USER appuser
+
 # Start gunicorn with optimized configuration for Cloud Run
 # --bind :$PORT              → Listen on Cloud Run port (8080)
 # --workers 2                → 2 workers for better CPU utilization (Cloud Run has 1+ vCPU)
@@ -118,6 +121,3 @@ CMD exec gunicorn \
     --access-logfile - \
     --error-logfile - \
     app.main:app
-
-# Switch to non-root user LAST (after all chown operations)
-USER appuser
