@@ -164,7 +164,7 @@ steps:
   # ==========================================================================
   # SMOKE TESTS: Post-deployment verification (simplified for speed)
   # ==========================================================================
-  - name: 'gcr.io/cloud-builders/curl'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'smoke-tests'
     entrypoint: 'bash'
     args:
