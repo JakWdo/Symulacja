@@ -78,9 +78,6 @@ Strategiczny roadmap projektu Sight. Utrzymujemy 20-30 najważniejszych zadań p
 - [ ] **[High]** Implement semantic chunking dla RAG
   Obecnie fixed-size chunks (1000 chars + 30% overlap). Semantic chunking respektuje sentence/paragraph boundaries. Libraries: LangChain `RecursiveCharacterTextSplitter` z sentence tokenizer.
 
-- [ ] **[High]** Add retry logic dla Gemini API rate limits
-  Obecnie timeout po 1 failed request. Dodać exponential backoff: 1s → 2s → 4s → 8s. Max 3 retries. Handle: `ResourceExhausted` exception.
-
 ### Medium Priority
 
 - [ ] **[Medium]** Optimize hybrid search weights
@@ -163,6 +160,12 @@ Strategiczny roadmap projektu Sight. Utrzymujemy 20-30 najważniejszych zadań p
 ---
 
 ## ✅ Completed (Last 30 days)
+
+- [x] **Build test-runner Docker image for CI/CD** (2025-10-21)
+  Zbudowano i wrzucono test-runner:latest do Artifact Registry (670MB z dependencies). Naprawia failed Cloud Builds (image not found error). Przyspiesza unit tests: 5min → <60s.
+
+- [x] **Add retry logic for Gemini API rate limits** (2025-10-21)
+  Dodano max_retries=3 do build_chat_model() w app/services/shared/clients.py. LangChain automatycznie obsługuje exponential backoff (1s → 2s → 4s). Zwiększa reliability przy rate-limited API calls.
 
 - [x] **CRITICAL FIX: CORS blocking all API requests** (2025-10-21)
   Disabled CORS for production (same-origin deployment). Frontend i backend na tym samym origin = no CORS needed. Added API smoke test (test 5) w CI/CD. Removed ALLOWED_ORIGINS wildcard (FastAPI nie wspiera).
