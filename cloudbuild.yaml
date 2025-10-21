@@ -112,7 +112,8 @@ steps:
       - '--set-secrets=DATABASE_URL=DATABASE_URL_CLOUD:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,NEO4J_PASSWORD=NEO4J_PASSWORD:latest,NEO4J_URI=NEO4J_URI:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD:latest,REDIS_URL=REDIS_URL:latest,SECRET_KEY=SECRET_KEY:latest'
       # ALLOWED_ORIGINS removed - not needed for same-origin deployment (backend + frontend in same container)
       # See app/main.py:114-135 for explanation
-      - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash'
+      # EMBEDDING_MODEL: CRITICAL - must have "models/" prefix for LangChain Google AI integration
+      - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,EMBEDDING_MODEL=models/gemini-embedding-001'
     id: 'deploy'
     waitFor: ['migrate']
 

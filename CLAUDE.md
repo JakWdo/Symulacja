@@ -160,10 +160,27 @@ SECRET_KEY=change-me
 ENVIRONMENT=development
 DEBUG=true
 
-# RAG
+# LLM Models
+DEFAULT_MODEL=gemini-2.5-flash
+TEMPERATURE=0.7
+MAX_TOKENS=6000
+
+# Embeddings (RAG System)
+# CRITICAL: Must include "models/" prefix for LangChain Google AI
+EMBEDDING_MODEL=models/gemini-embedding-001
+
+# RAG Configuration
+RAG_ENABLED=True
 RAG_USE_HYBRID_SEARCH=True
 RAG_VECTOR_WEIGHT=0.7
-RAG_TOP_K=5
+RAG_TOP_K=8
+RAG_CHUNK_SIZE=1000
+RAG_CHUNK_OVERLAP=300
+```
+
+**UWAGA:** `EMBEDDING_MODEL` **MUSI** zawierać prefix `"models/"` dla Google Generative AI przez LangChain. Bez tego prefiksu API zwróci błąd:
+```
+400 * BatchEmbedContentsRequest.model: unexpected model name format
 ```
 
 ## Konwencje Kodu

@@ -132,7 +132,9 @@ class Settings(BaseSettings):
 
     # === EMBEDDINGS (Google Gemini) ===
     # Model do generowania embeddingów tekstowych
-    EMBEDDING_MODEL: str = "gemini-embedding-001"
+    # UWAGA: LangChain wymaga prefiksu "models/" dla Google Generative AI
+    # Upgrade do text-embedding-004 wymagałby re-indexu Neo4j (inny wymiar: 768 vs 3072)
+    EMBEDDING_MODEL: str = "models/gemini-embedding-001"
     # Wymiarowość wektorów embeddingowych
     # gemini-embedding-001 generuje 3072-wymiarowe wektory (nie 768!)
     EMBEDDING_DIMENSION: int = 3072

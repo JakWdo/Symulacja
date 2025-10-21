@@ -5,8 +5,11 @@
 ## 🚀 Quick Start
 
 ```bash
-# 1. Przygotuj .env z kluczem Gemini
-echo "GOOGLE_API_KEY=your_gemini_api_key" > .env
+# 1. Przygotuj .env z kluczem Gemini + embedding model
+cat > .env << EOF
+GOOGLE_API_KEY=your_gemini_api_key
+EMBEDDING_MODEL=models/gemini-embedding-001
+EOF
 
 # 2. Uruchom cały stack
 docker-compose up -d
