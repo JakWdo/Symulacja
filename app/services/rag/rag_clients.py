@@ -14,8 +14,7 @@ import time
 from typing import TypeVar
 from collections.abc import Callable
 
-from langchain_community.graphs import Neo4jGraph
-from langchain_community.vectorstores import Neo4jVector
+from langchain_neo4j import Neo4jGraph, Neo4jVector
 
 from app.core.config import get_settings
 from app.services.shared.clients import get_embeddings

@@ -15,15 +15,17 @@
 
 steps:
   # ==========================================================================
-  # BUILD: Docker Image (Backend + Frontend) with caching
+  # BUILD: Docker Image (Backend + Frontend) - FORCE REBUILD (--no-cache)
   # ==========================================================================
+  # TEMPORARY: --no-cache forces fresh install of dependencies from requirements.txt
+  # This fixes LLMGraphTransformer crash (additional_instructions) + Neo4j deprecations
+  # REVERT AFTER SUCCESSFUL DEPLOY: Remove --no-cache to restore fast builds (3-5 min)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-f'
       - 'Dockerfile.cloudrun'
-      - '--cache-from'
-      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest'
+      - '--no-cache'  # TEMPORARY: Force rebuild to install LangChain 0.3.x + langchain-neo4j
       - '-t'
       - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest'
       - '-t'
