@@ -8,7 +8,7 @@ Definiuje struktury danych dla operacji CRUD na projektach:
 """
 
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional
+from typing import Any
 from datetime import datetime
 from uuid import UUID
 
@@ -33,11 +33,11 @@ class ProjectCreate(BaseModel):
     - target_sample_size: Docelowa liczba person (domyślnie 100, zakres 10-1000)
     """
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=1000)
-    target_audience: Optional[str] = None
-    research_objectives: Optional[str] = None
-    additional_notes: Optional[str] = None
-    target_demographics: Dict[str, Dict[str, float]] = Field(
+    description: str | None = Field(None, max_length=1000)
+    target_audience: str | None = None
+    research_objectives: str | None = None
+    additional_notes: str | None = None
+    target_demographics: dict[str, dict[str, float]] = Field(
         ...,
         description="Target population distribution. Example: {'age': {'18-24': 0.15, '25-34': 0.20}, 'gender': {'male': 0.49, 'female': 0.51}}",
     )
@@ -59,13 +59,13 @@ class ProjectUpdate(BaseModel):
 
     Pola nie podane w requestcie pozostają bez zmian.
     """
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=1000)
-    target_audience: Optional[str] = None
-    research_objectives: Optional[str] = None
-    additional_notes: Optional[str] = None
-    target_demographics: Optional[Dict[str, Dict[str, float]]] = None
-    target_sample_size: Optional[int] = Field(None, ge=10, le=1000)
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=1000)
+    target_audience: str | None = None
+    research_objectives: str | None = None
+    additional_notes: str | None = None
+    target_demographics: dict[str, dict[str, float]] | None = None
+    target_sample_size: int | None = Field(None, ge=10, le=1000)
 
 
 class ProjectResponse(BaseModel):
@@ -100,16 +100,16 @@ class ProjectResponse(BaseModel):
     """
     id: UUID
     name: str
-    description: Optional[str]
-    target_audience: Optional[str]
-    research_objectives: Optional[str]
-    additional_notes: Optional[str]
-    target_demographics: Dict[str, Dict[str, float]]
+    description: str | None
+    target_audience: str | None
+    research_objectives: str | None
+    additional_notes: str | None
+    target_demographics: dict[str, dict[str, float]]
     target_sample_size: int
-    chi_square_statistic: Optional[Dict[str, Any]]
-    p_values: Optional[Dict[str, Any]]
+    chi_square_statistic: dict[str, Any] | None
+    p_values: dict[str, Any] | None
     is_statistically_valid: bool
-    validation_date: Optional[datetime]
+    validation_date: datetime | None
     created_at: datetime
     updated_at: datetime
     is_active: bool

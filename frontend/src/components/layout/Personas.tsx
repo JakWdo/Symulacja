@@ -4,21 +4,32 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { MoreVertical, Plus, Users, Eye, TrendingUp, BarChart3, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import {
+  MoreVertical,
+  Plus,
+  Users,
+  Eye,
+  TrendingUp,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Database,
+} from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
+import { PersonaDetailsDrawer } from '@/components/personas/PersonaDetailsDrawer';
 import { projectsApi, personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { Persona as APIPersona } from '@/types';
 import { toast } from '@/components/ui/toastStore';
 import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 
 
 // Display-friendly Persona interface
@@ -47,39 +58,204 @@ interface DisplayPersona {
 /**
  * Transform API Persona to display-friendly format
  */
-function transformPersona(apiPersona: APIPersona): DisplayPersona {
-  // Derive personality traits from Big Five scores
-  const personality: string[] = [];
-  if (apiPersona.openness && apiPersona.openness > 0.6) personality.push('Open-minded');
-  if (apiPersona.conscientiousness && apiPersona.conscientiousness > 0.6) personality.push('Organized');
-  if (apiPersona.extraversion && apiPersona.extraversion > 0.6) personality.push('Outgoing');
-  if (apiPersona.agreeableness && apiPersona.agreeableness > 0.6) personality.push('Agreeable');
-  if (apiPersona.neuroticism && apiPersona.neuroticism < 0.4) personality.push('Calm');
 
-  // Derive lifestyle from Hofstede scores
-  let lifestyle = 'Balanced lifestyle';
-  if (apiPersona.individualism && apiPersona.individualism > 0.7) {
-    lifestyle = 'Independent and self-directed';
-  } else if (apiPersona.individualism && apiPersona.individualism < 0.3) {
-    lifestyle = 'Community-focused and collaborative';
+// Mapowania i pomocnicze funkcje do polonizacji danych wyświetlanych w UI
+const GENDER_LABELS: Record<string, string> = {
+  female: 'Kobieta',
+  kobieta: 'Kobieta',
+  male: 'Mężczyzna',
+  mężczyzna: 'Mężczyzna',
+  man: 'Mężczyzna',
+  woman: 'Kobieta',
+  'non-binary': 'Osoba niebinarna',
+  nonbinary: 'Osoba niebinarna',
+  other: 'Osoba niebinarna',
+};
+
+const EDUCATION_LABELS: Record<string, string> = {
+  'high school': 'Średnie ogólnokształcące',
+  'some college': 'Policealne',
+  "bachelor's degree": 'Wyższe licencjackie',
+  "master's degree": 'Wyższe magisterskie',
+  "masters degree": 'Wyższe magisterskie',
+  doctorate: 'Doktorat',
+  phd: 'Doktorat',
+  'technical school': 'Średnie techniczne',
+  'trade school': 'Zasadnicze zawodowe',
+  vocational: 'Zasadnicze zawodowe',
+};
+
+const INCOME_LABELS: Record<string, string> = {
+  '< $25k': '< 3 000 zł',
+  '$25k-$50k': '3 000 - 5 000 zł',
+  '$50k-$75k': '5 000 - 7 500 zł',
+  '$75k-$100k': '7 500 - 10 000 zł',
+  '$100k-$150k': '10 000 - 15 000 zł',
+  '> $150k': '> 15 000 zł',
+  '$150k+': '> 15 000 zł',
+};
+
+const POLISH_CITY_NAMES = [
+  'Warszawa',
+  'Kraków',
+  'Wrocław',
+  'Gdańsk',
+  'Poznań',
+  'Łódź',
+  'Katowice',
+  'Szczecin',
+  'Lublin',
+  'Białystok',
+  'Bydgoszcz',
+  'Gdynia',
+  'Częstochowa',
+  'Radom',
+  'Toruń',
+  'Inne miasta',
+];
+
+const POLISH_CITY_LOOKUP: Record<string, string> = POLISH_CITY_NAMES.reduce((acc, city) => {
+  acc[normalizeText(city)] = city;
+  return acc;
+}, {} as Record<string, string>);
+
+const LOCATION_ALIASES: Record<string, string> = {
+  warsaw: 'Warszawa',
+  krakow: 'Kraków',
+  wroclaw: 'Wrocław',
+  poznan: 'Poznań',
+  lodz: 'Łódź',
+  gdansk: 'Gdańsk',
+  gdynia: 'Gdynia',
+  szczecin: 'Szczecin',
+  lublin: 'Lublin',
+  bialystok: 'Białystok',
+  bydgoszcz: 'Bydgoszcz',
+  katowice: 'Katowice',
+  czestochowa: 'Częstochowa',
+  torun: 'Toruń',
+  radom: 'Radom',
+};
+
+function normalizeText(value?: string | null): string {
+  if (!value) return '';
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function detectCityFromStory(story?: string | null): string | null {
+  if (!story) return null;
+  const normalizedStory = normalizeText(story);
+  for (const city of POLISH_CITY_NAMES) {
+    const normalizedCity = normalizeText(city);
+    if (!normalizedCity) continue;
+    if (normalizedStory.includes(normalizedCity)) return city;
+    if (normalizedStory.includes(`${normalizedCity}u`)) return city;
+    if (normalizedStory.includes(`${normalizedCity}ie`)) return city;
+    if (normalizedStory.includes(`${normalizedCity}iu`)) return city;
   }
+  return null;
+}
+
+function polishifyLocation(location?: string | null, story?: string | null): string {
+  const normalized = normalizeText(location);
+  if (normalized) {
+    if (POLISH_CITY_LOOKUP[normalized]) {
+      return POLISH_CITY_LOOKUP[normalized];
+    }
+    if (LOCATION_ALIASES[normalized]) {
+      return LOCATION_ALIASES[normalized];
+    }
+    const parts = normalized.split(/[,/]/).map(part => part.trim());
+    for (const part of parts) {
+      if (POLISH_CITY_LOOKUP[part]) return POLISH_CITY_LOOKUP[part];
+      if (LOCATION_ALIASES[part]) return LOCATION_ALIASES[part];
+    }
+  }
+  const fromStory = detectCityFromStory(story);
+  if (fromStory) return fromStory;
+  return 'Warszawa';
+}
+
+function polishifyGender(gender?: string | null): string {
+  const normalized = normalizeText(gender);
+  return GENDER_LABELS[normalized] ?? (gender ? gender : 'Kobieta');
+}
+
+function polishifyEducation(education?: string | null): string {
+  const normalized = normalizeText(education);
+  if (normalized && EDUCATION_LABELS[normalized]) {
+    return EDUCATION_LABELS[normalized];
+  }
+  return education ?? 'Średnie ogólnokształcące';
+}
+
+function polishifyIncome(income?: string | null): string {
+  if (!income) return '5 000 - 7 500 zł';
+  const normalized = income.replace(/\s/g, '');
+  if (INCOME_LABELS[income]) return INCOME_LABELS[income];
+  if (INCOME_LABELS[normalized]) return INCOME_LABELS[normalized];
+  return income;
+}
+
+function formatAge(age: number): string {
+  const mod10 = age % 10;
+  const mod100 = age % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${age} rok`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${age} lata`;
+  return `${age} lat`;
+}
+
+function extractFirstName(fullName?: string | null): string {
+  if (!fullName) return 'Persona';
+  const parts = fullName.trim().split(/\s+/);
+  return parts.length > 0 ? parts[0] : fullName;
+}
+
+function transformPersona(apiPersona: APIPersona): DisplayPersona {
+  // Zbuduj opis tła i zadbaj o brakujące dane
+  const background = (apiPersona.background_story || apiPersona.headline || 'Brak opisu persony').trim();
+
+  // Cechy osobowości Big Five w uproszczonym języku polskim
+  const personality: string[] = [];
+  if (apiPersona.openness && apiPersona.openness > 0.6) personality.push('Otwartość na zmiany');
+  if (apiPersona.conscientiousness && apiPersona.conscientiousness > 0.6) personality.push('Wysoka sumienność');
+  if (apiPersona.extraversion && apiPersona.extraversion > 0.6) personality.push('Ekstrawersja');
+  if (apiPersona.agreeableness && apiPersona.agreeableness > 0.6) personality.push('Ugodowość');
+  if (apiPersona.neuroticism && apiPersona.neuroticism < 0.4) personality.push('Spokój emocjonalny');
+
+  // Styl życia zależny od poziomu indywidualizmu
+  let lifestyle = 'Zrównoważony styl życia';
+  if (apiPersona.individualism && apiPersona.individualism > 0.7) {
+    lifestyle = 'Niezależny i samodzielny styl życia';
+  } else if (apiPersona.individualism && apiPersona.individualism < 0.3) {
+    lifestyle = 'Skupienie na społeczności i współpracy';
+  }
+
+  const gender = polishifyGender(apiPersona.gender);
+  const education = polishifyEducation(apiPersona.education_level);
+  const income = polishifyIncome(apiPersona.income_bracket);
+  const location = polishifyLocation(apiPersona.location, background);
 
   return {
     id: apiPersona.id,
-    name: apiPersona.full_name || apiPersona.persona_title || 'Unknown',
+    name: apiPersona.full_name || apiPersona.persona_title || 'Nieznana persona',
     age: apiPersona.age,
-    occupation: apiPersona.occupation || 'Not specified',
-    interests: apiPersona.interests || [],
-    background: apiPersona.background_story || apiPersona.headline || 'No background available',
+    occupation: apiPersona.occupation || apiPersona.persona_title || 'Zawód nieokreślony',
+    interests: Array.isArray(apiPersona.interests) ? apiPersona.interests : [],
+    background,
     demographics: {
-      gender: apiPersona.gender,
-      location: apiPersona.location || 'Not specified',
-      income: apiPersona.income_bracket || 'Not specified',
-      education: apiPersona.education_level || 'Not specified',
+      gender,
+      location,
+      income,
+      education,
     },
     psychographics: {
       personality,
-      values: apiPersona.values || [],
+      values: Array.isArray(apiPersona.values) ? apiPersona.values : [],
       lifestyle,
     },
     createdAt: apiPersona.created_at,
@@ -89,9 +265,13 @@ function transformPersona(apiPersona: APIPersona): DisplayPersona {
 
 
 export function Personas() {
-  const { selectedProject, setSelectedProject: setGlobalProject } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const setGlobalProject = useAppStore(state => state.setSelectedProject);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
+
   const projectLabel = selectedProject?.name || 'Unknown project';
-  const [selectedPersona, setSelectedPersona] = useState<DisplayPersona | null>(null);
+  const [selectedPersonaForDetails, setSelectedPersonaForDetails] = useState<string | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
   const [currentPersonaIndex, setCurrentPersonaIndex] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(0);
@@ -125,21 +305,35 @@ export function Personas() {
     },
     enabled: !!selectedProject,
     refetchInterval: (query) => {
+      // Explicit guards to prevent unnecessary refetching
       if (!selectedProject) return false;
       if (!progressMeta) return false;
       if (activeGenerationProjectId !== selectedProject.id) return false;
       if (progressMeta.targetCount <= 0) return false;
+
       const data = query.state.data as APIPersona[] | undefined;
       const currentCount = Array.isArray(data) ? data.length : 0;
       const baseline = progressMeta.baselineCount;
       const expectedTotal = baseline + progressMeta.targetCount;
-      return currentCount >= expectedTotal ? false : 2000;
+
+      // Stop refetching once we reach the target
+      if (currentCount >= expectedTotal) return false;
+
+      // Refetch every 3 seconds while generating (increased from 2s for better performance)
+      return 3000;
     },
   });
 
-  // Transform API personas to display format and apply filters
+  // CRITICAL FIX: Memoize transform separately to avoid recalculating on every filter change
+  // transformPersona is expensive (regex, normalization, mapping), so we only do it when apiPersonas changes
+  const transformedPersonas = useMemo(
+    () => apiPersonas.map(transformPersona),
+    [apiPersonas] // Only recalculate when API data changes!
+  );
+
+  // Now apply filters - this is fast (just array filtering)
   const filteredPersonas = useMemo(() => {
-    let personas = apiPersonas.map(transformPersona);
+    let personas = transformedPersonas;
 
     // Apply gender filter
     if (selectedGenders.length > 0) {
@@ -155,7 +349,7 @@ export function Personas() {
     }
 
     return personas;
-  }, [apiPersonas, selectedGenders, ageRange, selectedOccupations]);
+  }, [transformedPersonas, selectedGenders, ageRange, selectedOccupations]);
 
   // Reset carousel index when filtered personas change
   const prevFilteredLength = React.useRef(filteredPersonas.length);
@@ -176,13 +370,17 @@ export function Personas() {
 
   // Calculate population statistics based on filtered personas
   const ageGroups = filteredPersonas.reduce((acc, persona) => {
-    const ageGroup = persona.age < 25 ? '18-24' : 
-                    persona.age < 35 ? '25-34' : 
-                    persona.age < 45 ? '35-44' : 
+    const ageGroup = persona.age < 25 ? '18-24' :
+                    persona.age < 35 ? '25-34' :
+                    persona.age < 45 ? '35-44' :
                     persona.age < 55 ? '45-54' : '55+';
     acc[ageGroup] = (acc[ageGroup] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  const currentPersona = filteredPersonas[currentPersonaIndex] ?? null;
+  const currentPersonaName = currentPersona ? extractFirstName(currentPersona.name) : '';
+  const currentPersonaAgeLabel = currentPersona ? formatAge(currentPersona.age) : '';
 
 
   const topInterests = filteredPersonas.flatMap(p => p.interests)
@@ -323,6 +521,17 @@ export function Personas() {
             Manage AI-generated and custom personas for your research projects
           </p>
         </div>
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="border-border text-card-foreground"
+            onClick={() => setActivePanel('rag')}
+          >
+            <Database className="w-4 h-4 mr-2" />
+            Dokumenty RAG
+          </Button>
+        </div>
         <div className="flex items-center gap-3">
           <Select
             value={selectedProject?.id || ''}
@@ -459,22 +668,22 @@ export function Personas() {
 
       {/* Persona Carousel */}
       <div className="space-y-4">
-        <h2 className="text-xl text-foreground">Design Your Personas</h2>
+        <h2 className="text-xl text-foreground">Projektuj persony</h2>
 
         {apiPersonas.length === 0 ? (
           <Card className="bg-card border border-border">
             <CardContent className="p-12 text-center">
               <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg text-card-foreground mb-2">No personas yet</h3>
+              <h3 className="text-lg text-card-foreground mb-2">Brak wygenerowanych person</h3>
               <p className="text-muted-foreground mb-4">
-                Generate your first AI personas to start understanding your target audience
+                Uruchom generator, aby poznać swoją grupę docelową na podstawie sztucznej inteligencji
               </p>
               <Button
                 onClick={() => setShowPersonaWizard(true)}
                 className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Generate First Personas
+                Wygeneruj pierwsze persony
               </Button>
             </CardContent>
           </Card>
@@ -482,9 +691,9 @@ export function Personas() {
           <Card className="bg-card border border-border">
             <CardContent className="p-12 text-center">
               <Filter className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg text-card-foreground mb-2">No personas match the selected filters</h3>
+              <h3 className="text-lg text-card-foreground mb-2">Brak person spełniających obecne filtry</h3>
               <p className="text-muted-foreground mb-4">
-                Try adjusting your filters to see more results
+                Zmień ustawienia filtrów, aby zobaczyć więcej wyników
               </p>
               <Button
                 variant="outline"
@@ -495,7 +704,7 @@ export function Personas() {
                 }}
                 className="border-border"
               >
-                Clear All Filters
+                Wyczyść filtry
               </Button>
             </CardContent>
           </Card>
@@ -507,57 +716,57 @@ export function Personas() {
                 <CardHeader>
                   <CardTitle className="text-card-foreground flex items-center gap-2">
                     <Filter className="w-5 h-5" />
-                    Filters & Segments
+                    Filtry i segmenty
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Gender Filter */}
                   <div className="space-y-3">
-                    <Label className="text-sm">Gender</Label>
+                    <Label className="text-sm">Płeć</Label>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="gender-female"
-                          checked={selectedGenders.includes('Female')}
+                          checked={selectedGenders.includes('Kobieta')}
                           onCheckedChange={(checked) => {
                             setSelectedGenders(checked
-                              ? [...selectedGenders, 'Female']
-                              : selectedGenders.filter(g => g !== 'Female')
+                              ? [...selectedGenders, 'Kobieta']
+                              : selectedGenders.filter(g => g !== 'Kobieta')
                             );
                           }}
                         />
                         <label htmlFor="gender-female" className="text-sm text-card-foreground">
-                          Female
+                          Kobieta
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="gender-male"
-                          checked={selectedGenders.includes('Male')}
+                          checked={selectedGenders.includes('Mężczyzna')}
                           onCheckedChange={(checked) => {
                             setSelectedGenders(checked
-                              ? [...selectedGenders, 'Male']
-                              : selectedGenders.filter(g => g !== 'Male')
+                              ? [...selectedGenders, 'Mężczyzna']
+                              : selectedGenders.filter(g => g !== 'Mężczyzna')
                             );
                           }}
                         />
                         <label htmlFor="gender-male" className="text-sm text-card-foreground">
-                          Male
+                          Mężczyzna
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="gender-other"
-                          checked={selectedGenders.includes('Non-binary')}
+                          checked={selectedGenders.includes('Osoba niebinarna')}
                           onCheckedChange={(checked) => {
                             setSelectedGenders(checked
-                              ? [...selectedGenders, 'Non-binary']
-                              : selectedGenders.filter(g => g !== 'Non-binary')
+                              ? [...selectedGenders, 'Osoba niebinarna']
+                              : selectedGenders.filter(g => g !== 'Osoba niebinarna')
                             );
                           }}
                         />
                         <label htmlFor="gender-other" className="text-sm text-card-foreground">
-                          Non-binary
+                          Osoba niebinarna
                         </label>
                       </div>
                     </div>
@@ -565,7 +774,7 @@ export function Personas() {
 
                   {/* Age Range Filter */}
                   <div className="space-y-3">
-                    <Label className="text-sm">Age Range</Label>
+                    <Label className="text-sm">Przedział wieku</Label>
                     <div className="px-2">
                       <Slider
                         value={ageRange}
@@ -584,7 +793,7 @@ export function Personas() {
 
                   {/* Occupation Filter */}
                   <div className="space-y-3">
-                    <Label className="text-sm">Occupation</Label>
+                    <Label className="text-sm">Zawód</Label>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox id="occupation-tech" />
@@ -623,7 +832,7 @@ export function Personas() {
                       setSelectedOccupations([]);
                     }}
                   >
-                    Clear Filters
+                    Wyczyść filtry
                   </Button>
                 </CardContent>
               </Card>
@@ -671,20 +880,22 @@ export function Personas() {
                     </div>
                   </div>
 
-                  {/* Current Persona Card */}
-                  {filteredPersonas[currentPersonaIndex] && (
+                  {/* Aktualnie wybrana persona */}
+                  {currentPersona && (
                     <div className="space-y-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="text-xl text-card-foreground mb-1">{filteredPersonas[currentPersonaIndex].name}</h3>
+                          <h3 className="text-xl text-card-foreground mb-1">
+                            {currentPersonaName ? `${currentPersonaName}, ${currentPersonaAgeLabel}` : `${currentPersona.name}`}
+                          </h3>
                           <p className="text-sm text-muted-foreground">
-                            {filteredPersonas[currentPersonaIndex].age} years old • {filteredPersonas[currentPersonaIndex].occupation}
+                            {currentPersona.occupation}
                           </p>
                           <p className="text-muted-foreground">
-                            {filteredPersonas[currentPersonaIndex].demographics.location}
+                            {currentPersona.demographics.location}
                           </p>
                         </div>
-                        
+
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -692,13 +903,9 @@ export function Personas() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => setSelectedPersona(filteredPersonas[currentPersonaIndex])}>
+                            <DropdownMenuItem onClick={() => setSelectedPersonaForDetails(currentPersona.id)}>
                               <Eye className="w-4 h-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Users className="w-4 h-4 mr-2" />
-                              Duplicate Persona
+                              Szczegóły persony
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -706,40 +913,40 @@ export function Personas() {
 
                       {/* Background */}
                       <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-card-foreground">Background</h4>
+                        <h4 className="text-sm font-semibold text-card-foreground">Kontekst</h4>
                         <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
-                          {filteredPersonas[currentPersonaIndex].background}
+                          {currentPersona.background}
                         </p>
                       </div>
 
                       {/* Demographics Grid */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">Gender</p>
-                          <p className="text-sm text-card-foreground">{filteredPersonas[currentPersonaIndex].demographics.gender}</p>
+                          <p className="text-xs text-muted-foreground">Płeć</p>
+                          <p className="text-sm text-card-foreground">{currentPersona.demographics.gender}</p>
                         </div>
                         <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">Education</p>
-                          <p className="text-sm text-card-foreground">{filteredPersonas[currentPersonaIndex].demographics.education}</p>
+                          <p className="text-xs text-muted-foreground">Wykształcenie</p>
+                          <p className="text-sm text-card-foreground">{currentPersona.demographics.education}</p>
                         </div>
                         <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">Income</p>
-                          <p className="text-sm text-card-foreground">{filteredPersonas[currentPersonaIndex].demographics.income}</p>
+                          <p className="text-xs text-muted-foreground">Dochód</p>
+                          <p className="text-sm text-card-foreground">{currentPersona.demographics.income}</p>
                         </div>
                         <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">Lifestyle</p>
-                          <p className="text-sm text-card-foreground line-clamp-1">{filteredPersonas[currentPersonaIndex].psychographics.lifestyle}</p>
+                          <p className="text-xs text-muted-foreground">Styl życia</p>
+                          <p className="text-sm text-card-foreground line-clamp-1">{currentPersona.psychographics.lifestyle}</p>
                         </div>
                       </div>
 
                       {/* Interests */}
                       <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-card-foreground">Interests & Values</h4>
+                        <h4 className="text-sm font-semibold text-card-foreground">Zainteresowania i wartości</h4>
                         <div className="space-y-1.5">
                           <div>
-                            <p className="text-xs text-muted-foreground mb-1">Interests</p>
+                            <p className="text-xs text-muted-foreground mb-1">Zainteresowania</p>
                             <div className="flex flex-wrap gap-1.5">
-                              {filteredPersonas[currentPersonaIndex].interests.slice(0, 5).map((interest, index) => (
+                              {currentPersona.interests.slice(0, 5).map((interest, index) => (
                                 <Badge key={index} variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs py-0">
                                   {interest}
                                 </Badge>
@@ -747,9 +954,9 @@ export function Personas() {
                             </div>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground mb-1">Values</p>
+                            <p className="text-xs text-muted-foreground mb-1">Wartości</p>
                             <div className="flex flex-wrap gap-1.5">
-                              {filteredPersonas[currentPersonaIndex].psychographics.values.slice(0, 5).map((value, index) => (
+                              {currentPersona.psychographics.values.slice(0, 5).map((value, index) => (
                                 <Badge key={index} variant="outline" className="border-secondary text-secondary text-xs py-0">
                                   {value}
                                 </Badge>
@@ -762,7 +969,7 @@ export function Personas() {
                       {/* Creation Date */}
                       <div className="pt-2">
                         <p className="text-xs text-muted-foreground text-right">
-                          Created {new Date(filteredPersonas[currentPersonaIndex].createdAt).toLocaleDateString()}
+                          Utworzono {new Date(filteredPersonas[currentPersonaIndex].createdAt).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -774,109 +981,12 @@ export function Personas() {
         )}
       </div>
 
-      {/* Persona Detail Dialog */}
-      <Dialog open={!!selectedPersona} onOpenChange={() => setSelectedPersona(null)}>
-        <DialogContent className="bg-background border border-border text-foreground max-w-4xl max-h-[80vh] overflow-y-auto">
-          {selectedPersona && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-xl">{selectedPersona.name}</DialogTitle>
-                <DialogDescription>
-                  Detailed persona profile with demographics, psychographics, and behavioral insights.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6">
-                {/* Basic Info */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Age</p>
-                    <p className="text-foreground">{selectedPersona.age} years old</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Occupation</p>
-                    <p className="text-foreground">{selectedPersona.occupation}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Location</p>
-                    <p className="text-foreground">{selectedPersona.demographics.location}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Income</p>
-                    <p className="text-foreground">{selectedPersona.demographics.income}</p>
-                  </div>
-                </div>
-                
-                {/* Background */}
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Background</p>
-                  <p className="text-foreground">{selectedPersona.background}</p>
-                </div>
-                
-                {/* Demographics */}
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Demographics</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Gender</p>
-                      <p className="text-foreground">{selectedPersona.demographics.gender}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Education</p>
-                      <p className="text-foreground">{selectedPersona.demographics.education}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Interests */}
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Interests</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedPersona.interests.map((interest, idx) => (
-                      <Badge key={idx} variant="secondary" className="bg-muted text-muted-foreground">
-                        {interest}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Psychographics */}
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">Psychographics</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Personality</p>
-                      <div className="space-y-1">
-                        {selectedPersona.psychographics.personality.map((trait, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs mr-1">
-                            {trait}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Values</p>
-                      <div className="space-y-1">
-                        {selectedPersona.psychographics.values.map((value, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs mr-1">
-                            {value}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Lifestyle</p>
-                      <p className="text-xs text-foreground">{selectedPersona.psychographics.lifestyle}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Persona Details Drawer */}
+      <PersonaDetailsDrawer
+        personaId={selectedPersonaForDetails}
+        isOpen={!!selectedPersonaForDetails}
+        onClose={() => setSelectedPersonaForDetails(null)}
+      />
 
       {/* Persona Generation Wizard */}
       <PersonaGenerationWizard

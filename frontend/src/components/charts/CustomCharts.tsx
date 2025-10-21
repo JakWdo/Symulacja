@@ -279,7 +279,7 @@ export function CustomLineChart({
             padding.top +
             (chartHeight - (value / maxValue) * chartHeight);
           return (
-            <g key={value}>
+            <g key={`tick-${idx}`}>
               <line
                 x1={padding.left}
                 y1={y}
@@ -332,9 +332,9 @@ export function CustomLineChart({
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {points.map((point) => (
+              {points.map((point, pointIdx) => (
                 <circle
-                  key={`${serie.id}-${point.month}`}
+                  key={`${serie.id}-point-${pointIdx}`}
                   cx={point.x}
                   cy={point.y}
                   r={4.5}
@@ -355,7 +355,7 @@ export function CustomLineChart({
               : chartWidth / 2);
           return (
             <text
-              key={month.name}
+              key={`month-${idx}`}
               x={x}
               y={height - padding.bottom + 24}
               textAnchor="middle"

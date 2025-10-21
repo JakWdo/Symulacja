@@ -17,7 +17,7 @@ import { toast } from '@/components/ui/toastStore';
 import axios from 'axios';
 import { analysisApi } from '@/lib/api';
 import type { AISummary } from '@/types';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/ui/logo';
 import { useAISummaryStore } from '@/store/aiSummaryStore';
 
 const normalizeMarkdown = (value: string): string =>

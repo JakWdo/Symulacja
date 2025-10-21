@@ -1,0 +1,1 @@
+"""Middleware dla aplikacji FastAPI"""

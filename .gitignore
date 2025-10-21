@@ -69,6 +69,14 @@ cache/
 *.pkl
 *.joblib
 
+# User uploads (avatars, documents)
+static/avatars/*.jpeg
+static/avatars/*.jpg
+static/avatars/*.png
+static/avatars/*.webp
+# Keep the directory structure
+!static/avatars/.gitkeep
+
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb

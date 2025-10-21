@@ -1,0 +1,123 @@
+# ==============================================================================
+# Dockerfile.cloudrun - Single Service (Backend + Frontend Static)
+# ==============================================================================
+# Multi-stage build:
+# 1. Build React frontend
+# 2. Install Python dependencies
+# 3. Runtime with backend code + frontend static files
+# ==============================================================================
+
+# ==============================================================================
+# STAGE 1: Build Frontend (React + Vite)
+# ==============================================================================
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy package files for caching
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build production bundle
+# Output: /app/frontend/dist/
+RUN npm run build
+
+# ==============================================================================
+# STAGE 2: Build Backend (Python dependencies)
+# ==============================================================================
+FROM python:3.11-slim AS backend-builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install gunicorn (not in requirements.txt for local dev)
+RUN pip install --no-cache-dir gunicorn
+
+# ==============================================================================
+# STAGE 3: Runtime (Backend + Frontend Static)
+# ==============================================================================
+FROM python:3.11-slim AS runtime
+
+# Production environment
+ARG TARGET=production
+ENV TARGET=${TARGET}
+ENV PYTHONPATH=/app
+ENV PORT=8080
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python packages from builder
+COPY --from=backend-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=backend-builder /usr/local/bin /usr/local/bin
+
+# Copy backend code
+COPY app/ ./app/
+COPY scripts/ ./scripts/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./
+
+# Copy frontend dist → static/
+COPY --from=frontend-builder /app/frontend/dist ./static/
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
+# Expose Cloud Run port (8080)
+EXPOSE 8080
+
+# Healthcheck dla Docker i monitoring
+# Sprawdza /health endpoint co 30s
+# Timeout 10s, max 3 retries, start period 40s (dla inicjalizacji RAG)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+# Labels dla metadanych (Cloud Build, Git SHA, etc.)
+LABEL org.opencontainers.image.title="Sight - Market Research SaaS"
+LABEL org.opencontainers.image.description="AI-powered market research platform with synthetic personas"
+LABEL org.opencontainers.image.vendor="Sight"
+
+# Start gunicorn with optimized configuration for Cloud Run
+# --bind :$PORT              → Listen on Cloud Run port (8080)
+# --workers 2                → 2 workers for better CPU utilization (Cloud Run has 1+ vCPU)
+# --worker-class uvicorn...  → ASGI worker for async FastAPI
+# --timeout 300              → 5min timeout (LLM requests + RAG can be slow)
+# --graceful-timeout 30      → Graceful shutdown for ongoing requests
+# --keep-alive 5             → Keep-alive connections
+# --log-level info           → Production logging
+# --access-logfile -         → Access logs to stdout (Cloud Logging)
+# --error-logfile -          → Error logs to stderr (Cloud Logging)
+CMD exec gunicorn \
+    --bind :$PORT \
+    --workers 2 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --timeout 300 \
+    --graceful-timeout 30 \
+    --keep-alive 5 \
+    --log-level info \
+    --access-logfile - \
+    --error-logfile - \
+    app.main:app
+
+# Switch to non-root user LAST (after all chown operations)
+USER appuser

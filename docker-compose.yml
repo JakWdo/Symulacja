@@ -1,78 +1,173 @@
+version: "3.9"
+
 services:
   postgres:
     image: ankane/pgvector:latest
-    container_name: market_research_postgres
+    container_name: sight_postgres
     environment:
-      POSTGRES_USER: market_research
+      POSTGRES_USER: sight
       POSTGRES_PASSWORD: dev_password_change_in_prod
-      POSTGRES_DB: market_research_db
+      POSTGRES_DB: sight_db
     ports:
-      - "5433:5432"  # Zmieniono na 5433 żeby uniknąć konfliktu
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U market_research -d market_research_db"]
+      test: ["CMD-SHELL", "pg_isready -U sight -d sight_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   redis:
     image: redis:7-alpine
-    container_name: market_research_redis
+    container_name: sight_redis
+    command: redis-server --appendonly yes --loglevel warning
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   neo4j:
-    image: neo4j:5.15
-    container_name: market_research_neo4j
+    build:
+      context: .
+      dockerfile: docker/neo4j/Dockerfile
+    container_name: sight_neo4j
     environment:
       NEO4J_AUTH: neo4j/dev_password_change_in_prod
-      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
-      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
       NEO4J_dbms_memory_heap_max__size: 2G
+      NEO4J_dbms_memory_pagecache_size: 512M
+      NEO4J_server_memory_heap_initial__size: 512M
     ports:
-      - "7474:7474"  # HTTP
-      - "7687:7687"  # Bolt
+      - "7474:7474"
+      - "7687:7687"
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
+      test: ["CMD-SHELL", "cypher-shell -a bolt://localhost:7687 -u neo4j -p dev_password_change_in_prod --non-interactive 'RETURN 1;'"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
 
-  celery_worker:
-    build: .
-    container_name: market_research_celery
-    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=4
-    depends_on:
-      - redis
-      - postgres
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        TARGET: development
+    container_name: sight_migrate
+    command: ["alembic", "upgrade", "head"]
     environment:
-      - DATABASE_URL=postgresql+asyncpg://market_research:dev_password_change_in_prod@postgres:5432/market_research_db
-      - REDIS_URL=redis://redis:6379/0
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=dev_password_change_in_prod
+      DATABASE_URL: postgresql+asyncpg://sight:dev_password_change_in_prod@postgres:5432/sight_db
+      WAIT_FOR_POSTGRES: "true"
+      WAIT_FOR_REDIS: "false"
+      WAIT_FOR_NEO4J: "false"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - backend
+
+  neo4j-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        TARGET: development
+    container_name: sight_neo4j_init
+    command: ["python", "scripts/init_neo4j_indexes.py"]
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: dev_password_change_in_prod
+      WAIT_FOR_POSTGRES: "false"
+      WAIT_FOR_REDIS: "false"
+      WAIT_FOR_NEO4J: "true"
+      WAIT_NEO4J_ATTEMPTS: 60
+      WAIT_NEO4J_DELAY: 4
+    env_file:
+      - .env
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - backend
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        TARGET: development
+    container_name: sight_api
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sight:dev_password_change_in_prod@postgres:5432/sight_db
+      REDIS_URL: redis://redis:6379/0
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: dev_password_change_in_prod
+      WAIT_FOR_POSTGRES: "true"
+      WAIT_FOR_REDIS: "true"
+      WAIT_FOR_NEO4J: "true"
     env_file:
       - .env
     volumes:
       - ./:/app
-
-  api:
-    build: .
-    container_name: market_research_api
-    ports:
-      - "8000:8000"
+      - api_static:/app/static
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,36 +175,59 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://market_research:dev_password_change_in_prod@postgres:5432/market_research_db
-      - REDIS_URL=redis://redis:6379/0
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=dev_password_change_in_prod
-    env_file:
-      - .env
-    volumes:
-      - ./:/app
+      migrate:
+        condition: service_completed_successfully
+      neo4j-init:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: market_research_frontend
+      target: development
+    container_name: sight_frontend
     ports:
       - "5173:5173"
-    depends_on:
-      - api
+    environment:
+      VITE_API_URL: http://api:8000
     volumes:
       - ./frontend:/app
-    command: >
-      sh -c "npm install &&
-             npm run dev -- --host 0.0.0.0 --port 5173"
-    stdin_open: true
-    tty: true
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
 volumes:
   postgres_data:
   redis_data:
   neo4j_data:
   neo4j_logs:
+  api_static:
+  frontend_node_modules:
+
+networks:
+  backend:

@@ -8,9 +8,9 @@ import { MoreVertical, Plus, Users, MessageSquare, Eye, Settings, Trash2 } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { focusGroupsApi, projectsApi } from '@/lib/api';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { toast } from '@/components/ui/toastStore';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useState } from 'react';
 
 interface FocusGroupsProps {
@@ -48,7 +48,9 @@ const getStatusBadge = (focusGroup: any) => {
 };
 
 export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGroupsProps) {
-  const { selectedProject, setSelectedProject } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const setSelectedProject = useAppStore(state => state.setSelectedProject);
   const queryClient = useQueryClient();
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; focusGroup: any | null }>({
     open: false,

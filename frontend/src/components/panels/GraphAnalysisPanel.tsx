@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Filter, TrendingUp, Brain, AlertCircle } from 'lucide-react';
 import { KnowledgeGraph3D } from '@/components/graph/KnowledgeGraph3D';
-import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import {
   useGraphData,
   useKeyConcepts,
@@ -14,7 +14,7 @@ import {
   useTraitCorrelations
 } from '@/hooks/useGraphData';
 import type { GraphNode } from '@/types';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/ui/logo';
 
 interface GraphAnalysisPanelProps {
   focusGroupId: string;
@@ -24,7 +24,15 @@ export function GraphAnalysisPanel({ focusGroupId }: GraphAnalysisPanelProps) {
   const [filterType, setFilterType] = useState<'positive' | 'negative' | 'influence' | undefined>();
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
 
-  // Validate focusGroupId
+  // Fetch all graph data (hooks must be called unconditionally)
+  const { data: graphData, isLoading: graphLoading, error: graphError } = useGraphData(focusGroupId, filterType);
+  const { data: keyConcepts, isLoading: conceptsLoading } = useKeyConcepts(focusGroupId);
+  const { data: influentialPersonas, isLoading: influencersLoading } = useInfluentialPersonas(focusGroupId);
+  const { data: controversialConcepts, isLoading: controversialLoading } = useControversialConcepts(focusGroupId);
+  const { data: emotions, isLoading: emotionsLoading } = useEmotionDistribution(focusGroupId);
+  const { data: correlations, isLoading: correlationsLoading } = useTraitCorrelations(focusGroupId);
+
+  // Validate focusGroupId after hooks
   if (!focusGroupId) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
@@ -36,14 +44,6 @@ export function GraphAnalysisPanel({ focusGroupId }: GraphAnalysisPanelProps) {
       </div>
     );
   }
-
-  // Fetch all graph data
-  const { data: graphData, isLoading: graphLoading, error: graphError } = useGraphData(focusGroupId, filterType);
-  const { data: keyConcepts, isLoading: conceptsLoading } = useKeyConcepts(focusGroupId);
-  const { data: influentialPersonas, isLoading: influencersLoading } = useInfluentialPersonas(focusGroupId);
-  const { data: controversialConcepts, isLoading: controversialLoading } = useControversialConcepts(focusGroupId);
-  const { data: emotions, isLoading: emotionsLoading } = useEmotionDistribution(focusGroupId);
-  const { data: correlations, isLoading: correlationsLoading } = useTraitCorrelations(focusGroupId);
 
   const isLoading = graphLoading || conceptsLoading || influencersLoading;
 

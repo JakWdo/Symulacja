@@ -45,6 +45,9 @@ export interface Persona {
   background_story: string | null;
   created_at: string;
   is_active: boolean;
+  rag_context_used: boolean;
+  rag_citations: RAGCitation[] | null;
+  rag_context_details?: RagContextDetails | null;
 }
 
 export interface FocusGroup {
@@ -582,4 +585,251 @@ export interface SurveyResults {
   demographic_breakdown: Record<string, Record<string, any>>;
   completion_rate: number;
   average_response_time_ms?: number;
+}
+
+// RAG Types
+export interface RAGDocument {
+  id: string;
+  title: string;
+  filename: string;
+  file_path: string;
+  file_type: 'pdf' | 'docx';
+  country: string;
+  num_chunks: number;
+  status: 'processing' | 'completed' | 'failed';
+  error_message?: string | null;
+  created_at: string;
+  is_active: boolean;
+}
+
+export interface RAGCitation {
+  document_title: string;
+  chunk_text: string;
+  relevance_score: number;
+}
+
+export interface RAGQueryRequest {
+  query: string;
+  top_k?: number;
+}
+
+export interface RAGQueryResponse {
+  query: string;
+  context: string;
+  citations: RAGCitation[];
+  num_results: number;
+}
+
+export interface RagContextOrchestrationReasoning {
+  brief?: string;
+  graph_insights?: GraphInsight[];
+  allocation_reasoning?: string;
+  demographics?: Record<string, any>;
+  overall_context?: string;
+  segment_name?: string;
+  segment_description?: string;
+  segment_social_context?: string;
+  segment_id?: string;
+  // NEW: Segment Brief (from SegmentBriefService)
+  segment_brief?: {
+    segment_id: string;
+    segment_name: string;
+    description: string; // 400-800 words storytelling
+    social_context: string;
+    characteristics: string[];
+    based_on_personas_count: number;
+    demographics: Record<string, any>;
+    generated_at: string;
+    generated_by: string;
+  };
+  // NEW: Persona Uniqueness
+  persona_uniqueness?: string; // 2-4 sentences about why this persona is unique in segment
+}
+
+export interface RAGGraphNode {
+  type?: string;
+  summary?: string;
+  streszczenie?: string;
+  magnitude?: string;
+  skala?: string;
+  confidence?: string;
+  pewnosc?: string;
+  time_period?: string;
+  okres_czasu?: string;
+  source?: string;
+  document_title?: string;
+  why_matters?: string;
+  kluczowe_fakty?: string;
+  [key: string]: unknown;
+}
+
+export interface RagContextDetails {
+  search_type?: string;
+  num_results?: number;
+  graph_nodes_count?: number;
+  graph_nodes?: RAGGraphNode[];
+  graph_context?: string;
+  context_preview?: string;
+  context_length?: number;
+  enriched_chunks?: number;
+  citations_count?: number;
+  query?: string;
+  orchestration_reasoning?: RagContextOrchestrationReasoning;
+}
+
+// === ORCHESTRATION REASONING TYPES ===
+
+export interface GraphInsight {
+  type: string;
+  summary: string;
+  magnitude?: string;
+  confidence: 'high' | 'medium' | 'low';
+  time_period?: string;
+  source?: string;
+  why_matters: string;
+}
+
+export interface PersonaReasoning {
+  // === NOWE POLA (segment-based) ===
+  segment_name?: string;  // Np. "Młodzi Prekariusze"
+  segment_id?: string;
+  segment_description?: string;
+  segment_social_context?: string;  // Kontekst dla TEJ grupy (500-800 znaków)
+  segment_characteristics?: string[];  // 4-6 kluczowych cech segmentu
+
+  // === AKTUALNE POLA ===
+  orchestration_brief?: string;
+  graph_insights: GraphInsight[];
+  allocation_reasoning?: string;
+  demographics?: Record<string, any>;
+  overall_context?: string;  // Legacy, używamy segment_social_context teraz
+}
+
+// === PERSONA DETAILS TYPES (MVP) ===
+
+export interface PersonaAuditEntry {
+  action: string;
+  timestamp: string;
+  user_id?: string;
+  details?: Record<string, any>;
+}
+
+export interface PersonaDetailsResponse extends Persona {
+  // Additional fields for details view
+  needs_and_pains?: NeedsAndPains | null;
+  audit_log: PersonaAuditEntry[];
+}
+
+export interface PersonaDeleteResponse {
+  persona_id: string;
+  full_name: string | null;
+  status: 'deleted';
+  deleted_at: string;
+  deleted_by: string;
+  undo_available_until: string;
+  permanent_deletion_scheduled_at?: string | null;
+  message: string;
+}
+
+export interface PersonaUndoDeleteResponse {
+  persona_id: string;
+  full_name: string | null;
+  status: 'active';
+  restored_at: string;
+  restored_by: string;
+  message: string;
+}
+
+export interface JTBDJob {
+  job_statement: string;
+  priority_score?: number;
+  frequency?: string;
+  difficulty?: string;
+  quotes?: string[];
+}
+
+export interface DesiredOutcome {
+  outcome_statement: string;
+  importance?: number;
+  satisfaction_current_solutions?: number;
+  opportunity_score?: number;
+  is_measurable?: boolean;
+}
+
+export interface PainPoint {
+  pain_title: string;
+  pain_description?: string;
+  severity?: number;
+  frequency?: string;
+  percent_affected?: number;
+  quotes?: string[];
+  potential_solutions?: string[];
+}
+
+export interface NeedsAndPains {
+  jobs_to_be_done: JTBDJob[];
+  desired_outcomes: DesiredOutcome[];
+  pain_points: PainPoint[];
+  generated_at?: string;
+  generated_by?: string;
+}
+
+export interface MessagingVariant {
+  variant_id: number;
+  headline: string;
+  subheadline?: string;
+  body: string;
+  cta: string;
+}
+
+export interface PersonaMessagingResponse {
+  variants: MessagingVariant[];
+  generated_at: string;
+  generated_by?: string;
+}
+
+export interface PersonaMessagingPayload {
+  tone: 'friendly' | 'professional' | 'urgent' | 'empathetic';
+  type: 'email' | 'ad' | 'landing_page' | 'social_post';
+  num_variants?: number;
+  context?: string;
+}
+
+export interface PersonaComparisonValue {
+  persona_id: string;
+  value: any;
+}
+
+export interface PersonaDifference {
+  field: string;
+  values: PersonaComparisonValue[];
+}
+
+export interface PersonaComparisonPersona {
+  id: string;
+  full_name?: string | null;
+  age: number;
+  gender: string;
+  location?: string | null;
+  occupation?: string | null;
+  education_level?: string | null;
+  income_bracket?: string | null;
+  segment_id?: string | null;
+  segment_name?: string | null;
+  values: string[];
+  interests: string[];
+  big_five: Record<string, number | null | undefined>;
+  kpi_snapshot?: Record<string, any> | null;
+}
+
+export interface PersonaComparisonResponse {
+  personas: PersonaComparisonPersona[];
+  differences: PersonaDifference[];
+  similarity: Record<string, Record<string, number>>;
+}
+
+export interface PersonaExportResponse {
+  format: 'json';
+  sections: string[];
+  content: Record<string, any>;
 }

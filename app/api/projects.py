@@ -11,7 +11,6 @@ Ten moduł zawiera CRUD endpoints dla zarządzania projektami:
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
 from uuid import UUID
 
 from app.db import get_db
@@ -64,7 +63,7 @@ async def create_project(
     return db_project
 
 
-@router.get("/projects", response_model=List[ProjectResponse])
+@router.get("/projects", response_model=list[ProjectResponse])
 async def list_projects(
     skip: int = 0,
     limit: int = 100,

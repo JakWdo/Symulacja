@@ -1,5 +1,5 @@
 """
-Market Research SaaS - Backend API
+Sight - Backend API
 
 Platforma do przeprowadzania badań rynkowych z wykorzystaniem AI (Google Gemini).
 

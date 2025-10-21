@@ -1,5 +1,5 @@
 """
-Pakiet testów - Market Research SaaS
+Pakiet testów - Sight
 
 Ten katalog zawiera kompleksowy zestaw testów dla aplikacji:
 - Testy jednostkowe (unit tests) - działają bez środowiska

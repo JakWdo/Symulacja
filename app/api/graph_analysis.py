@@ -2,7 +2,6 @@
 API endpointy dla analizy grafowej
 """
 
-from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.models import User
 from app.api.dependencies import get_current_user, get_focus_group_for_user
-from app.services.graph_service import GraphService
+from app.services.archived.graph_service import GraphService
 from app.schemas.graph import (
     GraphDataResponse,
     GraphStatsResponse,
@@ -56,7 +55,7 @@ async def build_graph(
 @router.get("/{focus_group_id}", response_model=GraphDataResponse)
 async def get_graph(
     focus_group_id: UUID,
-    filter_type: Optional[str] = None,
+    filter_type: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 import { cn } from "./utils";
 
@@ -28,12 +29,13 @@ function SheetPortal({
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />;
 }
 
-function SheetOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
+const SheetOverlay = React.forwardRef<
+  React.ElementRef<typeof SheetPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
+>(({ className, ...props }, ref) => {
   return (
     <SheetPrimitive.Overlay
+      ref={ref}
       data-slot="sheet-overlay"
       className={cn(
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
@@ -42,7 +44,8 @@ function SheetOverlay({
       {...props}
     />
   );
-}
+});
+SheetOverlay.displayName = "SheetOverlay";
 
 function SheetContent({
   className,
@@ -127,6 +130,8 @@ function SheetDescription({
   );
 }
 
+const VisuallyHiddenRoot = VisuallyHidden.Root;
+
 export {
   Sheet,
   SheetTrigger,
@@ -136,4 +141,5 @@ export {
   SheetFooter,
   SheetTitle,
   SheetDescription,
+  VisuallyHiddenRoot as VisuallyHidden,
 };

@@ -3,12 +3,15 @@ Authentication endpoints: register, login, logout, me
 
 Endpointy odpowiedzialne za autentykację użytkowników.
 """
-from datetime import datetime, timedelta
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr, validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.models.user import User
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.config import get_settings
@@ -18,6 +21,10 @@ import re
 
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
+
+# Rate limiter instance
+limiter = Limiter(key_func=get_remote_address)
 
 
 # === SCHEMAS ===
@@ -25,8 +32,8 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
-    company: Optional[str] = None
-    role: Optional[str] = None
+    company: str | None = None
+    role: str | None = None
 
     @validator('password')
     def validate_password(cls, v):
@@ -60,9 +67,9 @@ class UserResponse(BaseModel):
     id: str
     email: str
     full_name: str
-    role: Optional[str]
-    company: Optional[str]
-    avatar_url: Optional[str]
+    role: str | None
+    company: str | None
+    avatar_url: str | None
     plan: str
     is_verified: bool
     created_at: str
@@ -73,15 +80,17 @@ class UserResponse(BaseModel):
 
 # === ENDPOINTS ===
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("3/minute")  # Security: Limit registration to prevent spam
 async def register(
-    request: RegisterRequest,
+    request: Request,  # Required by slowapi limiter
+    register_request: RegisterRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """Rejestracja nowego użytkownika"""
 
     # Sprawdź czy email już istnieje
     result = await db.execute(
-        select(User).where(User.email == request.email, User.deleted_at.is_(None))
+        select(User).where(User.email == register_request.email, User.deleted_at.is_(None))
     )
     existing_user = result.scalar_one_or_none()
 
@@ -93,11 +102,11 @@ async def register(
 
     # Utwórz nowego użytkownika
     new_user = User(
-        email=request.email,
-        hashed_password=get_password_hash(request.password),
-        full_name=request.full_name,
-        company=request.company,
-        role=request.role,
+        email=register_request.email,
+        hashed_password=get_password_hash(register_request.password),
+        full_name=register_request.full_name,
+        company=register_request.company,
+        role=register_request.role,
         plan="free",
         is_verified=False,
     )
@@ -126,20 +135,22 @@ async def register(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")  # Security: Prevent brute force attacks
 async def login(
-    request: LoginRequest,
+    request: Request,  # Required by slowapi limiter
+    login_request: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """Logowanie użytkownika"""
 
     # Znajdź użytkownika po emailu
     result = await db.execute(
-        select(User).where(User.email == request.email, User.deleted_at.is_(None))
+        select(User).where(User.email == login_request.email, User.deleted_at.is_(None))
     )
     user = result.scalar_one_or_none()
 
     # Weryfikuj dane logowania
-    if not user or not verify_password(request.password, user.hashed_password):
+    if not user or not verify_password(login_request.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -154,7 +165,16 @@ async def login(
 
     # Zaktualizuj znacznik czasu ostatniego logowania
     user.last_login_at = datetime.utcnow()
-    await db.commit()
+
+    try:
+        await db.commit()
+    except SQLAlchemyError as exc:
+        # W środowiskach z nieaktualnym schematem bazy (np. brak kolumny last_login_at)
+        # commit może się nie powieść. Zamiast zwracać 500, wycofujemy transakcję i
+        # kontynuujemy logowanie – użytkownik otrzyma token, a informacja o
+        # ostatnim logowaniu po prostu nie zostanie zapisana.
+        await db.rollback()
+        logger.warning("Nie udało się zapisać last_login_at podczas logowania: %s", exc)
 
     # Generuj JWT token
     access_token = create_access_token(

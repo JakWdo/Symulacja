@@ -25,6 +25,7 @@ from uuid import uuid4
 
 @pytest.mark.e2e
 @pytest.mark.slow
+@pytest.mark.external
 @pytest.mark.asyncio
 async def test_complete_research_workflow_end_to_end(db_session):
     """

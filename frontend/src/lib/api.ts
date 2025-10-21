@@ -2,6 +2,11 @@ import axios from 'axios';
 import type {
   Project,
   Persona,
+  PersonaDetailsResponse,
+  PersonaMessagingResponse,
+  PersonaMessagingPayload,
+  PersonaComparisonResponse,
+  PersonaExportResponse,
   FocusGroup,
   FocusGroupInsights,
   FocusGroupResponses,
@@ -15,6 +20,12 @@ import type {
   SurveyResults,
   Question,
   GraphQueryResponse,
+  RAGDocument,
+  RAGQueryRequest,
+  RAGQueryResponse,
+  PersonaReasoning,
+  PersonaDeleteResponse,
+  PersonaUndoDeleteResponse,
 } from '@/types';
 
 // === AUTH TYPES ===
@@ -98,6 +109,7 @@ export interface PersonaAdvancedOptions {
 export interface GeneratePersonasPayload {
   num_personas: number;
   adversarial_mode: boolean;
+  use_rag: boolean;
   advanced_options?: PersonaAdvancedOptions;
 }
 
@@ -167,6 +179,64 @@ export const personasApi = {
     payload: GeneratePersonasPayload,
   ): Promise<void> => {
     await api.post(`/projects/${projectId}/personas/generate`, payload);
+  },
+  getDetails: async (personaId: string): Promise<PersonaDetailsResponse> => {
+    const { data } = await api.get<PersonaDetailsResponse>(`/personas/${personaId}/details`);
+    return data;
+  },
+  delete: async (
+    personaId: string,
+    reason: string,
+    reasonDetail?: string,
+  ): Promise<PersonaDeleteResponse> => {
+    const { data } = await api.delete<PersonaDeleteResponse>(`/personas/${personaId}`, {
+      data: {
+        reason,
+        reason_detail: reasonDetail,
+      },
+    });
+    return data;
+  },
+  undoDelete: async (personaId: string): Promise<PersonaUndoDeleteResponse> => {
+    const { data } = await api.post<PersonaUndoDeleteResponse>(`/personas/${personaId}/undo-delete`);
+    return data;
+  },
+  generateMessaging: async (
+    personaId: string,
+    payload: PersonaMessagingPayload,
+  ): Promise<PersonaMessagingResponse> => {
+    const { data } = await api.post<PersonaMessagingResponse>(
+      `/personas/${personaId}/actions/messaging`,
+      payload,
+    );
+    return data;
+  },
+  compare: async (
+    personaId: string,
+    personaIds: string[],
+    sections?: string[],
+  ): Promise<PersonaComparisonResponse> => {
+    const { data } = await api.post<PersonaComparisonResponse>(
+      `/personas/${personaId}/actions/compare`,
+      {
+        persona_ids: personaIds,
+        sections,
+      },
+    );
+    return data;
+  },
+  export: async (
+    personaId: string,
+    sections?: string[],
+  ): Promise<PersonaExportResponse> => {
+    const { data } = await api.post<PersonaExportResponse>(
+      `/personas/${personaId}/actions/export`,
+      {
+        format: 'json',
+        sections,
+      },
+    );
+    return data;
   },
 };
 
@@ -257,8 +327,14 @@ export const analysisApi = {
     return data;
   },
   getPersonaInsights: async (personaId: string): Promise<PersonaInsight> => {
-    const { data } = await api.get<PersonaInsight>(
+    const { data} = await api.get<PersonaInsight>(
       `/personas/${personaId}/insights`,
+    );
+    return data;
+  },
+  getPersonaReasoning: async (personaId: string): Promise<PersonaReasoning> => {
+    const { data } = await api.get<PersonaReasoning>(
+      `/personas/${personaId}/reasoning`,
     );
     return data;
   },
@@ -484,5 +560,56 @@ export const settingsApi = {
 
   deleteAccount: async (): Promise<void> => {
     await api.delete('/settings/account');
+  },
+};
+
+// === RAG API ===
+export const ragApi = {
+  /**
+   * Upload a document to RAG system
+   * @param file PDF or DOCX file
+   * @param title Document title
+   * @param country Country (default: Poland)
+   */
+  uploadDocument: async (
+    file: File,
+    title: string,
+    country: string = 'Poland'
+  ): Promise<RAGDocument> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', title);
+    formData.append('country', country);
+
+    const { data } = await api.post<RAGDocument>('/rag/documents/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data;
+  },
+
+  /**
+   * List all RAG documents
+   */
+  listDocuments: async (): Promise<RAGDocument[]> => {
+    const { data } = await api.get<RAGDocument[]>('/rag/documents');
+    return data;
+  },
+
+  /**
+   * Query RAG system (for testing/preview)
+   */
+  query: async (request: RAGQueryRequest): Promise<RAGQueryResponse> => {
+    const { data } = await api.post<RAGQueryResponse>('/rag/query', request);
+    return data;
+  },
+
+  /**
+   * Delete a RAG document
+   */
+  deleteDocument: async (documentId: string): Promise<{ message: string }> => {
+    const { data } = await api.delete(`/rag/documents/${documentId}`);
+    return data;
   },
 };

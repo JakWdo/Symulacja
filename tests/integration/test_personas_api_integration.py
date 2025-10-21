@@ -1,21 +1,16 @@
-"""
-Testy integracyjne API person z rzeczywistą bazą danych.
+"""Integration coverage for persona API endpoints."""
 
-Ten moduł testuje:
-- Generowanie person (background task)
-- Listowanie person projektu
-- Pobieranie szczegółów persony
-- Walidację demographics
-- Usuwanie person
-"""
-
-import pytest
 import asyncio
 from uuid import uuid4
+
+import pytest
+
+from tests.factories import persona_generation_request, project_payload
 
 
 @pytest.mark.integration
 @pytest.mark.slow
+@pytest.mark.external
 @pytest.mark.asyncio
 async def test_generate_personas_success(authenticated_client):
     """
@@ -28,17 +23,17 @@ async def test_generate_personas_success(authenticated_client):
     - Persony są generowane
     - Każda persona ma wymagane pola (demographics, Big Five, Hofstede)
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
-    project_data = {
-        "name": "Persona Generation Test",
-        "target_demographics": {
+    project_data = project_payload(
+        name="Persona Generation Test",
+        target_demographics={
             "age_group": {"18-24": 0.3, "25-34": 0.4, "35-44": 0.3},
-            "gender": {"male": 0.5, "female": 0.5}
+            "gender": {"male": 0.5, "female": 0.5},
         },
-        "target_sample_size": 5  # Small number for faster test
-    }
+        target_sample_size=5,
+    )
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)
     assert project_response.status_code == 201
     project_id = project_response.json()["id"]
@@ -46,8 +41,8 @@ async def test_generate_personas_success(authenticated_client):
     # Generate personas
     generate_response = client.post(
         f"/api/v1/projects/{project_id}/personas/generate",
-        json={"num_personas": 5, "adversarial_mode": False},
-        headers=headers
+        json=persona_generation_request(5),
+        headers=headers,
     )
 
     assert generate_response.status_code == 202, f"Expected 202, got {generate_response.text}"
@@ -103,41 +98,41 @@ async def test_generate_personas_invalid_num(authenticated_client):
 
     Liczba person musi być: 1 <= num_personas <= 1000
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
-    project_data = {
-        "name": "Invalid Num Test",
-        "target_demographics": {
+    project_data = project_payload(
+        name="Invalid Num Test",
+        target_demographics={
             "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
+            "gender": {"male": 0.5, "female": 0.5},
         },
-        "target_sample_size": 10
-    }
+        target_sample_size=10,
+    )
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)
     project_id = project_response.json()["id"]
 
     # Try with 0 personas
     response_zero = client.post(
         f"/api/v1/projects/{project_id}/personas/generate",
-        json={"num_personas": 0},
-        headers=headers
+        json=persona_generation_request(0),
+        headers=headers,
     )
     assert response_zero.status_code == 422, "Should reject 0 personas"
 
     # Try with negative number
     response_negative = client.post(
         f"/api/v1/projects/{project_id}/personas/generate",
-        json={"num_personas": -5},
-        headers=headers
+        json=persona_generation_request(-5),
+        headers=headers,
     )
     assert response_negative.status_code == 422, "Should reject negative number"
 
     # Try with too many (>1000)
     response_too_many = client.post(
         f"/api/v1/projects/{project_id}/personas/generate",
-        json={"num_personas": 1001},
-        headers=headers
+        json=persona_generation_request(1001),
+        headers=headers,
     )
     assert response_too_many.status_code == 422, "Should reject >1000 personas"
 
@@ -150,7 +145,7 @@ async def test_list_personas_returns_only_project_personas(project_with_personas
 
     KRYTYCZNE: Izolacja danych między projektami.
     """
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     # Get personas for this project
     response = client.get(f"/api/v1/projects/{project.id}/personas", headers=headers)
@@ -173,7 +168,7 @@ async def test_get_persona_details(project_with_personas):
     """
     Test pobierania szczegółów pojedynczej persony.
     """
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     persona = personas[0]
 
@@ -193,7 +188,7 @@ async def test_get_persona_not_found(authenticated_client):
     """
     Test zwracania 404 dla nieistniejącej persony.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     fake_id = str(uuid4())
     response = client.get(f"/api/v1/personas/{fake_id}", headers=headers)
@@ -207,7 +202,7 @@ async def test_delete_persona(project_with_personas):
     """
     Test usuwania persony (soft delete).
     """
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     persona_to_delete = personas[0]
     persona_id = str(persona_to_delete.id)
@@ -235,7 +230,7 @@ async def test_generate_adversarial_personas(authenticated_client):
 
     Adversarial mode = persony są bardziej krytyczne/sceptyczne.
     """
-    client, user, headers = authenticated_client
+    client, user, headers = await authenticated_client
 
     # Create project
     project_data = {

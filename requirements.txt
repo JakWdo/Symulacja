@@ -1,3 +1,16 @@
+# Requirements for Development
+# ==============================
+# Ten plik zawiera unpinned dependencies dla elastycznego developmentu.
+# Dla produkcji użyj requirements.lock z zakpinowanymi wersjami.
+#
+# Generowanie lock file:
+#   docker-compose exec api pip freeze > requirements.lock
+#
+# Zalecane narzędzia security:
+#   pip install pip-audit safety
+#   pip-audit  # Sprawdź znane CVE
+#   safety check  # Sprawdź znane vulnerabilities
+
 # Core Framework
 fastapi
 uvicorn[standard]
@@ -9,6 +22,7 @@ sqlalchemy
 asyncpg
 psycopg2-binary
 alembic
+aiosqlite  # Async SQLite driver for tests (Cloud Build)
 
 # Vector Database & Graph DB
 pgvector
@@ -16,21 +30,20 @@ neo4j
 redis
 hiredis
 
-# Task Queue
-celery[redis]
-
-# LangChain Core
-langchain
-langchain-core
-langchain-community
+# LangChain Core (compatible 0.2.x versions)
+langchain>=0.2.0,<0.3.0
+langchain-core>=0.2.38,<0.3.0
+langchain-community>=0.2.0,<0.3.0
+langchain-text-splitters>=0.2.0,<0.3.0
 
 # LangChain LLM Providers
-langchain-google-genai
-langchain-openai
-langchain-anthropic
+langchain-google-genai>=1.0.0,<2.0.0
+langchain-openai>=0.1.0,<0.2.0
+langchain-anthropic>=0.1.0,<0.2.0
+langchain-experimental>=0.0.60,<0.1.0
 
 # LangGraph (for complex workflows)
-langgraph
+langgraph>=0.2.0,<0.3.0
 
 # Legacy LLM Integration (optional fallback)
 openai
@@ -54,9 +67,11 @@ python-multipart
 
 # Auth & Security
 python-jose[cryptography]
+PyJWT  # Required for direct JWT import in tests (python-jose uses it internally)
 bcrypt
 python-dotenv
 email-validator
+slowapi  # Rate limiting for FastAPI
 
 # Utilities
 python-dateutil
@@ -69,6 +84,7 @@ Pillow
 pytest
 pytest-asyncio
 pytest-cov
+pytest-timeout  # Timeout for CI/CD tests (prevents hanging tests)
 black
 flake8
 mypy
@@ -80,3 +96,9 @@ prometheus-client
 reportlab
 jinja2
 openpyxl
+
+# RAG System - Document Processing
+docling>=2.0.0
+pypdf
+python-docx
+sentence-transformers==2.7.0

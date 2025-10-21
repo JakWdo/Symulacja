@@ -9,7 +9,7 @@ Definiuje struktury danych dla:
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
+from typing import Any, Literal
 from datetime import datetime
 from uuid import UUID
 
@@ -37,11 +37,11 @@ class QuestionSchema(BaseModel):
     id: str = Field(..., min_length=1, max_length=100)
     type: Literal["single-choice", "multiple-choice", "rating-scale", "open-text"]
     title: str = Field(..., min_length=1, max_length=500)
-    description: Optional[str] = Field(None, max_length=1000)
-    options: Optional[List[str]] = Field(None, max_items=50)
+    description: str | None = Field(None, max_length=1000)
+    options: list[str] | None = Field(None, max_items=50)
     required: bool = Field(default=True)
-    scaleMin: Optional[int] = Field(None, ge=0, le=100)
-    scaleMax: Optional[int] = Field(None, ge=1, le=100)
+    scaleMin: int | None = Field(None, ge=0, le=100)
+    scaleMax: int | None = Field(None, ge=1, le=100)
 
 
 class SurveyCreate(BaseModel):
@@ -61,8 +61,8 @@ class SurveyCreate(BaseModel):
       Liczba person × liczba pytań = faktyczna liczba odpowiedzi
     """
     title: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=1000)
-    questions: List[QuestionSchema] = Field(..., min_items=1, max_items=100)
+    description: str | None = Field(None, max_length=1000)
+    questions: list[QuestionSchema] = Field(..., min_items=1, max_items=100)
     target_responses: int = Field(default=1000, ge=10, le=100000)
 
 
@@ -99,16 +99,16 @@ class SurveyResponse(BaseModel):
     id: UUID
     project_id: UUID
     title: str
-    description: Optional[str]
-    questions: List[Dict[str, Any]]  # QuestionSchema as dict
+    description: str | None
+    questions: list[dict[str, Any]]  # QuestionSchema as dict
     status: str
     target_responses: int
     actual_responses: int
-    total_execution_time_ms: Optional[int]
-    avg_response_time_ms: Optional[int]
+    total_execution_time_ms: int | None
+    avg_response_time_ms: int | None
     created_at: datetime
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    started_at: datetime | None
+    completed_at: datetime | None
     is_active: bool
 
     class Config:
@@ -133,7 +133,7 @@ class QuestionAnalytics(BaseModel):
     question_type: str
     question_title: str
     responses_count: int
-    statistics: Dict[str, Any]
+    statistics: dict[str, Any]
 
 
 class SurveyResultsResponse(BaseModel):
@@ -157,22 +157,22 @@ class SurveyResultsResponse(BaseModel):
     id: UUID
     project_id: UUID
     title: str
-    description: Optional[str]
-    questions: List[Dict[str, Any]]
+    description: str | None
+    questions: list[dict[str, Any]]
     status: str
     target_responses: int
     actual_responses: int
-    total_execution_time_ms: Optional[int]
-    avg_response_time_ms: Optional[int]
+    total_execution_time_ms: int | None
+    avg_response_time_ms: int | None
     created_at: datetime
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    started_at: datetime | None
+    completed_at: datetime | None
 
     # Wyniki i analiza
-    question_analytics: List[QuestionAnalytics]
-    demographic_breakdown: Dict[str, Dict[str, Any]]
+    question_analytics: list[QuestionAnalytics]
+    demographic_breakdown: dict[str, dict[str, Any]]
     completion_rate: float
-    average_response_time_ms: Optional[float]
+    average_response_time_ms: float | None
 
     class Config:
         from_attributes = True

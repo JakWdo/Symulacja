@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FloatingPanel } from '@/components/ui/FloatingPanel';
+import { FloatingPanel } from '@/components/ui/floating-panel';
 import { projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { Plus, FolderOpen, CheckCircle2, XCircle } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button'; // Import Button
 import type { Project } from '@/types';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/ui/logo';
 
 // Komponent formularza do tworzenia projektu
 function CreateProjectForm({ onClose }: { onClose: () => void }) {
@@ -116,8 +116,11 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
 
 
 export function ProjectPanel() {
-  const { activePanel, setActivePanel, selectedProject, setSelectedProject } =
-    useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const activePanel = useAppStore(state => state.activePanel);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const setSelectedProject = useAppStore(state => state.setSelectedProject);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const { data: projects = [], isLoading, isError, error } = useQuery<Project[]>({

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FloatingPanel } from '@/components/ui/FloatingPanel';
+import { FloatingPanel } from '@/components/ui/floating-panel';
 import { personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
@@ -9,14 +9,16 @@ import {
   User,
   Search,
   Sparkles,
+  Quote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn, getPersonalityColor } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import type { Persona } from '@/types';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 
 const NAME_FROM_STORY_REGEX = /^(?<name>[A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\s+is\s+(?:an|a)\s/;
 
@@ -38,6 +40,13 @@ function getPersonaDisplayName(persona: Persona) {
   return `${genderLabel} ${persona.age}`;
 }
 
+function getPersonaFirstName(persona: Persona): string {
+  const fullName = getPersonaDisplayName(persona);
+  // Wyciągnij tylko pierwsze imię (split po spacji, weź pierwszy element)
+  const firstName = fullName.split(' ')[0];
+  return firstName;
+}
+
 function extractStorySummary(story?: string | null) {
   if (!story) return null;
   const trimmed = story.trim();
@@ -52,8 +61,9 @@ function formatLocation(location?: string | null) {
 }
 
 function PersonaListItem({ persona, isSelected }: { persona: Persona; isSelected: boolean }) {
-  const { setSelectedPersona } = useAppStore();
-  const displayName = getPersonaDisplayName(persona);
+  // Use Zustand selector to prevent unnecessary re-renders
+  const setSelectedPersona = useAppStore(state => state.setSelectedPersona);
+  const firstName = getPersonaFirstName(persona);
 
   return (
     <button
@@ -66,8 +76,8 @@ function PersonaListItem({ persona, isSelected }: { persona: Persona; isSelected
           : 'border-l-transparent hover:border-l-slate-300'
       )}
     >
-      <p className="font-semibold text-slate-900 text-sm">{displayName}</p>
-      <p className="text-xs text-slate-500 mt-0.5">{persona.age} lat</p>
+      <p className="font-semibold text-slate-900 text-sm">{firstName}, {persona.age} lat</p>
+      <p className="text-xs text-slate-500 mt-0.5">{persona.location || 'Polska'}</p>
     </button>
   );
 }
@@ -76,7 +86,7 @@ function PersonaDetails({ persona }: { persona: Persona | null }) {
   if (!persona) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-slate-500">
-        Select a persona to preview the full profile.
+        Wybierz personę, aby zobaczyć jej szczegóły.
       </div>
     );
   }
@@ -85,6 +95,9 @@ function PersonaDetails({ persona }: { persona: Persona | null }) {
   const subtitle = persona.persona_title?.trim() || persona.occupation?.trim() || 'Profil persony';
   const locationLabel = formatLocation(persona.location);
   const headline = (persona.headline && persona.headline.trim()) || extractStorySummary(persona.background_story);
+  const ragCitations = persona.rag_citations ?? [];
+  const ragContextUsed = persona.rag_context_used;
+  const showRagSection = ragContextUsed || ragCitations.length > 0;
 
   const personalityTraits: Array<{ label: string; value: number | null | undefined }> = [
     { label: 'Otwartość', value: persona.openness },
@@ -193,19 +206,56 @@ function PersonaDetails({ persona }: { persona: Persona | null }) {
           </p>
         </section>
       )}
+
+      {showRagSection && (
+        <section>
+          <h5 className="text-base font-bold text-slate-900 mb-3">Źródła wiedzy (RAG)</h5>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {ragContextUsed ? (
+              <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200">Wykorzystano kontekst RAG</Badge>
+            ) : (
+              <Badge className="bg-slate-100 text-slate-600 border border-slate-200">Brak kontekstu RAG</Badge>
+            )}
+            {ragCitations.length === 0 && ragContextUsed && (
+              <span className="text-xs text-slate-500">Brak zwróconych cytowań do wyświetlenia.</span>
+            )}
+          </div>
+          {ragCitations.length > 0 && (
+            <div className="space-y-3">
+              {ragCitations.map((citation, index) => (
+                <div
+                  key={`${citation.document_title}-${index}`}
+                  className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 space-y-2"
+                >
+                  <div className="flex items-start gap-2">
+                    <Quote className="w-4 h-4 text-slate-400 mt-1" />
+                    <div className="space-y-1">
+                      <p className="text-sm text-slate-700 leading-relaxed">{citation.chunk_text}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span className="font-semibold text-slate-600">{citation.document_title}</span>
+                        <span>•</span>
+                        <span>trafność {Math.round(citation.relevance_score * 100)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
 
 export function PersonaPanel() {
-  const {
-    activePanel,
-    setActivePanel,
-    selectedProject,
-    selectedPersona,
-    setPersonas,
-    setSelectedPersona,
-  } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const activePanel = useAppStore(state => state.activePanel);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const selectedPersona = useAppStore(state => state.selectedPersona);
+  const setPersonas = useAppStore(state => state.setPersonas);
+  const setSelectedPersona = useAppStore(state => state.setSelectedPersona);
   const [showWizard, setShowWizard] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const queryClient = useQueryClient();
@@ -218,26 +268,40 @@ export function PersonaPanel() {
     queryKey: ['personas', selectedProject?.id],
     queryFn: async () => {
       if (!selectedProject) return [];
-      const data = await personasApi.getByProject(selectedProject.id);
-      setPersonas(data); // Update store immediately
-      return data;
+      return await personasApi.getByProject(selectedProject.id);
     },
     enabled: !!selectedProject,
     refetchInterval: (query) => {
-      // Refetch every 3s if project exists but no personas yet (generation in progress)
-      const data = query.state.data;
-      return selectedProject && (!data || data.length === 0) ? 3000 : false;
-    },
-    onSuccess: (data) => {
-      // Show toast when personas generation completes
-      if (data.length > 0 && personas && personas.length === 0) {
-        toast.success(
-          'Personas generated',
-          `${projectLabel} • ${data.length} personas ready`
-        );
+      // Refetch every 5s if project exists but no personas yet (generation in progress)
+      // Only refetch if we're actively generating for this project
+      if (!selectedProject || activeGenerationProjectId !== selectedProject.id) {
+        return false;
       }
+      const data = query.state.data;
+      return (!data || data.length === 0) ? 5000 : false;
     },
   });
+
+  // Sync personas to global store
+  useEffect(() => {
+    if (personas) {
+      setPersonas(personas);
+    }
+  }, [personas, setPersonas]);
+
+  // Track previous personas length for toast notification
+  const prevPersonasLength = useRef<number>(0);
+
+  // Show toast when personas generation completes
+  useEffect(() => {
+    if (personas && personas.length > 0 && prevPersonasLength.current === 0) {
+      toast.success(
+        'Personas generated',
+        `${projectLabel} • ${personas.length} personas ready`
+      );
+    }
+    prevPersonasLength.current = personas?.length ?? 0;
+  }, [personas, projectLabel]);
 
   const isAwaitingPersonas = !personas || personas.length === 0;
   const isCurrentProjectGenerating =

@@ -8,13 +8,16 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
 
 from app.db.base import Base
+from app.core.config import get_settings
+
+settings = get_settings()
 
 
 class PersonaEvent(Base):
@@ -59,7 +62,7 @@ class PersonaEvent(Base):
     event_type = Column(String(100), nullable=False)  # "response_given", "question_asked", etc.
     event_data = Column(JSON, nullable=False)  # {"question": "...", "response": "..."}
     sequence_number = Column(Integer, nullable=False)  # 1, 2, 3, ... (per persona)
-    embedding = Column(Vector(768), nullable=True)  # Wektor semantyczny Google Gemini (768D)
+    embedding = Column(Vector(settings.EMBEDDING_DIMENSION), nullable=True)  # Wektor semantyczny Google Gemini
     timestamp = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Relacje

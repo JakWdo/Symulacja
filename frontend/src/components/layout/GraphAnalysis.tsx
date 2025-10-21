@@ -13,7 +13,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { NetworkGraph } from '@/components/analysis/NetworkGraph';
 import { projectsApi, graphApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { toast } from '@/components/ui/toastStore';
 import type { GraphQueryResponse } from '@/types';
 

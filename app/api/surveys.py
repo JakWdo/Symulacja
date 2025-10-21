@@ -15,7 +15,6 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
-from typing import List
 from uuid import UUID
 
 from app.db import AsyncSessionLocal, get_db
@@ -79,7 +78,7 @@ async def create_survey(
     return db_survey
 
 
-@router.get("/projects/{project_id}/surveys", response_model=List[SurveyResponse])
+@router.get("/projects/{project_id}/surveys", response_model=list[SurveyResponse])
 async def get_project_surveys(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -103,7 +102,7 @@ async def get_project_surveys(
     # Pobierz wszystkie ankiety powiązane z projektem
     result = await db.execute(
         select(Survey)
-        .where(Survey.project_id == project_id, Survey.is_active == True)
+        .where(Survey.project_id == project_id, Survey.is_active.is_(True))
         .order_by(Survey.created_at.desc())
     )
     surveys = result.scalars().all()
@@ -181,7 +180,7 @@ async def run_survey(
     _running_tasks.add(task)
     task.add_done_callback(_running_tasks.discard)
 
-    logger.info(f"📝 Survey task created and added to running tasks")
+    logger.info("📝 Survey task created and added to running tasks")
 
     return {
         "message": "Survey execution started",
@@ -206,10 +205,10 @@ async def _run_survey_task(survey_id: UUID):
     try:
         async with AsyncSessionLocal() as db:
             # Import serwisu (leniwe ładowanie, aby uniknąć zapętlenia importów)
-            from app.services.survey_response_generator import SurveyResponseGenerator
+            from app.services.surveys.survey_response_generator import SurveyResponseGenerator
 
             service = SurveyResponseGenerator()
-            logger.info(f"📦 Service created, calling generate_responses...")
+            logger.info("📦 Service created, calling generate_responses...")
             result = await service.generate_responses(db, str(survey_id))
             logger.info(f"✅ Survey completed: {result.get('status')}")
     except Exception as e:
@@ -255,7 +254,7 @@ async def get_survey_results(
         404: Ankieta nie istnieje
         400: Ankieta nie została jeszcze uruchomiona
     """
-    from app.services.survey_response_generator import SurveyResponseGenerator
+    from app.services.surveys.survey_response_generator import SurveyResponseGenerator
 
     survey = await get_survey_for_user(survey_id, current_user, db)
 

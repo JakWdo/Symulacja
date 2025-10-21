@@ -14,7 +14,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_create_survey_success(project_with_personas):
     """Test pomyślnego utworzenia ankiety."""
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     survey_data = {
         "title": "Customer Satisfaction Survey",
@@ -54,7 +54,7 @@ async def test_create_survey_success(project_with_personas):
 @pytest.mark.asyncio
 async def test_list_surveys(project_with_personas):
     """Test listowania ankiet projektu."""
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     # Utwórz 2 ankiety
     for i in range(2):
@@ -82,7 +82,7 @@ async def test_list_surveys(project_with_personas):
 @pytest.mark.asyncio
 async def test_get_survey_details(project_with_personas):
     """Test pobierania szczegółów ankiety."""
-    project, personas, client, headers = project_with_personas
+    project, personas, client, headers = await project_with_personas
 
     # Utwórz ankietę
     survey_data = {

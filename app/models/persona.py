@@ -19,7 +19,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, text
 
@@ -73,6 +73,11 @@ class Persona(Base):
         values: Lista wartości życiowych (np. ["Family", "Success", "Creativity"])
         interests: Lista zainteresowań/hobby (np. ["Yoga", "Photography", "Travel"])
 
+        # === RAG (Retrieval-Augmented Generation) ===
+        rag_context_used: Czy użyto kontekstu z bazy wiedzy RAG przy generowaniu
+        rag_citations: Lista fragmentów z dokumentów użytych jako kontekst (JSONB)
+        rag_context_details: Szczegółowe dane RAG (graph nodes, search type, enrichment) - dla View Details (JSONB)
+
         # === METADANE ===
         personality_prompt: Pełny prompt wysłany do LLM (do debugowania)
         created_at: Data utworzenia
@@ -124,11 +129,33 @@ class Persona(Base):
     interests = Column(ARRAY(String()), nullable=True)
     background_story = Column(Text, nullable=True)
 
+    # RAG (Retrieval-Augmented Generation)
+    rag_context_used = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    rag_citations = Column(JSONB, nullable=True)
+    # Szczegółowe dane RAG dla "View Details" (graph nodes, search type, enrichment info)
+    rag_context_details = Column(JSONB, nullable=True)
+
+    # Segment tracking (segment-based persona generation architecture)
+    segment_id = Column(String(100), nullable=True, index=True)
+    segment_name = Column(String(100), nullable=True)
+
+    # === PERSONA DETAILS (MVP - Szczegółowy widok persony) ===
+    # Needs and Pains (Jobs-to-be-done, desired outcomes, pain points)
+    # Generated with RAG context for consistency with segment data
+    needs_and_pains = Column(JSONB, nullable=True)
+    # NOTE: kpi_snapshot i customer_journey zostały usunięte - używamy dedykowanych serwisów
+
     # Metadane
     personality_prompt = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
     )
     is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
 
@@ -147,6 +174,14 @@ class Persona(Base):
         passive_deletes=True,
         order_by="PersonaEvent.sequence_number",
     )
+    audit_logs = relationship(
+        "PersonaAuditLog",
+        back_populates="persona",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(PersonaAuditLog.timestamp)",
+    )
+    deleted_by_user = relationship("User", foreign_keys=[deleted_by])
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Persona id={self.id} project_id={self.project_id}>"
