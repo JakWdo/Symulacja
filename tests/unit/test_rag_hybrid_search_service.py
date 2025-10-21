@@ -21,7 +21,7 @@ class TestPolishSocietyRAGInit:
 
     def test_init_creates_dependencies(self):
         """Test: __init__ tworzy embeddings i vector store"""
-        with patch('app.services.rag_hybrid_search_service.GoogleGenerativeAIEmbeddings'):
+        with patch('app.services.rag.rag_hybrid_search_service.GoogleGenerativeAIEmbeddings'):
             with patch.object(PolishSocietyRAG, '_init_vector_store_with_retry', return_value=MagicMock()):
                 service = PolishSocietyRAG()
 
@@ -31,9 +31,9 @@ class TestPolishSocietyRAGInit:
 
     def test_graph_rag_service_property_creates_singleton(self):
         """Test: graph_rag_service property tworzy GraphRAGService singleton"""
-        with patch('app.services.rag_hybrid_search_service.GoogleGenerativeAIEmbeddings'):
+        with patch('app.services.rag.rag_hybrid_search_service.GoogleGenerativeAIEmbeddings'):
             with patch.object(PolishSocietyRAG, '_init_vector_store_with_retry', return_value=MagicMock()):
-                with patch('app.services.rag_graph_service.GraphRAGService') as mock_service_class:
+                with patch('app.services.rag.rag_graph_service.GraphRAGService') as mock_service_class:
                     service = PolishSocietyRAG()
 
                     # Access property twice
@@ -251,7 +251,7 @@ class TestHybridSearch:
             (Document(page_content="Reranked result"), 0.95)
         ])
 
-        with patch('app.services.rag_hybrid_search_service.get_settings') as mock_settings:
+        with patch('app.services.rag.rag_hybrid_search_service.get_settings') as mock_settings:
             mock_settings.return_value.RAG_USE_RERANKING = True
             mock_settings.return_value.RAG_RERANK_CANDIDATES = 20
 
