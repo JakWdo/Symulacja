@@ -41,8 +41,7 @@ docker-compose*.yml
 .env.*
 !.env.example
 
-# Frontend (nie potrzebne w backend image)
-frontend/
+# Node modules (will be installed inside Docker via npm ci)
 node_modules/
 
 # Documentation
