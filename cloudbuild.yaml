@@ -206,7 +206,7 @@ steps:
         gcloud run jobs execute db-migrate --region=europe-central2 --wait
 
         # Check migration status
-        if [ $? -eq 0 ]; then
+        if [ $$? -eq 0 ]; then
           echo "✅ Migrations completed successfully"
         else
           echo "❌ Migrations failed - aborting deployment"
@@ -279,7 +279,7 @@ steps:
         gcloud run jobs execute neo4j-init --region=europe-central2 --wait
 
         # Check initialization status (non-fatal - RAG services have retry logic)
-        if [ $? -eq 0 ]; then
+        if [ $$? -eq 0 ]; then
           echo "✅ Neo4j indexes initialized successfully"
         else
           echo "⚠️  Neo4j init failed - RAG features may be limited"
