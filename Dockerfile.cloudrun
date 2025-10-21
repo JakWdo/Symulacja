@@ -1,85 +1,98 @@
-FROM python:3.11-slim AS builder
+# ==============================================================================
+# Dockerfile.cloudrun - Single Service (Backend + Frontend Static)
+# ==============================================================================
+# Multi-stage build:
+# 1. Build React frontend
+# 2. Install Python dependencies
+# 3. Runtime with backend code + frontend static files
+# ==============================================================================
 
-# Build argument - nie używamy tego w Cloud Run, ale zostawiamy dla compatibility
-ARG TARGET=production
+# ==============================================================================
+# STAGE 1: Build Frontend (React + Vite)
+# ==============================================================================
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy package files for caching
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build production bundle
+# Output: /app/frontend/dist/
+RUN npm run build
+
+# ==============================================================================
+# STAGE 2: Build Backend (Python dependencies)
+# ==============================================================================
+FROM python:3.11-slim AS backend-builder
 
 WORKDIR /app
 
-# Zainstaluj build dependencies (gcc, g++ potrzebne dla kompilacji niektórych Python packages)
-# UWAGA: postgresql-client jest tutaj tylko dla buildu (niektóre packages tego wymagają)
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Kopiuj tylko requirements.txt NAJPIERW (dla lepszego layer caching)
-# Jeśli requirements.txt się nie zmieni, ta warstwa zostanie użyta z cache
+# Install Python dependencies
 COPY requirements.txt .
-
-# Zainstaluj Python dependencies
-# --no-cache-dir: Nie cache pip downloads (zmniejsza rozmiar image)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# WAŻNE: Zainstaluj gunicorn (nie ma go w requirements.txt bo lokalnie używamy uvicorn)
+# Install gunicorn (not in requirements.txt for local dev)
 RUN pip install --no-cache-dir gunicorn
 
 # ==============================================================================
-# STAGE 2: RUNTIME - Finalny lekki image dla Cloud Run
+# STAGE 3: Runtime (Backend + Frontend Static)
 # ==============================================================================
 FROM python:3.11-slim AS runtime
 
 # Production environment
 ARG TARGET=production
 ENV TARGET=${TARGET}
+ENV PYTHONPATH=/app
+ENV PORT=8080
 
 WORKDIR /app
 
-# Ustaw PYTHONPATH aby Python widział moduł 'app'
-ENV PYTHONPATH=/app
-
-# CLOUD RUN REQUIREMENT #1: Port 8080 (lub dynamiczny $PORT)
-# Cloud Run ZAWSZE przekazuje env var PORT (domyślnie 8080)
-# Używamy $PORT żeby być flexible - Cloud Run może zmienić port w przyszłości
-ENV PORT=8080
-
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Kopiuj zainstalowane Python packages z builder stage
-# To pozwala uniknąć instalacji gcc, g++ w runtime image (oszczędność ~300MB!)
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy Python packages from builder
+COPY --from=backend-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=backend-builder /usr/local/bin /usr/local/bin
 
-# Kopiuj kod aplikacji
-# Dzięki .dockerignore, nie skopiujemy __pycache__, venv, node_modules, etc.
-COPY . .
+# Copy backend code
+COPY app/ ./app/
+COPY scripts/ ./scripts/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./
 
-# UID 1000 to standardowy pierwszy user na większości systemów Linux
+# Copy frontend dist → static/
+COPY --from=frontend-builder /app/frontend/dist ./static/
+
+# Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 
-
-# Expose port (informacyjne - Cloud Run automatycznie mapuje $PORT)
+# Expose Cloud Run port
 EXPOSE $PORT
 
-#
-# DLACZEGO Gunicorn zamiast Uvicorn?
-# - Uvicorn = single-process ASGI server (1 request at a time w blocking calls)
-# - Gunicorn = process manager który może uruchamiać multiple uvicorn workers
-# - Gunicorn + Uvicorn workers = best of both worlds!
-#
-# Parametry wyjaśnienie:
-# --bind :$PORT              → Nasłuchuj na porcie z env var (8080)
-# --workers 1                → 1 worker process (Cloud Run f1-micro ma mało RAM)
-# --threads 8                → 8 threads per worker (dla I/O concurrency)
-# --timeout 0                → No timeout (LLM requests mogą trwać 30+ sekund!)
-# --worker-class uvicorn...  → Użyj Uvicorn jako worker (ASGI support)
-# app.main:app               → FastAPI app object
-#
-# exec = forward signals (SIGTERM) properly dla graceful shutdown
-# Production config: debug logging but NO preload-app (not supported in gunicorn 23)
+# Start gunicorn
+# --bind :$PORT              → Listen on Cloud Run port (8080)
+# --workers 1                → Single worker (Cloud Run scales horizontally)
+# --threads 8                → 8 threads for concurrency
+# --timeout 0                → No timeout (LLM requests can take 30+ seconds)
+# --log-level info           → Production logging
+# --worker-class uvicorn...  → ASGI support for FastAPI
 CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 --log-level info --access-logfile - --error-logfile - app.main:app --worker-class uvicorn.workers.UvicornWorker
 
-# Switch na non-root user OSTATNI krok (po wszystkich chown operations)
+# Switch to non-root user LAST (after all chown operations)
 USER appuser

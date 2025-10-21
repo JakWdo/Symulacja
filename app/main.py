@@ -13,9 +13,9 @@ Kluczowe endpointy:
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -24,6 +24,7 @@ from app.core.config import get_settings
 from app.middleware.security import SecurityHeadersMiddleware
 from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_router, rag
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -208,3 +209,37 @@ async def global_exception_handler(request: Request, exc: Exception):
             "error": str(exc) if settings.DEBUG else "An unexpected error occurred",
         },
     )
+
+
+# ============================================================================
+# STATIC FILES SERVING (Production: React SPA)
+# ============================================================================
+# Serve React static files ONLY in production (when static/ folder exists)
+# In development, Vite dev server handles this (docker-compose)
+# ============================================================================
+
+if os.path.exists("static") and os.path.exists("static/index.html"):
+    logger.info("🎨 Static files detected - mounting React SPA")
+
+    # Mount /assets for JS, CSS, images (with cache headers)
+    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+
+    # Catch-all route: serve index.html for React Router (SPA)
+    # IMPORTANT: This MUST be the LAST route (after all API routes)
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_react_app(full_path: str):
+        """
+        Serve React SPA for all non-API routes.
+        React Router handles client-side routing.
+        """
+        # Don't intercept API routes, health, docs
+        if full_path.startswith("api/") or full_path in ["health", "docs", "openapi.json", "redoc", "static"]:
+            # Let FastAPI's normal 404 handler deal with this
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # Serve index.html (React app entry point)
+        return FileResponse("static/index.html")
+
+    logger.info("✅ React SPA mounted at / (catch-all route)")
+else:
+    logger.info("⚠️  No static files found - running in API-only mode")
