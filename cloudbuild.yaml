@@ -29,7 +29,7 @@ steps:
         pip install --no-cache-dir ruff
 
         # Ruff: Fast Python linter (replaces flake8, isort, pydocstyle)
-        ruff check app/ --select=E,F,W,I,N,UP,B,A,C4,DTZ,PIE,PT,RET,SIM,ARG,ERA,PL
+        ruff check app/ --config pyproject.toml
 
         if [ $$? -ne 0 ]; then
           echo "❌ Linting failed - please fix code style issues"
