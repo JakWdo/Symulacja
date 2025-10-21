@@ -67,6 +67,7 @@ python-multipart
 
 # Auth & Security
 python-jose[cryptography]
+PyJWT  # Required for direct JWT import in tests (python-jose uses it internally)
 bcrypt
 python-dotenv
 email-validator

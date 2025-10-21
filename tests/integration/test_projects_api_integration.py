@@ -197,6 +197,7 @@ async def test_list_projects_pagination(authenticated_client):
     assert len(data) <= 2  # Should respect limit
 
 
+@pytest.mark.integration
 def test_list_projects_requires_auth(api_client):
     """Ensure unauthenticated clients cannot access project listings."""
     response = api_client.get("/api/v1/projects")
