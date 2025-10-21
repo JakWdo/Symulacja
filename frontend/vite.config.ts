@@ -9,6 +9,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // Public directory - assets kopiowane do dist/
+  publicDir: 'public',
+  build: {
+    // Output directory
+    outDir: 'dist',
+    // Copy public assets to root of dist/
+    copyPublicDir: true,
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
