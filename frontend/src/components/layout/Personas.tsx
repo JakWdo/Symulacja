@@ -29,7 +29,7 @@ import { useAppStore } from '@/store/appStore';
 import { Persona as APIPersona } from '@/types';
 import { toast } from '@/components/ui/toastStore';
 import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 
 
 // Display-friendly Persona interface

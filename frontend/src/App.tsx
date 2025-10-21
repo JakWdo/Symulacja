@@ -18,7 +18,7 @@ import { PersonaPanel } from '@/components/panels/PersonaPanel';
 import { FocusGroupPanel } from '@/components/panels/FocusGroupPanel';
 import { AnalysisPanel } from '@/components/panels/AnalysisPanel';
 import { RAGManagementPanel } from '@/components/panels/RAGManagementPanel';
-import { ToastContainer } from '@/components/ui/Toast';
+import { ToastContainer } from '@/components/ui/toast';
 import { AppLoader } from '@/components/AppLoader';
 import { Login } from '@/components/auth/Login';
 import { useAuth } from '@/contexts/AuthContext';

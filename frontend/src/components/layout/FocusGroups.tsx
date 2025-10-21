@@ -8,9 +8,9 @@ import { MoreVertical, Plus, Users, MessageSquare, Eye, Settings, Trash2 } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { focusGroupsApi, projectsApi } from '@/lib/api';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { toast } from '@/components/ui/toastStore';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useState } from 'react';
 
 interface FocusGroupsProps {

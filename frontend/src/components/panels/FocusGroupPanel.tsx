@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FloatingPanel } from '@/components/ui/FloatingPanel';
+import { FloatingPanel } from '@/components/ui/floating-panel';
 import { focusGroupsApi, personasApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import {
@@ -20,7 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import type { FocusGroup } from '@/types';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';

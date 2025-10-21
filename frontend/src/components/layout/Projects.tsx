@@ -12,7 +12,7 @@ import { projectsApi, personasApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { formatDate } from '@/lib/utils';
 import type { Project } from '@/types';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/ui/logo';
 
 interface ProjectsProps {
   onSelectProject?: (project: Project) => void;

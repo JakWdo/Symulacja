@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft } from 'lucide-react';
 import { projectsApi } from '@/lib/api';
 import type { Project } from '@/types';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/ui/logo';
 
 interface ProjectDetailProps {
   project: Project;

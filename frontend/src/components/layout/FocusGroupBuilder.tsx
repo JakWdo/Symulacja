@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Plus, Trash2, Users, MessageSquare, Settings, Check } from 'lucide-react';
 import { projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 
 interface FocusGroupBuilderProps {
   onBack: () => void;

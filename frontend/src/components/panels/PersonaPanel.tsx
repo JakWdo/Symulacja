@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FloatingPanel } from '@/components/ui/FloatingPanel';
+import { FloatingPanel } from '@/components/ui/floating-panel';
 import { personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
@@ -18,7 +18,7 @@ import { toast } from '@/components/ui/toastStore';
 import type { Persona } from '@/types';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 
 const NAME_FROM_STORY_REGEX = /^(?<name>[A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\s+is\s+(?:an|a)\s/;
 
