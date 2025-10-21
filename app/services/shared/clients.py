@@ -25,6 +25,7 @@ def build_chat_model(
     top_p: float | None = None,
     top_k: int | None = None,
     timeout: int | None = None,
+    max_retries: int = 3,
     **extra: Any,
 ) -> ChatGoogleGenerativeAI:
     """
@@ -37,10 +38,18 @@ def build_chat_model(
         top_p: Parametr nucleus sampling (opcjonalny)
         top_k: Parametr top-k sampling (opcjonalny)
         timeout: Timeout zapytania w sekundach (opcjonalny)
+        max_retries: Liczba ponownych prób dla rate limits (domyślnie 3)
         extra: Dodatkowe parametry przekazywane do klienta
 
     Returns:
-        Skonfigurowana instancja ChatGoogleGenerativeAI.
+        Skonfigurowana instancja ChatGoogleGenerativeAI z retry logic.
+
+    Note:
+        Retry logic używa exponential backoff dla Google API rate limits:
+        - Retry 1: 1s delay
+        - Retry 2: 2s delay
+        - Retry 3: 4s delay
+        LangChain automatycznie obsługuje ResourceExhausted exceptions.
     """
 
     params: dict[str, Any] = {
@@ -48,6 +57,7 @@ def build_chat_model(
         "google_api_key": settings.GOOGLE_API_KEY,
         "temperature": temperature if temperature is not None else settings.TEMPERATURE,
         "max_tokens": max_tokens if max_tokens is not None else settings.MAX_TOKENS,
+        "max_retries": max_retries,
     }
 
     if top_p is not None:

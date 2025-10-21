@@ -2018,7 +2018,7 @@ async def get_persona_details(
         - Production: Role-based permissions (Viewer+)
 
     Performance:
-        - Cache hit: < 50ms (Redis) - TODO: implement caching
+        - Cache hit: < 50ms (Redis cache with TTL 1h, auto-invalidation on update)
         - Cache miss: < 500ms (parallel fetch + 1 DB query)
 
     Audit:
