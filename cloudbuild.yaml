@@ -103,7 +103,7 @@ steps:
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--port=8080'
-      - '--memory=2Gi'
+      - '--memory=4Gi'  # Zwiększone z 2Gi → 4Gi (persona gen + RAG + sentence-transformers ~2.5Gi peak)
       - '--cpu=2'  # Zwiększone do 2 vCPU dla lepszej performance (LLM + RAG)
       - '--cpu-boost'  # Startup CPU boost dla szybszego startu
       - '--timeout=300'
