@@ -4,8 +4,7 @@ Authentication endpoints: register, login, logout, me
 Endpointy odpowiedzialne za autentykację użytkowników.
 """
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr, validator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,8 +32,8 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
-    company: Optional[str] = None
-    role: Optional[str] = None
+    company: str | None = None
+    role: str | None = None
 
     @validator('password')
     def validate_password(cls, v):
@@ -68,9 +67,9 @@ class UserResponse(BaseModel):
     id: str
     email: str
     full_name: str
-    role: Optional[str]
-    company: Optional[str]
-    avatar_url: Optional[str]
+    role: str | None
+    company: str | None
+    avatar_url: str | None
     plan: str
     is_verified: bool
     created_at: str

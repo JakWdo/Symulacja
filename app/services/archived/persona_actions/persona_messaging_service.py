@@ -12,9 +12,8 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
-from langchain_core.language_models.chat_models import BaseChatModel
 
 from app.models.persona import Persona
 from app.schemas.persona_details import PersonaMessagingResponse
@@ -56,8 +55,8 @@ class PersonaMessagingService:
         tone: str,
         message_type: str,
         num_variants: int = 3,
-        context: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        context: str | None = None,
+    ) -> dict[str, Any]:
         """
         Generate messaging variants for the persona.
 
@@ -122,7 +121,7 @@ class PersonaMessagingService:
         tone: str,
         message_type: str,
         num_variants: int,
-        context: Optional[str],
+        context: str | None,
     ) -> str:
         """
         Build optimized prompt for messaging generation.

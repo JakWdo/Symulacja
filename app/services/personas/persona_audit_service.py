@@ -17,7 +17,7 @@ Każda akcja jest logowana z:
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -67,10 +67,10 @@ class PersonaAuditService:
         persona_id: UUID,
         user_id: UUID,
         action: str,
-        details: Optional[Dict[str, Any]],
+        details: dict[str, Any] | None,
         db: AsyncSession,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> PersonaAuditLog:
         """
         Loguj akcję na personie
@@ -135,7 +135,7 @@ class PersonaAuditService:
 
     async def get_audit_log(
         self, persona_id: UUID, db: AsyncSession, limit: int = 20
-    ) -> List[PersonaAuditLog]:
+    ) -> list[PersonaAuditLog]:
         """
         Pobierz audit log dla persony
 
@@ -170,7 +170,7 @@ class PersonaAuditService:
 
     async def get_user_actions(
         self, user_id: UUID, db: AsyncSession, limit: int = 50
-    ) -> List[PersonaAuditLog]:
+    ) -> list[PersonaAuditLog]:
         """
         Pobierz historię akcji użytkownika (dla Admin dashboard)
 

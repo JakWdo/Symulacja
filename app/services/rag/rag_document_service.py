@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -63,7 +63,7 @@ class RAGDocumentService:
         self.vector_store = get_vector_store(logger)
         self.graph_store = get_graph_store(logger)
 
-    async def ingest_document(self, file_path: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    async def ingest_document(self, file_path: str, metadata: dict[str, Any]) -> dict[str, Any]:
         """Przetwarza dokument przez pełny pipeline: load → chunk → graph → vector.
 
         Args:
@@ -301,7 +301,7 @@ Priorytet: JAKOŚĆ > ilość. MAX 3 węzły, TYLKO pewne informacje. Mniej = le
             )
             return {"num_chunks": 0, "status": "failed", "error": str(exc)}
 
-    async def list_documents(self, db: AsyncSession) -> List[RAGDocument]:
+    async def list_documents(self, db: AsyncSession) -> list[RAGDocument]:
         """Zwraca listę aktywnych dokumentów posortowanych malejąco po dacie."""
 
         result = await db.execute(

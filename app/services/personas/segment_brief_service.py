@@ -13,11 +13,10 @@ Architecture:
 - Hybrid generation: demografia + RAG + przykładowe persony z segmentu
 """
 
-import hashlib
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -37,7 +36,6 @@ from app.core.prompts.system_prompts import (
 from app.models.persona import Persona
 from app.schemas.segment_brief import (
     SegmentBrief,
-    PersonaUniqueness,
     SegmentBriefRequest,
     SegmentBriefResponse,
 )
@@ -104,7 +102,7 @@ class SegmentBriefService:
         self.CACHE_TTL_SECONDS = 7 * 24 * 60 * 60  # 604800 sekund
 
     @staticmethod
-    def generate_segment_id(demographics: Dict[str, Any]) -> str:
+    def generate_segment_id(demographics: dict[str, Any]) -> str:
         """
         Generuje unikalny ID segmentu z demografii.
 
@@ -153,7 +151,7 @@ class SegmentBriefService:
 
     async def _get_from_cache(
         self, project_id: str, segment_id: str
-    ) -> Optional[SegmentBrief]:
+    ) -> SegmentBrief | None:
         """
         Pobiera segment brief z Redis cache.
 
@@ -245,7 +243,7 @@ class SegmentBriefService:
         project_id: UUID,
         segment_id: str,
         max_personas: int = 3
-    ) -> List[Persona]:
+    ) -> list[Persona]:
         """
         Pobiera przykładowe persony z danego segmentu dla projektu.
 
@@ -285,7 +283,7 @@ class SegmentBriefService:
             )
             return []
 
-    async def _fetch_rag_context(self, demographics: Dict[str, Any]) -> str:
+    async def _fetch_rag_context(self, demographics: dict[str, Any]) -> str:
         """
         Pobiera kontekst RAG dla demografii segmentu.
 
@@ -331,7 +329,7 @@ class SegmentBriefService:
             logger.warning("⚠️ Błąd pobierania RAG context: %s", exc)
             return "Błąd podczas pobierania kontekstu RAG."
 
-    def _format_example_personas(self, personas: List[Persona]) -> str:
+    def _format_example_personas(self, personas: list[Persona]) -> str:
         """
         Formatuje przykładowe persony do prompta.
 
@@ -370,7 +368,7 @@ class SegmentBriefService:
 
     async def generate_segment_brief(
         self,
-        demographics: Dict[str, Any],
+        demographics: dict[str, Any],
         project_id: UUID,
         max_example_personas: int = 3,
         force_refresh: bool = False
@@ -502,7 +500,7 @@ class SegmentBriefService:
 
     async def _generate_segment_name(
         self,
-        demographics: Dict[str, Any],
+        demographics: dict[str, Any],
         rag_context: str
     ) -> str:
         """
@@ -571,7 +569,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
     def _build_segment_brief_prompt(
         self,
         segment_name: str,
-        demographics: Dict[str, Any],
+        demographics: dict[str, Any],
         rag_context: str,
         example_personas: str
     ) -> str:
@@ -607,7 +605,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
     async def _generate_social_context(
         self,
         segment_name: str,
-        demographics: Dict[str, Any],
+        demographics: dict[str, Any],
         rag_context: str
     ) -> str:
         """
@@ -635,9 +633,9 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
 
     def _extract_characteristics(
         self,
-        demographics: Dict[str, Any],
+        demographics: dict[str, Any],
         rag_context: str
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Ekstraktuje 5-7 kluczowych cech segmentu.
 
@@ -678,7 +676,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
     def _generate_fallback_brief(
         self,
         segment_name: str,
-        demographics: Dict[str, Any]
+        demographics: dict[str, Any]
     ) -> str:
         """Fallback brief gdy LLM zawiedzie."""
         age = demographics.get("age") or demographics.get("age_group", "unknown")
@@ -803,7 +801,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
             try:
                 ttl = await self.redis_client.ttl(cache_key)
                 cache_ttl_seconds = ttl if ttl > 0 else None
-            except:
+            except Exception:  # pragma: no cover - best effort cache probe
                 cache_ttl_seconds = None
         else:
             cache_ttl_seconds = None

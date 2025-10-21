@@ -8,7 +8,7 @@ Wydajność: Przetwarzanie równoległe dla szybkiego generowania odpowiedzi
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
@@ -53,7 +53,7 @@ class SurveyResponseGenerator:
 
     async def generate_responses(
         self, db: AsyncSession, survey_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generuj odpowiedzi wszystkich person na ankietę
 
@@ -153,19 +153,19 @@ class SurveyResponseGenerator:
 
     async def _load_project_personas(
         self, db: AsyncSession, project_id: UUID
-    ) -> List[Persona]:
+    ) -> list[Persona]:
         """Załaduj wszystkie persony projektu"""
         result = await db.execute(
             select(Persona).where(
                 Persona.project_id == project_id,
-                Persona.is_active == True
+                Persona.is_active.is_(True),
             )
         )
         return result.scalars().all()
 
     async def _generate_persona_survey_response(
-        self, persona: Persona, survey_id: UUID, questions: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, persona: Persona, survey_id: UUID, questions: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Generuj odpowiedzi persony na wszystkie pytania ankiety
 
@@ -208,7 +208,7 @@ class SurveyResponseGenerator:
         }
 
     async def _generate_answer_for_question(
-        self, persona: Persona, question: Dict[str, Any]
+        self, persona: Persona, question: dict[str, Any]
     ) -> Any:
         """
         Generuj odpowiedź persony na pojedyncze pytanie
@@ -267,7 +267,7 @@ Background: {persona.background_story or 'N/A'}
 """.strip()
 
     async def _answer_single_choice(
-        self, persona_context: str, question: str, description: str, options: List[str]
+        self, persona_context: str, question: str, description: str, options: list[str]
     ) -> str:
         """Generuj odpowiedź na pytanie single-choice"""
         prompt = ChatPromptTemplate.from_messages([
@@ -298,8 +298,8 @@ Choose the ONE option this persona would most likely select:""")
         return options[0]
 
     async def _answer_multiple_choice(
-        self, persona_context: str, question: str, description: str, options: List[str]
-    ) -> List[str]:
+        self, persona_context: str, question: str, description: str, options: list[str]
+    ) -> list[str]:
         """Generuj odpowiedź na pytanie multiple-choice"""
         prompt = ChatPromptTemplate.from_messages([
             ("system", "You are answering a survey question as a specific persona. Choose one or MORE options that match this persona's likely response. Return ONLY a comma-separated list of chosen options, nothing else."),
@@ -357,7 +357,7 @@ Rate from {scale_min} (lowest) to {scale_max} (highest):""")
             rating = int(''.join(filter(str.isdigit, answer)) or scale_min)
             # Ograniczamy wynik do dozwolonego zakresu
             return max(scale_min, min(scale_max, rating))
-        except:
+        except Exception:
             # W razie problemów bierzemy wartość środkową
             return (scale_min + scale_max) // 2
 
@@ -398,7 +398,7 @@ Your response:""")
 
     async def get_survey_analytics(
         self, db: AsyncSession, survey_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Oblicz statystyki i analizę wyników ankiety
 
@@ -472,7 +472,7 @@ Your response:""")
             "average_response_time_ms": avg_response_time,
         }
 
-    def _calculate_question_stats(self, question_type: str, answers: List[Any]) -> Dict[str, Any]:
+    def _calculate_question_stats(self, question_type: str, answers: list[Any]) -> dict[str, Any]:
         """Oblicz statystyki dla pytania na podstawie typu"""
         if question_type == "single-choice":
             # Zliczamy wystąpienia
@@ -519,8 +519,8 @@ Your response:""")
         return {}
 
     def _calculate_demographic_breakdown(
-        self, responses: List[SurveyResponse], personas: Dict[UUID, Persona], questions: List[Dict]
-    ) -> Dict[str, Dict[str, Any]]:
+        self, responses: list[SurveyResponse], personas: dict[UUID, Persona], questions: list[dict]
+    ) -> dict[str, dict[str, Any]]:
         """Rozłóż odpowiedzi według demografii"""
         # Grupujemy według wieku, płci, wykształcenia i dochodu
         breakdown = {

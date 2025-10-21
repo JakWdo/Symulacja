@@ -13,33 +13,24 @@ Kluczowe funkcjonalności:
 
 import re
 import numpy as np
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Any
 from scipy import stats
 from dataclasses import dataclass
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.runnables import RunnablePassthrough
 
 from app.core.config import get_settings
 from app.core.constants import (
     DEFAULT_AGE_GROUPS,
     DEFAULT_GENDERS,
-    DEFAULT_EDUCATION_LEVELS,
-    DEFAULT_INCOME_BRACKETS,
-    DEFAULT_LOCATIONS,
     POLISH_LOCATIONS,
-    POLISH_VALUES,
-    POLISH_INTERESTS,
-    POLISH_COMMUNICATION_STYLES,
-    POLISH_DECISION_STYLES,
     POLISH_INCOME_BRACKETS,
     POLISH_EDUCATION_LEVELS,
     POLISH_MALE_NAMES,
     POLISH_FEMALE_NAMES,
     POLISH_SURNAMES,
 )
-from app.models import Persona
 from app.services.shared.clients import build_chat_model
 
 settings = get_settings()
@@ -63,11 +54,11 @@ class DemographicDistribution:
     Każde pole to słownik mapujący kategorie na prawdopodobieństwa (sumujące się do 1.0)
     Przykład: {"18-24": 0.3, "25-34": 0.5, "35-44": 0.2}
     """
-    age_groups: Dict[str, float]        # Grupy wiekowe
-    genders: Dict[str, float]           # Płeć
-    education_levels: Dict[str, float]  # Poziomy edukacji
-    income_brackets: Dict[str, float]   # Przedziały dochodowe
-    locations: Dict[str, float]         # Lokalizacje geograficzne
+    age_groups: dict[str, float]        # Grupy wiekowe
+    genders: dict[str, float]           # Płeć
+    education_levels: dict[str, float]  # Poziomy edukacji
+    income_brackets: dict[str, float]   # Przedziały dochodowe
+    locations: dict[str, float]         # Lokalizacje geograficzne
 
 
 class PersonaGeneratorLangChain:
@@ -124,7 +115,7 @@ class PersonaGeneratorLangChain:
 
     def sample_demographic_profile(
         self, distribution: DemographicDistribution, n_samples: int = 1
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Próbkuj profile demograficzne zgodnie z zadanym rozkładem
 
@@ -170,7 +161,7 @@ class PersonaGeneratorLangChain:
 
         return profiles
 
-    def _weighted_sample(self, distribution: Dict[str, float]) -> str:
+    def _weighted_sample(self, distribution: dict[str, float]) -> str:
         """
         Losuj element z rozkładu ważonego (weighted sampling)
 
@@ -228,8 +219,8 @@ class PersonaGeneratorLangChain:
             return re.sub(r'\s+', ' ', text).strip()
 
     def _prepare_distribution(
-        self, distribution: Dict[str, float], fallback: Dict[str, float]
-    ) -> Dict[str, float]:
+        self, distribution: dict[str, float], fallback: dict[str, float]
+    ) -> dict[str, float]:
         """
         Przygotuj i znormalizuj rozkład prawdopodobieństw
 
@@ -258,7 +249,7 @@ class PersonaGeneratorLangChain:
             }
         return normalized
 
-    def sample_big_five_traits(self, personality_skew: Dict[str, float] = None) -> Dict[str, float]:
+    def sample_big_five_traits(self, personality_skew: dict[str, float] = None) -> dict[str, float]:
         """
         Próbkuj cechy osobowości Big Five z rozkładów normalnych
 
@@ -292,7 +283,7 @@ class PersonaGeneratorLangChain:
 
         return traits
 
-    def sample_cultural_dimensions(self) -> Dict[str, float]:
+    def sample_cultural_dimensions(self) -> dict[str, float]:
         """
         Próbkuj wymiary kulturowe Hofstede
 
@@ -317,8 +308,8 @@ class PersonaGeneratorLangChain:
         }
 
     async def _get_rag_context_for_persona(
-        self, demographic: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        self, demographic: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """
         Pobierz kontekst z RAG dla danego profilu demograficznego
 
@@ -369,11 +360,11 @@ class PersonaGeneratorLangChain:
 
     async def generate_persona_personality(
         self,
-        demographic_profile: Dict[str, Any],
-        psychological_profile: Dict[str, Any],
+        demographic_profile: dict[str, Any],
+        psychological_profile: dict[str, Any],
         use_rag: bool = True,  # NOWY PARAMETR - domyślnie włączony
-        advanced_options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[str, Dict[str, Any]]:
+        advanced_options: dict[str, Any] | None = None
+    ) -> tuple[str, dict[str, Any]]:
         """
         Generuj osobowość persony przy użyciu LangChain + Gemini
 
@@ -436,15 +427,9 @@ class PersonaGeneratorLangChain:
         # Pobierz target_audience_description i orchestration brief z advanced_options
         target_audience_desc = None
         orchestration_brief = None
-        graph_insights = None
-        allocation_reasoning = None
-
         if advanced_options:
             target_audience_desc = advanced_options.get('target_audience_description')
             orchestration_brief = advanced_options.get('orchestration_brief')
-            graph_insights = advanced_options.get('graph_insights')
-            allocation_reasoning = advanced_options.get('allocation_reasoning')
-
             if target_audience_desc:
                 logger.info(f"Using target audience description: {target_audience_desc[:100]}...")
             if orchestration_brief:
@@ -508,11 +493,11 @@ class PersonaGeneratorLangChain:
 
     def _create_persona_prompt(
         self,
-        demographic: Dict[str, Any],
-        psychological: Dict[str, Any],
-        rag_context: Optional[str] = None,
-        target_audience_description: Optional[str] = None,
-        orchestration_brief: Optional[str] = None  # NOWY PARAMETR - długi brief od Gemini 2.5 Pro
+        demographic: dict[str, Any],
+        psychological: dict[str, Any],
+        rag_context: str | None = None,
+        target_audience_description: str | None = None,
+        orchestration_brief: str | None = None  # NOWY PARAMETR - długi brief od Gemini 2.5 Pro
     ) -> str:
         """
         Utwórz prompt dla LLM do generowania persony - WERSJA POLSKA
@@ -654,9 +639,9 @@ WYŁĄCZNIE JSON (bez markdown):
 
     def validate_distribution(
         self,
-        generated_personas: List[Dict[str, Any]],
+        generated_personas: list[dict[str, Any]],
         target_distribution: DemographicDistribution,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Waliduj czy wygenerowane persony pasują do docelowego rozkładu (test chi-kwadrat)
 
@@ -717,8 +702,8 @@ WYŁĄCZNIE JSON (bez markdown):
         return results
 
     def _chi_square_test(
-        self, personas: List[Dict[str, Any]], field: str, expected_dist: Dict[str, float]
-    ) -> Dict[str, float]:
+        self, personas: list[dict[str, Any]], field: str, expected_dist: dict[str, float]
+    ) -> dict[str, float]:
         """
         Wykonaj test chi-kwadrat dla konkretnego pola demograficznego
 
@@ -808,11 +793,11 @@ WYŁĄCZNIE JSON (bez markdown):
         segment_id: str,
         segment_name: str,
         segment_context: str,
-        demographics_constraints: Dict[str, Any],  # Will be DemographicConstraints from SegmentDefinition
-        graph_insights: List[Any] = None,
-        rag_citations: List[Any] = None,
-        personality_skew: Optional[Dict[str, float]] = None
-    ) -> Tuple[str, Dict[str, Any]]:
+        demographics_constraints: dict[str, Any],  # Will be DemographicConstraints from SegmentDefinition
+        graph_insights: list[Any] = None,
+        rag_citations: list[Any] = None,
+        personality_skew: dict[str, float] | None = None
+    ) -> tuple[str, dict[str, Any]]:
         """
         Generuj personę Z WYMUSZENIEM demographics z segmentu.
 
@@ -920,12 +905,12 @@ WYŁĄCZNIE JSON (bez markdown):
 
     def _create_segment_persona_prompt(
         self,
-        demographic: Dict[str, Any],
-        psychological: Dict[str, Any],
+        demographic: dict[str, Any],
+        psychological: dict[str, Any],
         segment_name: str,
         segment_context: str,
-        graph_insights: List[Any],
-        rag_citations: List[Any]
+        graph_insights: list[Any],
+        rag_citations: list[Any]
     ) -> str:
         """Create prompt for segment-based persona generation."""
 

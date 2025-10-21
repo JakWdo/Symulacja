@@ -161,7 +161,6 @@ POLISH_OCCUPATIONS = {
     # Produkcja i przemysł
     "Pracownik produkcji": 0.06,
     "Operator maszyn": 0.02,
-    "Magazynier": 0.02,
     # Zawody techniczne
     "Elektryk": 0.02,
     "Hydraulik": 0.01,

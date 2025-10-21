@@ -1,10 +1,9 @@
 """Mathematical utility functions."""
 
 import math
-from typing import List
 
 
-def cosine_similarity(a: List[float], b: List[float]) -> float:
+def cosine_similarity(a: list[float], b: list[float]) -> float:
     """
     Oblicz cosine similarity między dwoma wektorami.
 

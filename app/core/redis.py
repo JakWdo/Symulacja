@@ -8,13 +8,13 @@ details, undo windows and other low-latency features.
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 from redis.asyncio import Redis
 
 from app.core.config import get_settings
 
-_redis_client: Optional[Redis] = None
+_redis_client: Redis | None = None
 
 
 def get_redis_client() -> Redis:
@@ -34,7 +34,7 @@ def get_redis_client() -> Redis:
     return _redis_client
 
 
-async def redis_get_json(key: str) -> Optional[Any]:
+async def redis_get_json(key: str) -> Any | None:
     """Fetch JSON data from Redis and decode it."""
     client = get_redis_client()
     raw = await client.get(key)
@@ -47,7 +47,7 @@ async def redis_get_json(key: str) -> Optional[Any]:
         return None
 
 
-async def redis_set_json(key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
+async def redis_set_json(key: str, value: Any, ttl_seconds: int | None = None) -> None:
     """Store JSON-serialisable value in Redis with optional TTL."""
     client = get_redis_client()
     payload = json.dumps(value)

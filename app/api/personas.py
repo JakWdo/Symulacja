@@ -27,7 +27,7 @@ import re
 import unicodedata
 from datetime import datetime, timedelta
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, BackgroundTasks, Request, HTTPException, status
@@ -71,9 +71,6 @@ from app.core.demographics.polish_constants import (
 from app.core.demographics.international_constants import (
     DEFAULT_AGE_GROUPS,
     DEFAULT_GENDERS,
-    DEFAULT_EDUCATION_LEVELS,
-    DEFAULT_INCOME_BRACKETS,
-    DEFAULT_LOCATIONS,
     DEFAULT_OCCUPATIONS,
 )
 
@@ -89,7 +86,7 @@ logger = logging.getLogger(__name__)
 _running_tasks = set()
 
 
-def _graph_node_to_insight_response(node: Dict[str, Any]) -> Optional[GraphInsightResponse]:
+def _graph_node_to_insight_response(node: dict[str, Any]) -> GraphInsightResponse | None:
     """Konwertuje surowy węzeł grafu (Neo4j) na GraphInsightResponse."""
     if not node:
         return None
@@ -231,7 +228,7 @@ _ADDITIONAL_CITY_ALIASES = {
 }
 
 
-def _normalize_text(value: Optional[str]) -> str:
+def _normalize_text(value: str | None) -> str:
     """Usuń diakrytyki i sprowadź tekst do małych liter – pomocne przy dopasowaniach."""
     if not value:
         return ""
@@ -240,7 +237,7 @@ def _normalize_text(value: Optional[str]) -> str:
     return stripped.lower().strip()
 
 
-def _select_weighted(distribution: Dict[str, float]) -> Optional[str]:
+def _select_weighted(distribution: dict[str, float]) -> str | None:
     """Wybierz losowy element z podanego rozkładu prawdopodobieństwa."""
     if not distribution:
         return None
@@ -249,7 +246,7 @@ def _select_weighted(distribution: Dict[str, float]) -> Optional[str]:
     return random.choices(options, weights=weights, k=1)[0]
 
 
-def _extract_polish_location_from_story(story: Optional[str]) -> Optional[str]:
+def _extract_polish_location_from_story(story: str | None) -> str | None:
     """Spróbuj znaleźć polską lokalizację wewnątrz historii tła persony."""
     if not story:
         return None
@@ -267,7 +264,7 @@ def _extract_polish_location_from_story(story: Optional[str]) -> Optional[str]:
     return None
 
 
-def _ensure_polish_location(location: Optional[str], story: Optional[str]) -> str:
+def _ensure_polish_location(location: str | None, story: str | None) -> str:
     """Zadbaj aby lokalizacja była polska – użyj historii lub losowania z listy."""
     normalized = _normalize_text(location)
     if normalized:
@@ -290,13 +287,13 @@ def _ensure_polish_location(location: Optional[str], story: Optional[str]) -> st
     return fallback
 
 
-def _polishify_gender(raw_gender: Optional[str]) -> str:
+def _polishify_gender(raw_gender: str | None) -> str:
     """Przekonwertuj nazwy płci na polskie odpowiedniki."""
     normalized = _normalize_text(raw_gender)
     return _EN_TO_PL_GENDER.get(normalized, raw_gender.title() if raw_gender else "Kobieta")
 
 
-def _polishify_education(raw_education: Optional[str]) -> str:
+def _polishify_education(raw_education: str | None) -> str:
     """Przekonwertuj poziom wykształcenia na polską etykietę."""
     normalized = _normalize_text(raw_education)
     if normalized in _EN_TO_PL_EDUCATION:
@@ -306,7 +303,7 @@ def _polishify_education(raw_education: Optional[str]) -> str:
     return _select_weighted(POLISH_EDUCATION_LEVELS) or "Średnie ogólnokształcące"
 
 
-def _polishify_income(raw_income: Optional[str]) -> str:
+def _polishify_income(raw_income: str | None) -> str:
     """Przekonwertuj przedział dochodowy na złotówki."""
     normalized = raw_income.strip() if isinstance(raw_income, str) else None
     if normalized:
@@ -330,12 +327,12 @@ _SEGMENT_GENDER_LABELS = {
 }
 
 
-def _segment_gender_label(raw_gender: Optional[str]) -> str:
+def _segment_gender_label(raw_gender: str | None) -> str:
     normalized = _normalize_text(raw_gender)
     return _SEGMENT_GENDER_LABELS.get(normalized, "Osoby")
 
 
-def _format_age_segment(raw_age: Optional[str]) -> Optional[str]:
+def _format_age_segment(raw_age: str | None) -> str | None:
     if raw_age is None:
         return None
     age_str = str(raw_age).strip()
@@ -348,7 +345,7 @@ def _format_age_segment(raw_age: Optional[str]) -> Optional[str]:
     return age_str
 
 
-def _format_education_phrase(raw_education: Optional[str]) -> Optional[str]:
+def _format_education_phrase(raw_education: str | None) -> str | None:
     if not raw_education:
         return None
     value = str(raw_education).strip()
@@ -366,7 +363,7 @@ def _format_education_phrase(raw_education: Optional[str]) -> Optional[str]:
     return None
 
 
-def _format_income_phrase(raw_income: Optional[str]) -> Optional[str]:
+def _format_income_phrase(raw_income: str | None) -> str | None:
     if not raw_income:
         return None
     value = str(raw_income).strip()
@@ -377,7 +374,7 @@ def _format_income_phrase(raw_income: Optional[str]) -> Optional[str]:
     return f"o dochodach {value}"
 
 
-def _format_location_phrase(raw_location: Optional[str]) -> Optional[str]:
+def _format_location_phrase(raw_location: str | None) -> str | None:
     if not raw_location:
         return None
     value = str(raw_location).strip()
@@ -396,7 +393,7 @@ def _slugify_segment(name: str) -> str:
     return ascii_text
 
 
-def _sanitize_brief_text(text: Optional[str], max_length: int = 900) -> Optional[str]:
+def _sanitize_brief_text(text: str | None, max_length: int = 900) -> str | None:
     if not text:
         return None
     cleaned = re.sub(r"[`*_#>\[\]]+", "", text)
@@ -409,7 +406,7 @@ def _sanitize_brief_text(text: Optional[str], max_length: int = 900) -> Optional
     return cleaned
 
 
-def _segment_subject_descriptor(gender_label: str, age_phrase: Optional[str]) -> str:
+def _segment_subject_descriptor(gender_label: str, age_phrase: str | None) -> str:
     base = gender_label.lower() if gender_label and gender_label != "Osoby" else "osoby"
     if age_phrase:
         return f"{base} w wieku {age_phrase}"
@@ -417,7 +414,7 @@ def _segment_subject_descriptor(gender_label: str, age_phrase: Optional[str]) ->
 
 
 def _compose_segment_description(
-    demographics: Dict[str, Any],
+    demographics: dict[str, Any],
     segment_name: str,
 ) -> str:
     gender_label = _segment_gender_label(demographics.get("gender"))
@@ -443,7 +440,7 @@ def _compose_segment_description(
 
 
 def _compose_segment_name(
-    demographics: Dict[str, Any],
+    demographics: dict[str, Any],
     group_index: int,
 ) -> str:
     gender_label = _segment_gender_label(demographics.get("gender"))
@@ -493,11 +490,11 @@ def _compose_segment_name(
 
 
 def _build_segment_metadata(
-    demographics: Dict[str, Any],
-    brief: Optional[str],
-    allocation_reasoning: Optional[str],
+    demographics: dict[str, Any],
+    brief: str | None,
+    allocation_reasoning: str | None,
     group_index: int,
-) -> Dict[str, Optional[str]]:
+) -> dict[str, str | None]:
     segment_name = _compose_segment_name(demographics, group_index)
     slug = _slugify_segment(segment_name)
     if not slug:
@@ -518,7 +515,7 @@ def _build_segment_metadata(
     }
 
 
-def _looks_polish_phrase(text: Optional[str]) -> bool:
+def _looks_polish_phrase(text: str | None) -> bool:
     """Sprawdź heurystycznie czy tekst wygląda na polski (znaki diakrytyczne, słowa kluczowe)."""
     if not text:
         return False
@@ -546,11 +543,11 @@ _BACKGROUND_JOB_PATTERNS = [
 
 
 def _infer_polish_occupation(
-    education_level: Optional[str],
-    income_bracket: Optional[str],
+    education_level: str | None,
+    income_bracket: str | None,
     age: int,
-    personality: Dict[str, Any],
-    background_story: Optional[str],
+    personality: dict[str, Any],
+    background_story: str | None,
 ) -> str:
     """Ustal możliwie polski tytuł zawodowy bazując na dostępnych danych."""
     candidate = personality.get("persona_title") or personality.get("occupation")
@@ -574,7 +571,7 @@ def _infer_polish_occupation(
     return random.choice(DEFAULT_OCCUPATIONS) if DEFAULT_OCCUPATIONS else "Specjalista"
 
 
-def _fallback_polish_list(source: Optional[List[str]], fallback_pool: List[str]) -> List[str]:
+def _fallback_polish_list(source: list[str] | None, fallback_pool: list[str]) -> list[str]:
     """Zapewnij, że listy wartości i zainteresowań mają polskie elementy."""
     if source:
         return [item for item in source if isinstance(item, str) and item.strip()]
@@ -584,7 +581,7 @@ def _fallback_polish_list(source: Optional[List[str]], fallback_pool: List[str])
     return random.sample(fallback_pool, k=sample_size)
 
 
-def _infer_full_name(background_story: Optional[str]) -> Optional[str]:
+def _infer_full_name(background_story: str | None) -> str | None:
     if not background_story:
         return None
     match = _NAME_FROM_STORY_PATTERN.match(background_story.strip())
@@ -593,7 +590,7 @@ def _infer_full_name(background_story: Optional[str]) -> Optional[str]:
     return None
 
 
-def _extract_age_from_story(background_story: Optional[str]) -> Optional[int]:
+def _extract_age_from_story(background_story: str | None) -> int | None:
     """
     Ekstraktuj wiek z background_story (wspiera polski i angielski tekst)
 
@@ -628,16 +625,16 @@ def _extract_age_from_story(background_story: Optional[str]) -> Optional[int]:
     return None
 
 
-def _fallback_full_name(gender: Optional[str], age: int) -> str:
+def _fallback_full_name(gender: str | None, age: int) -> str:
     gender_label = (gender or "Persona").split()[0].capitalize()
     return f"{gender_label} {age}"
 
 
 def _compose_headline(
     full_name: str,
-    persona_title: Optional[str],
-    occupation: Optional[str],
-    location: Optional[str],
+    persona_title: str | None,
+    occupation: str | None,
+    location: str | None,
 ) -> str:
     primary_role = persona_title or occupation
     name_root = full_name.split()[0]
@@ -651,21 +648,21 @@ def _compose_headline(
 
 
 def _get_consistent_occupation(
-    education_level: Optional[str],
-    income_bracket: Optional[str],
+    education_level: str | None,
+    income_bracket: str | None,
     age: int,
-    personality: Dict[str, Any],
-    background_story: Optional[str],
+    personality: dict[str, Any],
+    background_story: str | None,
 ) -> str:
     """Zapewnij polski, spójny zawód bazując na danych kontekstowych."""
     return _infer_polish_occupation(education_level, income_bracket, age, personality, background_story)
 
 
 def _ensure_story_alignment(
-    story: Optional[str],
+    story: str | None,
     age: int,
-    occupation: Optional[str],
-) -> Optional[str]:
+    occupation: str | None,
+) -> str | None:
     if not story:
         return story
     text = story.strip()
@@ -675,17 +672,17 @@ def _ensure_story_alignment(
     return text
 
 
-def _normalize_weights(weights: Dict[str, float]) -> Dict[str, float]:
+def _normalize_weights(weights: dict[str, float]) -> dict[str, float]:
     total = sum(value for value in weights.values() if value > 0)
     if total <= 0:
         return weights
     return {key: value / total for key, value in weights.items() if value > 0}
 
 
-def _coerce_distribution(raw: Optional[Dict[str, Any]]) -> Optional[Dict[str, float]]:
+def _coerce_distribution(raw: dict[str, Any] | None) -> dict[str, float] | None:
     if not raw:
         return None
-    cleaned: Dict[str, float] = {}
+    cleaned: dict[str, float] = {}
     for key, value in raw.items():
         try:
             numeric = float(value)
@@ -696,7 +693,7 @@ def _coerce_distribution(raw: Optional[Dict[str, Any]]) -> Optional[Dict[str, fl
     return _normalize_weights(cleaned) if cleaned else None
 
 
-def _age_group_bounds(label: str) -> Tuple[int, Optional[int]]:
+def _age_group_bounds(label: str) -> tuple[int, int | None]:
     if '-' in label:
         start, end = label.split('-', maxsplit=1)
         try:
@@ -716,7 +713,7 @@ def _age_group_bounds(label: str) -> Tuple[int, Optional[int]]:
         return 0, None
 
 
-def _age_group_overlaps(label: str, min_age: Optional[int], max_age: Optional[int]) -> bool:
+def _age_group_overlaps(label: str, min_age: int | None, max_age: int | None) -> bool:
     group_min, group_max = _age_group_bounds(label)
     if min_age is not None and group_max is not None and group_max < min_age:
         return False
@@ -726,11 +723,11 @@ def _age_group_overlaps(label: str, min_age: Optional[int], max_age: Optional[in
 
 
 def _apply_age_preferences(
-    age_groups: Dict[str, float],
-    focus: Optional[str],
-    min_age: Optional[int],
-    max_age: Optional[int],
-) -> Dict[str, float]:
+    age_groups: dict[str, float],
+    focus: str | None,
+    min_age: int | None,
+    max_age: int | None,
+) -> dict[str, float]:
     adjusted = {
         label: weight
         for label, weight in age_groups.items()
@@ -759,7 +756,7 @@ def _apply_age_preferences(
     return normalized if normalized else dict(age_groups)
 
 
-def _apply_gender_preferences(genders: Dict[str, float], balance: Optional[str]) -> Dict[str, float]:
+def _apply_gender_preferences(genders: dict[str, float], balance: str | None) -> dict[str, float]:
     if balance == 'female_skew':
         return _normalize_weights({
             'female': 0.65,
@@ -776,9 +773,9 @@ def _apply_gender_preferences(genders: Dict[str, float], balance: Optional[str])
 
 
 def _build_location_distribution(
-    base_locations: Dict[str, float],
-    advanced_options: Optional[Dict[str, Any]],
-) -> Dict[str, float]:
+    base_locations: dict[str, float],
+    advanced_options: dict[str, Any] | None,
+) -> dict[str, float]:
     if not advanced_options:
         return base_locations
 
@@ -814,8 +811,8 @@ def _build_location_distribution(
     return base_locations
 
 def _normalize_distribution(
-    distribution: Dict[str, float], fallback: Dict[str, float]
-) -> Dict[str, float]:
+    distribution: dict[str, float], fallback: dict[str, float]
+) -> dict[str, float]:
     """Normalize distribution to sum to 1.0, or use fallback if invalid."""
     if not distribution:
         return fallback
@@ -913,7 +910,7 @@ async def _generate_personas_task(
     project_id: UUID,
     num_personas: int,
     adversarial_mode: bool,
-    advanced_options: Optional[Dict[str, Any]] = None,
+    advanced_options: dict[str, Any] | None = None,
     use_rag: bool = True,
 ):
     """
@@ -990,7 +987,7 @@ async def _generate_personas_task(
                 # Mapuj briefe do każdej persony
                 # Strategia: Każda grupa ma `count` person, więc przydzielamy briefe sekwencyjnie
                 persona_index = 0
-                group_metadata: List[Dict[str, Optional[str]]] = []
+                group_metadata: list[dict[str, str | None]] = []
                 for group_index, group in enumerate(allocation_plan.groups):
                     demographics = (
                         group.demographics
@@ -1132,8 +1129,8 @@ async def _generate_personas_task(
                 extra={"project_id": str(project_id), "concurrency_limit": concurrency_limit},
             )
 
-            personas_data: List[Dict[str, Any]] = []
-            batch_payloads: List[Dict[str, Any]] = []
+            personas_data: list[dict[str, Any]] = []
+            batch_payloads: list[dict[str, Any]] = []
             saved_count = 0
             # Mniejsze batch-e oznaczają szybszą widoczność danych w UI i niższe zużycie pamięci
             batch_size = max(1, min(10, num_personas // 4 or 1))
@@ -1167,7 +1164,7 @@ async def _generate_personas_task(
                 finally:
                     batch_payloads.clear()
 
-            async def create_single_persona(idx: int, demo_profile: Dict[str, Any], psych_profile: Dict[str, Any]):
+            async def create_single_persona(idx: int, demo_profile: dict[str, Any], psych_profile: dict[str, Any]):
                 async with semaphore:
                     # Dodaj orchestration brief do advanced_options jeśli istnieje
                     enhanced_options = advanced_options.copy() if advanced_options else {}
@@ -1204,7 +1201,7 @@ async def _generate_personas_task(
                     prompt, personality_json = result
 
                     # Odporne parsowanie JSON-a z mechanizmem awaryjnym
-                    personality: Dict[str, Any] = {}
+                    personality: dict[str, Any] = {}
                     try:
                         if isinstance(personality_json, str):
                             cleaned = personality_json.strip()
@@ -1552,10 +1549,10 @@ async def _generate_personas_task(
 
             logger.info("Persona generation task completed.", extra={"project_id": str(project_id), "count": len(personas_data)})
     except Exception as e:
-        logger.error(f"CRITICAL ERROR in persona generation task", exc_info=e)
+        logger.error("CRITICAL ERROR in persona generation task", exc_info=e)
 
 
-def _normalize_rag_citations(citations: Optional[List[Dict[str, Any]]]) -> Optional[List[Dict[str, Any]]]:
+def _normalize_rag_citations(citations: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
     """
     Normalizuje RAG citations do aktualnego schematu RAGCitation.
 
@@ -1665,7 +1662,7 @@ async def get_personas_summary(
     )
 
 
-@router.get("/projects/{project_id}/personas", response_model=List[PersonaResponse])
+@router.get("/projects/{project_id}/personas", response_model=list[PersonaResponse])
 async def list_personas(
     project_id: UUID,
     skip: int = 0,
@@ -1845,7 +1842,7 @@ async def get_persona_reasoning(
 
     # Graceful handling: zwróć pustą response jeśli brak orchestration data
     # (zamiast 404 - lepsze UX)
-    rag_details: Dict[str, Any] = persona.rag_context_details or {}
+    rag_details: dict[str, Any] = persona.rag_context_details or {}
     if not rag_details:
         logger.warning(
             "Persona %s nie ma rag_context_details - zwracam pustą response", persona_id
@@ -1858,7 +1855,7 @@ async def get_persona_reasoning(
             overall_context=None,
         )
 
-    orch_reasoning: Dict[str, Any] = rag_details.get("orchestration_reasoning") or {}
+    orch_reasoning: dict[str, Any] = rag_details.get("orchestration_reasoning") or {}
     if not orch_reasoning:
         logger.warning(
             "Persona %s nie ma orchestration_reasoning - korzystam tylko z danych RAG",
@@ -1866,7 +1863,7 @@ async def get_persona_reasoning(
         )
 
     # Parsuj graph insights z orchestration lub fallbacku
-    graph_insights: List[GraphInsightResponse] = []
+    graph_insights: list[GraphInsightResponse] = []
     raw_graph_insights = orch_reasoning.get("graph_insights") or rag_details.get(
         "graph_insights", []
     )

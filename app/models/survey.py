@@ -5,7 +5,6 @@ Umożliwia tworzenie ankiet i zbieranie odpowiedzi od syntetycznych person.
 """
 
 import uuid
-from datetime import datetime
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSON
 from sqlalchemy.orm import relationship

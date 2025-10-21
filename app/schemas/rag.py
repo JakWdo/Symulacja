@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -17,10 +17,10 @@ class RAGDocumentResponse(BaseModel):
     filename: str
     file_path: str
     file_type: str
-    country: Optional[str] = None
+    country: str | None = None
     num_chunks: int
     status: str
-    error_message: Optional[str] = None
+    error_message: str | None = None
     created_at: datetime
     is_active: bool
 
@@ -53,7 +53,7 @@ class RAGQueryResponse(BaseModel):
 
     query: str
     context: str
-    citations: List[RAGCitation]
+    citations: list[RAGCitation]
     num_results: int
 
 
@@ -72,15 +72,15 @@ class GraphRAGQuestionResponse(BaseModel):
     """Odpowiedź Graph RAG obejmująca wynik, kontekst i zapytanie Cypher."""
 
     answer: str
-    graph_context: List[Dict[str, Any]]
-    vector_context: List[Any]
+    graph_context: list[dict[str, Any]]
+    vector_context: list[Any]
     cypher_query: str
 
 
 class GraphRAGQuery(BaseModel):
     """Struktura pomocnicza zamieniająca pytanie na zapytanie Cypher."""
 
-    entities: List[str] = Field(
+    entities: list[str] = Field(
         default_factory=list,
         description="Najważniejsze encje wyekstrahowane z pytania użytkownika.",
     )

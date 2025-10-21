@@ -12,7 +12,7 @@ Definiuje struktury danych dla:
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -38,41 +38,41 @@ class PersonaDetailsResponse(BaseModel):
     # Base persona data
     id: UUID
     project_id: UUID
-    full_name: Optional[str]
-    persona_title: Optional[str]
-    headline: Optional[str]
+    full_name: str | None
+    persona_title: str | None
+    headline: str | None
     age: int
     gender: str
-    location: Optional[str]
-    education_level: Optional[str]
-    income_bracket: Optional[str]
-    occupation: Optional[str]
+    location: str | None
+    education_level: str | None
+    income_bracket: str | None
+    occupation: str | None
 
     # Psychographics
-    big_five: Dict[str, Optional[float]] = Field(
+    big_five: dict[str, float | None] = Field(
         default_factory=dict, description="Big Five personality traits"
     )
-    hofstede: Dict[str, Optional[float]] = Field(
+    hofstede: dict[str, float | None] = Field(
         default_factory=dict, description="Hofstede cultural dimensions"
     )
-    values: List[str] = Field(default_factory=list)
-    interests: List[str] = Field(default_factory=list)
-    background_story: Optional[str]
+    values: list[str] = Field(default_factory=list)
+    interests: list[str] = Field(default_factory=list)
+    background_story: str | None
 
     # Computed/JSONB fields (graceful degradation - może być None)
     needs_and_pains: Optional["NeedsAndPains"] = None
 
     # RAG data
     rag_context_used: bool = False
-    rag_citations: Optional[List[Dict[str, Any]]] = None
-    rag_context_details: Optional[Dict[str, Any]] = None
+    rag_citations: list[dict[str, Any]] | None = None
+    rag_context_details: dict[str, Any] | None = None
 
     # Audit log (last 10 actions)
-    audit_log: List["PersonaAuditEntry"] = Field(default_factory=list)
+    audit_log: list["PersonaAuditEntry"] = Field(default_factory=list)
 
     # Metadata
-    segment_id: Optional[str] = None
-    segment_name: Optional[str] = None
+    segment_id: str | None = None
+    segment_name: str | None = None
     created_at: datetime
     updated_at: datetime
     is_active: bool
@@ -100,7 +100,7 @@ class PersonaExportRequest(BaseModel):
     """
 
     format: Literal["pdf", "csv", "json"] = Field(..., description="Format pliku")
-    sections: List[str] = Field(
+    sections: list[str] = Field(
         default=["overview", "profile", "behaviors"],
         description="Które sekcje uwzględnić",
     )
@@ -111,8 +111,8 @@ class PersonaExportRequest(BaseModel):
 
 class PersonaExportResponse(BaseModel):
     format: Literal["pdf", "csv", "json"]
-    sections: List[str]
-    content: Dict[str, Any]
+    sections: list[str]
+    content: dict[str, Any]
 
 
 # JourneyTouchpoint, JourneyStage, and CustomerJourney models removed
@@ -121,36 +121,36 @@ class PersonaExportResponse(BaseModel):
 
 class JTBDJob(BaseModel):
     job_statement: str
-    priority_score: Optional[int] = Field(default=None, ge=1, le=10)
-    frequency: Optional[str] = None
-    difficulty: Optional[str] = None
-    quotes: List[str] = Field(default_factory=list)
+    priority_score: int | None = Field(default=None, ge=1, le=10)
+    frequency: str | None = None
+    difficulty: str | None = None
+    quotes: list[str] = Field(default_factory=list)
 
 
 class DesiredOutcome(BaseModel):
     outcome_statement: str
-    importance: Optional[int] = Field(default=None, ge=1, le=10)
-    satisfaction_current_solutions: Optional[int] = Field(default=None, ge=1, le=10)
-    opportunity_score: Optional[float] = None
-    is_measurable: Optional[bool] = None
+    importance: int | None = Field(default=None, ge=1, le=10)
+    satisfaction_current_solutions: int | None = Field(default=None, ge=1, le=10)
+    opportunity_score: float | None = None
+    is_measurable: bool | None = None
 
 
 class PainPoint(BaseModel):
     pain_title: str
-    pain_description: Optional[str] = None
-    severity: Optional[int] = Field(default=None, ge=1, le=10)
-    frequency: Optional[str] = None
-    percent_affected: Optional[float] = Field(default=None, ge=0.0, le=1.0)
-    quotes: List[str] = Field(default_factory=list)
-    potential_solutions: List[str] = Field(default_factory=list)
+    pain_description: str | None = None
+    severity: int | None = Field(default=None, ge=1, le=10)
+    frequency: str | None = None
+    percent_affected: float | None = Field(default=None, ge=0.0, le=1.0)
+    quotes: list[str] = Field(default_factory=list)
+    potential_solutions: list[str] = Field(default_factory=list)
 
 
 class NeedsAndPains(BaseModel):
-    jobs_to_be_done: List[JTBDJob] = Field(default_factory=list)
-    desired_outcomes: List[DesiredOutcome] = Field(default_factory=list)
-    pain_points: List[PainPoint] = Field(default_factory=list)
-    generated_at: Optional[datetime] = None
-    generated_by: Optional[str] = None
+    jobs_to_be_done: list[JTBDJob] = Field(default_factory=list)
+    desired_outcomes: list[DesiredOutcome] = Field(default_factory=list)
+    pain_points: list[PainPoint] = Field(default_factory=list)
+    generated_at: datetime | None = None
+    generated_by: str | None = None
 
 
 class PersonaMessagingRequest(BaseModel):
@@ -159,7 +159,7 @@ class PersonaMessagingRequest(BaseModel):
         alias="type"
     )
     num_variants: int = Field(default=3, ge=1, le=5)
-    context: Optional[str] = Field(
+    context: str | None = Field(
         default=None, description="Dodatkowy kontekst kampanii"
     )
 
@@ -170,25 +170,25 @@ class PersonaMessagingRequest(BaseModel):
 class MessagingVariant(BaseModel):
     variant_id: int
     headline: str
-    subheadline: Optional[str] = None
+    subheadline: str | None = None
     body: str
     cta: str
 
 
 class PersonaMessagingResponse(BaseModel):
-    variants: List[MessagingVariant]
+    variants: list[MessagingVariant]
     generated_at: datetime
-    generated_by: Optional[str] = None
+    generated_by: str | None = None
 
 
 class PersonaComparisonRequest(BaseModel):
-    persona_ids: List[UUID] = Field(
+    persona_ids: list[UUID] = Field(
         ...,
         description="Lista innych person do porównania (max 2, bez persony głównej)",
         min_length=0,
         max_length=2,
     )
-    sections: Optional[List[str]] = Field(
+    sections: list[str] | None = Field(
         default=None,
         description="Sekcje do porównania (demographics, psychographics, kpi)",
     )
@@ -201,29 +201,29 @@ class PersonaComparisonValue(BaseModel):
 
 class PersonaDifference(BaseModel):
     field: str
-    values: List[PersonaComparisonValue]
+    values: list[PersonaComparisonValue]
 
 
 class PersonaComparisonPersona(BaseModel):
     id: UUID
-    full_name: Optional[str]
+    full_name: str | None
     age: int
     gender: str
-    location: Optional[str]
-    occupation: Optional[str]
-    education_level: Optional[str]
-    segment_id: Optional[str]
-    segment_name: Optional[str]
-    values: List[str]
-    interests: List[str]
-    big_five: Dict[str, Optional[float]]
+    location: str | None
+    occupation: str | None
+    education_level: str | None
+    segment_id: str | None
+    segment_name: str | None
+    values: list[str]
+    interests: list[str]
+    big_five: dict[str, float | None]
     # kpi_snapshot removed - deprecated
 
 
 class PersonaComparisonResponse(BaseModel):
-    personas: List[PersonaComparisonPersona]
-    differences: List[PersonaDifference]
-    similarity: Dict[str, Dict[str, float]]
+    personas: list[PersonaComparisonPersona]
+    differences: list[PersonaDifference]
+    similarity: dict[str, dict[str, float]]
 
 
 class PersonaDeleteRequest(BaseModel):
@@ -244,7 +244,7 @@ class PersonaDeleteRequest(BaseModel):
     reason: Literal["duplicate", "outdated", "test_data", "other"] = Field(
         ..., description="Kategoria powodu usunięcia"
     )
-    reason_detail: Optional[str] = Field(
+    reason_detail: str | None = Field(
         None,
         max_length=500,
         description="Szczegóły powodu (wymagane jeśli reason=other)",
@@ -255,12 +255,12 @@ class PersonaDeleteResponse(BaseModel):
     """Response dla soft delete persony z metadanymi oraz oknem undo."""
 
     persona_id: UUID
-    full_name: Optional[str]
+    full_name: str | None
     status: Literal["deleted"]
     deleted_at: datetime
     deleted_by: UUID
     undo_available_until: datetime
-    permanent_deletion_scheduled_at: Optional[datetime] = None
+    permanent_deletion_scheduled_at: datetime | None = None
     message: str
 
 
@@ -268,7 +268,7 @@ class PersonaUndoDeleteResponse(BaseModel):
     """Response dla udanego przywrócenia persony."""
 
     persona_id: UUID
-    full_name: Optional[str]
+    full_name: str | None
     status: Literal["active"]
     restored_at: datetime
     restored_by: UUID
@@ -278,8 +278,8 @@ class PersonaUndoDeleteResponse(BaseModel):
 class PersonasSummarySegment(BaseModel):
     """Informacje o segmencie w podsumowaniu person projektu."""
 
-    segment_id: Optional[str]
-    segment_name: Optional[str]
+    segment_id: str | None
+    segment_name: str | None
     active_personas: int
     archived_personas: int
 
@@ -291,7 +291,7 @@ class PersonasSummaryResponse(BaseModel):
     total_personas: int
     active_personas: int
     archived_personas: int
-    segments: List[PersonasSummarySegment] = Field(default_factory=list)
+    segments: list[PersonasSummarySegment] = Field(default_factory=list)
 
 
 class PersonaAuditEntry(BaseModel):
@@ -316,10 +316,10 @@ class PersonaAuditEntry(BaseModel):
 
     id: UUID
     action: str = Field(..., description="Typ akcji")
-    details: Optional[Dict[str, Any]] = Field(
+    details: dict[str, Any] | None = Field(
         None, description="Szczegóły akcji (JSON)"
     )
-    user_id: Optional[UUID] = Field(None, description="Kto wykonał akcję")
+    user_id: UUID | None = Field(None, description="Kto wykonał akcję")
     timestamp: datetime = Field(..., description="Kiedy")
 
     class Config:

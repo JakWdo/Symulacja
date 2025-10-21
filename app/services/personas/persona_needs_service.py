@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,8 +56,8 @@ class PersonaNeedsService:
     async def generate_needs_analysis(
         self,
         persona: Persona,
-        rag_context: Optional[str] = None
-    ) -> Dict[str, Any]:
+        rag_context: str | None = None
+    ) -> dict[str, Any]:
         """
         Generate structured needs data using LLM, focus group responses, and RAG context.
 
@@ -105,7 +105,7 @@ class PersonaNeedsService:
 
         return needs_data
 
-    async def _fetch_recent_responses(self, persona_id) -> List[Dict[str, str]]:
+    async def _fetch_recent_responses(self, persona_id) -> list[dict[str, str]]:
         """
         Fetch latest focus group responses for persona.
 
@@ -131,8 +131,8 @@ class PersonaNeedsService:
     def _build_prompt(
         self,
         persona: Persona,
-        responses: List[Dict[str, str]],
-        rag_context: Optional[str] = None
+        responses: list[dict[str, str]],
+        rag_context: str | None = None
     ) -> str:
         """
         Build optimized prompt for needs analysis with RAG context.

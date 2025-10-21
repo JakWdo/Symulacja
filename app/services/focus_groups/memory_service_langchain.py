@@ -6,13 +6,13 @@ dla kolejnych odpowiedzi w grupach fokusowych przy użyciu embeddingów.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timezone
 import numpy as np
 
-from app.models import PersonaEvent, PersonaResponse, Persona
+from app.models import PersonaEvent
 from app.core.config import get_settings
 from app.services.shared.clients import get_embeddings
 from app.utils.math_utils import cosine_similarity
@@ -41,8 +41,8 @@ class MemoryServiceLangChain:
         db: AsyncSession,
         persona_id: str,
         event_type: str,
-        event_data: Dict[str, Any],
-        focus_group_id: Optional[str] = None,
+        event_data: dict[str, Any],
+        focus_group_id: str | None = None,
     ) -> PersonaEvent:
         """
         Utwórz niemodyfikowalny event w event store (event sourcing)
@@ -104,7 +104,7 @@ class MemoryServiceLangChain:
         query: str,
         top_k: int = 5,
         time_decay: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Pobierz relevantny kontekst z historii eventów persony (semantic search)
 
@@ -203,7 +203,7 @@ class MemoryServiceLangChain:
 
     async def get_persona_history(
         self, db: AsyncSession, persona_id: str, limit: int = 50
-    ) -> List[PersonaEvent]:
+    ) -> list[PersonaEvent]:
         """
         Pobierz pełną historię eventów persony
 
@@ -223,7 +223,7 @@ class MemoryServiceLangChain:
         )
         return result.scalars().all()
 
-    async def _generate_embedding(self, text: str) -> List[float]:
+    async def _generate_embedding(self, text: str) -> list[float]:
         """
         Wygeneruj wektor embeddingu używając Google Gemini
 
@@ -236,7 +236,7 @@ class MemoryServiceLangChain:
         embedding = await self.embeddings.aembed_query(text)
         return embedding
 
-    def _event_to_text(self, event_type: str, event_data: Dict[str, Any]) -> str:
+    def _event_to_text(self, event_type: str, event_data: dict[str, Any]) -> str:
         """
         Konwertuj event na tekst do embeddingu
 

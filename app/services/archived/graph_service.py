@@ -5,12 +5,11 @@ Zarządza grafem wiedzy łączącym persony, koncepcje i emocje.
 Umożliwia analizę relacji między uczestnikami focus groups i ich opiniami.
 """
 
-from typing import List, Dict, Any, Optional, Tuple, Iterable
-from datetime import datetime
+from typing import Any
+from collections.abc import Iterable
 from collections import Counter, defaultdict
 from statistics import mean, pstdev, StatisticsError
 import logging
-import json
 import re
 
 from neo4j import AsyncGraphDatabase, AsyncDriver
@@ -50,10 +49,10 @@ EMOTION_KEYWORDS = {
 # Modele Pydantic opisujące strukturę odpowiedzi LLM
 class ConceptExtraction(BaseModel):
     """Strukturalizowane wyniki ekstrakcji konceptów przez LLM"""
-    concepts: List[str] = Field(description="Lista kluczowych konceptów/tematów (max 5)")
-    emotions: List[str] = Field(description="Lista wykrytych emocji")
+    concepts: list[str] = Field(description="Lista kluczowych konceptów/tematów (max 5)")
+    emotions: list[str] = Field(description="Lista wykrytych emocji")
     sentiment: float = Field(description="Ogólny sentiment od -1.0 do 1.0")
-    key_phrases: List[str] = Field(description="Najważniejsze frazy z wypowiedzi (max 3)")
+    key_phrases: list[str] = Field(description="Najważniejsze frazy z wypowiedzi (max 3)")
 
 
 class GraphService:
@@ -68,17 +67,17 @@ class GraphService:
     """
 
     # Pamięci podręczne w RAM używane, gdy Neo4j jest niedostępny
-    _memory_graph_cache: Dict[str, Dict[str, Any]] = {}
-    _memory_stats_cache: Dict[str, Dict[str, Any]] = {}
-    _memory_metrics_cache: Dict[str, Dict[str, Any]] = {}
+    _memory_graph_cache: dict[str, dict[str, Any]] = {}
+    _memory_stats_cache: dict[str, dict[str, Any]] = {}
+    _memory_metrics_cache: dict[str, dict[str, Any]] = {}
 
     def __init__(self):
         """Inicjalizuj połączenie z Neo4j i LLM do ekstrakcji konceptów"""
-        self.driver: Optional[AsyncDriver] = None
+        self.driver: AsyncDriver | None = None
         self.settings = settings
 
-        self.llm: Optional[Any] = None
-        self.extraction_prompt: Optional[ChatPromptTemplate] = None
+        self.llm: Any | None = None
+        self.extraction_prompt: ChatPromptTemplate | None = None
 
         if self.settings.GOOGLE_API_KEY:
             try:
@@ -148,7 +147,7 @@ Emocje w języku angielskim."""),
             self.driver = None
 
     @staticmethod
-    async def _run_write_query(tx, query: str, params: Dict[str, Any]) -> None:
+    async def _run_write_query(tx, query: str, params: dict[str, Any]) -> None:
         """Uruchamia zapytanie modyfikujące dane w transakcji i oczekuje na commit."""
 
         result = await tx.run(query, **params)
@@ -158,7 +157,7 @@ Emocje w języku angielskim."""),
         self,
         db: AsyncSession,
         focus_group_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Buduje graf wiedzy z danych focus group
 
@@ -322,9 +321,9 @@ Emocje w języku angielskim."""),
     async def get_graph_data(
         self,
         focus_group_id: str,
-        filter_type: Optional[str] = None,
-        db: Optional[AsyncSession] = None
-    ) -> Dict[str, Any]:
+        filter_type: str | None = None,
+        db: AsyncSession | None = None
+    ) -> dict[str, Any]:
         """
         Pobiera dane grafu dla wizualizacji.
 
@@ -345,8 +344,8 @@ Emocje w języku angielskim."""),
                 return self._apply_filter(graph_data, metrics, filter_type)
             return self._copy_graph(graph_data)
 
-        nodes: List[Dict[str, Any]] = []
-        links: List[Dict[str, Any]] = []
+        nodes: list[dict[str, Any]] = []
+        links: list[dict[str, Any]] = []
 
         async with self.driver.session() as session:
             result = await session.run(
@@ -485,7 +484,7 @@ Emocje w języku angielskim."""),
         self,
         db: AsyncSession,
         focus_group_id: str
-    ) -> Tuple[FocusGroup, List[PersonaResponse], Dict[str, Persona]]:
+    ) -> tuple[FocusGroup, list[PersonaResponse], dict[str, Persona]]:
         """Ładuje dane grupy fokusowej, odpowiedzi i persony."""
         result = await db.execute(
             select(FocusGroup).where(FocusGroup.id == focus_group_id)
@@ -503,7 +502,7 @@ Emocje w języku angielskim."""),
         responses = result.scalars().all()
 
         persona_ids = sorted({str(response.persona_id) for response in responses})
-        personas: Dict[str, Persona] = {}
+        personas: dict[str, Persona] = {}
         if persona_ids:
             result = await db.execute(
                 select(Persona).where(Persona.id.in_(persona_ids))
@@ -514,29 +513,29 @@ Emocje w języku angielskim."""),
 
     async def _prepare_graph_snapshot(
         self,
-        responses: List[PersonaResponse],
-        personas: Dict[str, Persona]
-    ) -> Dict[str, Any]:
+        responses: list[PersonaResponse],
+        personas: dict[str, Persona]
+    ) -> dict[str, Any]:
         """
         Buduje strukturę grafu w pamięci na podstawie odpowiedzi i dostępnych person.
         """
-        persona_concepts: Dict[str, Dict[str, List[float]]] = defaultdict(
+        persona_concepts: dict[str, dict[str, list[float]]] = defaultdict(
             lambda: defaultdict(list)
         )
-        persona_emotions: Dict[str, Dict[str, List[float]]] = defaultdict(
+        persona_emotions: dict[str, dict[str, list[float]]] = defaultdict(
             lambda: defaultdict(list)
         )
-        concept_aggregates: Dict[str, Dict[str, Any]] = defaultdict(
+        concept_aggregates: dict[str, dict[str, Any]] = defaultdict(
             lambda: {"mentions": 0, "sentiments": [], "personas": set()}
         )
-        emotion_aggregates: Dict[str, Dict[str, Any]] = defaultdict(
+        emotion_aggregates: dict[str, dict[str, Any]] = defaultdict(
             lambda: {"count": 0, "intensities": [], "personas": set()}
         )
-        persona_sentiment_totals: Dict[str, Dict[str, float]] = defaultdict(
+        persona_sentiment_totals: dict[str, dict[str, float]] = defaultdict(
             lambda: {"total": 0.0, "count": 0}
         )
 
-        entries: List[Dict[str, Any]] = []
+        entries: list[dict[str, Any]] = []
         total_emotion_links = 0
 
         for response in responses:
@@ -654,8 +653,8 @@ Emocje w języku angielskim."""),
     async def _ensure_memory_graph(
         self,
         focus_group_id: str,
-        db: Optional[AsyncSession]
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        db: AsyncSession | None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Zapewnia, że graf dla danej grupy jest dostępny w pamięci."""
         if focus_group_id not in self._memory_graph_cache:
             if db is None:
@@ -676,10 +675,10 @@ Emocje w języku angielskim."""),
 
     def _apply_filter(
         self,
-        graph_data: Dict[str, Any],
-        metrics: Dict[str, Any],
+        graph_data: dict[str, Any],
+        metrics: dict[str, Any],
         filter_type: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Zastosuj filtr do pamięciowego grafu."""
         persona_sentiments = metrics.get("persona_sentiments", {})
         persona_connections = metrics.get("persona_connections", {})
@@ -706,7 +705,7 @@ Emocje w języku angielskim."""),
         if not allowed_personas:
             return {"nodes": [], "links": []}
 
-        filtered_links: List[Dict[str, Any]] = []
+        filtered_links: list[dict[str, Any]] = []
         for link in graph_data.get("links", []):
             source = str(link.get("source"))
             target = str(link.get("target"))
@@ -731,7 +730,7 @@ Emocje w języku angielskim."""),
             connected_nodes.add(str(link["source"]))
             connected_nodes.add(str(link["target"]))
 
-        filtered_nodes: List[Dict[str, Any]] = []
+        filtered_nodes: list[dict[str, Any]] = []
         for node in graph_data.get("nodes", []):
             node_id = str(node.get("id"))
             node_type = node.get("type")
@@ -748,28 +747,28 @@ Emocje w języku angielskim."""),
             "links": filtered_links
         }
 
-    def _copy_graph(self, graph_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _copy_graph(self, graph_data: dict[str, Any]) -> dict[str, Any]:
         """Tworzy płytką kopię struktur grafu, aby nie modyfikować cache."""
         return {
             "nodes": [self._copy_node(node) for node in graph_data.get("nodes", [])],
             "links": [self._copy_link(link) for link in graph_data.get("links", [])]
         }
 
-    def _copy_node(self, node: Dict[str, Any]) -> Dict[str, Any]:
+    def _copy_node(self, node: dict[str, Any]) -> dict[str, Any]:
         copied = dict(node)
         metadata = copied.get("metadata")
         if isinstance(metadata, dict):
             copied["metadata"] = dict(metadata)
         return copied
 
-    def _copy_link(self, link: Dict[str, Any]) -> Dict[str, Any]:
+    def _copy_link(self, link: dict[str, Any]) -> dict[str, Any]:
         return dict(link)
 
     def _build_graph_from_metrics(
         self,
-        personas: Dict[str, Persona],
-        metrics: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], Dict[str, int]]:
+        personas: dict[str, Persona],
+        metrics: dict[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, int]]:
         """Na podstawie metryk buduje listę nodes/links."""
         persona_concepts = metrics["persona_concepts"]
         persona_emotions = metrics["persona_emotions"]
@@ -783,8 +782,8 @@ Emocje w języku angielskim."""),
             connections_counter[edge["source"]] += 1
             connections_counter[edge["target"]] += 1
 
-        nodes: List[Dict[str, Any]] = []
-        persona_connections: Dict[str, int] = {}
+        nodes: list[dict[str, Any]] = []
+        persona_connections: dict[str, int] = {}
 
         for persona_id, persona in personas.items():
             concept_connections = sum(
@@ -832,7 +831,7 @@ Emocje w języku angielskim."""),
                 "size": min(15, 5 + len(data["personas"]))
             })
 
-        links: List[Dict[str, Any]] = []
+        links: list[dict[str, Any]] = []
 
         for persona_id, concepts in persona_concepts.items():
             for concept, sentiments in concepts.items():
@@ -869,10 +868,10 @@ Emocje w języku angielskim."""),
 
     def _compute_persona_edges(
         self,
-        persona_concepts: Dict[str, Dict[str, List[float]]]
-    ) -> List[Dict[str, Any]]:
+        persona_concepts: dict[str, dict[str, list[float]]]
+    ) -> list[dict[str, Any]]:
         """Wyznacza relacje między personami na podstawie wspólnych konceptów."""
-        edges: List[Dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
         persona_ids = sorted(persona_concepts.keys())
 
         for idx, persona_id in enumerate(persona_ids):
@@ -912,9 +911,9 @@ Emocje w języku angielskim."""),
 
         return edges
 
-    def _normalize_concepts(self, concepts: Iterable[str]) -> List[str]:
+    def _normalize_concepts(self, concepts: Iterable[str]) -> list[str]:
         """Czyści i normalizuje nazwy konceptów."""
-        normalized: List[str] = []
+        normalized: list[str] = []
         seen = set()
         for concept in concepts:
             if not concept:
@@ -928,9 +927,9 @@ Emocje w języku angielskim."""),
                 normalized.append(formatted)
         return normalized
 
-    def _normalize_emotions(self, emotions: Iterable[str]) -> List[str]:
+    def _normalize_emotions(self, emotions: Iterable[str]) -> list[str]:
         """Czyści i normalizuje nazwy emocji."""
-        normalized: List[str] = []
+        normalized: list[str] = []
         seen = set()
         for emotion in emotions:
             if not emotion:
@@ -989,7 +988,7 @@ Emocje w języku angielskim."""),
             key_phrases=key_phrases
         )
 
-    def _simple_keyword_extraction(self, text: str, max_keywords: int = 5) -> List[str]:
+    def _simple_keyword_extraction(self, text: str, max_keywords: int = 5) -> list[str]:
         """Fallback: prosta ekstrakcja słów kluczowych bez LLM z użyciem częstotliwości wyrazów."""
         tokens = [
             token.strip("'").lower()
@@ -1011,7 +1010,7 @@ Emocje w języku angielskim."""),
         ]
         bigram_counts = Counter(bigrams)
 
-        candidates: List[str] = []
+        candidates: list[str] = []
 
         for phrase, _ in bigram_counts.most_common(max_keywords * 2):
             formatted = " ".join(part.capitalize() for part in phrase.split())
@@ -1051,11 +1050,11 @@ Emocje w języku angielskim."""),
     def _extract_key_phrases(
         self,
         text: str,
-        concepts: Optional[List[str]] = None,
+        concepts: list[str] | None = None,
         max_phrases: int = 3
-    ) -> List[str]:
+    ) -> list[str]:
         """Próbuje wyłuskać najważniejsze frazy do kontekstu konceptów."""
-        phrases: List[str] = []
+        phrases: list[str] = []
         lowered = text.lower()
 
         if concepts:
@@ -1107,10 +1106,10 @@ Emocje w języku angielskim."""),
 
         return phrases[:max_phrases]
 
-    def _infer_emotions(self, text: str, sentiment: float) -> List[str]:
+    def _infer_emotions(self, text: str, sentiment: float) -> list[str]:
         """Próbuje odgadnąć emocje na podstawie słów kluczowych i sentymentu."""
         lowered = text.lower()
-        detected: List[str] = []
+        detected: list[str] = []
 
         for emotion, keywords in EMOTION_KEYWORDS.items():
             if any(keyword in lowered for keyword in keywords):
@@ -1132,7 +1131,7 @@ Emocje w języku angielskim."""),
 
         return ["Neutral"]
 
-    def _sentiment_to_emotion(self, sentiment: float) -> Optional[str]:
+    def _sentiment_to_emotion(self, sentiment: float) -> str | None:
         """Mapuje sentiment score na emocję"""
         if sentiment > 0.6:
             return "Satisfied"
@@ -1177,8 +1176,8 @@ Emocje w języku angielskim."""),
     async def get_influential_personas(
         self,
         focus_group_id: str,
-        db: Optional[AsyncSession] = None
-    ) -> List[Dict[str, Any]]:
+        db: AsyncSession | None = None
+    ) -> list[dict[str, Any]]:
         """
         Znajduje najbardziej wpływowe persony w grafie
         Na podstawie liczby połączeń i siły relacji
@@ -1239,8 +1238,8 @@ Emocje w języku angielskim."""),
         self,
         focus_group_id: str,
         question: str,
-        db: Optional[AsyncSession] = None
-    ) -> Dict[str, Any]:
+        db: AsyncSession | None = None
+    ) -> dict[str, Any]:
         """
         Wykonuje proste zapytanie w języku naturalnym na podstawie metryk grafu.
 
@@ -1260,11 +1259,10 @@ Emocje w języku angielskim."""),
         # Zapewnij istnienie grafu w pamięci
         _, metrics = await self._ensure_memory_graph(focus_group_id, db)
 
-        persona_metadata: Dict[str, Dict[str, Any]] = metrics.get("persona_metadata", {})
-        persona_concepts: Dict[str, Dict[str, List[float]]] = metrics.get("persona_concepts", {})
-        persona_emotions: Dict[str, Dict[str, List[float]]] = metrics.get("persona_emotions", {})
-        concept_aggregates: Dict[str, Dict[str, Any]] = metrics.get("concept_aggregates", {})
-        persona_sentiments: Dict[str, float] = metrics.get("persona_sentiments", {})
+        persona_metadata: dict[str, dict[str, Any]] = metrics.get("persona_metadata", {})
+        persona_concepts: dict[str, dict[str, list[float]]] = metrics.get("persona_concepts", {})
+        persona_emotions: dict[str, dict[str, list[float]]] = metrics.get("persona_emotions", {})
+        concept_aggregates: dict[str, dict[str, Any]] = metrics.get("concept_aggregates", {})
 
         influential_personas = await self.get_influential_personas(focus_group_id, db)
         key_concepts = await self.get_key_concepts(focus_group_id, db)
@@ -1279,10 +1277,10 @@ Emocje w języku angielskim."""),
             "Where do participants disagree the most?"
         ]
 
-        insights: List[Dict[str, Any]] = []
+        insights: list[dict[str, Any]] = []
 
         concept_lookup = {concept.lower(): concept for concept in concept_aggregates.keys()}
-        matched_concept: Optional[str] = None
+        matched_concept: str | None = None
         for key, original in concept_lookup.items():
             if key and key in normalized:
                 matched_concept = original
@@ -1373,8 +1371,8 @@ Emocje w języku angielskim."""),
         # === 3. Emocje ===
         if any(token in normalized for token in emotion_tokens):
             if matched_concept:
-                emotion_totals: Dict[str, List[float]] = defaultdict(list)
-                emotion_personas: Dict[str, set] = defaultdict(set)
+                emotion_totals: dict[str, list[float]] = defaultdict(list)
+                emotion_personas: dict[str, set] = defaultdict(set)
 
                 for persona_id, concepts in persona_concepts.items():
                     if matched_concept not in concepts:
@@ -1448,8 +1446,8 @@ Emocje w języku angielskim."""),
                 answer = f"I don't have enough mentions about {matched_concept} yet."
             else:
                 avg_sentiment = mean(concept_data["sentiments"]) if concept_data["sentiments"] else 0.0
-                supporters: List[str] = []
-                critics: List[str] = []
+                supporters: list[str] = []
+                critics: list[str] = []
 
                 for persona_id, concepts in persona_concepts.items():
                     values = concepts.get(matched_concept, [])
@@ -1609,8 +1607,8 @@ Emocje w języku angielskim."""),
     async def get_key_concepts(
         self,
         focus_group_id: str,
-        db: Optional[AsyncSession] = None
-    ) -> List[Dict[str, Any]]:
+        db: AsyncSession | None = None
+    ) -> list[dict[str, Any]]:
         """Pobiera najczęściej wspominane koncepcje"""
         try:
             await self.connect()
@@ -1669,8 +1667,8 @@ Emocje w języku angielskim."""),
     async def get_controversial_concepts(
         self,
         focus_group_id: str,
-        db: Optional[AsyncSession] = None
-    ) -> List[Dict[str, Any]]:
+        db: AsyncSession | None = None
+    ) -> list[dict[str, Any]]:
         """
         Znajduje koncepcje polaryzujące - te, które wywołują skrajne opinie
 
@@ -1688,7 +1686,7 @@ Emocje w języku angielskim."""),
             persona_concepts = metrics.get("persona_concepts", {})
             persona_metadata = metrics.get("persona_metadata", {})
 
-            controversial: List[Dict[str, Any]] = []
+            controversial: list[dict[str, Any]] = []
             for concept, data in concept_aggregates.items():
                 sentiments = data["sentiments"]
                 if len(sentiments) < 3:
@@ -1700,8 +1698,8 @@ Emocje w języku angielskim."""),
                 if std_dev <= 0.4:
                     continue
                 avg_sentiment = mean(sentiments) if sentiments else 0.0
-                supporters: List[str] = []
-                critics: List[str] = []
+                supporters: list[str] = []
+                critics: list[str] = []
 
                 for persona_id in data["personas"]:
                     persona_values = persona_concepts.get(persona_id, {}).get(concept, [])
@@ -1770,8 +1768,8 @@ Emocje w języku angielskim."""),
     async def get_trait_opinion_correlations(
         self,
         focus_group_id: str,
-        db: Optional[AsyncSession] = None
-    ) -> List[Dict[str, Any]]:
+        db: AsyncSession | None = None
+    ) -> list[dict[str, Any]]:
         """
         Znajduje korelacje między cechami demograficznymi/psychologicznymi a opiniami
 
@@ -1789,14 +1787,14 @@ Emocje w języku angielskim."""),
             persona_concepts = metrics.get("persona_concepts", {})
             persona_metadata = metrics.get("persona_metadata", {})
 
-            correlations: List[Dict[str, Any]] = []
+            correlations: list[dict[str, Any]] = []
             for concept, data in concept_aggregates.items():
                 if data["mentions"] < 3:
                     continue
 
-                young: List[float] = []
-                mid: List[float] = []
-                senior: List[float] = []
+                young: list[float] = []
+                mid: list[float] = []
+                senior: list[float] = []
 
                 for persona_id, concepts in persona_concepts.items():
                     if concept not in concepts:
@@ -1879,8 +1877,8 @@ Emocje w języku angielskim."""),
     async def get_emotion_distribution(
         self,
         focus_group_id: str,
-        db: Optional[AsyncSession] = None
-    ) -> List[Dict[str, Any]]:
+        db: AsyncSession | None = None
+    ) -> list[dict[str, Any]]:
         """
         Pobiera rozkład emocji w grupie fokusowej
 

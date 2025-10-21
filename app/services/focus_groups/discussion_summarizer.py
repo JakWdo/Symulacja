@@ -12,7 +12,7 @@ Obsługuje dwa modele:
 
 import re
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -124,7 +124,7 @@ IMPORTANT GUIDELINES:
         focus_group_id: str,
         include_demographics: bool = True,
         include_recommendations: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generuje kompleksowe AI-powered podsumowanie dyskusji grupy fokusowej
 
@@ -209,10 +209,10 @@ IMPORTANT GUIDELINES:
     def _prepare_discussion_data(
         self,
         focus_group: FocusGroup,
-        responses: List[PersonaResponse],
-        personas: Dict[str, Persona],
+        responses: list[PersonaResponse],
+        personas: dict[str, Persona],
         include_demographics: bool,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Przygotowuje ustrukturyzowane dane dyskusji do analizy AI
 
@@ -295,7 +295,7 @@ IMPORTANT GUIDELINES:
         }
 
     def _create_summary_prompt(
-        self, discussion_data: Dict[str, Any], include_recommendations: bool
+        self, discussion_data: dict[str, Any], include_recommendations: bool
     ) -> str:
         """
         Tworzy szczegółowy prompt do podsumowania AI
@@ -409,7 +409,7 @@ Describe the emotional journey of the discussion:
 
         return prompt
 
-    def _parse_ai_response(self, ai_response: str) -> Dict[str, Any]:
+    def _parse_ai_response(self, ai_response: str) -> dict[str, Any]:
         """
         Przetwarza odpowiedź AI na ustrukturyzowaną postać
         Obsługuje sekcje w formacie Markdown i wydobywa kluczowe elementy
@@ -474,7 +474,7 @@ Describe the emotional journey of the discussion:
         return sections
 
     def _finalize_section(
-        self, sections: Dict[str, Any], section_name: str, content: List[str]
+        self, sections: dict[str, Any], section_name: str, content: list[str]
     ):
         """Finalize a parsed section"""
         content_text = "\n".join(content).strip()

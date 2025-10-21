@@ -4,7 +4,7 @@ PersonaComparisonService - compare personas and highlight differences.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,10 +22,10 @@ class PersonaComparisonService:
     async def compare_personas(
         self,
         primary_persona: Persona,
-        other_persona_ids: List[str],
+        other_persona_ids: list[str],
         *,
-        sections: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        sections: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Compare primary persona with up to two others.
 
@@ -53,7 +53,7 @@ class PersonaComparisonService:
             "similarity": similarity_matrix,
         }
 
-    def _serialize_persona(self, persona: Persona) -> Dict[str, Any]:
+    def _serialize_persona(self, persona: Persona) -> dict[str, Any]:
         return {
             "id": str(persona.id),
             "full_name": persona.full_name,
@@ -78,12 +78,12 @@ class PersonaComparisonService:
 
     def _collect_differences(
         self,
-        personas: List[Persona],
-        sections: Optional[List[str]],
-    ) -> List[Dict[str, Any]]:
+        personas: list[Persona],
+        sections: list[str] | None,
+    ) -> list[dict[str, Any]]:
         # KPI section removed - use PersonaKPIService for real-time metrics comparison
         tracked_sections = set(sections or ["demographics", "psychographics"])
-        differences: List[Dict[str, Any]] = []
+        differences: list[dict[str, Any]] = []
 
         if "demographics" in tracked_sections:
             differences.extend(self._diff_field(personas, "location"))
@@ -103,7 +103,7 @@ class PersonaComparisonService:
 
         return differences
 
-    def _diff_field(self, personas: List[Persona], attr: str) -> List[Dict[str, Any]]:
+    def _diff_field(self, personas: list[Persona], attr: str) -> list[dict[str, Any]]:
         values = [getattr(p, attr, None) for p in personas]
         if len(set(values)) <= 1:
             return []
@@ -117,7 +117,7 @@ class PersonaComparisonService:
             }
         ]
 
-    def _diff_list_field(self, personas: List[Persona], attr: str) -> List[Dict[str, Any]]:
+    def _diff_list_field(self, personas: list[Persona], attr: str) -> list[dict[str, Any]]:
         values = [tuple(getattr(p, attr) or []) for p in personas]
         if len(set(values)) <= 1:
             return []
@@ -133,7 +133,7 @@ class PersonaComparisonService:
     # _diff_kpi method removed - KPI comparison deprecated
     # Use PersonaKPIService for real-time metrics calculation instead
 
-    def _compute_similarity_matrix(self, personas: List[Persona]) -> Dict[str, Any]:
+    def _compute_similarity_matrix(self, personas: list[Persona]) -> dict[str, Any]:
         matrix = {}
         for i, persona_a in enumerate(personas):
             row = {}
@@ -147,7 +147,7 @@ class PersonaComparisonService:
             matrix[str(persona_a.id)] = row
         return matrix
 
-    def _personality_vector(self, persona: Persona) -> List[float]:
+    def _personality_vector(self, persona: Persona) -> list[float]:
         return [
             float(persona.openness or 0.5),
             float(persona.conscientiousness or 0.5),

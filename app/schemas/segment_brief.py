@@ -6,7 +6,6 @@ SegmentBrief jest wspólny dla wszystkich person w danym segmencie
 """
 
 from datetime import datetime
-from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -41,7 +40,7 @@ class SegmentBrief(BaseModel):
         description="Kontekst społeczno-ekonomiczny segmentu (300-500 słów)"
     )
 
-    characteristics: List[str] = Field(
+    characteristics: list[str] = Field(
         default_factory=list,
         description="5-7 kluczowych cech segmentu (np. 'Profesjonaliści z wielkich miast')"
     )
@@ -163,7 +162,7 @@ class SegmentBriefResponse(BaseModel):
         description="Czy brief został pobrany z cache (True) czy wygenerowany na żywo (False)"
     )
 
-    cache_ttl_seconds: Optional[int] = Field(
+    cache_ttl_seconds: int | None = Field(
         default=None,
         description="Pozostały TTL w cache (jeśli from_cache=True)"
     )

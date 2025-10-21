@@ -14,7 +14,7 @@ Podsumowania używają Google Gemini (2.5 Pro lub Flash) do:
 - Sentiment narrative
 """
 from collections import defaultdict
-from typing import Any, Dict
+from typing import Any
 from uuid import UUID
 import logging
 
@@ -23,7 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.models import FocusGroup, Persona, PersonaResponse, User
+from app.models import FocusGroup, PersonaResponse, User
 from app.api.dependencies import get_current_user, get_focus_group_for_user
 from app.services.focus_groups.discussion_summarizer import DiscussionSummarizerService
 
@@ -41,7 +41,7 @@ async def generate_ai_summary(
     include_recommendations: bool = Query(True, description="Include strategic recommendations"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate AI-powered discussion summary for a focus group
 
@@ -85,7 +85,7 @@ async def get_ai_summary(
     focus_group_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Retrieve cached AI summary for a focus group.
 

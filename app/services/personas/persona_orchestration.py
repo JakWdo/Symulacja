@@ -15,8 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -28,7 +27,7 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
-def _map_graph_node_to_insight(node: Dict[str, Any]) -> Optional["GraphInsight"]:
+def _map_graph_node_to_insight(node: dict[str, Any]) -> "GraphInsight" | None:
     """Konwertuje graph node z polskimi property names na GraphInsight z angielskimi.
 
     Mapowanie:
@@ -100,10 +99,10 @@ class GraphInsight(BaseModel):
 
     type: str = Field(description="Typ węzła (Wskaznik, Obserwacja, Trend, etc.)")
     summary: str = Field(description="Jednozdaniowe podsumowanie")
-    magnitude: Optional[str] = Field(default=None, description="Wartość liczbowa jeśli istnieje (np. '78.4%')")
+    magnitude: str | None = Field(default=None, description="Wartość liczbowa jeśli istnieje (np. '78.4%')")
     confidence: str = Field(default="medium", description="Poziom pewności: high, medium, low")
-    time_period: Optional[str] = Field(default=None, description="Okres czasu (np. '2022')")
-    source: Optional[str] = Field(default=None, description="Źródło danych (np. 'GUS', 'CBOS')")
+    time_period: str | None = Field(default=None, description="Okres czasu (np. '2022')")
+    source: str | None = Field(default=None, description="Źródło danych (np. 'GUS', 'CBOS')")
     why_matters: str = Field(description="Edukacyjne wyjaśnienie dlaczego to ważne dla person")
 
 
@@ -111,18 +110,18 @@ class DemographicGroup(BaseModel):
     """Grupa demograficzna z briefem i insightami."""
 
     count: int = Field(description="Liczba person do wygenerowania w tej grupie")
-    demographics: Dict[str, Any] = Field(description="Cechy demograficzne (age, gender, education, etc.)")
+    demographics: dict[str, Any] = Field(description="Cechy demograficzne (age, gender, education, etc.)")
     brief: str = Field(description="Długi (900-1200 znaków) edukacyjny brief dla generatorów")
-    graph_insights: List[GraphInsight] = Field(default_factory=list, description="Insighty z Graph RAG")
+    graph_insights: list[GraphInsight] = Field(default_factory=list, description="Insighty z Graph RAG")
     allocation_reasoning: str = Field(description="Dlaczego tyle person w tej grupie")
-    segment_characteristics: List[str] = Field(default_factory=list, description="4-6 kluczowych cech tego segmentu (np. 'Profesjonaliści z wielkich miast')")
+    segment_characteristics: list[str] = Field(default_factory=list, description="4-6 kluczowych cech tego segmentu (np. 'Profesjonaliści z wielkich miast')")
 
 
 class PersonaAllocationPlan(BaseModel):
     """Plan alokacji person z szczegółowymi briefami dla każdej grupy."""
 
     total_personas: int = Field(description="Całkowita liczba person do wygenerowania")
-    groups: List[DemographicGroup] = Field(description="Grupy demograficzne z briefami")
+    groups: list[DemographicGroup] = Field(description="Grupy demograficzne z briefami")
     overall_context: str = Field(description="Ogólny kontekst społeczny Polski z Graph RAG")
 
 
@@ -156,10 +155,10 @@ class PersonaOrchestrationService:
 
     async def create_persona_allocation_plan(
         self,
-        target_demographics: Dict[str, Any],
+        target_demographics: dict[str, Any],
         num_personas: int,
-        project_description: Optional[str] = None,
-        additional_context: Optional[str] = None,
+        project_description: str | None = None,
+        additional_context: str | None = None,
     ) -> PersonaAllocationPlan:
         """Tworzy szczegółowy plan alokacji person z długimi briefami.
 
@@ -198,7 +197,7 @@ class PersonaOrchestrationService:
 
         # Krok 3: Gemini 2.5 Pro generuje plan (długa analiza)
         try:
-            logger.info(f"🤖 Wywołuję Gemini 2.5 Pro dla orchestration (max_tokens=8000, timeout=120s)...")
+            logger.info("🤖 Wywołuję Gemini 2.5 Pro dla orchestration (max_tokens=8000, timeout=120s)...")
             response = await self.llm.ainvoke(prompt)
 
             # DEBUG: Log surowej odpowiedzi od Gemini
@@ -227,7 +226,7 @@ class PersonaOrchestrationService:
 
     async def _get_comprehensive_graph_context(
         self,
-        target_demographics: Dict[str, Any]
+        target_demographics: dict[str, Any]
     ) -> str:
         """Pobiera comprehensive Graph RAG context dla rozkładów demograficznych.
 
@@ -295,7 +294,7 @@ class PersonaOrchestrationService:
         formatted_context = self._format_graph_context(all_docs[:15])  # Top 15 unique
         return formatted_context
 
-    def _format_graph_context(self, documents: List[Any]) -> str:
+    def _format_graph_context(self, documents: list[Any]) -> str:
         """Formatuje Graph RAG documents jako czytelny context dla LLM.
 
         Args:
@@ -326,11 +325,11 @@ class PersonaOrchestrationService:
 
     def _build_orchestration_prompt(
         self,
-        target_demographics: Dict[str, Any],
+        target_demographics: dict[str, Any],
         num_personas: int,
         graph_context: str,
-        project_description: Optional[str],
-        additional_context: Optional[str],
+        project_description: str | None,
+        additional_context: str | None,
     ) -> str:
         """Buduje prompt w stylu edukacyjnym dla Gemini 2.5 Pro.
 
@@ -534,7 +533,7 @@ Generuj plan alokacji:
 """
         return prompt
 
-    def _extract_json_from_response(self, response_text: str) -> Dict[str, Any]:
+    def _extract_json_from_response(self, response_text: str) -> dict[str, Any]:
         """Ekstraktuje JSON z odpowiedzi LLM (może być otoczony markdown lub preambułą).
 
         Args:
@@ -594,9 +593,9 @@ Generuj plan alokacji:
 
     async def _generate_segment_name(
         self,
-        demographics: Dict[str, Any],
-        graph_insights: List[GraphInsight],
-        rag_citations: List[Any]
+        demographics: dict[str, Any],
+        graph_insights: list[GraphInsight],
+        rag_citations: list[Any]
     ) -> str:
         """Generuje mówiącą nazwę segmentu używając Gemini 2.5 Flash.
 
@@ -696,10 +695,10 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
     async def _generate_segment_context(
         self,
         segment_name: str,
-        demographics: Dict[str, Any],
-        graph_insights: List[GraphInsight],
-        rag_citations: List[Any],
-        project_goal: Optional[str] = None
+        demographics: dict[str, Any],
+        graph_insights: list[GraphInsight],
+        rag_citations: list[Any],
+        project_goal: str | None = None
     ) -> str:
         """Generuje kontekst społeczny dla segmentu używając Gemini 2.5 Pro.
 
@@ -802,9 +801,9 @@ ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
 
     def _filter_graph_insights_for_segment(
         self,
-        insights: List[GraphInsight],
-        demographics: Dict[str, Any]
-    ) -> List[GraphInsight]:
+        insights: list[GraphInsight],
+        demographics: dict[str, Any]
+    ) -> list[GraphInsight]:
         """Filtruje graph insights dla konkretnego segmentu demograficznego.
 
         Zwraca tylko insights relevantne dla tego segmentu (np. insights o młodych
@@ -849,9 +848,9 @@ ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
 
     def _filter_rag_citations(
         self,
-        citations: List[Any],
+        citations: list[Any],
         min_confidence: float = 0.7
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Filtruje RAG citations - tylko high-quality (confidence > threshold).
 
         Args:

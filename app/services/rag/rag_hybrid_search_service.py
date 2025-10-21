@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any
 
 from langchain_core.documents import Document
 
@@ -117,7 +117,7 @@ class PolishSocietyRAG:
         except Exception as exc:  # pragma: no cover - indeks nie jest krytyczny
             logger.warning("Nie udało się utworzyć indeksu fulltext: %s", exc)
 
-    async def _keyword_search(self, query: str, k: int = 5) -> List[Tuple[Document, float]]:
+    async def _keyword_search(self, query: str, k: int = 5) -> list[tuple[Document, float]]:
         """Wykonuje wyszukiwanie pełnotekstowe w Neo4j i zwraca dokumenty LangChain."""
 
         if not self.vector_store:
@@ -131,13 +131,17 @@ class PolishSocietyRAG:
         try:
             driver = self.vector_store._driver
 
-            def search() -> List[Tuple[Document, float]]:
+            def search() -> list[tuple[Document, float]]:
                 session_ctx = driver.session()
                 cleanup = None
 
                 if hasattr(session_ctx, "__enter__"):
                     session = session_ctx.__enter__()
-                    cleanup = lambda: session_ctx.__exit__(None, None, None)
+
+                    def _cleanup() -> None:
+                        session_ctx.__exit__(None, None, None)
+
+                    cleanup = _cleanup
                 elif hasattr(session_ctx, "__aenter__"):
                     session = session_ctx.__aenter__()
                     if asyncio.iscoroutine(session):
@@ -172,7 +176,7 @@ class PolishSocietyRAG:
 
                     records = result.data() if hasattr(result, "data") else list(result)
 
-                    documents_with_scores: List[Tuple[Document, float]] = []
+                    documents_with_scores: list[tuple[Document, float]] = []
                     for record in records:
                         # Obsłuż zarówno nowy format (text, doc_id, ...) jak i starszy (node -> {...})
                         if "text" in record:
@@ -224,7 +228,7 @@ class PolishSocietyRAG:
             logger.warning("Keyword search nie powiodło się, używam fallbacku: %s", exc)
             return []
 
-    def _format_graph_context(self, graph_nodes: List[Dict[str, Any]]) -> str:
+    def _format_graph_context(self, graph_nodes: list[dict[str, Any]]) -> str:
         """Formatuje węzły grafu do czytelnego kontekstu tekstowego dla LLM.
 
         Args:
@@ -318,9 +322,9 @@ class PolishSocietyRAG:
     def _rerank_with_cross_encoder(
         self,
         query: str,
-        candidates: List[Tuple[Document, float]],
+        candidates: list[tuple[Document, float]],
         top_k: int = 5
-    ) -> List[Tuple[Document, float]]:
+    ) -> list[tuple[Document, float]]:
         """Użyj cross-encoder aby precyzyjnie re-score query-document pairs.
 
         Cross-encoder ma attention mechanism który widzi query i document razem,
@@ -367,8 +371,8 @@ class PolishSocietyRAG:
     def _find_related_graph_nodes(
         self,
         chunk_doc: Document,
-        graph_nodes: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        graph_nodes: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Znajdź graph nodes które są powiązane z danym chunkiem.
 
         Matching bazuje na:
@@ -418,7 +422,7 @@ class PolishSocietyRAG:
     def _enrich_chunk_with_graph(
         self,
         chunk_text: str,
-        related_nodes: List[Dict[str, Any]]
+        related_nodes: list[dict[str, Any]]
     ) -> str:
         """Wzbogać chunk o powiązane graph nodes w naturalny sposób.
 
@@ -483,7 +487,7 @@ class PolishSocietyRAG:
         self,
         query: str,
         top_k: int = 5
-    ) -> List[Document]:
+    ) -> list[Document]:
         """Wykonuje hybrydowe wyszukiwanie (vector + keyword + RRF fusion).
 
         Ta metoda łączy wyszukiwanie semantyczne (embeddingi) i pełnotekstowe (keywords)
@@ -561,7 +565,7 @@ class PolishSocietyRAG:
         education: str,
         location: str,
         gender: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Buduje kontekst raportowy dla wskazanego profilu demograficznego.
 
         Łączy trzy źródła kontekstu:
@@ -656,8 +660,8 @@ class PolishSocietyRAG:
                 search_type = "vector_only+graph" if graph_nodes else "vector_only"
 
             # 3. UNIFIED CONTEXT - Wzbogać chunki o powiązane graph nodes
-            context_chunks: List[str] = []
-            citations: List[Dict[str, Any]] = []
+            context_chunks: list[str] = []
+            citations: list[dict[str, Any]] = []
             enriched_chunks_count = 0
 
             # Dodaj graph context na początku (jeśli istnieje)
@@ -723,14 +727,14 @@ class PolishSocietyRAG:
 
     def _rrf_fusion(
         self,
-        vector_results: List[Tuple[Document, float]],
-        keyword_results: List[Union[Document, Tuple[Document, float]]],
+        vector_results: list[tuple[Document, float]],
+        keyword_results: list[Document | tuple[Document, float]],
         k: int = 60,
-    ) -> List[Tuple[Document, float]]:
+    ) -> list[tuple[Document, float]]:
         """Łączy wyniki vector i keyword search przy pomocy Reciprocal Rank Fusion."""
 
-        scores: Dict[int, float] = {}
-        doc_map: Dict[int, Tuple[Document, float]] = {}
+        scores: dict[int, float] = {}
+        doc_map: dict[int, tuple[Document, float]] = {}
 
         for rank, (doc, original_score) in enumerate(vector_results):
             doc_hash = hash(doc.page_content)

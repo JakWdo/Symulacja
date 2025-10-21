@@ -6,7 +6,6 @@ zmienne środowiskowe projektu (baza danych, LLM-y, bezpieczeństwo).
 Funkcja `get_settings()` zwraca jedną, współdzieloną instancję ustawień.
 """
 
-from typing import Optional
 from functools import lru_cache
 
 try:
@@ -36,8 +35,8 @@ class Settings(BaseSettings):
 
     # === TASK QUEUE (opcjonalnie) ===
     # Umożliwia ustawienie broker backend dla Celery bez wymuszania ich obecności
-    CELERY_BROKER_URL: Optional[str] = None
-    CELERY_RESULT_BACKEND: Optional[str] = None
+    CELERY_BROKER_URL: str | None = None
+    CELERY_RESULT_BACKEND: str | None = None
 
     # === GRAF WIEDZY ===
     # Neo4j używany dla graph analysis i RAG vectorstore
@@ -47,9 +46,9 @@ class Settings(BaseSettings):
 
     # === KLUCZE API LLM ===
     # Klucze do modeli językowych (jeden musi być ustawiony)
-    OPENAI_API_KEY: Optional[str] = None
-    ANTHROPIC_API_KEY: Optional[str] = None
-    GOOGLE_API_KEY: Optional[str] = None  # Używany domyślnie (Gemini)
+    OPENAI_API_KEY: str | None = None
+    ANTHROPIC_API_KEY: str | None = None
+    GOOGLE_API_KEY: str | None = None  # Używany domyślnie (Gemini)
 
     # === BEZPIECZEŃSTWO ===
     # SECRET_KEY: Używany do podpisywania tokenów JWT (ZMIEŃ W PRODUKCJI!)

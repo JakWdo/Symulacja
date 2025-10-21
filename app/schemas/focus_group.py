@@ -8,7 +8,7 @@ Definiuje struktury danych dla:
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import Any
 from datetime import datetime
 from uuid import UUID
 
@@ -36,12 +36,12 @@ class FocusGroupCreate(BaseModel):
     ale przed uruchomieniem (run) wymagane minimum 2 persony i 1 pytanie.
     """
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=1000)
-    project_context: Optional[str] = Field(None, max_length=5000)
-    persona_ids: List[UUID] = Field(default_factory=list, max_items=100)
-    questions: List[str] = Field(default_factory=list, max_items=50)
+    description: str | None = Field(None, max_length=1000)
+    project_context: str | None = Field(None, max_length=5000)
+    persona_ids: list[UUID] = Field(default_factory=list, max_items=100)
+    questions: list[str] = Field(default_factory=list, max_items=50)
     mode: str = Field(default="normal", pattern="^(normal|adversarial)$")
-    target_participants: Optional[int] = Field(default=10, ge=1, le=100)
+    target_participants: int | None = Field(default=10, ge=1, le=100)
 
 
 class FocusGroupResponse(BaseModel):
@@ -76,18 +76,18 @@ class FocusGroupResponse(BaseModel):
     id: UUID
     project_id: UUID
     name: str
-    description: Optional[str]
-    project_context: Optional[str]
-    persona_ids: List[UUID]
-    questions: List[str]
+    description: str | None
+    project_context: str | None
+    persona_ids: list[UUID]
+    questions: list[str]
     mode: str
     status: str
-    target_participants: Optional[int]
-    total_execution_time_ms: Optional[int]
-    avg_response_time_ms: Optional[float]
+    target_participants: int | None
+    total_execution_time_ms: int | None
+    avg_response_time_ms: float | None
     created_at: datetime
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    started_at: datetime | None
+    completed_at: datetime | None
 
     class Config:
         from_attributes = True
@@ -119,13 +119,13 @@ class FocusGroupResultResponse(BaseModel):
     id: UUID
     project_id: UUID
     name: str
-    description: Optional[str]
-    project_context: Optional[str]
-    persona_ids: List[UUID]
-    questions: List[str]
+    description: str | None
+    project_context: str | None
+    persona_ids: list[UUID]
+    questions: list[str]
     mode: str
     status: str
-    metrics: Dict[str, Any]
+    metrics: dict[str, Any]
     created_at: datetime
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    started_at: datetime | None
+    completed_at: datetime | None

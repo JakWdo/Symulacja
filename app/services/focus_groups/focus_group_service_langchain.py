@@ -9,7 +9,7 @@ Wydajność: <3s na odpowiedź persony, <30s całkowity czas wykonania
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
@@ -17,7 +17,6 @@ import time
 from datetime import datetime, timezone
 from uuid import UUID
 
-from langchain_core.prompts import ChatPromptTemplate
 
 from app.models import FocusGroup, Persona, PersonaResponse
 from app.services.focus_groups.memory_service_langchain import MemoryServiceLangChain
@@ -51,7 +50,7 @@ class FocusGroupServiceLangChain:
 
     async def run_focus_group(
         self, db: AsyncSession, focus_group_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Wykonaj symulację grupy fokusowej przy użyciu LangChain
 
@@ -172,8 +171,8 @@ class FocusGroupServiceLangChain:
             }
 
     async def _load_personas(
-        self, db: AsyncSession, persona_ids: List[UUID]
-    ) -> List[Persona]:
+        self, db: AsyncSession, persona_ids: list[UUID]
+    ) -> list[Persona]:
         """
         Załaduj obiekty person z bazy danych
 
@@ -189,10 +188,10 @@ class FocusGroupServiceLangChain:
 
     async def _get_concurrent_responses(
         self,
-        personas: List[Persona],
+        personas: list[Persona],
         question: str,
         focus_group_id: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Pobierz odpowiedzi od wszystkich person równolegle (concurrent execution)
 
@@ -247,7 +246,7 @@ class FocusGroupServiceLangChain:
         persona: Persona,
         question: str,
         focus_group_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Pobierz odpowiedź od pojedynczej persony
 
@@ -303,11 +302,11 @@ class FocusGroupServiceLangChain:
                 response_time_ms=int(response_time * 1000),  # Konwersja sekund na milisekundy
             )
 
-            print(f"💾 Adding PersonaResponse to db...")
+            print("💾 Adding PersonaResponse to db...")
             session.add(persona_response)
             try:
                 await session.commit()
-                print(f"✅ Committed PersonaResponse to db")
+                print("✅ Committed PersonaResponse to db")
             except Exception:
                 await session.rollback()
                 raise
@@ -319,7 +318,7 @@ class FocusGroupServiceLangChain:
         }
 
     async def _generate_response(
-        self, persona: Persona, question: str, context: List[Dict[str, Any]]
+        self, persona: Persona, question: str, context: list[dict[str, Any]]
     ) -> str:
         """
         Wygeneruj odpowiedź persony używając LangChain
@@ -394,7 +393,7 @@ IMPORTANT INSTRUCTION:
         )
 
     def _create_response_prompt(
-        self, persona: Persona, question: str, context: List[Dict[str, Any]]
+        self, persona: Persona, question: str, context: list[dict[str, Any]]
     ) -> str:
         """
         Utwórz prompt dla generowania odpowiedzi persony

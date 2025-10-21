@@ -26,8 +26,7 @@ import logging
 import re
 import time
 import unicodedata
-from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -45,7 +44,7 @@ from app.schemas.persona_details import PersonaDetailsResponse, PersonaAuditEntr
 logger = logging.getLogger(__name__)
 
 
-def _gender_label_for_persona(gender: Optional[str]) -> str:
+def _gender_label_for_persona(gender: str | None) -> str:
     if not gender:
         return "Osoby"
     lowered = gender.strip().lower()
@@ -63,7 +62,7 @@ def _slugify_segment_name(name: str) -> str:
     return ascii_text
 
 
-def _sanitize_context_text(text: Optional[str], max_length: int = 900) -> Optional[str]:
+def _sanitize_context_text(text: str | None, max_length: int = 900) -> str | None:
     if not text:
         return None
     cleaned = re.sub(r"[`*_#>\[\]]+", "", str(text))
@@ -78,7 +77,7 @@ def _sanitize_context_text(text: Optional[str], max_length: int = 900) -> Option
 
 def _build_segment_name_from_persona(persona: Persona) -> str:
     gender_label = _gender_label_for_persona(persona.gender)
-    parts: List[str] = [gender_label]
+    parts: list[str] = [gender_label]
 
     if persona.age:
         parts.append(f"{persona.age} lat")
@@ -104,7 +103,7 @@ def _build_segment_description_from_persona(persona: Persona, segment_name: str)
 
     sentences = [f"{segment_name} obejmuje {subject}."]
 
-    details: List[str] = []
+    details: list[str] = []
     if persona.education_level:
         details.append(f"z wykształceniem {persona.education_level}")
     if persona.income_bracket:
@@ -121,7 +120,7 @@ def _build_segment_description_from_persona(persona: Persona, segment_name: str)
     return " ".join(sentences)
 
 
-def _build_segment_social_context(persona: Persona, details: Dict[str, Any], fallback_description: str) -> str:
+def _build_segment_social_context(persona: Persona, details: dict[str, Any], fallback_description: str) -> str:
     orchestration = dict((details.get("orchestration_reasoning") or {}))
     demographics = orchestration.get("demographics") or details.get("demographics") or {
         "age": persona.age,
@@ -171,12 +170,12 @@ def _build_segment_social_context(persona: Persona, details: Dict[str, Any], fal
     return _sanitize_context_text(combined, max_length=400) or "Kontekst segmentu nie został jeszcze zdefiniowany."
 
 
-def _ensure_segment_metadata(persona: Persona) -> Optional[Dict[str, Any]]:
+def _ensure_segment_metadata(persona: Persona) -> dict[str, Any] | None:
     details = persona.rag_context_details or {}
     if not isinstance(details, dict):
         return details
 
-    details_copy: Dict[str, Any] = dict(details)
+    details_copy: dict[str, Any] = dict(details)
     orchestration = dict(details_copy.get("orchestration_reasoning") or {})
     mutated = False
 
@@ -295,7 +294,7 @@ class PersonaDetailsService:
         # === FETCH BASE PERSONA (needed for cache key) ===
         fetch_start = time.time()
         result = await self.db.execute(
-            select(Persona).where(Persona.id == persona_id, Persona.is_active == True)
+            select(Persona).where(Persona.id == persona_id, Persona.is_active.is_(True))
         )
         persona = result.scalars().first()
 
@@ -457,7 +456,7 @@ class PersonaDetailsService:
         persona: Persona,
         *,
         force_refresh: bool,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Fetch needs & pains analysis from cache or generate via LLM with RAG context.
 
@@ -489,7 +488,7 @@ class PersonaDetailsService:
             logger.error("Failed to generate needs for persona %s: %s", persona.id, exc, exc_info=True)
             return persona.needs_and_pains
 
-    async def _fetch_audit_log(self, persona_id: UUID) -> List[PersonaAuditEntry]:
+    async def _fetch_audit_log(self, persona_id: UUID) -> list[PersonaAuditEntry]:
         """
         Fetch audit log (last 20 actions)
 
@@ -545,7 +544,7 @@ class PersonaDetailsService:
         except Exception as e:
             logger.warning("Failed to log view event: %s", e)
 
-    async def _persist_persona_field(self, persona_id: UUID, field_name: str, value: Dict[str, Any]) -> None:
+    async def _persist_persona_field(self, persona_id: UUID, field_name: str, value: dict[str, Any]) -> None:
         """Persist a JSONB field on Persona in a dedicated transaction."""
         try:
             async with AsyncSessionLocal() as session:
@@ -562,7 +561,7 @@ class PersonaDetailsService:
         except Exception as exc:
             logger.warning("Failed to persist %s for persona %s: %s", field_name, persona_id, exc)
 
-    def _extract_rag_context(self, persona: Persona) -> Optional[str]:
+    def _extract_rag_context(self, persona: Persona) -> str | None:
         details = persona.rag_context_details or {}
         reasoning = details.get("orchestration_reasoning") or {}
         context_candidates = [
@@ -580,7 +579,7 @@ class PersonaDetailsService:
         persona: Persona,
         *,
         force_refresh: bool,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Fetch segment brief i persona uniqueness używając SegmentBriefService.
 

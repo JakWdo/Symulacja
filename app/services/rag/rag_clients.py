@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable, Optional, TypeVar
+from typing import TypeVar
+from collections.abc import Callable
 
 from langchain_community.graphs import Neo4jGraph
 from langchain_community.vectorstores import Neo4jVector
@@ -23,8 +24,8 @@ settings = get_settings()
 
 T = TypeVar("T")
 
-_VECTOR_STORE: Optional[Neo4jVector] = None
-_GRAPH_STORE: Optional[Neo4jGraph] = None
+_VECTOR_STORE: Neo4jVector | None = None
+_GRAPH_STORE: Neo4jGraph | None = None
 
 
 def _connect_with_retry(
@@ -33,7 +34,7 @@ def _connect_with_retry(
     description: str,
     max_retries: int = 10,
     initial_delay: float = 1.0,
-) -> Optional[T]:
+) -> T | None:
     """Ogólny mechanizm retry dla połączeń z Neo4j."""
     delay = initial_delay
     for attempt in range(1, max_retries + 1):
@@ -66,7 +67,7 @@ def _connect_with_retry(
     return None
 
 
-def get_vector_store(logger: logging.Logger) -> Optional[Neo4jVector]:
+def get_vector_store(logger: logging.Logger) -> Neo4jVector | None:
     """Zwraca (cache'owaną) instancję Neo4jVector z retry logic."""
     global _VECTOR_STORE
     if _VECTOR_STORE is None:
@@ -88,7 +89,7 @@ def get_vector_store(logger: logging.Logger) -> Optional[Neo4jVector]:
     return _VECTOR_STORE
 
 
-def get_graph_store(logger: logging.Logger) -> Optional[Neo4jGraph]:
+def get_graph_store(logger: logging.Logger) -> Neo4jGraph | None:
     """Zwraca (cache'owaną) instancję Neo4jGraph z retry logic."""
     global _GRAPH_STORE
     if _GRAPH_STORE is None:

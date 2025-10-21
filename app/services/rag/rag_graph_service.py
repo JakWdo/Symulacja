@@ -12,7 +12,7 @@ Podstawowa infrastruktura dokumentów znajduje się w rag_document_service.py
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
@@ -58,10 +58,10 @@ class GraphRAGService:
 
     @staticmethod
     def enrich_graph_nodes(
-        graph_documents: List[Any],
+        graph_documents: list[Any],
         doc_id: str,
-        metadata: Dict[str, Any]
-    ) -> List[Any]:
+        metadata: dict[str, Any]
+    ) -> list[Any]:
         """Wzbogaca węzły grafu o metadane dokumentu i waliduje jakość danych.
 
         Args:
@@ -163,10 +163,10 @@ class GraphRAGService:
     # Backwards compatibility (tests + starsze moduły)
     @staticmethod
     def _enrich_graph_nodes(
-        graph_documents: List[Any],
+        graph_documents: list[Any],
         doc_id: str,
-        metadata: Dict[str, Any]
-    ) -> List[Any]:
+        metadata: dict[str, Any]
+    ) -> list[Any]:
         return GraphRAGService.enrich_graph_nodes(graph_documents, doc_id, metadata)
 
     def _generate_cypher_query(self, question: str) -> GraphRAGQuery:
@@ -223,7 +223,7 @@ class GraphRAGService:
         chain = cypher_prompt | self.llm.with_structured_output(GraphRAGQuery)
         return chain.invoke({"question": question, "graph_schema": graph_schema})
 
-    async def answer_question(self, question: str) -> Dict[str, Any]:
+    async def answer_question(self, question: str) -> dict[str, Any]:
         """Realizuje pełen przepływ Graph RAG i zwraca ustrukturyzowaną odpowiedź."""
 
         if not self.graph_store or not self.vector_store:
@@ -243,7 +243,7 @@ class GraphRAGService:
             graph_context = []
 
         # 2. Kontekst wektorowy – semantyczne wyszukiwanie po encjach.
-        vector_context_docs: List[Document] = []
+        vector_context_docs: list[Document] = []
         if rag_query.entities:
             search_query = " ".join(rag_query.entities)
             vector_context_docs = await self.vector_store.asimilarity_search(search_query, k=5)
@@ -285,7 +285,7 @@ class GraphRAGService:
         location: str,
         education: str,
         gender: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Pobiera strukturalny kontekst z grafu wiedzy dla profilu demograficznego.
 
         Wykonuje zapytania Cypher na grafie aby znaleźć:

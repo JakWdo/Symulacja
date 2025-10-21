@@ -8,7 +8,7 @@ embeddingów Google, aby uniknąć duplikacji konfiguracji w serwisach.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any
 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
@@ -19,12 +19,12 @@ settings = get_settings()
 
 def build_chat_model(
     *,
-    model: Optional[str] = None,
-    temperature: Optional[float] = None,
-    max_tokens: Optional[int] = None,
-    top_p: Optional[float] = None,
-    top_k: Optional[int] = None,
-    timeout: Optional[int] = None,
+    model: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    top_p: float | None = None,
+    top_k: int | None = None,
+    timeout: int | None = None,
     **extra: Any,
 ) -> ChatGoogleGenerativeAI:
     """
@@ -62,7 +62,7 @@ def build_chat_model(
 
 
 @lru_cache(maxsize=None)
-def get_embeddings(model: Optional[str] = None) -> GoogleGenerativeAIEmbeddings:
+def get_embeddings(model: str | None = None) -> GoogleGenerativeAIEmbeddings:
     """
     Zwraca współdzieloną instancję embeddingów Google Gemini.
 

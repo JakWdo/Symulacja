@@ -7,7 +7,7 @@ Ten moduł zapewnia że wygenerowane persony są:
 3. Różnorodne psychologicznie (różne profile Big Five)
 """
 import difflib
-from typing import List, Dict, Any
+from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -61,8 +61,8 @@ class PersonaValidator:
         return difflib.SequenceMatcher(None, t1, t2).ratio()
 
     def check_background_uniqueness(
-        self, personas: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, personas: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Sprawdź czy historie życiowe person są wystarczająco unikalne
 
@@ -130,7 +130,7 @@ class PersonaValidator:
             "total_comparisons": len(similarities),
         }
 
-    def check_diversity_score(self, personas: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def check_diversity_score(self, personas: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Oblicz ogólny score różnorodności na podstawie demografii i osobowości
 
@@ -169,7 +169,7 @@ class PersonaValidator:
         educations = [p.get("education_level") for p in personas if p.get("education_level")]
         incomes = [p.get("income_bracket") for p in personas if p.get("income_bracket")]
 
-        def calc_unique_ratio(items: List[Any]) -> float:
+        def calc_unique_ratio(items: list[Any]) -> float:
             """Oblicz ratio unikalnych wartości (ile różnych / wszystkie)"""
             if not items:
                 return 0.0
@@ -221,7 +221,7 @@ class PersonaValidator:
             "value_diversity": value_diversity,
         }
 
-    def validate_personas(self, personas: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def validate_personas(self, personas: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Uruchom pełny zestaw testów walidacyjnych dla person
 
