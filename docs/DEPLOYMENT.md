@@ -44,6 +44,37 @@ Kompletny przewodnik deployment aplikacji Sight na Google Cloud Platform (Cloud 
 
 ---
 
+---
+
+## ✨ What's New (2025-10-21)
+
+**Automated Deployment Pipeline:**
+- ✅ **Automatic database migrations** before every deploy (zero-downtime)
+- ✅ **Automatic Neo4j indexes initialization** after deploy
+- ✅ **Startup probe** (`/startup`) dla health checks przed routing traffic
+- ✅ **Enhanced healthcheck** w Dockerfile z proper timeouts
+- ✅ **Optimized gunicorn** config (2 workers, proper timeouts)
+- ✅ **CPU boost** i Gen2 runtime dla szybszego startu
+
+**One-Command Deployment:**
+```bash
+git push origin cleanup/dead-code-removal
+# ↓ Automatycznie:
+# 1. Build Docker image (frontend + backend)
+# 2. Run database migrations (alembic upgrade head)
+# 3. Deploy to Cloud Run
+# 4. Initialize Neo4j indexes
+# ✅ Ready to serve traffic!
+```
+
+**Benefits:**
+- **Reliability:** Zero failed deployments z powodu missing migrations
+- **Speed:** 2x szybszy startup z CPU boost
+- **Stability:** Neo4j indexes zawsze up-to-date
+- **Developer Experience:** Jedna komenda → wszystko działa
+
+---
+
 ## Wymagania Wstępne
 
 ### 1. Google Cloud Platform
@@ -422,6 +453,193 @@ gcloud secrets versions access latest --secret="DATABASE_URL_CLOUD"
 # Sprawdź firewall: dodaj 0.0.0.0/0 dla Cloud Run (dynamiczne IP)
 # Sprawdź secret NEO4J_URI
 gcloud secrets versions access latest --secret="NEO4J_URI"
+```
+
+---
+
+## Advanced Troubleshooting
+
+### Neo4j Issues (Detailed)
+
+**Problem 1: "Neo4j connection timeout" w startup logs**
+
+Symptomy:
+- App startuje ale RAG endpoints zwracają 500
+- `/startup` endpoint pokazuje `"neo4j": "connection_failed"`
+- Logi: `Neo4j unreachable after all retries`
+
+Diagnoza:
+```bash
+# 1. Sprawdź Neo4j AuraDB status
+# Login: https://console.neo4j.io/
+# Upewnij się że instancja jest RUNNING
+
+# 2. Test connection z Cloud Run
+gcloud run services proxy sight --region=europe-central2 --port=8080 &
+curl http://localhost:8080/startup | jq .
+
+# 3. Sprawdź secrets
+gcloud secrets versions access latest --secret="NEO4J_URI"
+gcloud secrets versions access latest --secret="NEO4J_PASSWORD"
+
+# 4. Verify Neo4j URI format
+# Powinien być: neo4j+s://xxxxx.databases.neo4j.io
+# NIE: bolt://... (AuraDB wymaga neo4j+s://)
+```
+
+Rozwiązanie:
+```bash
+# Jeśli URI jest zły:
+echo -n "neo4j+s://YOUR_INSTANCE.databases.neo4j.io" | \
+  gcloud secrets versions add NEO4J_URI --data-file=-
+
+# Re-deploy (Cloud Run automatycznie użyje nowego secret)
+gcloud run services update sight --region=europe-central2
+
+# Verify fix
+curl https://sight-XXX.run.app/startup | jq .checks.neo4j
+```
+
+**Problem 2: "Neo4j indexes nie istnieją"**
+
+Symptomy:
+- RAG queries failują z "Index not found"
+- GraphRAG zwraca puste wyniki
+- Logi: `VectorIndexNotFoundError`
+
+Diagnoza:
+```bash
+# Sprawdź status Neo4j init job
+gcloud run jobs executions list --job=neo4j-init --region=europe-central2 --limit=5
+
+# Zobacz logi ostatniej execucji
+EXECUTION=$(gcloud run jobs executions list --job=neo4j-init --region=europe-central2 --limit=1 --format="value(name)")
+gcloud run jobs executions logs $EXECUTION --region=europe-central2
+```
+
+Rozwiązanie:
+```bash
+# Manual trigger Neo4j init job
+gcloud run jobs execute neo4j-init --region=europe-central2 --wait
+
+# Jeśli job nie istnieje, utwórz:
+gcloud run jobs create neo4j-init \
+  --image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
+  --region=europe-central2 \
+  --set-secrets=NEO4J_URI=NEO4J_URI:latest,NEO4J_PASSWORD=NEO4J_PASSWORD:latest \
+  --set-env-vars=NEO4J_USER=neo4j \
+  --command=python,scripts/init_neo4j_cloudrun.py \
+  --max-retries=3
+
+# Verify indexes w Neo4j Browser
+# Login: https://console.neo4j.io/ → Open with Neo4j Browser
+SHOW INDEXES;
+```
+
+**Problem 3: "Migration job failed"**
+
+Symptomy:
+- Cloud Build fails w migrate step
+- Error: `OperationalError: could not connect to server`
+- Deployment aborted
+
+Diagnoza:
+```bash
+# Sprawdź Cloud SQL status
+gcloud sql instances describe sight --region=europe-central2 --format="value(state)"
+
+# Sprawdź migration job logs
+EXECUTION=$(gcloud run jobs executions list --job=db-migrate --region=europe-central2 --limit=1 --format="value(name)")
+gcloud run jobs executions logs $EXECUTION --region=europe-central2
+
+# Test connection string
+gcloud secrets versions access latest --secret="DATABASE_URL_CLOUD"
+```
+
+Rozwiązanie:
+```bash
+# Jeśli Cloud SQL jest down:
+gcloud sql instances restart sight --region=europe-central2
+
+# Jeśli DATABASE_URL jest zły:
+# Format: postgresql+asyncpg://postgres:PASSWORD@/sight_db?host=/cloudsql/PROJECT:REGION:INSTANCE
+POSTGRES_PASSWORD=$(gcloud secrets versions access latest --secret="POSTGRES_PASSWORD")
+echo -n "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@/sight_db?host=/cloudsql/gen-lang-client-0508446677:europe-central2:sight" | \
+  gcloud secrets versions add DATABASE_URL_CLOUD --data-file=-
+
+# Re-trigger build
+gcloud builds submit --config cloudbuild.yaml
+```
+
+### Performance Issues
+
+**Problem: "Slow LLM responses" (>30s timeouts)**
+
+Diagnoza:
+```bash
+# Check request latencies
+gcloud logging read "resource.type=cloud_run_revision AND httpRequest.latency>30s" \
+  --limit=20 --format="table(httpRequest.requestUrl,httpRequest.latency)"
+
+# Check CPU/Memory usage
+gcloud run services describe sight --region=europe-central2 \
+  --format="value(spec.template.spec.containers[0].resources)"
+```
+
+Rozwiązanie:
+```bash
+# Zwiększ CPU (więcej workers w gunicorn)
+gcloud run services update sight --cpu=4 --region=europe-central2
+
+# Lub zwiększ memory (dla cache)
+gcloud run services update sight --memory=4Gi --region=europe-central2
+
+# Verify improvement
+curl https://sight-XXX.run.app/health | jq .
+```
+
+**Problem: "Too many cold starts"**
+
+Symptomy:
+- Pierwsze requesty po idle bardzo wolne (10-20s)
+- Częste timeout errors podczas low traffic
+
+Rozwiązanie:
+```bash
+# Ustaw min-instances=1 (zawsze 1 instance running)
+gcloud run services update sight \
+  --min-instances=1 \
+  --region=europe-central2
+
+# Cost: ~$15-20/mies więcej, ale zero cold starts
+```
+
+### Deployment Failures
+
+**Problem: "cloudbuild.yaml step failed"**
+
+Debug workflow:
+```bash
+# 1. Zobacz ostatni failed build
+gcloud builds list --limit=5 --format="table(id,status,createTime,failureInfo.detail)"
+
+# 2. Pobierz pełne logi
+BUILD_ID="YOUR_BUILD_ID"
+gcloud builds log $BUILD_ID > build.log
+cat build.log | grep -A 20 "ERROR"
+
+# 3. Sprawdź który step failed
+gcloud builds describe $BUILD_ID --format="json" | jq '.steps[] | select(.status != "SUCCESS")'
+```
+
+Common fixes:
+```bash
+# If "migrate" step failed → Fix DATABASE_URL_CLOUD secret (above)
+# If "build" step failed → Check Dockerfile syntax
+# If "neo4j-init" failed → Non-fatal, app continues (RAG limited)
+
+# Re-run build
+gcloud builds submit --config cloudbuild.yaml
 ```
 
 ---

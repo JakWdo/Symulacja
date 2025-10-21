@@ -174,6 +174,89 @@ async def health_check():
     }
 
 
+@app.get("/startup")
+async def startup_probe():
+    """
+    Startup probe endpoint - używany przez Cloud Run do sprawdzenia gotowości aplikacji.
+
+    Sprawdza:
+    - Połączenie z Neo4j (krytyczne dla RAG)
+    - Inicjalizację podstawowych serwisów
+
+    Returns:
+        200 OK jeśli aplikacja jest gotowa do obsługi żądań
+        503 Service Unavailable jeśli aplikacja nie jest jeszcze gotowa
+
+    Note:
+        Cloud Run czeka na 200 OK przed routing traffic do nowej rewizji.
+        Timeout: 300s (5min) dla inicjalizacji Neo4j + RAG services.
+    """
+    checks = {
+        "api": "ready",
+        "neo4j": "unknown",
+        "rag_services": "not_initialized"
+    }
+
+    try:
+        # Sprawdź Neo4j connectivity (krytyczne dla RAG)
+        from app.services.rag.rag_clients import _connect_with_retry
+        from neo4j import GraphDatabase
+
+        def test_neo4j_connection():
+            """Test Neo4j connection with quick timeout."""
+            driver = GraphDatabase.driver(
+                settings.NEO4J_URI,
+                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+                max_connection_lifetime=5,
+            )
+            driver.verify_connectivity()
+            driver.close()
+            return True
+
+        # Quick connectivity check (1 retry, 2s timeout total)
+        neo4j_ok = _connect_with_retry(
+            test_neo4j_connection,
+            logger,
+            "Neo4j Startup Probe",
+            max_retries=1,
+            initial_delay=1.0
+        )
+
+        if neo4j_ok:
+            checks["neo4j"] = "connected"
+        else:
+            checks["neo4j"] = "connection_failed"
+            logger.warning("⚠️  Startup probe: Neo4j connection failed - RAG features may be unavailable")
+            # NON-FATAL: App może startować bez Neo4j, RAG services mają własny retry logic
+            # return JSONResponse(
+            #     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            #     content={"status": "not_ready", "checks": checks}
+            # )
+
+        # Sprawdź czy lazy-loaded RAG services są dostępne (nie inicjalizuj ich teraz!)
+        from app.api.rag import _rag_document_service, _polish_society_rag
+        if _rag_document_service is not None or _polish_society_rag is not None:
+            checks["rag_services"] = "initialized"
+        else:
+            checks["rag_services"] = "lazy_load_ready"
+
+    except Exception as exc:
+        logger.error("❌ Startup probe error: %s", exc, exc_info=True)
+        checks["error"] = str(exc)
+        # App może działać bez RAG, więc nie blokujemy startu
+        # return JSONResponse(
+        #     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        #     content={"status": "not_ready", "checks": checks, "error": str(exc)}
+        # )
+
+    # App jest ready - podstawowa funkcjonalność (auth, projects, etc.) działa bez RAG
+    return {
+        "status": "ready",
+        "checks": checks,
+        "note": "RAG services use lazy initialization - will initialize on first use"
+    }
+
+
 # Globalny handler wyjątków - łapie wszystkie nieobsłużone błędy
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

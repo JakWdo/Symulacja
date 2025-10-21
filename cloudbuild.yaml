@@ -35,6 +35,50 @@ steps:
     waitFor: ['build']
 
   # ==========================================================================
+  # MIGRATE: Database Migrations (BEFORE deploy)
+  # ==========================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Run database migrations via Cloud Run Jobs
+        # This ensures schema is up-to-date BEFORE deploying new code
+        echo "🔄 Running database migrations..."
+
+        # Check if migration job exists, create if not
+        if ! gcloud run jobs describe db-migrate --region=europe-central2 2>/dev/null; then
+          echo "Creating migration job..."
+          gcloud run jobs create db-migrate \
+            --image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
+            --region=europe-central2 \
+            --add-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight \
+            --set-secrets=DATABASE_URL=DATABASE_URL_CLOUD:latest \
+            --command=alembic,upgrade,head \
+            --max-retries=2 \
+            --task-timeout=300
+        else
+          echo "Updating migration job image..."
+          gcloud run jobs update db-migrate \
+            --image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
+            --region=europe-central2
+        fi
+
+        # Execute migrations
+        echo "Executing migrations..."
+        gcloud run jobs execute db-migrate --region=europe-central2 --wait
+
+        # Check migration status
+        if [ $? -eq 0 ]; then
+          echo "✅ Migrations completed successfully"
+        else
+          echo "❌ Migrations failed - aborting deployment"
+          exit 1
+        fi
+    id: 'migrate'
+    waitFor: ['push']
+
+  # ==========================================================================
   # DEPLOY: Cloud Run Service (sight)
   # ==========================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -48,16 +92,63 @@ steps:
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--port=8080'
-      - '--memory=2Gi'  # Więcej RAM dla frontend assets
-      - '--cpu=1'
+      - '--memory=2Gi'
+      - '--cpu=2'  # Zwiększone do 2 vCPU dla lepszej performance (LLM + RAG)
+      - '--cpu-boost'  # Startup CPU boost dla szybszego startu
       - '--timeout=300'
       - '--min-instances=0'
       - '--max-instances=5'
+      - '--execution-environment=gen2'  # Gen2 runtime (nowszy, szybszy)
       - '--add-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight'
       - '--set-secrets=DATABASE_URL=DATABASE_URL_CLOUD:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,NEO4J_PASSWORD=NEO4J_PASSWORD:latest,NEO4J_URI=NEO4J_URI:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD:latest,REDIS_URL=REDIS_URL:latest,SECRET_KEY=SECRET_KEY:latest'
       - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,ALLOWED_ORIGINS=https://sight-*.run.app'
     id: 'deploy'
-    waitFor: ['push']
+    waitFor: ['migrate']
+
+  # ==========================================================================
+  # NEO4J INIT: Initialize Neo4j Indexes (AFTER deploy)
+  # ==========================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Initialize Neo4j indexes via Cloud Run Jobs
+        # This ensures vector indexes exist for RAG system
+        echo "🔄 Initializing Neo4j indexes..."
+
+        # Check if neo4j-init job exists, create if not
+        if ! gcloud run jobs describe neo4j-init --region=europe-central2 2>/dev/null; then
+          echo "Creating Neo4j init job..."
+          gcloud run jobs create neo4j-init \
+            --image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
+            --region=europe-central2 \
+            --set-secrets=NEO4J_URI=NEO4J_URI:latest,NEO4J_PASSWORD=NEO4J_PASSWORD:latest \
+            --set-env-vars=NEO4J_USER=neo4j \
+            --command=python,scripts/init_neo4j_cloudrun.py \
+            --max-retries=3 \
+            --task-timeout=300
+        else
+          echo "Updating Neo4j init job image..."
+          gcloud run jobs update neo4j-init \
+            --image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
+            --region=europe-central2
+        fi
+
+        # Execute Neo4j initialization
+        echo "Executing Neo4j index initialization..."
+        gcloud run jobs execute neo4j-init --region=europe-central2 --wait
+
+        # Check initialization status (non-fatal - RAG services have retry logic)
+        if [ $? -eq 0 ]; then
+          echo "✅ Neo4j indexes initialized successfully"
+        else
+          echo "⚠️  Neo4j init failed - RAG features may be limited"
+          echo "   Check logs: gcloud run jobs executions logs [EXECUTION_ID]"
+          echo "   App will continue to run, but RAG functionality may be unavailable"
+        fi
+    id: 'neo4j-init'
+    waitFor: ['deploy']
 
 # Output images
 images:
