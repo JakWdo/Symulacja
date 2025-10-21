@@ -139,20 +139,8 @@ app.include_router(rag.router, prefix=settings.API_V1_PREFIX)  # RAG już ma pre
 app.include_router(settings_router.router, prefix=settings.API_V1_PREFIX, tags=["Settings"])
 
 
-@app.get("/")
-async def root():
-    """
-    Root endpoint - informacje o API
-
-    Returns:
-        Podstawowe informacje o systemie i link do dokumentacji
-    """
-    return {
-        "name": settings.PROJECT_NAME,
-        "version": "1.0.0",
-        "status": "operational",
-        "docs": "/docs",  # Interfejs Swagger
-    }
+# Root endpoint removed - SPA catch-all route handles "/" in production
+# API info available at /health and /docs
 
 
 @app.get("/health")
