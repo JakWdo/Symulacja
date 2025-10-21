@@ -13,7 +13,8 @@ Kluczowe endpointy:
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status, HTTPException
+from pathlib import Path
+from fastapi import FastAPI, Request, status, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,6 +26,7 @@ from app.middleware.security import SecurityHeadersMiddleware
 from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_router, rag
 import logging
 import os
+import mimetypes
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +214,21 @@ if os.path.exists("static") and os.path.exists("static/index.html"):
     # Mount /assets for JS, CSS, images (with cache headers)
     app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
+    # Serve static files from root (logo.png, sight-logo-przezroczyste.png, etc.)
+    # Note: This must be AFTER /assets mount but BEFORE catch-all route
+    @app.get("/{filename}", include_in_schema=False)
+    async def serve_static_root(filename: str):
+        """Serve static files from root (logo.png, etc.)"""
+        # Only serve files that exist in static/
+        static_file = Path("static") / filename
+        if static_file.exists() and static_file.is_file():
+            # Determine content type
+            content_type, _ = mimetypes.guess_type(str(static_file))
+            with open(static_file, "rb") as f:
+                return Response(content=f.read(), media_type=content_type or "application/octet-stream")
+        # If file doesn't exist, let catch-all handle it
+        raise HTTPException(status_code=404)
+
     # Catch-all route: serve index.html for React Router (SPA)
     # IMPORTANT: This MUST be the LAST route (after all API routes)
     @app.get("/{full_path:path}", include_in_schema=False)
@@ -220,8 +237,12 @@ if os.path.exists("static") and os.path.exists("static/index.html"):
         Serve React SPA for all non-API routes.
         React Router handles client-side routing.
         """
-        # Don't intercept API routes, health, docs
-        if full_path.startswith("api/") or full_path in ["health", "docs", "openapi.json", "redoc", "static"]:
+        # Don't intercept API routes, health, docs, or static files
+        if (
+            full_path.startswith("api/")
+            or full_path in ["health", "docs", "openapi.json", "redoc", "static"]
+            or full_path.endswith((".png", ".jpg", ".jpeg", ".ico", ".svg", ".css", ".js", ".json", ".woff", ".woff2", ".ttf"))
+        ):
             # Let FastAPI's normal 404 handler deal with this
             raise HTTPException(status_code=404, detail="Not found")
 
