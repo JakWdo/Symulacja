@@ -19,14 +19,14 @@ steps:
   # ==========================================================================
   # QUALITY 1: Linting with ruff (FAST - parallel)
   # ==========================================================================
-  - name: 'python:3.11-slim'
+  - name: 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/test-runner:latest'
     id: 'lint'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         echo "🔍 Running code quality checks (ruff)..."
-        pip install --no-cache-dir ruff
+        # Ruff already installed in test-runner image
 
         # Ruff: Fast Python linter (replaces flake8, isort, pydocstyle)
         ruff check app/ --config pyproject.toml
@@ -42,15 +42,14 @@ steps:
   # ==========================================================================
   # QUALITY 2: Type checking with mypy (parallel)
   # ==========================================================================
-  - name: 'python:3.11-slim'
+  - name: 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/test-runner:latest'
     id: 'typecheck'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         echo "🔍 Running type checks (mypy)..."
-        apt-get update && apt-get install -y --no-install-recommends gcc g++
-        pip install --no-cache-dir mypy types-redis types-requests
+        # Mypy already installed in test-runner image
 
         # Type check with lenient settings (Python ecosystem has many untyped libs)
         mypy app/ \
@@ -72,14 +71,14 @@ steps:
   # ==========================================================================
   # QUALITY 3: Security scan with bandit (parallel)
   # ==========================================================================
-  - name: 'python:3.11-slim'
+  - name: 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/test-runner:latest'
     id: 'security-scan'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         echo "🔒 Running security scan (bandit)..."
-        pip install --no-cache-dir bandit[toml]
+        # Bandit already installed in test-runner image
 
         # Scan for common security issues
         bandit -r app/ -ll -f txt
@@ -95,17 +94,15 @@ steps:
   # ==========================================================================
   # TESTS: Unit tests (240+ tests, NO DB/Neo4j/Redis)
   # ==========================================================================
-  - name: 'python:3.11-slim'
+  - name: 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/test-runner:latest'
     id: 'unit-tests'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         echo "🧪 Running unit tests (isolated, no external dependencies)..."
-
-        # Install build dependencies + test dependencies
-        apt-get update && apt-get install -y --no-install-recommends gcc g++
-        pip install --no-cache-dir -r requirements.txt
+        # All dependencies already installed in test-runner image
+        # This reduces test time from ~5 min to <60 seconds
 
         # Run unit tests ONLY (exclude integration/e2e/slow/external)
         # Based on quality-agent analysis: ~240 tests, 60-90s execution
