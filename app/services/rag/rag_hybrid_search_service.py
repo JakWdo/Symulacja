@@ -158,6 +158,9 @@ class PolishSocietyRAG:
                     cleanup = getattr(session, "close", None)
 
                 try:
+                    # Zabezpiecz query dla parsera Lucene (escape special chars)
+                    safe_query = self._escape_lucene_query(query)
+
                     result = session.run(
                         """
                         CALL db.index.fulltext.queryNodes('rag_fulltext_index', $search_query)
@@ -170,7 +173,7 @@ class PolishSocietyRAG:
                         ORDER BY score DESC
                         LIMIT $limit
                         """,
-                        search_query=query,
+                        search_query=safe_query,
                         limit=k,
                     )
 
@@ -227,6 +230,36 @@ class PolishSocietyRAG:
         except Exception as exc:  # pragma: no cover - fallback do vector search
             logger.warning("Keyword search nie powiodło się, używam fallbacku: %s", exc)
             return []
+
+    @staticmethod
+    def _escape_lucene_query(query: str) -> str:
+        """Escapuje znaki specjalne Lucene w zapytaniu fulltext.
+
+        Lucene reserved chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \\ /
+        oraz dwukropek, ukośnik i cudzysłowy. Zastępuje nowe linie spacją.
+
+        Args:
+            query: Surowe zapytanie użytkownika
+
+        Returns:
+            Bezpieczny string do użycia w db.index.fulltext.queryNodes
+        """
+        if not query:
+            return ""
+
+        reserved = set(list(r"+ - & | ! ( ) { } [ ] ^ \" ~ * ? : \\ /") + ["&&", "||"])  # type: ignore
+
+        # Escapuj znak po znaku (&& i || nie będą rozbite – traktujemy po znaku)
+        escaped_chars: list[str] = []
+        for ch in query.replace("\n", " "):
+            if ch in {"+", "-", "&", "|", "!", "(", ")", "{", "}", "[", "]", "^", '"', "~", "*", "?", ":", "\\", "/"}:
+                escaped_chars.append("\\" + ch)
+            else:
+                escaped_chars.append(ch)
+
+        # Dodatkowo normalizuj wielokrotne spacje
+        safe = " ".join("".join(escaped_chars).split())
+        return safe
 
     def _format_graph_context(self, graph_nodes: list[dict[str, Any]]) -> str:
         """Formatuje węzły grafu do czytelnego kontekstu tekstowego dla LLM.
