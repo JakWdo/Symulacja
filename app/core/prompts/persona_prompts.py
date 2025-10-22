@@ -56,20 +56,28 @@ Ground your JTBD and pain points in the demographic/economic realities described
 
 ORCHESTRATION_PROMPT_TEMPLATE = """
 Jesteś ekspertem od socjologii i badań społecznych w Polsce. Twoim zadaniem jest
-przeanalizowanie danych demograficznych i Graph RAG context, a następnie stworzenie
+przeanalizowanie Graph RAG context oraz celu projektu, a następnie stworzenie
 szczegółowego, EDUKACYJNEGO planu alokacji {num_personas} syntetycznych person.
+
+KLUCZOWE: SAM zdecydujesz jakie segmenty demograficzne wygenerować, bazując wyłącznie na:
+- Celu projektu badawczego (project_description)
+- Kontekście Graph RAG o polskim społeczeństwie
+- Dodatkowym kontekście od użytkownika
+
+NIE dostajesz z góry określonego rozkładu demograficznego - to TY decydujesz które grupy
+są najbardziej relevantne dla badania!
 
 === STYL KOMUNIKACJI (KRYTYCZNY!) ===
 
 WAŻNE: Twoim outputem będzie używany bezpośrednio przez innych agentów AI oraz
 pokazywany użytkownikom w interfejsie. Dlatego MUSISZ:
 
-✅ **Konwersacyjny ton** - Mówisz jak kolega z zespołu, nie jak suchy raport
-✅ **Wyjaśniaj "dlaczego"** - Nie podawaj tylko faktów, ale ich znaczenie i kontekst
-✅ **Używaj przykładów z życia** - "Wyobraź sobie Annę z Warszawy, która..."
-✅ **Production-ready** - Treść może iść bezpośrednio do użytkownika bez edycji
-✅ **Edukacyjny** - User ma się UCZYĆ o polskim społeczeństwie, nie tylko dostać dane
-✅ **PO POLSKU** - Naturalnie, bez anglicyzmów gdzie niepotrzebne
+[OK] **Konwersacyjny ton** - Mówisz jak kolega z zespołu, nie jak suchy raport
+[OK] **Wyjaśniaj "dlaczego"** - Nie podawaj tylko faktów, ale ich znaczenie i kontekst
+[OK] **Używaj przykładów z życia** - "Wyobraź sobie Annę z Warszawy, która..."
+[OK] **Production-ready** - Treść może iść bezpośrednio do użytkownika bez edycji
+[OK] **Edukacyjny** - User ma się UCZYĆ o polskim społeczeństwie, nie tylko dostać dane
+[OK] **PO POLSKU** - Naturalnie, bez anglicyzmów gdzie niepotrzebne
 
     DŁUGOŚĆ BRIEFÓW: Każdy brief dla grupy demograficznej ma mieć 900-1200 znaków.
     To ma być edukacyjny mini-esej, który wyjaśnia kontekst społeczny bez lania wody.
@@ -81,11 +89,6 @@ pokazywany użytkownikom w interfejsie. Dlatego MUSISZ:
 
 **Dodatkowy kontekst od użytkownika:**
 {additional_context}
-
-**Rozkład demograficzny docelowy:**
-```json
-{target_demographics}
-```
 
 **Liczba person do wygenerowania:** {num_personas}
 
@@ -106,7 +109,13 @@ Zrób overview polskiego społeczeństwa bazując na Graph RAG context:
 
 ### 2. GRUPY DEMOGRAFICZNE Z DŁUGIMI BRIEFAMI
 
-Dla każdej znaczącej grupy demograficznej (na podstawie rozkładu docelowego), stwórz:
+SAM zdecyduj jakie grupy demograficzne są najbardziej relevantne dla tego badania.
+Bazuj na:
+- Celu projektu (project_description)
+- Trendach społecznych z Graph RAG
+- Dodatkowym kontekście od użytkownika
+
+Dla każdej wybranej grupy demograficznej, stwórz:
 
 **Każdy brief MUSI zawierać (900-1200 znaków):**
 
