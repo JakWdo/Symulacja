@@ -22,7 +22,11 @@ from pydantic import BaseModel, Field
 from app.core.config import get_settings
 from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
 from app.services.shared.clients import build_chat_model
-from app.core.prompts.persona_prompts import ORCHESTRATION_PROMPT_TEMPLATE
+from app.core.prompts.persona_prompts import (
+    ORCHESTRATION_PROMPT_TEMPLATE,
+    SEGMENT_NAME_PROMPT_TEMPLATE,
+    SEGMENT_CONTEXT_PROMPT_TEMPLATE,
+)
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -361,46 +365,23 @@ class PersonaOrchestrationService:
         income = demographics.get('income', demographics.get('income_bracket', 'nieznany'))
 
         # Format insights
-        insights_text = "\n".join([
-            f"- {ins.summary} ({ins.confidence})"
-            for ins in graph_insights[:3]  # Top 3
-        ]) if graph_insights else "Brak insights"
+        insights_text = "\n".join(
+            [f"- {ins.summary} ({ins.confidence})" for ins in graph_insights[:3]]
+        ) if graph_insights else "Brak insights"
 
         # Format citations (first 2 max)
-        citations_text = "\n".join([
-            f"- {cit.page_content[:100]}..."
-            for cit in rag_citations[:2]
-        ]) if hasattr(rag_citations[0] if rag_citations else None, 'page_content') else "Brak cytatów"
+        citations_text = "\n".join(
+            [f"- {cit.page_content[:100]}..." for cit in (rag_citations or [])[:2]]
+        ) if hasattr((rag_citations or [None])[0], 'page_content') else "Brak cytatów"
 
-        prompt = f"""Stwórz trafną, MÓWIĄCĄ nazwę dla poniższego segmentu demograficznego.
-
-DANE SEGMENTU:
-- Wiek: {age_range}
-- Płeć: {gender}
-- Wykształcenie: {education}
-- Dochód: {income}
-
-INSIGHTS Z GRAFU:
-{insights_text}
-
-CYTATY Z RAG:
-{citations_text}
-
-ZASADY:
-1. Nazwa powinna być 2-4 słowa (np. "Młodzi Prekariusze", "Aspirujące Profesjonalistki 35-44")
-2. Oddaje kluczową charakterystykę grupy (wiek + status społeczno-ekonomiczny)
-3. Używa polskiego języka, brzmi naturalnie
-4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek -> "Młodzi Prekariusze")
-5. Unikaj ogólników ("Grupa A", "Segment 1")
-6. Jeśli wiek jest istotny, włącz go (np. "35-44")
-
-PRZYKŁADY DOBRYCH NAZW:
-- "Młodzi Prekariusze" (18-24, niskie dochody)
-- "Aspirujące Profesjonalistki 35-44" (kobiety, wyższe wykształcenie, średnie dochody)
-- "Dojrzali Eksperci" (45-54, wysokie dochody, stabilna kariera)
-- "Początkujący Profesjonaliści" (25-34, pierwsze kroki w karierze)
-
-ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
+        prompt = SEGMENT_NAME_PROMPT_TEMPLATE.format(
+            age_range=age_range,
+            gender=gender,
+            education=education,
+            income=income,
+            insights_text=insights_text,
+            citations_text=citations_text,
+        )
 
         try:
             # Use Gemini Flash for quick naming (cheap, fast)
@@ -464,55 +445,26 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
         education = demographics.get('education', demographics.get('education_level', 'nieznane'))
         income = demographics.get('income', demographics.get('income_bracket', 'nieznany'))
 
-        # Format insights with details
-        insights_text = "\n".join([
-            f"- **{ins.summary}**\n  Magnitude: {ins.magnitude or 'N/A'}, Confidence: {ins.confidence}, "
-            f"Source: {ins.source or 'N/A'}, Year: {ins.time_period or 'N/A'}\n  "
-            f"Why it matters: {ins.why_matters[:150]}..."
-            for ins in graph_insights[:5]  # Top 5
-        ]) if graph_insights else "Brak insights"
+        # Format insights (concise for template)
+        insights_text = "\n".join(
+            [f"- {ins.summary} (mag: {ins.magnitude or 'N/A'}, conf: {ins.confidence})" for ins in graph_insights[:5]]
+        ) if graph_insights else "Brak insights"
 
         # Format citations (first 3 max)
-        citations_text = "\n".join([
-            f"[{idx+1}] {cit.page_content[:200]}..."
-            for idx, cit in enumerate(rag_citations[:3])
-        ]) if hasattr(rag_citations[0] if rag_citations else None, 'page_content') else "Brak cytatów"
+        citations_text = "\n".join(
+            [f"[{idx+1}] {cit.page_content[:200]}..." for idx, cit in enumerate((rag_citations or [])[:3])]
+        ) if hasattr((rag_citations or [None])[0], 'page_content') else "Brak cytatów"
 
-        prompt = f"""Stwórz kontekst społeczny dla segmentu "{segment_name}".
-
-DEMOGRAFIA SEGMENTU:
-- Wiek: {age_range}
-- Płeć: {gender}
-- Wykształcenie: {education}
-- Dochód: {income}
-
-INSIGHTS Z GRAFU WIEDZY:
-{insights_text}
-
-CYTATY Z RAG:
-{citations_text}
-
-CEL PROJEKTU:
-{project_goal or "Badanie syntetycznych person"}
-
-WYTYCZNE:
-1. Długość: 500-800 znaków (WAŻNE!)
-2. Kontekst SPECYFICZNY dla KONKRETNEJ GRUPY (nie ogólny opis Polski!)
-3. Zacznij od opisu charakterystyki grupy (jak w przykładzie)
-4. Struktura:
-   a) Pierwsza część (2-3 zdania): KIM są te osoby, co ich charakteryzuje
-   b) Druga część (2-3 zdania): Ich WARTOŚCI i ASPIRACJE
-   c) Trzecia część (2-3 zdania): WYZWANIA i kontekst ekonomiczny z konkretnymi liczbami
-5. Ton: konkretny, praktyczny, opisujący TYCH ludzi (nie teoretyczny!)
-6. Używaj konkretnych liczb z insights tam gdzie dostępne
-7. Unikaj: ogólników ("polska społeczeństwo"), teoretyzowania
-
-PRZYKŁAD DOBREGO KONTEKSTU (na wzór Figmy):
-"Tech-Savvy Profesjonaliści to osoby w wieku 28 lat, pracujące jako Marketing Manager w dużych miastach jak Warszawa czy Kraków. Charakteryzują się wysokim wykształceniem (licencjat lub wyżej), stabilną karierą w branży technologicznej i dochodami 8k-12k PLN netto. Są early adopters nowych technologii i cenią sobie work-life balance. Ich główne wartości to innovation, ciągły rozwój i sustainability. Aspirują do awansu na wyższe stanowiska (senior manager, director), własnego mieszkania w atrakcyjnej lokalizacji (co przy cenach 15-20k PLN/m2 wymaga oszczędzania przez 10+ lat) i rozwoju kompetencji w digital marketing oraz AI tools. Wyzwania: rosnąca konkurencja na rynku pracy (według GUS 78% osób z tej grupy ma wyższe wykształcenie), wysokie koszty życia w dużych miastach (średni czynsz ~3500 PLN), presja na ciągły rozwój i keeping up with tech trends."
-
-WAŻNE: Pisz o KONKRETNEJ grupie ludzi, używaj przykładów zawodów, konkretnych liczb, opisuj ICH życie.
-
-ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
+        prompt = SEGMENT_CONTEXT_PROMPT_TEMPLATE.format(
+            segment_name=segment_name,
+            age_range=age_range,
+            gender=gender,
+            education=education,
+            income=income,
+            insights_text=insights_text,
+            citations_text=citations_text,
+            project_goal=project_goal or "Badanie syntetycznych person",
+        )
 
         try:
             response = await self.llm.ainvoke(prompt)  # Use Gemini 2.5 Pro
