@@ -89,7 +89,7 @@ steps:
           gcloud run jobs create db-migrate \
             --image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
             --region=europe-central2 \
-            --add-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight \
+            --set-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight \
             --set-secrets=DATABASE_URL=DATABASE_URL_CLOUD:latest \
             --command=alembic,upgrade,head \
             --max-retries=2 \
