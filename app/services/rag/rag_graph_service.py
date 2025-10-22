@@ -279,6 +279,67 @@ class GraphRAGService:
             "cypher_query": rag_query.cypher_query,
         }
 
+    @staticmethod
+    def _normalize_education_term(education: str) -> list[str]:
+        """Rozdziel i znormalizuj concatenated education strings na pojedyncze terminy.
+
+        Problem: Frontend/API wysyła education jako concatenated string z slashami:
+        Input: "W trakcie / Średnie / Licencjat"
+
+        Graf Neo4j zawiera pojedyncze wartości: "wyższe", "średnie", "w trakcie"
+
+        Ta funkcja:
+        1. Dzieli string po "/" i trim whitespace
+        2. Mapuje na standardowe wartości używane w grafie wiedzy
+        3. Zwraca listę znormalizowanych terminów
+
+        Args:
+            education: Education string (może być pojedynczy lub concatenated z "/")
+
+        Returns:
+            Lista znormalizowanych education terminów (lowercase, standard values)
+
+        Examples:
+            >>> _normalize_education_term("W trakcie / Średnie / Licencjat")
+            ['podstawowe', 'średnie', 'wyższe']
+
+            >>> _normalize_education_term("Wyższe (Magister lub więcej)")
+            ['wyższe']
+        """
+        if not education:
+            return []
+
+        # Split by "/" i trim whitespace, lowercase
+        raw_terms = [term.strip().lower() for term in education.split('/')]
+
+        # Mapowanie na standardowe wartości w grafie
+        # Graf używa: "podstawowe", "średnie", "wyższe", "w trakcie"
+        education_mapping = {
+            'w trakcie': 'podstawowe',  # lub 'w trakcie' jeśli graf ma taką wartość
+            'średnie': 'średnie',
+            'licencjat': 'wyższe',
+            'magister': 'wyższe',
+            'wyższe': 'wyższe',
+            'podstawowe': 'podstawowe',
+            # Dodatkowe aliasy
+            'bachelor': 'wyższe',
+            'master': 'wyższe',
+            'phd': 'wyższe',
+            'doktor': 'wyższe',
+        }
+
+        normalized = []
+        for term in raw_terms:
+            # Remove parentheses and extra info (e.g., "Wyższe (Magister lub więcej)" -> "wyższe")
+            clean_term = term.split('(')[0].strip()
+
+            # Map to standard value
+            mapped = education_mapping.get(clean_term, clean_term)
+            if mapped and mapped not in normalized:
+                normalized.append(mapped)
+
+        return normalized if normalized else [education.lower()]
+
     def get_demographic_graph_context(
         self,
         age_group: str,
@@ -297,7 +358,7 @@ class GraphRAGService:
         Args:
             age_group: Grupa wiekowa (np. "25-34")
             location: Lokalizacja (np. "Warszawa")
-            education: Poziom wykształcenia (np. "wyższe")
+            education: Poziom wykształcenia (np. "wyższe" lub "W trakcie / Średnie / Licencjat")
             gender: Płeć (np. "kobieta")
 
         Returns:
@@ -319,13 +380,18 @@ class GraphRAGService:
             logger.warning("Graph store nie jest dostępny - zwracam pusty kontekst grafowy")
             return []
 
-        # Budujemy search terms - tylko specific terms (Cypher CONTAINS wystarczy)
-        search_terms = [
-            age_group,    # "25-34"
-            location,     # "Warszawa"
-            education,    # "wyższe"
-            gender,       # "kobieta"
-        ]
+        # Budujemy search terms - rozdzielamy education na pojedyncze terminy
+        search_terms = [age_group, location, gender]
+
+        # FIX: Normalizuj education terms (split "W trakcie / Średnie / Licencjat" -> ["podstawowe", "średnie", "wyższe"])
+        if education:
+            normalized_education = self._normalize_education_term(education)
+            search_terms.extend(normalized_education)
+            logger.info(
+                "🔧 Normalized education: '%s' -> %s",
+                education,
+                normalized_education
+            )
 
         logger.info(
             "📊 Graph context search - Profil: wiek=%s, lokalizacja=%s, wykształcenie=%s, płeć=%s",

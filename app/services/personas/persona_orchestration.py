@@ -269,16 +269,20 @@ class PersonaOrchestrationService:
         ])
 
         # Wykonaj parallel hybrid searches z timeout
+        # PRODUCTION FIX: Zwiększono timeout 90s -> 150s dla Cloud Run network latency
+        # Cloud Run RTT: ~50-150ms per Neo4j query (vs ~5-10ms local Docker)
+        # 8 parallel searches × (vector + keyword + Neo4j) może przekroczyć 90s
+        # 150s daje safety margin podczas gdy implementujemy caching + async optimization
         try:
             results = await asyncio.wait_for(
                 asyncio.gather(*[
                     self.rag_service.hybrid_search(query=q, top_k=3)
                     for q in queries[:8]  # Limit do 8 queries (24 results max)
                 ]),
-                timeout=90.0  # 90 sekund dla Cloud Run (network latency + reranking)
+                timeout=150.0  # 150 sekund (2.5 min) - temporary safety margin dla Cloud Run
             )
         except asyncio.TimeoutError:
-            logger.warning("⚠️ Graph RAG queries przekroczyły timeout (90s) - zwracam pusty kontekst")
+            logger.warning("⚠️ Graph RAG queries przekroczyły timeout (150s) - zwracam pusty kontekst")
             return "Brak dostępnego kontekstu z Graph RAG (timeout)."
 
         # Deduplikuj i formatuj
