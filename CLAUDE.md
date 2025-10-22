@@ -10,7 +10,12 @@ Instrukcje dla Claude Code podczas pracy z tym projektem.
 - Backend: FastAPI, PostgreSQL + pgvector, Redis, Neo4j
 - Frontend: React 18 + TypeScript, Vite, TanStack Query, Tailwind
 - AI: Google Gemini 2.5 (Flash/Pro) via LangChain
-- Infrastruktura: Docker + Docker Compose
+- Infrastruktura: Docker + Docker Compose (local), Google Cloud Run (production)
+
+**Production Deployment:**
+- Branch: **Chmura** (auto-deploy do GCP Cloud Run)
+- Region: europe-central2 (Warszawa)
+- Push to Chmura → Auto Cloud Build → Deploy to Cloud Run
 
 ## Quick Start
 
