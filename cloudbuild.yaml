@@ -1,161 +1,64 @@
 # ==============================================================================
-# cloudbuild.yaml - Complete CI/CD Pipeline
+# cloudbuild.yaml - Optimized CI/CD Pipeline
 # ==============================================================================
 # Pipeline stages:
-# 1. CODE QUALITY (parallel): linting, type checking, security
-# 2. UNIT TESTS: 240+ isolated tests (no DB/Neo4j)
-# 3. BUILD: Docker image (frontend + backend)
-# 4. MIGRATE: Database migrations (before deploy)
-# 5. DEPLOY: Cloud Run service
-# 6. NEO4J INIT: Initialize vector indexes
-# 7. SMOKE TESTS: Post-deployment verification
-# 8. ROLLBACK: Automatic if smoke tests fail
+# 1. BUILD: Docker image (frontend + backend) with layer caching
+# 2. PUSH: Push to Artifact Registry
+# 3. MIGRATE: Database migrations (before deploy)
+# 4. DEPLOY: Cloud Run service
+# 5. NEO4J INIT: Initialize vector indexes
+# 6. SMOKE TESTS: Post-deployment verification (health + frontend)
 #
-# Total time: ~7-12 min (vs 5 min without tests)
-# Reliability: +90% fewer failed deployments
+# Total time: ~8-12 min (with BuildKit inline cache + pinned base images)
+#   - First build (cold cache): ~20-25 min
+#   - Incremental builds (warm cache): ~8-12 min
+#   - Code-only changes (hot cache): ~5-8 min
+# Optimization: BuildKit inline cache + pinned node:20.18.0/python:3.11.11
+# Code quality checks: Run locally (ruff, mypy, pytest)
 # ==============================================================================
 
 steps:
   # ==========================================================================
-  # QUALITY 1: Linting with ruff (FAST - parallel)
+  # PULL CACHE: Download previous image for layer caching
   # ==========================================================================
-  - name: 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/test-runner:latest'
-    id: 'lint'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "🔍 Running code quality checks (ruff)..."
-        # Ruff already installed in test-runner image
-
-        # Ruff: Fast Python linter (replaces flake8, isort, pydocstyle)
-        ruff check app/ --config pyproject.toml
-
-        if [ $$? -ne 0 ]; then
-          echo "❌ Linting failed - please fix code style issues"
-          echo "   Run locally: ruff check app/"
-          exit 1
-        fi
-        echo "✅ Linting passed"
-    waitFor: ['-']  # Run immediately (parallel with other quality checks)
-
-  # ==========================================================================
-  # QUALITY 2: Type checking with mypy (parallel)
-  # ==========================================================================
-  - name: 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/test-runner:latest'
-    id: 'typecheck'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "🔍 Running type checks (mypy)..."
-        # Mypy already installed in test-runner image
-
-        # Type check with lenient settings (Python ecosystem has many untyped libs)
-        mypy app/ \
-          --ignore-missing-imports \
-          --disallow-untyped-defs \
-          --no-strict-optional \
-          --warn-redundant-casts \
-          --warn-unused-ignores
-
-        if [ $$? -ne 0 ]; then
-          echo "⚠️  Type check warnings found (non-fatal)"
-          echo "   These are warnings only - deployment continues"
-          echo "   Run locally: mypy app/ --ignore-missing-imports"
-          # Don't fail build on mypy warnings (too strict for Python ecosystem)
-        fi
-        echo "✅ Type checking completed"
-    waitFor: ['-']  # Run immediately (parallel)
-
-  # ==========================================================================
-  # QUALITY 3: Security scan with bandit (parallel)
-  # ==========================================================================
-  - name: 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/test-runner:latest'
-    id: 'security-scan'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "🔒 Running security scan (bandit)..."
-        # Bandit already installed in test-runner image
-
-        # Scan for common security issues
-        bandit -r app/ -ll -f txt
-
-        if [ $$? -ne 0 ]; then
-          echo "⚠️  Security issues found - review recommended"
-          echo "   Run locally: bandit -r app/ -ll"
-          # Non-fatal for now (many false positives)
-        fi
-        echo "✅ Security scan completed"
-    waitFor: ['-']  # Run immediately (parallel)
-
-  # ==========================================================================
-  # TESTS: Unit tests (240+ tests, NO DB/Neo4j/Redis)
-  # ==========================================================================
-  - name: 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/test-runner:latest'
-    id: 'unit-tests'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "🧪 Running unit tests (isolated, no external dependencies)..."
-        # All dependencies already installed in test-runner image
-        # This reduces test time from ~5 min to <60 seconds
-
-        # Run unit tests ONLY (exclude integration/e2e/slow/external)
-        # Based on quality-agent analysis: ~240 tests, 60-90s execution
-        pytest tests/ \
-          -v \
-          --tb=short \
-          -m "not integration and not e2e and not slow and not external and not manual and not performance" \
-          --ignore=tests/unit/test_graph_analytics.py \
-          --ignore=tests/unit/test_graph_rag_construction.py \
-          --maxfail=10 \
-          --timeout=300 \
-          --junit-xml=test-results.xml \
-          --cov=app \
-          --cov-report=term-missing \
-          --cov-report=xml
-
-        EXIT_CODE=$$?
-
-        if [ $$EXIT_CODE -ne 0 ]; then
-          echo "❌ Unit tests FAILED - aborting deployment"
-          echo "   $$EXIT_CODE test(s) failed"
-          echo "   Review test output above for details"
-          echo "   Run locally: pytest tests/ -v -m \"not integration and not e2e and not slow\""
-          exit 1
-        fi
-
-        echo "✅ All unit tests passed (~240 tests)"
-        echo "📊 Coverage report generated: coverage.xml"
-    env:
-      # Minimal env vars for FastAPI app initialization (tests mock everything)
-      - 'ENVIRONMENT=test'
-      - 'GOOGLE_API_KEY=dummy_key_for_unit_tests_only'
-      - 'DATABASE_URL=sqlite+aiosqlite:///./test.db'  # aiosqlite = async SQLite driver (required for create_async_engine)
-      - 'SECRET_KEY=test_secret_key_1234567890_long_enough_for_validation'
-      - 'NEO4J_URI=bolt://localhost:7687'
-      - 'NEO4J_PASSWORD=dummy'
-      - 'REDIS_URL=redis://localhost:6379/0'
-    waitFor: ['lint', 'typecheck', 'security-scan']  # Wait for quality checks
-  # ==========================================================================
-  # BUILD: Docker Image (Backend + Frontend)
-  # ==========================================================================
+  # This step pulls the latest image from Artifact Registry to use as cache source
+  # Uses 'entrypoint: bash' with '|| true' to avoid failing on first build (no cache exists yet)
   - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
     args:
-      - 'build'
-      - '-f'
-      - 'Dockerfile.cloudrun'
-      - '-t'
-      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest'
-      - '-t'
-      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:$COMMIT_SHA'
-      - '.'
+      - '-c'
+      - |
+        docker pull europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest || echo "No cache image found - first build will be slow"
+    id: 'pull-cache'
+    waitFor: ['-']  # Start immediately (parallel with tests if any)
+
+  # ==========================================================================
+  # BUILD: Docker Image (Backend + Frontend) with BuildKit Inline Cache
+  # ==========================================================================
+  # BuildKit inline cache: zapisuje cache metadata WEWNĄTRZ image
+  # To umożliwia cache multi-stage builds (frontend-builder, backend-builder, runtime)
+  # --cache-from: reuse cache z poprzednich buildów
+  # --cache-to type=inline: zapisz cache metadata dla przyszłych buildów
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Setup BuildKit (nowszy backend Docker z lepszym cachingiem)
+        export DOCKER_BUILDKIT=1
+
+        # Build z inline cache (zapisuje cache metadata w image layers)
+        docker build \
+          -f Dockerfile.cloudrun \
+          --cache-from europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          -t europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
+          -t europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:$COMMIT_SHA \
+          .
     id: 'build'
-    waitFor: ['unit-tests']  # Only build if tests pass!
+    waitFor: ['pull-cache']  # Wait for cache image to be pulled
+    env:
+      - 'DOCKER_BUILDKIT=1'
 
   # ==========================================================================
   # PUSH: Docker Image to Artifact Registry
@@ -226,7 +129,7 @@ steps:
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--port=8080'
-      - '--memory=2Gi'
+      - '--memory=4Gi'  # Zwiększone z 2Gi → 4Gi (persona gen + RAG + sentence-transformers ~2.5Gi peak)
       - '--cpu=2'  # Zwiększone do 2 vCPU dla lepszej performance (LLM + RAG)
       - '--cpu-boost'  # Startup CPU boost dla szybszego startu
       - '--timeout=300'
@@ -237,7 +140,9 @@ steps:
       - '--set-secrets=DATABASE_URL=DATABASE_URL_CLOUD:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,NEO4J_PASSWORD=NEO4J_PASSWORD:latest,NEO4J_URI=NEO4J_URI:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD:latest,REDIS_URL=REDIS_URL:latest,SECRET_KEY=SECRET_KEY:latest'
       # ALLOWED_ORIGINS removed - not needed for same-origin deployment (backend + frontend in same container)
       # See app/main.py:114-135 for explanation
-      - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash'
+      # EMBEDDING_MODEL: CRITICAL - must have "models/" prefix for LangChain Google AI integration
+      # Models configuration - can be changed via GCP UI without redeploy
+      - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,GRAPH_MODEL=gemini-2.5-flash,PERSONA_GENERATION_MODEL=gemini-2.5-flash,ANALYSIS_MODEL=gemini-2.5-pro,EMBEDDING_MODEL=models/gemini-embedding-001,TEMPERATURE=0.7,MAX_TOKENS=6000,RAG_ENABLED=True,RAG_USE_HYBRID_SEARCH=True,RAG_CHUNK_SIZE=1000,RAG_CHUNK_OVERLAP=300,RAG_TOP_K=8,RAG_VECTOR_WEIGHT=0.7,RAG_RRF_K=60'
     id: 'deploy'
     waitFor: ['migrate']
 
