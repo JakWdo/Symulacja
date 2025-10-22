@@ -958,14 +958,21 @@ async def _generate_personas_task(
                 locations=_normalize_distribution(target_demographics.get("location", {}), POLISH_LOCATIONS),
             )
 
-            # === ORCHESTRATION STEP (GEMINI 2.5 PRO) ===
-            # Tworzymy szczegółowy plan alokacji używając orchestration agent
-            orchestration_service = PersonaOrchestrationService()
-            allocation_plan = None
-            persona_group_mapping = {}  # Mapuje persona index -> brief
+            # === ORCHESTRATION STEP (GEMINI 2.5 PRO) - TEMPORARILY DISABLED ===
+            # PRODUCTION HOTFIX #2: Wyłączone dla reliability (Graph RAG timeout 150s blokuje generowanie)
+            # Root cause: Orchestration calls Graph RAG queries (8 parallel × Neo4j Cloud Run latency)
+            #             → przekracza 150s timeout → BRAK person generowanych
+            # Trade-off: Persony bez długich briefów, ale BĘDĄ SIĘ GENEROWAĆ
+            # TODO: Re-enable po optymalizacji Graph RAG (caching, connection pooling, async timeout)
 
-            logger.info("🎯 Creating orchestration plan with Gemini 2.5 Pro...")
-            try:
+            logger.info("🚫 ORCHESTRATION DISABLED - using basic generation mode (reliability > quality)")
+            allocation_plan = None
+            persona_group_mapping = {}
+
+            # SKIP orchestration (linie 968-1082) - zachowane dla przyszłego re-enable
+            if False:  # DISABLED orchestration block
+                logger.info("🎯 Creating orchestration plan with Gemini 2.5 Pro...")
+                try:
                 # Pobierz dodatkowy opis grupy docelowej jeśli istnieje
                 target_audience_desc = None
                 if advanced_options and "target_audience_description" in advanced_options:
@@ -1088,41 +1095,9 @@ async def _generate_personas_task(
             demographic_profiles = [generator.sample_demographic_profile(distribution)[0] for _ in range(num_personas)]
             psychological_profiles = [{**generator.sample_big_five_traits(), **generator.sample_cultural_dimensions()} for _ in range(num_personas)]
 
-            # === OVERRIDE DEMOGRAPHICS Z ORCHESTRATION ===
-            # Orchestration plan ma AUTORYTATYWNE demographics (z Gemini 2.5 Pro analysis)
-            # Override sampled demographics aby zapewnić spójność z briefami
-            if allocation_plan and persona_group_mapping:
-                logger.info("🔒 Overriding sampled demographics with orchestration demographics...")
-                override_count = 0
-
-                for idx, profile in enumerate(demographic_profiles):
-                    if idx in persona_group_mapping:
-                        orch_demo = persona_group_mapping[idx]["demographics"]
-
-                        # Override sampled values (orchestration jest bardziej autorytatywny)
-                        if "age" in orch_demo and orch_demo["age"]:
-                            profile["age_group"] = orch_demo["age"]
-                            override_count += 1
-
-                        if "gender" in orch_demo and orch_demo["gender"]:
-                            profile["gender"] = orch_demo["gender"]
-
-                        if "education" in orch_demo and orch_demo["education"]:
-                            profile["education_level"] = orch_demo["education"]
-
-                        if "income" in orch_demo and orch_demo["income"]:
-                            profile["income_bracket"] = orch_demo["income"]
-
-                        logger.debug(
-                            f"Persona {idx}: enforced demographics from orchestration "
-                            f"(age={orch_demo.get('age')}, gender={orch_demo.get('gender')})",
-                            extra={"project_id": str(project_id), "index": idx}
-                        )
-
-                logger.info(
-                    f"✅ Demographics override completed: {override_count}/{num_personas} personas enforced",
-                    extra={"project_id": str(project_id)}
-                )
+            # === OVERRIDE DEMOGRAPHICS Z ORCHESTRATION - DISABLED ===
+            # HOTFIX #2: Orchestration disabled → skip demographics override
+            # Demographics używają sampled values z distribution (standard behavior)
 
             logger.info(
                 f"Starting LLM generation for {num_personas} personas with concurrency={concurrency_limit}",
@@ -1166,12 +1141,9 @@ async def _generate_personas_task(
 
             async def create_single_persona(idx: int, demo_profile: dict[str, Any], psych_profile: dict[str, Any]):
                 async with semaphore:
-                    # Dodaj orchestration brief do advanced_options jeśli istnieje
+                    # HOTFIX #2: Orchestration disabled → skip brief injection
+                    # Basic generation uses only demographic + psychological profiles + per-persona RAG (if use_rag=True)
                     enhanced_options = advanced_options.copy() if advanced_options else {}
-                    if idx in persona_group_mapping:
-                        enhanced_options["orchestration_brief"] = persona_group_mapping[idx]["brief"]
-                        enhanced_options["graph_insights"] = persona_group_mapping[idx]["graph_insights"]
-                        enhanced_options["allocation_reasoning"] = persona_group_mapping[idx]["allocation_reasoning"]
 
                     result = await generator.generate_persona_personality(demo_profile, psych_profile, use_rag, enhanced_options)
                     if (idx + 1) % max(1, batch_size) == 0 or idx == num_personas - 1:
@@ -1378,37 +1350,8 @@ async def _generate_personas_task(
                         or rag_context_details.get("context_preview")
                     )
 
-                    # Dodaj orchestration reasoning do rag_context_details (jeśli istnieje)
-                    if idx in persona_group_mapping:
-                        mapping_entry = persona_group_mapping[idx]
-                        segment_name_meta = mapping_entry.get("segment_name")
-                        segment_id_meta = mapping_entry.get("segment_id")
-                        segment_description_meta = mapping_entry.get("segment_description")
-                        segment_context_meta = mapping_entry.get("segment_social_context")
-
-                        rag_context_details["orchestration_reasoning"] = {
-                            "brief": mapping_entry["brief"],
-                            "graph_insights": mapping_entry["graph_insights"],
-                            "allocation_reasoning": mapping_entry["allocation_reasoning"],
-                            "demographics": mapping_entry["demographics"],
-                            "segment_characteristics": mapping_entry["segment_characteristics"],
-                            "overall_context": allocation_plan.overall_context if allocation_plan else None,
-                            "segment_name": segment_name_meta,
-                            "segment_id": segment_id_meta,
-                            "segment_description": segment_description_meta,
-                            "segment_social_context": segment_context_meta,
-                        }
-
-                        if segment_name_meta and "segment_name" not in rag_context_details:
-                            rag_context_details["segment_name"] = segment_name_meta
-                        if segment_id_meta and "segment_id" not in rag_context_details:
-                            rag_context_details["segment_id"] = segment_id_meta
-                        if segment_description_meta and "segment_description" not in rag_context_details:
-                            rag_context_details["segment_description"] = segment_description_meta
-                        if segment_context_meta and "segment_social_context" not in rag_context_details:
-                            rag_context_details["segment_social_context"] = segment_context_meta
-                        if mapping_entry["segment_characteristics"] and "segment_characteristics" not in rag_context_details:
-                            rag_context_details["segment_characteristics"] = mapping_entry["segment_characteristics"]
+                    # HOTFIX #2: Orchestration disabled → skip orchestration reasoning injection
+                    # rag_context_details zawiera tylko RAG context (no orchestration briefs/insights)
 
                     persona_payload = {
                         "project_id": project_id,
@@ -1431,12 +1374,8 @@ async def _generate_personas_task(
                         **psychological
                     }
 
-                    if idx in persona_group_mapping:
-                        mapping_entry = persona_group_mapping[idx]
-                        if mapping_entry.get("segment_id"):
-                            persona_payload["segment_id"] = mapping_entry["segment_id"]
-                        if mapping_entry.get("segment_name"):
-                            persona_payload["segment_name"] = mapping_entry["segment_name"]
+                    # HOTFIX #2: Orchestration disabled → skip segment_id/segment_name from orchestration
+                    # Segment name będzie pochodzić z catchy_segment_name (LLM response) poniżej
 
                     # OVERRIDE segment_name with catchy_segment_name from LLM if available
                     # This replaces long technical names like "Kobiety 35-44 wyższe wykształcenie"
@@ -1449,9 +1388,7 @@ async def _generate_personas_task(
                             persona_payload["segment_name"] = catchy_segment_name
                             if isinstance(rag_context_details, dict):
                                 rag_context_details["segment_name"] = catchy_segment_name
-                                orchestration_info = rag_context_details.get("orchestration_reasoning")
-                                if isinstance(orchestration_info, dict):
-                                    orchestration_info["segment_name"] = catchy_segment_name
+                                # HOTFIX #2: orchestration_reasoning nie istnieje (orchestration disabled)
                             logger.info(
                                 f"Using catchy segment name: '{catchy_segment_name}' (persona {idx})",
                                 extra={"project_id": str(project_id), "index": idx}
