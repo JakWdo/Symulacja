@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Tuple, Union
 from langchain_core.documents import Document
 
 from app.core.config import get_settings
-from app.services.rag_clients import get_vector_store
+from app.services.rag.clients import get_vector_store
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ class PolishSocietyRAG:
     def graph_rag_service(self):
         """Leniwa inicjalizacja GraphRAGService dla dostępu do strukturalnego kontekstu."""
         if self._graph_rag_service is None:
-            from app.services.rag_graph_service import GraphRAGService
+            from app.services.rag.graph_service import GraphRAGService
 
             self._graph_rag_service = GraphRAGService()
         return self._graph_rag_service

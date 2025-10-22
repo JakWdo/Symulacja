@@ -60,17 +60,35 @@ class Settings(BaseSettings):
     # === MODELE LLM ===
     # DEFAULT_LLM_PROVIDER: Domyślny provider (google, openai, anthropic)
     DEFAULT_LLM_PROVIDER: str = "google"
-    # PERSONA_GENERATION_MODEL: Model do generowania person (szybki)
+
+    # === DEPRECATED MODEL CONFIGS ===
+    # UWAGA: Poniższe ustawienia są DEPRECATED!
+    # Używaj app/core/model_config.py dla per-service konfiguracji modeli.
+    #
+    # Migracja:
+    #   from app.core.model_config import get_model_config
+    #   config = get_model_config("persona")  # returns ModelConfig z właściwymi settings
+    #
+    # model_config.py zapewnia:
+    # - Per-service temperature (np. PERSONA_TEMPERATURE=0.9 vs FOCUS_GROUP_TEMPERATURE=0.8)
+    # - Per-service max_tokens (np. PERSONA_MAX_TOKENS=6000 vs ANALYSIS_MAX_TOKENS=8000)
+    # - Per-service timeouts
+    # - Centralne zarządzanie wszystkimi model settings
+    #
+    # Te settings są zachowane TYLKO dla backward compatibility.
+    # W nowym kodzie ZAWSZE używaj model_config.py!
+
+    # DEPRECATED - Use model_config.PERSONA_MODEL instead
     PERSONA_GENERATION_MODEL: str = "gemini-2.5-flash"
-    # ANALYSIS_MODEL: Model do analizy i podsumowań (dokładny)
+    # DEPRECATED - Use model_config.ANALYSIS_MODEL instead
     ANALYSIS_MODEL: str = "gemini-2.5-pro"
-    # GRAPH_MODEL: Model do tworzenia grafu z raportu
+    # DEPRECATED - GraphService has been removed (2025-10-22)
     GRAPH_MODEL: str = "gemini-2.5-flash"
-    # DEFAULT_MODEL: ustawienie utrzymujące zgodność wsteczną
+    # DEPRECATED - Use service-specific models from model_config.py
     DEFAULT_MODEL: str = "gemini-2.5-flash"
-    # TEMPERATURE: Kreatywność modelu (0.0-1.0, wyższe = bardziej kreatywne)
+    # DEPRECATED - Use service-specific TEMPERATURE from model_config.py
     TEMPERATURE: float = 0.7
-    # MAX_TOKENS: Maksymalna długość odpowiedzi
+    # DEPRECATED - Use service-specific MAX_TOKENS from model_config.py
     MAX_TOKENS: int = 6000
 
     # === CELE WYDAJNOŚCIOWE ===

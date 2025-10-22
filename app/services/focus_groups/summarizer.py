@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.prompts import DISCUSSION_SUMMARIZER_CHAT_PROMPT, create_summary_prompt
 from app.models import FocusGroup, PersonaResponse, Persona
 from app.services.clients import build_chat_model
 
@@ -100,21 +101,8 @@ class DiscussionSummarizerService:
 
         self.str_parser = StrOutputParser()
 
-        # Budujemy wzorzec promptu dla podsumowania
-        self.summary_prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a world-class market research analyst specializing in qualitative research synthesis.
-Your role is to analyze focus group discussions and generate strategic insights for product teams.
-
-IMPORTANT GUIDELINES:
-- Be concise yet comprehensive
-- Focus on actionable insights, not just description
-- Identify patterns, contradictions, and surprising findings
-- Consider demographic differences in opinions
-- Provide strategic recommendations grounded in data
-- Use professional, business-oriented language
-- Avoid generic statements - be specific and evidence-based"""),
-            ("user", "{prompt}")
-        ])
+        # Używamy centralnego prompta z app/core/prompts/focus_groups.py
+        self.summary_prompt = DISCUSSION_SUMMARIZER_CHAT_PROMPT
 
         self.chain = self.summary_prompt | self.llm | self.str_parser
 
@@ -180,8 +168,8 @@ IMPORTANT GUIDELINES:
             focus_group, responses, personas, include_demographics
         )
 
-        # Generujemy podsumowanie przez model AI
-        prompt_text = self._create_summary_prompt(
+        # Generujemy podsumowanie przez model AI (używając centralnego prompta)
+        prompt_text = create_summary_prompt(
             discussion_data, include_recommendations
         )
 
@@ -294,120 +282,6 @@ IMPORTANT GUIDELINES:
             "total_responses": len(responses),
         }
 
-    def _create_summary_prompt(
-        self, discussion_data: Dict[str, Any], include_recommendations: bool
-    ) -> str:
-        """
-        Tworzy szczegółowy prompt do podsumowania AI
-        Formatuje pytania, odpowiedzi, sentiment i demografię
-        """
-
-        topic = discussion_data["topic"]
-        description = discussion_data["description"] or "No description provided"
-        responses_by_question = discussion_data["responses_by_question"]
-        demo_summary = discussion_data.get("demographic_summary")
-
-        # Formatujemy pytania wraz z odpowiedziami
-        formatted_discussion = []
-        for idx, (question, responses) in enumerate(responses_by_question.items(), 1):
-            formatted_discussion.append(f"\n**Question {idx}:** {question}")
-            formatted_discussion.append(f"*({len(responses)} responses)*\n")
-
-            for ridx, resp in enumerate(responses[:15], 1):  # Ograniczamy liczbę odpowiedzi, aby nie przekroczyć limitu tokenów
-                text = resp["response"][:300]  # Skracamy bardzo długie wypowiedzi
-                sentiment = resp["sentiment"]
-                sentiment_label = "positive" if sentiment > 0.15 else "negative" if sentiment < -0.15 else "neutral"
-
-                demo_str = ""
-                if "demographics" in resp:
-                    demo = resp["demographics"]
-                    demo_str = f" ({demo['gender']}, {demo['age']}, {demo['occupation']})"
-
-                formatted_discussion.append(
-                    f"{ridx}. [{sentiment_label.upper()}]{demo_str} \"{text}\""
-                )
-
-        discussion_text = "\n".join(formatted_discussion)
-
-        # Kontekst demograficzny
-        demo_context = ""
-        if demo_summary:
-            demo_context = f"""
-**PARTICIPANT DEMOGRAPHICS:**
-- Sample size: {demo_summary['sample_size']}
-- Age range: {demo_summary['age_range']}
-- Gender distribution: {demo_summary['gender_distribution']}
-- Education levels: {', '.join(demo_summary['education_levels'][:5])}
-"""
-
-        recommendations_section = ""
-        if include_recommendations:
-            recommendations_section = """
-## 5. STRATEGIC RECOMMENDATIONS (2-3 bullet points, ≤25 words each)
-Give the most valuable next steps for the product/marketing team.
-Format every bullet as: **Actionable theme**: succinct action with expected impact.
-Use proper markdown bold syntax: **text** (two asterisks on both sides).
-Tie each recommendation to evidence from the discussion.
-"""
-
-        prompt = f"""Analyze this focus group discussion and generate a comprehensive strategic summary.
-
-**FOCUS GROUP TOPIC:** {topic}
-**DESCRIPTION:** {description}
-
-{demo_context}
-
-**DISCUSSION TRANSCRIPT:**
-{discussion_text}
-
----
-
-Please provide a detailed analysis in the following structure:
-
-## 1. EXECUTIVE SUMMARY (90-120 words)
-Synthesize the core findings into a high-level overview that answers:
-- What was the overall reception to the concept/topic?
-- What are the most critical takeaways?
-- What is the strategic implication?
-
-## 2. KEY INSIGHTS (3-5 bullet points, ≤25 words each)
-Surface the most important patterns and themes from the discussion.
-Structure every bullet as: **Insight label**: implication grounded in evidence.
-Use proper markdown bold syntax: **text** (two asterisks on both sides).
-Prioritize by business impact.
-
-## 3. SURPRISING FINDINGS (1-2 bullet points, ≤20 words each)
-Highlight unexpected or counterintuitive discoveries that challenge assumptions.
-These could be:
-- Contradictions between what participants say vs. underlying sentiment
-- Minority opinions that reveal edge cases
-- Demographic differences that weren't anticipated
-
-## 4. SEGMENT ANALYSIS
-Break down how different demographic segments (age, gender, occupation) responded differently.
-Structure as:
-**Segment name**: Key differentiator with quote/evidence (≤25 words)
-Use proper markdown bold syntax: **text** (two asterisks on both sides).
-
-{recommendations_section}
-
-## 6. SENTIMENT NARRATIVE (40-60 words)
-Describe the emotional journey of the discussion:
-- How did sentiment evolve across questions?
-- Were there polarizing topics?
-- What drove positive vs. negative reactions?
-
----
-
-**IMPORTANT:**
-- Use specific quotes and data points as evidence
-- Avoid generic marketing jargon
-- Be honest about weaknesses or concerns raised
-- Consider both explicit feedback and implicit patterns
-- Format using Markdown for readability (## headings, **bold** emphasis)
-"""
-
-        return prompt
 
     def _parse_ai_response(self, ai_response: str) -> Dict[str, Any]:
         """

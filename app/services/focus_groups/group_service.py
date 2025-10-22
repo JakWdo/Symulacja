@@ -19,11 +19,13 @@ from uuid import UUID
 
 from langchain_core.prompts import ChatPromptTemplate
 
-from app.models import FocusGroup, Persona, PersonaResponse
-from app.services.memory_service_langchain import MemoryServiceLangChain
-from app.db import AsyncSessionLocal
 from app.core.config import get_settings
+from app.core.prompts import create_focus_group_response_prompt
+from app.db import AsyncSessionLocal
+from app.models import FocusGroup, Persona, PersonaResponse
 from app.services.clients import build_chat_model
+# Import bezpośrednio z memory.py aby uniknąć circular import przez __init__.py
+from app.services.focus_groups.memory import MemoryServiceLangChain
 
 settings = get_settings()
 
@@ -336,7 +338,8 @@ class FocusGroupServiceLangChain:
             Tekst odpowiedzi wygenerowany przez LLM
         """
         # Utwórz prompt z danych persony i kontekstu
-        prompt_text = self._create_response_prompt(persona, question, context)
+        # Używamy centralnego prompta z app/core/prompts/focus_groups.py
+        prompt_text = create_focus_group_response_prompt(persona, question, context)
 
         logger = logging.getLogger(__name__)
         logger.info(f"Generating response for persona {persona.id}")
@@ -393,57 +396,3 @@ IMPORTANT INSTRUCTION:
             f"\"{question}\". Zaznacza jednak, że chętnie wróci do tematu, bo uważa go za ważny dla całej dyskusji."
         )
 
-    def _create_response_prompt(
-        self, persona: Persona, question: str, context: List[Dict[str, Any]]
-    ) -> str:
-        """
-        Utwórz prompt dla generowania odpowiedzi persony
-
-        Buduje szczegółowy prompt zawierający:
-        - Dane demograficzne persony (wiek, płeć, zawód, etc.)
-        - Cechy osobowości (wartości, zainteresowania)
-        - Fragment historii życiowej
-        - Kontekst poprzednich interakcji (jeśli istnieją)
-        - Aktualne pytanie
-
-        Args:
-            persona: Obiekt persony
-            question: Pytanie do odpowiedzi
-            context: Lista istotnych poprzednich interakcji (z event sourcing)
-
-        Returns:
-            Pełny prompt gotowy do wysłania do LLM
-        """
-
-        # Formatuj kontekst poprzednich odpowiedzi (maksymalnie 3 najbardziej istotne)
-        context_text = ""
-        if context:
-            context_text = "\n\nPast interactions:\n"
-            for i, ctx in enumerate(context[:3], 1):  # Ograniczamy do 3 najważniejszych wpisów
-                if ctx["event_type"] == "response_given":
-                    context_text += f"{i}. Q: {ctx['event_data'].get('question', '')}\n"
-                    context_text += f"   A: {ctx['event_data'].get('response', '')}\n"
-
-        # Używamy pełnej historii tła persony
-        background = persona.background_story if persona.background_story else 'Has diverse life experiences'
-
-        return f"""You are participating in a focus group discussion.
-
-PERSONA DETAILS:
-Name: {persona.full_name or 'Participant'}
-Age: {persona.age}, Gender: {persona.gender}
-Occupation: {persona.occupation or 'Professional'}
-Education: {persona.education_level or 'Educated'}
-Location: {persona.location or 'Urban area'}
-
-PERSONALITY:
-Values: {', '.join(persona.values[:4]) if persona.values else 'Balanced approach to life'}
-Interests: {', '.join(persona.interests[:4]) if persona.interests else 'Various interests'}
-
-BACKGROUND:
-{background}
-{context_text}
-
-QUESTION: {question}
-
-Respond naturally as this person would in 2-4 sentences. Be authentic and conversational."""

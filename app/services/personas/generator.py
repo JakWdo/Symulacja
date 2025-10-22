@@ -39,15 +39,251 @@ from app.core.constants import (
     POLISH_FEMALE_NAMES,
     POLISH_SURNAMES,
 )
+from app.core.prompts.personas import (
+    PERSONA_GENERATION_SYSTEM_PROMPT,
+    PERSONA_GENERATION_CHAT_PROMPT,
+)
 from app.models import Persona
 from app.services.clients import build_chat_model
 
 settings = get_settings()
 
+
+# ============================================================================
+# PROMPT BUILDERS - Funkcje pomocnicze dla generacji promptów
+# ============================================================================
+
+def create_persona_prompt(
+    demographic: Dict[str, Any],
+    psychological: Dict[str, Any],
+    persona_seed: int,
+    suggested_first_name: str,
+    suggested_surname: str,
+    rag_context: Optional[str] = None,
+    target_audience_description: Optional[str] = None,
+    orchestration_brief: Optional[str] = None
+) -> str:
+    """
+    Tworzy szczegółowy prompt dla LLM do generowania persony - WERSJA POLSKA
+
+    Args:
+        demographic: Profil demograficzny (wiek, płeć, edukacja, etc.)
+        psychological: Profil psychologiczny (Big Five + Hofstede)
+        persona_seed: Unikalny seed dla różnicowania (1000-9999)
+        suggested_first_name: Sugerowane polskie imię
+        suggested_surname: Sugerowane polskie nazwisko
+        rag_context: Opcjonalny kontekst z RAG (fragmenty z dokumentów)
+        target_audience_description: Opcjonalny dodatkowy opis grupy docelowej
+        orchestration_brief: Opcjonalny DŁUGI brief od orchestration agent (Gemini 2.5 Pro)
+
+    Returns:
+        Pełny tekst prompta gotowy do wysłania do LLM (po polsku)
+    """
+
+    # Determine headline age rule based on available data
+    if demographic.get('age'):
+        headline_age_rule = f"• HEADLINE: Musi zawierać liczbę {demographic['age']} lat i realną motywację tej osoby.\n"
+    elif demographic.get('age_group'):
+        headline_age_rule = (
+            f"• HEADLINE: Podaj konkretną liczbę lat zgodną z przedziałem {demographic['age_group']} "
+            "i pokaż realną motywację tej osoby.\n"
+        )
+    else:
+        headline_age_rule = "• HEADLINE: Podaj konkretny wiek w latach i realną motywację tej osoby.\n"
+
+    # Get Big Five values
+    openness_val = psychological.get('openness', 0.5)
+    conscientiousness_val = psychological.get('conscientiousness', 0.5)
+    extraversion_val = psychological.get('extraversion', 0.5)
+    agreeableness_val = psychological.get('agreeableness', 0.5)
+    neuroticism_val = psychological.get('neuroticism', 0.5)
+
+    # Unified context section (merge RAG + Target Audience + Orchestration Brief)
+    unified_context = ""
+    if rag_context or target_audience_description or orchestration_brief:
+        context_parts = []
+
+        if rag_context:
+            context_parts.append(f"📊 KONTEKST RAG:\n{rag_context}")
+        if orchestration_brief and orchestration_brief.strip():
+            context_parts.append(f"📋 ORCHESTRATION BRIEF:\n{orchestration_brief.strip()}")
+        if target_audience_description and target_audience_description.strip():
+            context_parts.append(f"🎯 GRUPA DOCELOWA:\n{target_audience_description.strip()}")
+
+        unified_context = f"""
+═══════════════════════════════════════════
+KONTEKST (RAG + Brief + Audience):
+═══════════════════════════════════════════
+
+{chr(10).join(context_parts)}
+
+⚠️ KLUCZOWE ZASADY:
+• Użyj kontekstu jako TŁA życia persony (nie cytuj statystyk!)
+• Stwórz FASCYNUJĄCĄ historię - kontekst to fundament, nie lista faktów
+• Wskaźniki → konkretne detale życia (housing crisis → wynajmuje, oszczędza)
+• Trendy → doświadczenia życiowe (mobilność → zmiana 3 prac w 5 lat)
+• Naturalność: "Jak wielu rówieśników..." zamiast "67% absolwentów..."
+
+═══════════════════════════════════════════
+
+"""
+
+    return f"""Expert: Syntetyczne persony dla polskiego rynku - UNIKALNE, REALISTYCZNE, SPÓJNE.
+
+{unified_context}PERSONA #{persona_seed}: {suggested_first_name} {suggested_surname}
+
+PROFIL:
+• Wiek: {demographic.get('age_group')} | Płeć: {demographic.get('gender')} | Lokalizacja: {demographic.get('location')}
+• Wykształcenie: {demographic.get('education_level')} | Dochód: {demographic.get('income_bracket')}
+
+OSOBOWOŚĆ (Big Five - wartości 0-1):
+• Otwartość (Openness): {openness_val:.2f}
+• Sumienność (Conscientiousness): {conscientiousness_val:.2f}
+• Ekstrawersja (Extraversion): {extraversion_val:.2f}
+• Ugodowość (Agreeableness): {agreeableness_val:.2f}
+• Neurotyzm (Neuroticism): {neuroticism_val:.2f}
+
+Interpretacja Big Five: <0.4 = niskie, 0.4-0.6 = średnie, >0.6 = wysokie.
+Wykorzystaj te wartości do stworzenia spójnej osobowości i historii życiowej.
+
+HOFSTEDE (wartości 0-1): PD={psychological.get('power_distance', 0.5):.2f} | IND={psychological.get('individualism', 0.5):.2f} | UA={psychological.get('uncertainty_avoidance', 0.5):.2f}
+
+ZASADY:
+• Zawód = wykształcenie + dochód
+• Osobowość → historia (O→podróże, S→planowanie)
+• Detale: dzielnice, marki, konkretne hobby
+• UNIKALNOŚĆ: Każda persona MUSI mieć RÓŻNĄ historię życiową - nie kopiuj opisów!
+• Background_story NIE może kopiować briefu segmentu ani powtarzać całych akapitów z kontekstu
+{headline_age_rule}• Pokaż codzienne wybory i motywacje tej osoby - zero ogólników
+
+⚠️ CATCHY SEGMENT NAME (2-4 słowa):
+Wygeneruj krótką, chwytliwą nazwę marketingową dla segmentu tej persony.
+• Powinna odzwierciedlać wiek, wartości, styl życia, status ekonomiczny
+• Przykłady: "Pasywni Liberałowie", "Młodzi Prekariusze", "Aktywni Seniorzy", "Cyfrowi Nomadzi", "Stabilni Tradycjonaliści"
+• UNIKAJ długich opisów technicznych jak "Kobiety 35-44 wyższe wykształcenie"
+• Polski język, kulturowo relevantne, konkretne
+
+PRZYKŁAD:
+{{"full_name": "Marek Kowalczyk", "catchy_segment_name": "Stabilni Tradycjonaliści", "persona_title": "Główny Księgowy", "headline": "Poznański księgowy (56) planujący emeryturę", "background_story": "28 lat w firmie, żonaty, dwoje dorosłych dzieci, kupił działkę pod Poznaniem, skarbnik parafii", "values": ["Stabilność", "Lojalność", "Rodzina", "Odpowiedzialność"], "interests": ["Wędkarstwo", "Majsterkowanie", "Grillowanie"], "communication_style": "formalny, face-to-face", "decision_making_style": "metodyczny, unika ryzyka", "typical_concerns": ["Emerytura", "Sukcesja", "Zdrowie"]}}
+
+⚠️ KRYTYCZNE: Generuj KOMPLETNIE INNĄ personę z UNIKALNĄ historią życiową!
+• NIE kopiuj ogólnych opisów segmentu do background_story
+• Fokus na TEJ KONKRETNEJ OSOBY, jej specyficznych doświadczeniach
+• Użyj persona_seed #{persona_seed} jako źródło różnorodności
+
+WYŁĄCZNIE JSON (bez markdown):
+{{
+  "full_name": "<polskie imię+nazwisko>",
+  "catchy_segment_name": "<2-4 słowa, krótka marketingowa nazwa segmentu>",
+  "persona_title": "<zawód/etap życia>",
+  "headline": "<1 zdanie: wiek, zawód, UNIKALNE motywacje>",
+  "background_story": "<2-3 zdania: KONKRETNA historia TEJ OSOBY - jej życie, kariera, sytuacja>",
+  "values": ["<5-7 wartości>"],
+  "interests": ["<5-7 hobby/aktywności>"],
+  "communication_style": "<jak się komunikuje>",
+  "decision_making_style": "<jak podejmuje decyzje>",
+  "typical_concerns": ["<3-5 SPECYFICZNYCH zmartwień/priorytetów>"]
+}}"""
+
+
+def create_segment_persona_prompt(
+    demographic: Dict[str, Any],
+    psychological: Dict[str, Any],
+    segment_name: str,
+    segment_context: str,
+    graph_insights: List[Any],
+    rag_citations: List[Any],
+    persona_seed: int,
+    suggested_first_name: str,
+    suggested_surname: str
+) -> str:
+    """
+    Tworzy prompt dla generacji persony z WYMUSZENIEM demographics z segmentu.
+
+    Args:
+        demographic: Enforced demographic profile (age, gender, education, income, location)
+        psychological: Psychological profile (Big Five + Hofstede)
+        segment_name: Nazwa segmentu (np. "Młodzi Prekariusze")
+        segment_context: Kontekst społeczny segmentu (500-800 znaków)
+        graph_insights: Insights filtrowane dla segmentu
+        rag_citations: High-quality RAG citations
+        persona_seed: Unique persona seed for diversity
+        suggested_first_name: Suggested Polish first name
+        suggested_surname: Suggested Polish surname
+
+    Returns:
+        Full prompt text for segment-based persona generation
+    """
+    age = demographic.get('age', 30)
+
+    # Format insights
+    insights_text = ""
+    if graph_insights:
+        insights_text = "\n".join([
+            f"- {ins.get('summary', ins.get('streszczenie', 'N/A'))}"
+            for ins in graph_insights[:5]
+        ])
+
+    return f"""Wygeneruj realistyczną personę dla segmentu "{segment_name}".
+
+CONSTRAINTS (MUSISZ PRZESTRZEGAĆ!):
+• Wiek: {age} lat
+• Płeć: {demographic.get('gender')}
+• Wykształcenie: {demographic.get('education_level')}
+• Dochód: {demographic.get('income_bracket')}
+• Lokalizacja: {demographic.get('location')}
+
+KONTEKST SEGMENTU:
+{segment_context}
+
+INSIGHTS:
+{insights_text or "Brak insights"}
+
+OSOBOWOŚĆ (Big Five):
+• Otwartość: {psychological.get('openness', 0.5):.2f}
+• Sumienność: {psychological.get('conscientiousness', 0.5):.2f}
+• Ekstrawersja: {psychological.get('extraversion', 0.5):.2f}
+
+ZASADY:
+• Persona MUSI pasować do constraints
+• Zawód = wykształcenie + dochód
+• Używaj kontekstu jako tła (nie cytuj statystyk!)
+• UNIKALNOŚĆ: Każda persona w segmencie MUSI mieć RÓŻNĄ historię życiową!
+• HEADLINE: Musi zawierać liczbę {age} lat i realną motywację tej osoby
+• Background_story NIE może kopiować briefu segmentu ani powtarzać całych akapitów z kontekstu
+• Pokaż codzienne wybory i motywacje tej osoby - zero ogólników
+
+⚠️ CATCHY SEGMENT NAME (2-4 słowa):
+Wygeneruj krótką, chwytliwą nazwę marketingową dla tego segmentu.
+• Powinna odzwierciedlać wiek, wartości, styl życia, status ekonomiczny
+• Przykłady: "Pasywni Liberałowie", "Młodzi Prekariusze", "Aktywni Seniorzy", "Cyfrowi Nomadzi"
+• UNIKAJ długich opisów technicznych jak "Kobiety 35-44 wyższe wykształcenie"
+• Polski język, kulturowo relevantne
+
+⚠️ KRYTYCZNE: Generuj UNIKALNĄ personę (Persona #{persona_seed})!
+• NIE kopiuj ogólnych opisów segmentu do background_story
+• Fokus na TEJ KONKRETNEJ OSOBY, jej specyficznych doświadczeniach
+• Każda persona w segmencie ma INNĄ historię życiową, inne detale, różne zainteresowania
+
+ZWRÓĆ JSON:
+{{
+  "full_name": "{suggested_first_name} {suggested_surname}",
+  "catchy_segment_name": "<2-4 słowa, krótka marketingowa nazwa segmentu>",
+  "persona_title": "<zawód>",
+  "headline": "<{age} lat, zawód, UNIKALNE motywacje>",
+  "background_story": "<2-3 zdania: KONKRETNA historia TEJ OSOBY - nie ogólny opis segmentu!>",
+  "values": ["<5-7 wartości>"],
+  "interests": ["<5-7 hobby>"],
+  "communication_style": "<styl>",
+  "decision_making_style": "<styl>",
+  "typical_concerns": ["<3-5 SPECYFICZNYCH zmartwień>"]
+}}"""
+
+
 # Import RAG service (opcjonalny - tylko jeśli RAG włączony)
 try:
     if settings.RAG_ENABLED:
-        from app.services.rag_hybrid_search_service import PolishSocietyRAG
+        from app.services.rag.hybrid_search import PolishSocietyRAG
         _rag_service_available = True
     else:
         _rag_service_available = False
@@ -100,11 +336,8 @@ class PersonaGeneratorLangChain:
         # Konfigurujemy parser JSON, aby wymusić strukturalną odpowiedź
         self.json_parser = JsonOutputParser()
 
-        # Budujemy szablon promptu do generowania person
-        self.persona_prompt = ChatPromptTemplate.from_messages([
-            ("system", "Jesteś ekspertem od badań rynkowych tworzącym realistyczne syntetyczne persony dla polskiego rynku. Zawsze odpowiadaj poprawnym JSONem."),
-            ("user", "{prompt}")
-        ])
+        # Budujemy szablon promptu do generowania person (z importu)
+        self.persona_prompt = PERSONA_GENERATION_CHAT_PROMPT
 
         # Składamy łańcuch LangChain (prompt -> LLM -> parser)
         self.persona_chain = (
@@ -450,10 +683,24 @@ class PersonaGeneratorLangChain:
             if orchestration_brief:
                 logger.info(f"Using orchestration brief: {orchestration_brief[:150]}... ({len(orchestration_brief)} chars)")
 
-        # Generuj prompt (z RAG, target audience, i orchestration brief jeśli dostępne)
-        prompt_text = self._create_persona_prompt(
+        # Generuj unikalny seed dla tej persony (do różnicowania)
+        persona_seed = self._rng.integers(1000, 9999)
+
+        # Losuj polskie imię i nazwisko dla większej różnorodności
+        gender_lower = demographic_profile.get('gender', 'male').lower()
+        if 'female' in gender_lower or 'kobieta' in gender_lower:
+            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
+        else:
+            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
+        suggested_surname = self._rng.choice(POLISH_SURNAMES)
+
+        # Generuj prompt używając funkcji modułowej
+        prompt_text = create_persona_prompt(
             demographic_profile,
             psychological_profile,
+            persona_seed=persona_seed,
+            suggested_first_name=suggested_first_name,
+            suggested_surname=suggested_surname,
             rag_context=rag_context,
             target_audience_description=target_audience_desc,
             orchestration_brief=orchestration_brief
@@ -505,152 +752,6 @@ class PersonaGeneratorLangChain:
             logger.error(f"Failed to generate persona: {str(e)[:500]}", exc_info=True)
             # Fallback dla błędów parsowania
             raise ValueError(f"Failed to generate persona: {str(e)}")
-
-    def _create_persona_prompt(
-        self,
-        demographic: Dict[str, Any],
-        psychological: Dict[str, Any],
-        rag_context: Optional[str] = None,
-        target_audience_description: Optional[str] = None,
-        orchestration_brief: Optional[str] = None  # NOWY PARAMETR - długi brief od Gemini 2.5 Pro
-    ) -> str:
-        """
-        Utwórz prompt dla LLM do generowania persony - WERSJA POLSKA
-
-        Tworzy szczegółowy prompt zawierający:
-        - Dane demograficzne i psychologiczne
-        - Interpretację cech Big Five i Hofstede PO POLSKU
-        - 3 przykłady few-shot z polskimi personami
-        - Opcjonalny kontekst RAG z bazy wiedzy o polskim społeczeństwie
-        - Opcjonalny dodatkowy opis grupy docelowej od użytkownika
-        - Opcjonalny orchestration brief (900-1200 znaków) od Gemini 2.5 Pro
-        - Instrukcje jak stworzyć unikalną polską personę
-
-        Args:
-            demographic: Profil demograficzny (wiek, płeć, edukacja, etc.)
-            psychological: Profil psychologiczny (Big Five + Hofstede)
-            rag_context: Opcjonalny kontekst z RAG (fragmenty z dokumentów)
-            target_audience_description: Opcjonalny dodatkowy opis grupy docelowej
-            orchestration_brief: Opcjonalny DŁUGI brief od orchestration agent (Gemini 2.5 Pro)
-
-        Returns:
-            Pełny tekst prompta gotowy do wysłania do LLM (po polsku)
-        """
-
-        # Generuj unikalny seed dla tej persony (do różnicowania)
-        persona_seed = self._rng.integers(1000, 9999)
-
-        # Losuj polskie imię i nazwisko dla większej różnorodności
-        gender_lower = demographic.get('gender', 'male').lower()
-        if 'female' in gender_lower or 'kobieta' in gender_lower:
-            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
-        else:
-            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
-        suggested_surname = self._rng.choice(POLISH_SURNAMES)
-
-        if demographic.get('age'):
-            headline_age_rule = f"• HEADLINE: Musi zawierać liczbę {demographic['age']} lat i realną motywację tej osoby.\n"
-        elif demographic.get('age_group'):
-            headline_age_rule = (
-                f"• HEADLINE: Podaj konkretną liczbę lat zgodną z przedziałem {demographic['age_group']} "
-                "i pokaż realną motywację tej osoby.\n"
-            )
-        else:
-            headline_age_rule = "• HEADLINE: Podaj konkretny wiek w latach i realną motywację tej osoby.\n"
-
-        # Pobierz wartości Big Five (interpretację robi LLM)
-        openness_val = psychological.get('openness', 0.5)
-        conscientiousness_val = psychological.get('conscientiousness', 0.5)
-        extraversion_val = psychological.get('extraversion', 0.5)
-        agreeableness_val = psychological.get('agreeableness', 0.5)
-        neuroticism_val = psychological.get('neuroticism', 0.5)
-
-        # Unified context section (merge RAG + Target Audience + Orchestration Brief)
-        unified_context = ""
-        if rag_context or target_audience_description or orchestration_brief:
-            context_parts = []
-
-            if rag_context:
-                context_parts.append(f"📊 KONTEKST RAG:\n{rag_context}")
-            if orchestration_brief and orchestration_brief.strip():
-                context_parts.append(f"📋 ORCHESTRATION BRIEF:\n{orchestration_brief.strip()}")
-            if target_audience_description and target_audience_description.strip():
-                context_parts.append(f"🎯 GRUPA DOCELOWA:\n{target_audience_description.strip()}")
-
-            unified_context = f"""
-═══════════════════════════════════════════
-KONTEKST (RAG + Brief + Audience):
-═══════════════════════════════════════════
-
-{chr(10).join(context_parts)}
-
-⚠️ KLUCZOWE ZASADY:
-• Użyj kontekstu jako TŁA życia persony (nie cytuj statystyk!)
-• Stwórz FASCYNUJĄCĄ historię - kontekst to fundament, nie lista faktów
-• Wskaźniki → konkretne detale życia (housing crisis → wynajmuje, oszczędza)
-• Trendy → doświadczenia życiowe (mobilność → zmiana 3 prac w 5 lat)
-• Naturalność: "Jak wielu rówieśników..." zamiast "67% absolwentów..."
-
-═══════════════════════════════════════════
-
-"""
-
-        return f"""Expert: Syntetyczne persony dla polskiego rynku - UNIKALNE, REALISTYCZNE, SPÓJNE.
-
-{unified_context}PERSONA #{persona_seed}: {suggested_first_name} {suggested_surname}
-
-PROFIL:
-• Wiek: {demographic.get('age_group')} | Płeć: {demographic.get('gender')} | Lokalizacja: {demographic.get('location')}
-• Wykształcenie: {demographic.get('education_level')} | Dochód: {demographic.get('income_bracket')}
-
-OSOBOWOŚĆ (Big Five - wartości 0-1):
-• Otwartość (Openness): {openness_val:.2f}
-• Sumienność (Conscientiousness): {conscientiousness_val:.2f}
-• Ekstrawersja (Extraversion): {extraversion_val:.2f}
-• Ugodowość (Agreeableness): {agreeableness_val:.2f}
-• Neurotyzm (Neuroticism): {neuroticism_val:.2f}
-
-Interpretacja Big Five: <0.4 = niskie, 0.4-0.6 = średnie, >0.6 = wysokie.
-Wykorzystaj te wartości do stworzenia spójnej osobowości i historii życiowej.
-
-HOFSTEDE (wartości 0-1): PD={psychological.get('power_distance', 0.5):.2f} | IND={psychological.get('individualism', 0.5):.2f} | UA={psychological.get('uncertainty_avoidance', 0.5):.2f}
-
-ZASADY:
-• Zawód = wykształcenie + dochód
-• Osobowość → historia (O→podróże, S→planowanie)
-• Detale: dzielnice, marki, konkretne hobby
-• UNIKALNOŚĆ: Każda persona MUSI mieć RÓŻNĄ historię życiową - nie kopiuj opisów!
-• Background_story NIE może kopiować briefu segmentu ani powtarzać całych akapitów z kontekstu
-{headline_age_rule}• Pokaż codzienne wybory i motywacje tej osoby - zero ogólników
-
-⚠️ CATCHY SEGMENT NAME (2-4 słowa):
-Wygeneruj krótką, chwytliwą nazwę marketingową dla segmentu tej persony.
-• Powinna odzwierciedlać wiek, wartości, styl życia, status ekonomiczny
-• Przykłady: "Pasywni Liberałowie", "Młodzi Prekariusze", "Aktywni Seniorzy", "Cyfrowi Nomadzi", "Stabilni Tradycjonaliści"
-• UNIKAJ długich opisów technicznych jak "Kobiety 35-44 wyższe wykształcenie"
-• Polski język, kulturowo relevantne, konkretne
-
-PRZYKŁAD:
-{{"full_name": "Marek Kowalczyk", "catchy_segment_name": "Stabilni Tradycjonaliści", "persona_title": "Główny Księgowy", "headline": "Poznański księgowy (56) planujący emeryturę", "background_story": "28 lat w firmie, żonaty, dwoje dorosłych dzieci, kupił działkę pod Poznaniem, skarbnik parafii", "values": ["Stabilność", "Lojalność", "Rodzina", "Odpowiedzialność"], "interests": ["Wędkarstwo", "Majsterkowanie", "Grillowanie"], "communication_style": "formalny, face-to-face", "decision_making_style": "metodyczny, unika ryzyka", "typical_concerns": ["Emerytura", "Sukcesja", "Zdrowie"]}}
-
-⚠️ KRYTYCZNE: Generuj KOMPLETNIE INNĄ personę z UNIKALNĄ historią życiową!
-• NIE kopiuj ogólnych opisów segmentu do background_story
-• Fokus na TEJ KONKRETNEJ OSOBY, jej specyficznych doświadczeniach
-• Użyj persona_seed #{persona_seed} jako źródło różnorodności
-
-WYŁĄCZNIE JSON (bez markdown):
-{{
-  "full_name": "<polskie imię+nazwisko>",
-  "catchy_segment_name": "<2-4 słowa, krótka marketingowa nazwa segmentu>",
-  "persona_title": "<zawód/etap życia>",
-  "headline": "<1 zdanie: wiek, zawód, UNIKALNE motywacje>",
-  "background_story": "<2-3 zdania: KONKRETNA historia TEJ OSOBY - jej życie, kariera, sytuacja>",
-  "values": ["<5-7 wartości>"],
-  "interests": ["<5-7 hobby/aktywności>"],
-  "communication_style": "<jak się komunikuje>",
-  "decision_making_style": "<jak podejmuje decyzje>",
-  "typical_concerns": ["<3-5 SPECYFICZNYCH zmartwień/priorytetów>"]
-}}"""
 
     def validate_distribution(
         self,
@@ -871,14 +972,28 @@ WYŁĄCZNIE JSON (bez markdown):
             **self.sample_cultural_dimensions()
         }
 
-        # Create prompt with segment context
-        prompt_text = self._create_segment_persona_prompt(
+        # Generate unique persona seed for diversity
+        persona_seed = self._rng.integers(1000, 9999)
+
+        # Suggest Polish name
+        gender_lower = demographic_profile.get('gender', 'kobieta').lower()
+        if 'female' in gender_lower or 'kobieta' in gender_lower:
+            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
+        else:
+            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
+        suggested_surname = self._rng.choice(POLISH_SURNAMES)
+
+        # Create prompt with segment context (używając funkcji modułowej)
+        prompt_text = create_segment_persona_prompt(
             demographic_profile,
             psychological_profile,
             segment_name,
             segment_context,
             graph_insights,
-            rag_citations
+            rag_citations,
+            persona_seed,
+            suggested_first_name,
+            suggested_surname
         )
 
         try:
@@ -917,90 +1032,3 @@ WYŁĄCZNIE JSON (bez markdown):
         except Exception as e:
             logger.error(f"❌ Failed to generate persona from segment: {e}", exc_info=True)
             raise ValueError(f"Failed to generate persona from segment '{segment_name}': {e}")
-
-    def _create_segment_persona_prompt(
-        self,
-        demographic: Dict[str, Any],
-        psychological: Dict[str, Any],
-        segment_name: str,
-        segment_context: str,
-        graph_insights: List[Any],
-        rag_citations: List[Any]
-    ) -> str:
-        """Create prompt for segment-based persona generation."""
-
-        # Suggest Polish name
-        gender_lower = demographic.get('gender', 'kobieta').lower()
-        if 'female' in gender_lower or 'kobieta' in gender_lower:
-            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
-        else:
-            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
-        suggested_surname = self._rng.choice(POLISH_SURNAMES)
-
-        age = demographic.get('age', 30)
-
-        # Generate unique persona seed for diversity
-        persona_seed = self._rng.integers(1000, 9999)
-
-        # Format insights
-        insights_text = ""
-        if graph_insights:
-            insights_text = "\n".join([
-                f"- {ins.get('summary', ins.get('streszczenie', 'N/A'))}"
-                for ins in graph_insights[:5]
-            ])
-
-        return f"""Wygeneruj realistyczną personę dla segmentu "{segment_name}".
-
-CONSTRAINTS (MUSISZ PRZESTRZEGAĆ!):
-• Wiek: {age} lat
-• Płeć: {demographic.get('gender')}
-• Wykształcenie: {demographic.get('education_level')}
-• Dochód: {demographic.get('income_bracket')}
-• Lokalizacja: {demographic.get('location')}
-
-KONTEKST SEGMENTU:
-{segment_context}
-
-INSIGHTS:
-{insights_text or "Brak insights"}
-
-OSOBOWOŚĆ (Big Five):
-• Otwartość: {psychological.get('openness', 0.5):.2f}
-• Sumienność: {psychological.get('conscientiousness', 0.5):.2f}
-• Ekstrawersja: {psychological.get('extraversion', 0.5):.2f}
-
-ZASADY:
-• Persona MUSI pasować do constraints
-• Zawód = wykształcenie + dochód
-• Używaj kontekstu jako tła (nie cytuj statystyk!)
-• UNIKALNOŚĆ: Każda persona w segmencie MUSI mieć RÓŻNĄ historię życiową!
-• HEADLINE: Musi zawierać liczbę {age} lat i realną motywację tej osoby
-• Background_story NIE może kopiować briefu segmentu ani powtarzać całych akapitów z kontekstu
-• Pokaż codzienne wybory i motywacje tej osoby - zero ogólników
-
-⚠️ CATCHY SEGMENT NAME (2-4 słowa):
-Wygeneruj krótką, chwytliwą nazwę marketingową dla tego segmentu.
-• Powinna odzwierciedlać wiek, wartości, styl życia, status ekonomiczny
-• Przykłady: "Pasywni Liberałowie", "Młodzi Prekariusze", "Aktywni Seniorzy", "Cyfrowi Nomadzi"
-• UNIKAJ długich opisów technicznych jak "Kobiety 35-44 wyższe wykształcenie"
-• Polski język, kulturowo relevantne
-
-⚠️ KRYTYCZNE: Generuj UNIKALNĄ personę (Persona #{persona_seed})!
-• NIE kopiuj ogólnych opisów segmentu do background_story
-• Fokus na TEJ KONKRETNEJ OSOBY, jej specyficznych doświadczeniach
-• Każda persona w segmencie ma INNĄ historię życiową, inne detale, różne zainteresowania
-
-ZWRÓĆ JSON:
-{{
-  "full_name": "{suggested_first_name} {suggested_surname}",
-  "catchy_segment_name": "<2-4 słowa, krótka marketingowa nazwa segmentu>",
-  "persona_title": "<zawód>",
-  "headline": "<{age} lat, zawód, UNIKALNE motywacje>",
-  "background_story": "<2-3 zdania: KONKRETNA historia TEJ OSOBY - nie ogólny opis segmentu!>",
-  "values": ["<5-7 wartości>"],
-  "interests": ["<5-7 hobby>"],
-  "communication_style": "<styl>",
-  "decision_making_style": "<styl>",
-  "typical_concerns": ["<3-5 SPECYFICZNYCH zmartwień>"]
-}}"""

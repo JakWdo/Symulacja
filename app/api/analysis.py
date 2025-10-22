@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import FocusGroup, Persona, PersonaResponse, User
 from app.api.dependencies import get_current_user, get_focus_group_for_user
-from app.services.discussion_summarizer import DiscussionSummarizerService
+from app.services.focus_groups import DiscussionSummarizerService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

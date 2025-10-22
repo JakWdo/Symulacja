@@ -15,7 +15,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from app.services.rag_document_service import RAGDocumentService
+from app.services.rag import RAGDocumentService
 
 
 class TestRAGDocumentServiceInit:

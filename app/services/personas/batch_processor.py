@@ -22,9 +22,15 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.persona import Persona
-from app.services.persona_journey_service import PersonaJourneyService
-from app.services.persona_needs_service import PersonaNeedsService
-from app.services.persona_messaging_service import PersonaMessagingService
+# Import bezpośrednio z modułów aby uniknąć circular import przez __init__.py
+from app.services.personas_details.details_service import PersonaDetailsService
+from app.services.personas_details.needs import PersonaNeedsService
+# ARCHIVED: PersonaMessagingService moved to app/services/archived/messaging.py
+# Import from archived dla backward compatibility
+from app.services.archived.messaging import PersonaMessagingService
+
+# Alias dla backward compatibility (PersonaJourneyService = PersonaDetailsService)
+PersonaJourneyService = PersonaDetailsService
 
 logger = logging.getLogger(__name__)
 

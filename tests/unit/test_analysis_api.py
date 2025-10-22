@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.api import analysis
-from app.services.discussion_summarizer import DiscussionSummarizerService
+from app.services.focus_groups import DiscussionSummarizerService
 
 
 client = TestClient(app, raise_server_exceptions=False)

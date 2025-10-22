@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.services.focus_group_service_langchain import FocusGroupServiceLangChain
+from app.services.focus_groups import FocusGroupServiceLangChain
 
 
 class DummyLLM:

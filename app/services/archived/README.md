@@ -4,34 +4,34 @@ Ten folder zawiera legacy features które nie są aktywnie używane w obecnej we
 
 ## Zawartość
 
-### `graph_service.py`
-**Status:** Archived (nie używane w obecnej wersji)
-**Ostatnie użycie:** v0.x (przed refaktoringiem RAG)
-**Funkcjonalność:** Analiza focus groups przez graf wiedzy Neo4j (concepts, emotions, personas)
+### `messaging.py` (PersonaMessagingService)
+**Status:** Archived - nie używane w UI
+**Ostatnie użycie:** Backend API endpoint istnieje ale nie ma frontend implementation
+**Funkcjonalność:** Generowanie przykładowych wiadomości/odpowiedzi email dla person (tone, style, content)
 
 **Powód archiwizacji:**
-Zdecydowaliśmy się skupić na RAG-based insights zamiast graph analysis person z focus groups.
-Serwis pozostaje w archiwum na wypadek gdybyśmy chcieli wrócić do tej funkcjonalności w przyszłości.
+Feature nie jest obecnie prezentowany w UI. API endpoint istnieje ale nie jest wywoływany przez frontend.
+Archiwizujemy do czasu gdy zostanie zdecydowane czy feature wraca do aktywnego rozwoju.
 
-**Backend API:**
-- `app/api/graph_analysis.py` - importuje z archived (legacy endpoints zachowane)
-- `app/api/focus_groups.py` - importuje z archived dla build_graph
+**Jak przywrócić:**
+1. Przenieś `messaging.py` z powrotem do `app/services/personas_details/`
+2. Zaktualizuj `app/services/personas_details/__init__.py` (przywróć import)
+3. Odkomentuj endpoint w `app/api/personas/actions.py` (po refactoringu)
+4. Zaimplementuj frontend UI component (MessagingGeneratorDialog jest gotowy ale nie podpięty)
 
-**Frontend:**
-- Komponenty Graph Analysis zostały ukryte z UI (AppSidebar, App.tsx routing)
-- Pliki pozostają w codebase ale są niedostępne dla użytkowników
+---
 
-## Przywrócenie funkcjonalności
+### `graph_service.py` - USUNIĘTY
+**Status:** Całkowicie usunięty z codebase (2025-10-22)
+**Funkcjonalność:** Analiza focus groups przez graf wiedzy Neo4j (concepts, emotions, personas)
 
-Jeśli w przyszłości chcesz przywrócić Graph Analysis:
-
-1. Przenieś `graph_service.py` z powrotem do `app/services/`
-2. Zaktualizuj importy w `app/api/graph_analysis.py` i `app/api/focus_groups.py`
-3. Przywróć frontend:
-   - Odkomentuj menu item w `frontend/src/components/layout/AppSidebar.tsx`
-   - Odkomentuj routing w `frontend/src/App.tsx`
-   - Przywróć komponenty z `frontend/src/components/archived/` (jeśli przeniesione)
+**Powód usunięcia:**
+Feature został zastąpiony przez RAG-based insights. Backend API + frontend components zostały usunięte.
+Jeśli potrzebujesz przywrócić - sprawdź git history przed 2025-10-22.
 
 ## Historia zmian
 
+- **2025-10-22**:
+  - Archiwizacja messaging.py (nie używane w UI)
+  - Całkowite usunięcie graph_service.py + API + frontend components
 - **2025-10-15**: Archiwizacja graph_service.py podczas refaktoringu RAG (podział rag_service.py)

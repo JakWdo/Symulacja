@@ -148,7 +148,6 @@ async def run_focus_group(
 async def _run_focus_group_task(focus_group_id: UUID):
     """Background task to run focus group"""
     import logging
-    from app.services.archived.graph_service import GraphService
     logger = logging.getLogger(__name__)
 
     logger.info(f"🎯 Background task started for focus group {focus_group_id}")
@@ -159,18 +158,6 @@ async def _run_focus_group_task(focus_group_id: UUID):
             logger.info(f"📦 Service created, calling run_focus_group...")
             result = await service.run_focus_group(db, str(focus_group_id))
             logger.info(f"✅ Focus group completed: {result.get('status')}")
-
-    # Po zakończeniu można samoczynnie budować graf wiedzy
-            if result.get('status') == 'completed':
-                logger.info(f"🔨 Building knowledge graph for focus group {focus_group_id}...")
-                graph_service = GraphService()
-                try:
-                    graph_stats = await graph_service.build_graph_from_focus_group(db, str(focus_group_id))
-                    logger.info(f"✅ Knowledge graph built successfully: {graph_stats}")
-                except Exception as graph_error:
-                    logger.error(f"⚠️  Failed to build knowledge graph (non-critical): {graph_error}", exc_info=True)
-                finally:
-                    await graph_service.close()
     except Exception as e:
         logger.error(f"❌ Error in background task: {e}", exc_info=True)
 

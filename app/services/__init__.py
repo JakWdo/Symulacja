@@ -33,17 +33,18 @@ Architektura: Service Layer Pattern (API → Services → Models)
 Framework: LangChain + Google Gemini (Flash dla szybkości, Pro dla analiz)
 """
 
-from .persona_generator_langchain import (
+from .personas.generator import (
     PersonaGeneratorLangChain as PersonaGenerator,
     DemographicDistribution,
 )
-from .memory_service_langchain import MemoryServiceLangChain as MemoryService
-from .focus_group_service_langchain import FocusGroupServiceLangChain as FocusGroupService
-from .discussion_summarizer import DiscussionSummarizerService
-from .survey_response_generator import SurveyResponseGenerator
-from .persona_needs_service import PersonaNeedsService
-from .persona_messaging_service import PersonaMessagingService
-from .persona_comparison_service import PersonaComparisonService
+from .focus_groups.memory import MemoryServiceLangChain as MemoryService
+from .focus_groups.group_service import FocusGroupServiceLangChain as FocusGroupService
+from .focus_groups.summarizer import DiscussionSummarizerService
+from .focus_groups.survey_responses import SurveyResponseGenerator
+from .personas_details.needs import PersonaNeedsService
+# ARCHIVED: PersonaMessagingService moved to archived/messaging.py
+from .archived.messaging import PersonaMessagingService
+from .personas.comparison import PersonaComparisonService
 
 __all__ = [
     "PersonaGenerator",

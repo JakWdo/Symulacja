@@ -12,7 +12,7 @@ Ten moduł testuje kluczowe funkcjonalności generatora person:
 import pytest
 import numpy as np
 from app.core.config import get_settings
-from app.services.persona_generator_langchain import PersonaGeneratorLangChain as PersonaGenerator, DemographicDistribution
+from app.services.personas import PersonaGeneratorLangChain as PersonaGenerator, DemographicDistribution
 
 
 @pytest.fixture

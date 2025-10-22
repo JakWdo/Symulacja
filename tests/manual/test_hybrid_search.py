@@ -20,7 +20,7 @@ pytestmark = pytest.mark.manual
 # Dodaj root directory do path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.services.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.rag import PolishSocietyRAG
 from app.core.config import get_settings
 
 settings = get_settings()

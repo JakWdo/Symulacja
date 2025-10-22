@@ -2,7 +2,7 @@
 
 from typing import Dict, Any, List, Optional
 
-from app.services.persona_validator import PersonaValidator
+from app.services.personas import PersonaValidator
 
 
 def _make_persona(

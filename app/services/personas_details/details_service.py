@@ -36,8 +36,9 @@ from pydantic import ValidationError
 
 from app.db import AsyncSessionLocal
 from app.models import Persona
-from app.services.persona_audit_service import PersonaAuditService
-from app.services.persona_needs_service import PersonaNeedsService
+# Import bezpośrednio z modułów aby uniknąć circular import przez __init__.py
+from app.services.personas.audit import PersonaAuditService
+from app.services.personas_details.needs import PersonaNeedsService
 from app.core.redis import redis_get_json, redis_set_json, redis_delete
 from app.schemas.persona_details import PersonaDetailsResponse, PersonaAuditEntry
 

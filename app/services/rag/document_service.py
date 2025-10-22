@@ -26,9 +26,10 @@ from langchain_experimental.graph_transformers.llm import LLMGraphTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.core.config import get_settings
+from app.core.prompts.rag import get_graph_transformer_config
 from app.models.rag_document import RAGDocument
 from app.services.clients import build_chat_model
-from app.services.rag_clients import get_graph_store, get_vector_store
+from app.services.rag.clients import get_graph_store, get_vector_store
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -141,124 +142,16 @@ class RAGDocumentService:
             if self.graph_store:
                 try:
                     logger.info("Generuję strukturę grafową na podstawie uniwersalnego modelu.")
+                    # Użyj centralnej konfiguracji z app/core/prompts/rag.py
+                    transformer_config = get_graph_transformer_config()
                     transformer = LLMGraphTransformer(
                         llm=self.llm,
-                        allowed_nodes=[
-                            "Obserwacja",   # Fakty, obserwacje (merge Przyczyna, Skutek tutaj)
-                            "Wskaznik",     # Wskaźniki liczbowe, statystyki
-                            "Demografia",   # Grupy demograficzne
-                            "Trend",        # Trendy czasowe, zmiany w czasie
-                            "Lokalizacja",  # Miejsca geograficzne
-                        ],
-                        allowed_relationships=[
-                            "OPISUJE",           # Opisuje cechę/właściwość
-                            "DOTYCZY",           # Dotyczy grupy/kategorii
-                            "POKAZUJE_TREND",    # Pokazuje trend czasowy
-                            "ZLOKALIZOWANY_W",   # Zlokalizowane w miejscu
-                            "POWIAZANY_Z",       # Ogólne powiązanie (merge: przyczynowość, porównania)
-                        ],
-                        node_properties=[
-                            "streszczenie",     # MUST: Jednozdaniowe podsumowanie (max 150 znaków)
-                            "skala",            # Wielkość/wartość z jednostką (np. "67%", "1.2 mln")
-                            "pewnosc",          # MUST: Pewność: "wysoka", "srednia", "niska"
-                            "okres_czasu",      # Okres czasu (YYYY lub YYYY-YYYY)
-                            "kluczowe_fakty",   # Opcjonalnie: max 3 fakty (separated by semicolons)
-                        ],
-                        relationship_properties=[
-                            "sila",  # Siła relacji: "silna", "umiarkowana", "slaba"
-                        ],
-                        additional_instructions="""
-JĘZYK: Wszystkie nazwy i wartości MUSZĄ być PO POLSKU.
-
-KRYTYCZNE OGRANICZENIA ILOŚCIOWE:
-- MAX 3 WĘZŁY na chunk (tylko najważniejsze!)
-- MAX 5 RELACJI na chunk
-- Tylko pewnosc "wysoka" lub "srednia" (NIGDY "niska")
-- Jeśli chunk nie zawiera WAŻNYCH informacji → 0 węzłów (to OK!)
-
-=== TYPY WĘZŁÓW (5) ===
-- Obserwacja: Fakty, obserwacje społeczne (włącznie z przyczynami i skutkami)
-- Wskaznik: Wskaźniki liczbowe, statystyki (np. stopa zatrudnienia)
-- Demografia: Grupy demograficzne (np. młodzi dorośli)
-- Trend: Trendy czasowe, zmiany w czasie
-- Lokalizacja: Miejsca geograficzne
-
-=== TYPY RELACJI (5) ===
-- OPISUJE: Opisuje cechę/właściwość
-- DOTYCZY: Dotyczy grupy/kategorii
-- POKAZUJE_TREND: Pokazuje trend czasowy
-- ZLOKALIZOWANY_W: Zlokalizowane w miejscu
-- POWIAZANY_Z: Ogólne powiązanie (przyczynowość, porównania, korelacje)
-
-=== PROPERTIES WĘZŁÓW (5 - uproszczone!) ===
-- streszczenie (MUST): 1 zdanie, max 150 znaków
-- skala: Wartość z jednostką (np. "78.4%", "5000 PLN", "1.2 mln osób")
-- pewnosc (MUST): TYLKO "wysoka" lub "srednia" (NIGDY "niska")
-- okres_czasu: YYYY lub YYYY-YYYY
-- kluczowe_fakty: Max 3 fakty oddzielone średnikami
-
-=== PROPERTIES RELACJI (1) ===
-- sila: "silna" / "umiarkowana" / "slaba"
-
-=== PRZYKŁADY (FEW-SHOT) ===
-
-PRZYKŁAD 1 - Wskaznik:
-Tekst: "W 2022 stopa zatrudnienia kobiet 25-34 z wyższym wynosiła 78.4% według GUS"
-Węzeł: {{
-  type: "Wskaznik",
-  streszczenie: "Stopa zatrudnienia kobiet 25-34 z wyższym wykształceniem",
-  skala: "78.4%",
-  pewnosc: "wysoka",
-  okres_czasu: "2022",
-  kluczowe_fakty: "wysoka stopa zatrudnienia; kobiety młode; wykształcenie wyższe"
-}}
-
-PRZYKŁAD 2 - Obserwacja:
-Tekst: "Młodzi mieszkańcy dużych miast coraz częściej wynajmują mieszkania zamiast kupować"
-Węzeł: {{
-  type: "Obserwacja",
-  streszczenie: "Młodzi w miastach preferują wynajem nad zakup mieszkań",
-  pewnosc: "srednia",
-  kluczowe_fakty: "młodzi dorośli; duże miasta; wynajem mieszkań"
-}}
-
-PRZYKŁAD 3 - Trend:
-Tekst: "Od 2018 do 2023 wzrósł odsetek osób pracujących zdalnie z 12% do 31%"
-Węzeł: {{
-  type: "Trend",
-  streszczenie: "Wzrost pracy zdalnej w Polsce",
-  skala: "12% → 31%",
-  pewnosc: "wysoka",
-  okres_czasu: "2018-2023",
-  kluczowe_fakty: "praca zdalna; wzrost; pandemia"
-}}
-
-=== DEDUPLIKACJA (KRYTYCZNE!) ===
-Przed utworzeniem węzła sprawdź czy podobny już istnieje:
-- "Stopa zatrudnienia kobiet 25-34" ≈ "Zatrudnienie młodych kobiet" → MERGE
-- Używaj POWIAZANY_Z aby łączyć podobne koncepty zamiast tworzyć duplikaty
-- Priorytet: 1 PRECYZYJNY węzeł > 3 podobne węzły
-
-=== CONFIDENCE FILTERING (KRYTYCZNE!) ===
-- TYLKO pewnosc "wysoka" lub "srednia"
-- Jeśli informacja jest niepewna/nieweryfikowalna → NIE TWÓRZ węzła
-- Priorytet: 1 PEWNY węzeł > 5 niepewnych węzłów
-
-=== VALIDATION RULES ===
-- streszczenie: Zawsze wypełnij (1 zdanie, max 150 znaków)
-- pewnosc: Zawsze wypełnij (TYLKO "wysoka" lub "srednia" - jeśli niska → nie twórz węzła!)
-- skala: Tylko dla Wskaznik (inne: opcjonalnie)
-- kluczowe_fakty: Max 3 fakty, separated by semicolons
-- doc_id, chunk_index: KRYTYCZNE dla lifecycle (zachowane automatycznie)
-
-=== FOCUS ===
-Priorytet: JAKOŚĆ > ilość. MAX 3 węzły, TYLKO pewne informacje. Mniej = lepiej.
-                        """.strip(),
+                        **transformer_config
                     )
                     graph_documents = await transformer.aconvert_to_graph_documents(chunks)
 
                     # Wzbogacenie węzłów o metadane dokumentu (współdzielona logika GraphRAGService)
-                    from app.services.rag_graph_service import GraphRAGService
+                    from app.services.rag.graph_service import GraphRAGService
                     enriched_graph_documents = GraphRAGService.enrich_graph_nodes(
                         graph_documents,
                         doc_id=str(doc_id),
