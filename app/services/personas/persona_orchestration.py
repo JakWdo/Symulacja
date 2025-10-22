@@ -275,10 +275,10 @@ class PersonaOrchestrationService:
                     self.rag_service.hybrid_search(query=q, top_k=3)
                     for q in queries[:8]  # Limit do 8 queries (24 results max)
                 ]),
-                timeout=30.0  # 30 sekund dla wszystkich queries
+                timeout=90.0  # 90 sekund dla Cloud Run (network latency + reranking)
             )
         except asyncio.TimeoutError:
-            logger.warning("⚠️ Graph RAG queries przekroczyły timeout (30s) - zwracam pusty kontekst")
+            logger.warning("⚠️ Graph RAG queries przekroczyły timeout (90s) - zwracam pusty kontekst")
             return "Brak dostępnego kontekstu z Graph RAG (timeout)."
 
         # Deduplikuj i formatuj
