@@ -18,10 +18,24 @@
 
 steps:
   # ==========================================================================
+  # PULL CACHE: Download previous image for layer caching
+  # ==========================================================================
+  # This step pulls the latest image from Artifact Registry to use as cache source
+  # Uses 'entrypoint: bash' with '|| true' to avoid failing on first build (no cache exists yet)
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        docker pull europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest || echo "No cache image found - first build will be slow"
+    id: 'pull-cache'
+    waitFor: ['-']  # Start immediately (parallel with tests if any)
+
+  # ==========================================================================
   # BUILD: Docker Image (Backend + Frontend) with Layer Caching
   # ==========================================================================
-  # Uses --cache-from for explicit cache source from previous builds
-  # This dramatically speeds up builds (5-8 min vs 20-30 min without cache)
+  # Uses --cache-from to leverage layers from pulled image
+  # After pull-cache step, Docker has local cache to speed up build
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -35,7 +49,7 @@ steps:
       - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:$COMMIT_SHA'
       - '.'
     id: 'build'
-    waitFor: ['-']  # Start immediately (no tests blocking)
+    waitFor: ['pull-cache']  # Wait for cache image to be pulled
 
   # ==========================================================================
   # PUSH: Docker Image to Artifact Registry
