@@ -32,12 +32,9 @@ from app.services.personas import (
     PersonaOrchestrationService,
     PersonaValidator,
 )
-from app.services import DemographicDistribution
 from app.api.dependencies import get_current_user, get_project_for_user
 from app.schemas.persona import PersonaGenerateRequest
 from app.core.constants import (
-    DEFAULT_AGE_GROUPS,
-    DEFAULT_GENDERS,
     POLISH_EDUCATION_LEVELS,
     POLISH_INCOME_BRACKETS,
     POLISH_LOCATIONS,
@@ -199,16 +196,6 @@ async def _generate_personas_task(
                 logger.error("Project not found in background task.", extra={"project_id": str(project_id)})
                 return
 
-            target_demographics = project.target_demographics or {}
-            distribution = DemographicDistribution(
-                age_groups=_normalize_distribution(target_demographics.get("age_group", {}), DEFAULT_AGE_GROUPS),
-                genders=_normalize_distribution(target_demographics.get("gender", {}), DEFAULT_GENDERS),
-                # Używaj POLSKICH wartości domyślnych dla lepszej realistyczności
-                education_levels=_normalize_distribution(target_demographics.get("education_level", {}), POLISH_EDUCATION_LEVELS),
-                income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), POLISH_INCOME_BRACKETS),
-                locations=_normalize_distribution(target_demographics.get("location", {}), POLISH_LOCATIONS),
-            )
-
             # === ORCHESTRATION STEP (GEMINI 2.5 PRO) ===
             # Tworzymy szczegółowy plan alokacji używając orchestration agent
             orchestration_service = PersonaOrchestrationService()
@@ -223,8 +210,8 @@ async def _generate_personas_task(
                     target_audience_desc = advanced_options["target_audience_description"]
 
                 # Tworzymy plan alokacji (długie briefe dla każdej grupy)
+                # NOWY FLOW: Orchestration generuje segmenty BEZ target_demographics jako input
                 allocation_plan = await orchestration_service.create_persona_allocation_plan(
-                    target_demographics=target_demographics,
                     num_personas=num_personas,
                     project_description=project.description,
                     additional_context=target_audience_desc,
@@ -332,48 +319,52 @@ async def _generate_personas_task(
                 allocation_plan = None
                 persona_group_mapping = {}
 
-            # Kontrolowana współbieżność pozwala przyspieszyć generowanie bez przeciążania modelu
-            logger.info(f"Generating demographic and psychological profiles for {num_personas} personas")
+            # === DEMOGRAPHIC & PSYCHOLOGICAL PROFILES ===
+            # NOWY FLOW: Demographics pochodzą BEZPOŚREDNIO z orchestration segments (nie z sampling!)
+            logger.info(f"Building demographic and psychological profiles for {num_personas} personas from orchestration plan")
             concurrency_limit = _calculate_concurrency_limit(num_personas, adversarial_mode)
             semaphore = asyncio.Semaphore(concurrency_limit)
-            demographic_profiles = [generator.sample_demographic_profile(distribution)[0] for _ in range(num_personas)]
+
+            # Build demographic profiles from orchestration segments
+            demographic_profiles = []
+            for idx in range(num_personas):
+                if idx in persona_group_mapping:
+                    orch_demo = persona_group_mapping[idx]["demographics"]
+                    # Convert orchestration format to generator format
+                    profile = {
+                        "age_group": orch_demo.get("age", "25-34"),
+                        "gender": orch_demo.get("gender", "male"),
+                        "education_level": orch_demo.get("education", "Wyższe"),
+                        "income_bracket": orch_demo.get("income", "Średnie"),
+                        "location": orch_demo.get("location", "Warszawa"),
+                    }
+                    demographic_profiles.append(profile)
+                    logger.debug(
+                        f"Persona {idx}: demographics from orchestration segment "
+                        f"(age={orch_demo.get('age')}, gender={orch_demo.get('gender')})",
+                        extra={"project_id": str(project_id), "index": idx}
+                    )
+                else:
+                    # Fallback (shouldn't happen if orchestration works correctly)
+                    logger.warning(
+                        f"Persona {idx} missing orchestration plan, using Polish defaults",
+                        extra={"project_id": str(project_id), "index": idx}
+                    )
+                    demographic_profiles.append({
+                        "age_group": "25-34",
+                        "gender": "male",
+                        "education_level": "Wyższe",
+                        "income_bracket": "Średnie",
+                        "location": "Warszawa",
+                    })
+
+            # Psychological profiles (unchanged - random sampling)
             psychological_profiles = [{**generator.sample_big_five_traits(), **generator.sample_cultural_dimensions()} for _ in range(num_personas)]
 
-            # === OVERRIDE DEMOGRAPHICS Z ORCHESTRATION ===
-            # Orchestration plan ma AUTORYTATYWNE demographics (z Gemini 2.5 Pro analysis)
-            # Override sampled demographics aby zapewnić spójność z briefami
-            if allocation_plan and persona_group_mapping:
-                logger.info("🔒 Overriding sampled demographics with orchestration demographics...")
-                override_count = 0
-
-                for idx, profile in enumerate(demographic_profiles):
-                    if idx in persona_group_mapping:
-                        orch_demo = persona_group_mapping[idx]["demographics"]
-
-                        # Override sampled values (orchestration jest bardziej autorytatywny)
-                        if "age" in orch_demo and orch_demo["age"]:
-                            profile["age_group"] = orch_demo["age"]
-                            override_count += 1
-
-                        if "gender" in orch_demo and orch_demo["gender"]:
-                            profile["gender"] = orch_demo["gender"]
-
-                        if "education" in orch_demo and orch_demo["education"]:
-                            profile["education_level"] = orch_demo["education"]
-
-                        if "income" in orch_demo and orch_demo["income"]:
-                            profile["income_bracket"] = orch_demo["income"]
-
-                        logger.debug(
-                            f"Persona {idx}: enforced demographics from orchestration "
-                            f"(age={orch_demo.get('age')}, gender={orch_demo.get('gender')})",
-                            extra={"project_id": str(project_id), "index": idx}
-                        )
-
-                logger.info(
-                    f"✅ Demographics override completed: {override_count}/{num_personas} personas enforced",
-                    extra={"project_id": str(project_id)}
-                )
+            logger.info(
+                f"✅ Profiles built: {len(demographic_profiles)} from orchestration segments",
+                extra={"project_id": str(project_id)}
+            )
 
             logger.info(
                 f"Starting LLM generation for {num_personas} personas with concurrency={concurrency_limit}",
@@ -785,18 +776,6 @@ async def _generate_personas_task(
             validation_results = validator.validate_personas(personas_data)
             if not validation_results["is_valid"]:
                 logger.warning("Persona validation found issues.", extra=validation_results)
-
-            if not adversarial_mode and hasattr(generator, "validate_distribution"):
-                try:
-                    validation = generator.validate_distribution(demographic_profiles, distribution)
-                    project = await db.get(Project, project_id)  # Ponowne pobranie po commitach batchy
-                    if project:
-                        project.is_statistically_valid = validation.get("overall_valid", False)
-                        project.chi_square_statistic = {k: v.get("chi_square_statistic") for k, v in validation.items() if k != "overall_valid"}
-                        project.p_values = {k: v.get("p_value") for k, v in validation.items() if k != "overall_valid"}
-                        await db.commit()
-                except Exception as e:
-                    logger.error("Statistical validation failed.", exc_info=e)
 
             logger.info("Persona generation task completed.", extra={"project_id": str(project_id), "count": len(personas_data)})
     except Exception as e:

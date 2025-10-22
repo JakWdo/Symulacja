@@ -13,7 +13,7 @@ Kluczowe funkcjonalności:
 
 import re
 import numpy as np
-from typing import Any
+from typing import Any, Dict, Optional, List, Tuple
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser

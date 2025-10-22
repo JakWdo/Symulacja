@@ -132,25 +132,19 @@ async def get_persona_reasoning(
         or rag_details.get("graph_context")
     )
 
-    # Fallback demografia (używana również do budowania opisów segmentu)
-    fallback_demographics = demographics or {
-        "age": str(persona.age) if persona.age else None,
-        "gender": persona.gender,
-        "education": persona.education_level,
-        "income": persona.income_bracket,
-        "location": persona.location,
-    }
-    if not isinstance(fallback_demographics, dict):
-        try:
-            fallback_demographics = dict(fallback_demographics)
-        except Exception:
-            fallback_demographics = {
-                "age": str(persona.age) if persona.age else None,
-                "gender": persona.gender,
-                "education": persona.education_level,
-                "income": persona.income_bracket,
-                "location": persona.location,
-            }
+    # Fallback demografia (TYLKO dla UI segment description, NIE dla reasoning!)
+    # Reasoning pochodzi wyłącznie z orchestration_brief + graph_insights + allocation_reasoning
+    if demographics and isinstance(demographics, dict):
+        fallback_demographics = demographics
+    else:
+        # Build minimal fallback from persona fields (dla segment description w UI)
+        fallback_demographics = {
+            "age": str(persona.age) if persona.age else None,
+            "gender": persona.gender,
+            "education": persona.education_level,
+            "income": persona.income_bracket,
+            "location": persona.location,
+        }
 
     # Preferuj catchy segment name zapisany przy personie
     if persona.segment_name:

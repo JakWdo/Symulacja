@@ -223,7 +223,7 @@ async def readiness_check():
 
     # Check Neo4j (OPTIONAL - used for RAG)
     try:
-        from app.services.rag.clients import get_vector_store
+        from app.services.rag import get_vector_store
         import logging
         logger = logging.getLogger(__name__)
         vector_store = get_vector_store(logger)
