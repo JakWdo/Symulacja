@@ -23,7 +23,8 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.core.config import get_settings
 from app.middleware.security import SecurityHeadersMiddleware
-from app.api import projects, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag
+from app.api import projects, focus_groups, analysis, surveys, auth, settings as settings_router, rag
+from app.api.personas import router as personas_router
 import logging
 import os
 import mimetypes
@@ -149,7 +150,7 @@ app.include_router(auth.router, prefix=settings.API_V1_PREFIX, tags=["Auth"])
 
 # Chronione endpointy (wymagają uwierzytelnienia)
 app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["Projects"])
-app.include_router(personas.router, prefix=settings.API_V1_PREFIX, tags=["Personas"])
+app.include_router(personas_router, prefix=settings.API_V1_PREFIX, tags=["Personas"])
 app.include_router(focus_groups.router, prefix=settings.API_V1_PREFIX, tags=["Focus Groups"])
 app.include_router(surveys.router, prefix=settings.API_V1_PREFIX, tags=["Surveys"])
 app.include_router(analysis.router, prefix=settings.API_V1_PREFIX, tags=["Analysis"])

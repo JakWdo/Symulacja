@@ -15,79 +15,17 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
 from app.services.shared.clients import build_chat_model
+from app.core.prompts.persona_prompts import ORCHESTRATION_PROMPT_TEMPLATE
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
-
-
-def _map_graph_node_to_insight(node: dict[str, Any]) -> "GraphInsight" | None:
-    """Konwertuje graph node z polskimi property names na GraphInsight z angielskimi.
-
-def ORCHESTRATION_PROMPT_BUILDER(
-    target_demographics: Dict[str, Any],
-    num_personas: int,
-    graph_context: str,
-    project_description: Optional[str],
-    additional_context: Optional[str]
-) -> str:
-    """
-    Buduje prompt w stylu edukacyjnym dla Gemini 2.5 Pro - orchestration.
-
-    Args:
-        target_demographics: Rozkład demograficzny
-        num_personas: Liczba person
-        graph_context: Kontekst z Graph RAG
-        project_description: Opis projektu
-        additional_context: Dodatkowy kontekst od użytkownika
-
-    Returns:
-        Długi prompt string (production-ready instrukcje)
-    """
-    if not node:
-        return None
-
-    # Graf używa polskich property names
-    node_type = node.get('type', 'Unknown')
-    summary = node.get('streszczenie')
-
-    if not summary:
-        logger.warning(f"Graph node bez streszczenia: {node}")
-        return None
-
-    # Mapowanie pewności PL→EN
-    pewnosc_pl = node.get('pewnosc', '').lower()
-    confidence_map = {'wysoka': 'high', 'srednia': 'medium', 'niska': 'low'}
-    confidence = confidence_map.get(pewnosc_pl, 'medium')
-
-    # Dane węzła (polskie property names)
-    magnitude = node.get('skala')
-    time_period = node.get('okres_czasu')
-    source = node.get('source', node.get('document_title'))
-
-    # why_matters - użyj kluczowych faktów lub summary jako fallback
-    kluczowe_fakty = node.get('kluczowe_fakty', '')
-    why_matters = f"Ten wskaźnik pokazuje: {kluczowe_fakty}" if kluczowe_fakty else summary
-
-    try:
-        return GraphInsight(
-            type=node_type,
-            summary=summary,
-            magnitude=magnitude,
-            confidence=confidence,
-            time_period=time_period,
-            source=source,
-            why_matters=why_matters
-        )
-    except Exception as e:
-        logger.error(f"Nie można utworzyć GraphInsight z node: {node}, error: {e}")
-        return None
 
 
 class GraphInsight(BaseModel):
@@ -97,11 +35,11 @@ class GraphInsight(BaseModel):
     Dane w grafie Neo4j używają POLSKICH nazw (streszczenie, skala, pewnosc, etc.).
 
     Konwersja wykonywana przez funkcję _map_graph_node_to_insight():
-    - streszczenie → summary
-    - skala → magnitude
-    - pewnosc → confidence ("wysoka"→"high", "srednia"→"medium", "niska"→"low")
-    - okres_czasu → time_period
-    - kluczowe_fakty → why_matters (z dodatkowym edukacyjnym kontekstem)
+    - streszczenie -> summary
+    - skala -> magnitude
+    - pewnosc -> confidence ("wysoka"->"high", "srednia"->"medium", "niska"->"low")
+    - okres_czasu -> time_period
+    - kluczowe_fakty -> why_matters (z dodatkowym edukacyjnym kontekstem)
     """
 
     type: str = Field(description="Typ węzła (Wskaznik, Obserwacja, Trend, etc.)")
@@ -162,21 +100,20 @@ class PersonaOrchestrationService:
 
     async def create_persona_allocation_plan(
         self,
-        target_demographics: dict[str, Any],
         num_personas: int,
-        project_description: str | None = None,
-        additional_context: str | None = None,
+        project_description: Optional[str] = None,
+        additional_context: Optional[str] = None,
     ) -> PersonaAllocationPlan:
         """Tworzy szczegółowy plan alokacji person z długimi briefami.
 
         Gemini 2.5 Pro przeprowadza głęboką analizę:
-        1. Pobiera Graph RAG context (hybrid search dla rozkładów demograficznych)
+        1. Pobiera Graph RAG context (ogólne trendy społeczne Polski)
         2. Analizuje trendy społeczne i wskaźniki statystyczne
         3. Tworzy spójne (900-1200 znaków) edukacyjne briefe
         4. Wyjaśnia "dlaczego" dla każdej decyzji alokacyjnej
+        5. Generuje segmenty bazując WYŁĄCZNIE na project_description + RAG + LLM reasoning
 
         Args:
-            target_demographics: Rozkład demograficzny projektu (age_group, gender, etc.)
             num_personas: Całkowita liczba person do wygenerowania
             project_description: Opis projektu badawczego
             additional_context: Dodatkowy kontekst od użytkownika (z AI Wizard)
@@ -187,15 +124,14 @@ class PersonaOrchestrationService:
         Raises:
             Exception: Jeśli LLM nie może wygenerować planu lub JSON parsing fails
         """
-        logger.info(f"🎯 Orchestration: Tworzenie planu alokacji dla {num_personas} person...")
+        logger.info(f"[TARGET] Orchestration: Tworzenie planu alokacji dla {num_personas} person...")
 
-        # Krok 1: Pobierz comprehensive Graph RAG context
-        graph_context = await self._get_comprehensive_graph_context(target_demographics)
-        logger.info(f"📊 Pobrano {len(graph_context)} fragmentów z Graph RAG")
+        # Krok 1: Pobierz comprehensive Graph RAG context (ogólne trendy Polski)
+        graph_context = await self._get_comprehensive_graph_context()
+        logger.info(f"[CHART] Pobrano {len(graph_context)} fragmentów z Graph RAG")
 
         # Krok 2: Zbuduj prompt w stylu edukacyjnym
         prompt = self._build_orchestration_prompt(
-            target_demographics=target_demographics,
             num_personas=num_personas,
             graph_context=graph_context,
             project_description=project_description,
@@ -204,92 +140,69 @@ class PersonaOrchestrationService:
 
         # Krok 3: Gemini 2.5 Pro generuje plan (długa analiza)
         try:
-            logger.info("🤖 Wywołuję Gemini 2.5 Pro dla orchestration (max_tokens=8000, timeout=120s)...")
+            logger.info(f"🤖 Wywołuję Gemini 2.5 Pro dla orchestration (max_tokens=8000, timeout=120s)...")
             response = await self.llm.ainvoke(prompt)
 
             # DEBUG: Log surowej odpowiedzi od Gemini
             response_text = response.content if hasattr(response, 'content') else str(response)
-            logger.info(f"📝 Gemini response length: {len(response_text)} chars")
-            logger.info(f"📝 Gemini response preview (first 500 chars): {response_text[:500]}")
-            logger.info(f"📝 Gemini response preview (last 500 chars): {response_text[-500:]}")
+            logger.info(f"[NOTE] Gemini response length: {len(response_text)} chars")
+            logger.info(f"[NOTE] Gemini response preview (first 500 chars): {response_text[:500]}")
+            logger.info(f"[NOTE] Gemini response preview (last 500 chars): {response_text[-500:]}")
 
             plan_json = self._extract_json_from_response(response_text)
 
             # DEBUG: Log sparsowanego JSON
-            logger.info(f"✅ JSON parsed successfully: {len(plan_json)} top-level keys")
-            logger.info(f"✅ JSON keys: {list(plan_json.keys())}")
+            logger.info(f"[OK] JSON parsed successfully: {len(plan_json)} top-level keys")
+            logger.info(f"[OK] JSON keys: {list(plan_json.keys())}")
 
             # Parse do Pydantic model (walidacja)
             plan = PersonaAllocationPlan(**plan_json)
 
-            logger.info(f"✅ Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
+            logger.info(f"[OK] Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
             return plan
 
         except Exception as e:
-            logger.error(f"❌ Błąd podczas tworzenia planu alokacji: {e}")
-            logger.error(f"❌ Exception type: {type(e).__name__}")
-            logger.error(f"❌ Exception details: {str(e)[:1000]}")
+            logger.error(f"[X] Błąd podczas tworzenia planu alokacji: {e}")
+            logger.error(f"[X] Exception type: {type(e).__name__}")
+            logger.error(f"[X] Exception details: {str(e)[:1000]}")
             raise
 
-    async def _get_comprehensive_graph_context(
-        self,
-        target_demographics: dict[str, Any]
-    ) -> str:
-        """Pobiera comprehensive Graph RAG context dla rozkładów demograficznych.
+    async def _get_comprehensive_graph_context(self) -> str:
+        """Pobiera comprehensive Graph RAG context o polskim społeczeństwie.
 
-        Hybrid search (vector + keyword + RRF) dla każdej grupy demograficznej:
-        - Age groups (18-24, 25-34, etc.)
-        - Gender
-        - Education levels
-        - Locations
-
-        Args:
-            target_demographics: Rozkład demograficzny (age_group, gender, etc.)
+        Hybrid search (vector + keyword + RRF) dla ogólnych trendów społecznych Polski:
+        - Demografia i statystyki GUS
+        - Zatrudnienie i płace
+        - Koszty życia i mieszkań
+        - Work-life balance i wartości
 
         Returns:
             Sformatowany string z Graph RAG context (Wskazniki, Obserwacje, Trendy)
         """
-        # Przygotuj queries dla hybrid search
-        queries = []
-
-        # Age groups
-        if "age_group" in target_demographics:
-            for age_group in target_demographics["age_group"].keys():
-                queries.append(f"demographics statistics age {age_group} Poland")
-
-        # Gender
-        if "gender" in target_demographics:
-            for gender in target_demographics["gender"].keys():
-                queries.append(f"gender {gender} demographics Poland workforce")
-
-        # Education
-        if "education_level" in target_demographics:
-            for education in target_demographics["education_level"].keys():
-                queries.append(f"education level {education} Poland employment")
-
-        # Ogólne trendy społeczne
-        queries.extend([
+        # Ogólne queries o polskim społeczeństwie (bez specyfikacji demograficznych)
+        # LLM sam zdecyduje jakie segmenty wygenerować based on project_description + ten kontekst
+        queries = [
             "Polish society trends 2023 2024 demographics",
             "workforce statistics Poland employment rates",
             "income housing costs Poland urban areas",
             "work-life balance trends Poland young professionals",
-        ])
+            "education levels Poland university graduates statistics",
+            "age demographics Poland population structure",
+            "gender equality Poland workplace statistics",
+            "urban rural Poland differences demographics",
+        ]
 
         # Wykonaj parallel hybrid searches z timeout
-        # PRODUCTION FIX: Zwiększono timeout 90s -> 150s dla Cloud Run network latency
-        # Cloud Run RTT: ~50-150ms per Neo4j query (vs ~5-10ms local Docker)
-        # 8 parallel searches × (vector + keyword + Neo4j) może przekroczyć 90s
-        # 150s daje safety margin podczas gdy implementujemy caching + async optimization
         try:
             results = await asyncio.wait_for(
                 asyncio.gather(*[
                     self.rag_service.hybrid_search(query=q, top_k=3)
                     for q in queries[:8]  # Limit do 8 queries (24 results max)
                 ]),
-                timeout=150.0  # 150 sekund (2.5 min) - temporary safety margin dla Cloud Run
+                timeout=30.0  # 30 sekund dla wszystkich queries
             )
         except asyncio.TimeoutError:
-            logger.warning("⚠️ Graph RAG queries przekroczyły timeout (150s) - zwracam pusty kontekst")
+            logger.warning("[!] Graph RAG queries przekroczyły timeout (30s) - zwracam pusty kontekst")
             return "Brak dostępnego kontekstu z Graph RAG (timeout)."
 
         # Deduplikuj i formatuj
@@ -305,7 +218,7 @@ class PersonaOrchestrationService:
         formatted_context = self._format_graph_context(all_docs[:15])  # Top 15 unique
         return formatted_context
 
-    def _format_graph_context(self, documents: list[Any]) -> str:
+    def _format_graph_context(self, documents: List[Any]) -> str:
         """Formatuje Graph RAG documents jako czytelny context dla LLM.
 
         Args:
@@ -336,7 +249,6 @@ class PersonaOrchestrationService:
 
     def _build_orchestration_prompt(
         self,
-        target_demographics: dict[str, Any],
         num_personas: int,
         graph_context: str,
         project_description: str | None,
@@ -346,12 +258,12 @@ class PersonaOrchestrationService:
 
         Prompt instruuje LLM aby:
         1. Przeanalizować Graph RAG context (Wskazniki, Obserwacje)
-        2. Wyjaśnić "dlaczego" dla każdej decyzji (edukacyjny styl)
-        3. Utworzyć spójne (900-1200 znaków) briefe dla każdej grupy
-        4. Użyć konwersacyjnego tonu (jak kolega z zespołu)
+        2. SAM zdecydować jakie segmenty demograficzne wygenerować (based on project goal + RAG)
+        3. Wyjaśnić "dlaczego" dla każdej decyzji (edukacyjny styl)
+        4. Utworzyć spójne (900-1200 znaków) briefe dla każdej grupy
+        5. Użyć konwersacyjnego tonu (jak kolega z zespołu)
 
         Args:
-            target_demographics: Rozkład demograficzny
             num_personas: Liczba person
             graph_context: Kontekst z Graph RAG
             project_description: Opis projektu
@@ -362,20 +274,28 @@ class PersonaOrchestrationService:
         """
         prompt = f"""
 Jesteś ekspertem od socjologii i badań społecznych w Polsce. Twoim zadaniem jest
-przeanalizowanie danych demograficznych i Graph RAG context, a następnie stworzenie
+przeanalizowanie Graph RAG context oraz celu projektu, a następnie stworzenie
 szczegółowego, EDUKACYJNEGO planu alokacji {num_personas} syntetycznych person.
+
+KLUCZOWE: SAM zdecydujesz jakie segmenty demograficzne wygenerować, bazując wyłącznie na:
+- Celu projektu badawczego (project_description)
+- Kontekście Graph RAG o polskim społeczeństwie
+- Dodatkowym kontekście od użytkownika
+
+NIE dostajesz z góry określonego rozkładu demograficznego - to TY decydujesz które grupy
+są najbardziej relevantne dla badania!
 
 === STYL KOMUNIKACJI (KRYTYCZNY!) ===
 
 WAŻNE: Twoim outputem będzie używany bezpośrednio przez innych agentów AI oraz
 pokazywany użytkownikom w interfejsie. Dlatego MUSISZ:
 
-✅ **Konwersacyjny ton** - Mówisz jak kolega z zespołu, nie jak suchy raport
-✅ **Wyjaśniaj "dlaczego"** - Nie podawaj tylko faktów, ale ich znaczenie i kontekst
-✅ **Używaj przykładów z życia** - "Wyobraź sobie Annę z Warszawy, która..."
-✅ **Production-ready** - Treść może iść bezpośrednio do użytkownika bez edycji
-✅ **Edukacyjny** - User ma się UCZYĆ o polskim społeczeństwie, nie tylko dostać dane
-✅ **PO POLSKU** - Naturalnie, bez anglicyzmów gdzie niepotrzebne
+[OK] **Konwersacyjny ton** - Mówisz jak kolega z zespołu, nie jak suchy raport
+[OK] **Wyjaśniaj "dlaczego"** - Nie podawaj tylko faktów, ale ich znaczenie i kontekst
+[OK] **Używaj przykładów z życia** - "Wyobraź sobie Annę z Warszawy, która..."
+[OK] **Production-ready** - Treść może iść bezpośrednio do użytkownika bez edycji
+[OK] **Edukacyjny** - User ma się UCZYĆ o polskim społeczeństwie, nie tylko dostać dane
+[OK] **PO POLSKU** - Naturalnie, bez anglicyzmów gdzie niepotrzebne
 
     DŁUGOŚĆ BRIEFÓW: Każdy brief dla grupy demograficznej ma mieć 900-1200 znaków.
     To ma być edukacyjny mini-esej, który wyjaśnia kontekst społeczny bez lania wody.
@@ -387,11 +307,6 @@ pokazywany użytkownikom w interfejsie. Dlatego MUSISZ:
 
 **Dodatkowy kontekst od użytkownika:**
 {additional_context or "Brak dodatkowego kontekstu"}
-
-**Rozkład demograficzny docelowy:**
-```json
-{json.dumps(target_demographics, indent=2, ensure_ascii=False)}
-```
 
 **Liczba person do wygenerowania:** {num_personas}
 
@@ -412,7 +327,13 @@ Zrób overview polskiego społeczeństwa bazując na Graph RAG context:
 
 ### 2. GRUPY DEMOGRAFICZNE Z DŁUGIMI BRIEFAMI
 
-Dla każdej znaczącej grupy demograficznej (na podstawie rozkładu docelowego), stwórz:
+SAM zdecyduj jakie grupy demograficzne są najbardziej relevantne dla tego badania.
+Bazuj na:
+- Celu projektu (project_description)
+- Trendach społecznych z Graph RAG
+- Dodatkowym kontekście od użytkownika
+
+Dla każdej wybranej grupy demograficznej, stwórz:
 
 **Każdy brief MUSI zawierać (900-1200 znaków):**
 
@@ -542,445 +463,13 @@ KLUCZOWE ZASADY:
 
 Generuj plan alokacji:
 """
-
-
-def SEGMENT_NAME_PROMPT_BUILDER(
-    demographics: Dict[str, Any],
-    graph_insights: List[Any],
-    rag_citations: List[Any]
-) -> str:
-    """
-    Generuje prompt dla mówiącej nazwy segmentu używając Gemini 2.5 Flash.
-
-    Args:
-        demographics: Cechy demograficzne (age, gender, education, income)
-        graph_insights: Graph insights dla tej grupy
-        rag_citations: RAG citations dla kontekstu
-
-    Returns:
-        Prompt string dla generowania nazwy segmentu
-    """
-    # Extract key demographics
-    age_range = demographics.get('age', demographics.get('age_group', 'nieznany'))
-    gender = demographics.get('gender', 'nieznana')
-    education = demographics.get('education', demographics.get('education_level', 'nieznane'))
-    income = demographics.get('income', demographics.get('income_bracket', 'nieznany'))
-
-    # Format insights
-    insights_text = "\n".join([
-        f"- {ins.summary} ({ins.confidence})"
-        for ins in graph_insights[:3]  # Top 3
-    ]) if graph_insights else "Brak insights"
-
-    # Format citations (first 2 max)
-    citations_text = "\n".join([
-        f"- {cit.page_content[:100]}..."
-        for cit in rag_citations[:2]
-    ]) if hasattr(rag_citations[0] if rag_citations else None, 'page_content') else "Brak cytatów"
-
-    return f"""Stwórz trafną, MÓWIĄCĄ nazwę dla poniższego segmentu demograficznego.
-
-DANE SEGMENTU:
-- Wiek: {age_range}
-- Płeć: {gender}
-- Wykształcenie: {education}
-- Dochód: {income}
-
-INSIGHTS Z GRAFU:
-{insights_text}
-
-CYTATY Z RAG:
-{citations_text}
-
-ZASADY:
-1. Nazwa powinna być 2-4 słowa (np. "Młodzi Prekariusze", "Aspirujące Profesjonalistki 35-44")
-2. Oddaje kluczową charakterystykę grupy (wiek + status społeczno-ekonomiczny)
-3. Używa polskiego języka, brzmi naturalnie
-4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek → "Młodzi Prekariusze")
-5. Unikaj ogólników ("Grupa A", "Segment 1")
-6. Jeśli wiek jest istotny, włącz go (np. "35-44")
-
-PRZYKŁADY DOBRYCH NAZW:
-- "Młodzi Prekariusze" (18-24, niskie dochody)
-- "Aspirujące Profesjonalistki 35-44" (kobiety, wyższe wykształcenie, średnie dochody)
-- "Dojrzali Eksperci" (45-54, wysokie dochody, stabilna kariera)
-- "Początkujący Profesjonaliści" (25-34, pierwsze kroki w karierze)
-
-ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
-
-
-def SEGMENT_CONTEXT_PROMPT_BUILDER(
-    segment_name: str,
-    demographics: Dict[str, Any],
-    graph_insights: List[Any],
-    rag_citations: List[Any],
-    project_goal: Optional[str] = None
-) -> str:
-    """
-    Generuje kontekst społeczny dla segmentu używając Gemini 2.5 Pro.
-
-    Args:
-        segment_name: Nazwa segmentu
-        demographics: Cechy demograficzne
-        graph_insights: Graph insights dla tej grupy
-        rag_citations: RAG citations dla kontekstu
-        project_goal: Cel projektu (opcjonalny)
-
-    Returns:
-        Prompt string dla generowania kontekstu segmentu (500-800 znaków)
-    """
-    # Extract key demographics
-    age_range = demographics.get('age', demographics.get('age_group', 'nieznany'))
-    gender = demographics.get('gender', 'nieznana')
-    education = demographics.get('education', demographics.get('education_level', 'nieznane'))
-    income = demographics.get('income', demographics.get('income_bracket', 'nieznany'))
-
-    # Format insights with details
-    insights_text = "\n".join([
-        f"- **{ins.summary}**\n  Magnitude: {ins.magnitude or 'N/A'}, Confidence: {ins.confidence}, "
-        f"Source: {ins.source or 'N/A'}, Year: {ins.time_period or 'N/A'}\n  "
-        f"Why it matters: {ins.why_matters[:150]}..."
-        for ins in graph_insights[:5]  # Top 5
-    ]) if graph_insights else "Brak insights"
-
-    # Format citations (first 3 max)
-    citations_text = "\n".join([
-        f"[{idx+1}] {cit.page_content[:200]}..."
-        for idx, cit in enumerate(rag_citations[:3])
-    ]) if hasattr(rag_citations[0] if rag_citations else None, 'page_content') else "Brak cytatów"
-
-    return f"""Stwórz kontekst społeczny dla segmentu "{segment_name}".
-
-DEMOGRAFIA SEGMENTU:
-- Wiek: {age_range}
-- Płeć: {gender}
-- Wykształcenie: {education}
-- Dochód: {income}
-
-INSIGHTS Z GRAFU WIEDZY:
-{insights_text}
-
-CYTATY Z RAG:
-{citations_text}
-
-CEL PROJEKTU:
-{project_goal or "Badanie syntetycznych person"}
-
-WYTYCZNE:
-1. Długość: 500-800 znaków (WAŻNE!)
-2. Kontekst SPECYFICZNY dla KONKRETNEJ GRUPY (nie ogólny opis Polski!)
-3. Zacznij od opisu charakterystyki grupy (jak w przykładzie)
-4. Struktura:
-   a) Pierwsza część (2-3 zdania): KIM są te osoby, co ich charakteryzuje
-   b) Druga część (2-3 zdania): Ich WARTOŚCI i ASPIRACJE
-   c) Trzecia część (2-3 zdania): WYZWANIA i kontekst ekonomiczny z konkretnymi liczbami
-5. Ton: konkretny, praktyczny, opisujący TYCH ludzi (nie teoretyczny!)
-6. Używaj konkretnych liczb z insights tam gdzie dostępne
-7. Unikaj: ogólników ("polska społeczeństwo"), teoretyzowania
-
-PRZYKŁAD DOBREGO KONTEKSTU (na wzór Figmy):
-"Tech-Savvy Profesjonaliści to osoby w wieku 28 lat, pracujące jako Marketing Manager w dużych miastach jak Warszawa czy Kraków. Charakteryzują się wysokim wykształceniem (licencjat lub wyżej), stabilną karierą w branży technologicznej i dochodami 8k-12k PLN netto. Są early adopters nowych technologii i cenią sobie work-life balance. Ich główne wartości to innovation, ciągły rozwój i sustainability. Aspirują do awansu na wyższe stanowiska (senior manager, director), własnego mieszkania w atrakcyjnej lokalizacji (co przy cenach 15-20k PLN/m2 wymaga oszczędzania przez 10+ lat) i rozwoju kompetencji w digital marketing oraz AI tools. Wyzwania: rosnąca konkurencja na rynku pracy (według GUS 78% osób z tej grupy ma wyższe wykształcenie), wysokie koszty życia w dużych miastach (średni czynsz ~3500 PLN), presja na ciągły rozwój i keeping up with tech trends."
-
-WAŻNE: Pisz o KONKRETNEJ grupie ludzi, używaj przykładów zawodów, konkretnych liczb, opisuj ICH życie.
-
-ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
-
-
-def _map_graph_node_to_insight(node: Dict[str, Any]) -> Optional["GraphInsight"]:
-    """Konwertuje graph node z polskimi property names na GraphInsight z angielskimi.
-
-    Mapowanie:
-    - streszczenie → summary
-    - skala → magnitude
-    - pewnosc → confidence ("wysoka"→"high", "srednia"→"medium", "niska"→"low")
-    - okres_czasu → time_period
-    - kluczowe_fakty → why_matters (z dodatkowym kontekstem)
-
-    Args:
-        node: Dict z grafu Neo4j (polskie property names)
-
-    Returns:
-        GraphInsight object lub None jeśli dane niepełne
-    """
-    if not node:
-        return None
-
-    # Graf używa polskich property names
-    node_type = node.get('type', 'Unknown')
-    summary = node.get('streszczenie')
-
-    if not summary:
-        logger.warning(f"Graph node bez streszczenia: {node}")
-        return None
-
-    # Mapowanie pewności PL→EN
-    pewnosc_pl = node.get('pewnosc', '').lower()
-    confidence_map = {'wysoka': 'high', 'srednia': 'medium', 'niska': 'low'}
-    confidence = confidence_map.get(pewnosc_pl, 'medium')
-
-    # Dane węzła (polskie property names)
-    magnitude = node.get('skala')
-    time_period = node.get('okres_czasu')
-    source = node.get('source', node.get('document_title'))
-
-    # why_matters - użyj kluczowych faktów lub summary jako fallback
-    kluczowe_fakty = node.get('kluczowe_fakty', '')
-    why_matters = f"Ten wskaźnik pokazuje: {kluczowe_fakty}" if kluczowe_fakty else summary
-
-    try:
-        return GraphInsight(
-            type=node_type,
-            summary=summary,
-            magnitude=magnitude,
-            confidence=confidence,
-            time_period=time_period,
-            source=source,
-            why_matters=why_matters
-        )
-    except Exception as e:
-        logger.error(f"Nie można utworzyć GraphInsight z node: {node}, error: {e}")
-        return None
-
-
-class GraphInsight(BaseModel):
-    """Pojedynczy insight z grafu wiedzy (Wskaznik, Obserwacja, Trend).
-
-    UWAGA: Ten schema używa ANGIELSKICH property names dla API consistency.
-    Dane w grafie Neo4j używają POLSKICH nazw (streszczenie, skala, pewnosc, etc.).
-
-    Konwersja wykonywana przez funkcję _map_graph_node_to_insight():
-    - streszczenie → summary
-    - skala → magnitude
-    - pewnosc → confidence ("wysoka"→"high", "srednia"→"medium", "niska"→"low")
-    - okres_czasu → time_period
-    - kluczowe_fakty → why_matters (z dodatkowym edukacyjnym kontekstem)
-    """
-
-    type: str = Field(description="Typ węzła (Wskaznik, Obserwacja, Trend, etc.)")
-    summary: str = Field(description="Jednozdaniowe podsumowanie")
-    magnitude: Optional[str] = Field(default=None, description="Wartość liczbowa jeśli istnieje (np. '78.4%')")
-    confidence: str = Field(default="medium", description="Poziom pewności: high, medium, low")
-    time_period: Optional[str] = Field(default=None, description="Okres czasu (np. '2022')")
-    source: Optional[str] = Field(default=None, description="Źródło danych (np. 'GUS', 'CBOS')")
-    why_matters: str = Field(description="Edukacyjne wyjaśnienie dlaczego to ważne dla person")
-
-
-class DemographicGroup(BaseModel):
-    """Grupa demograficzna z briefem i insightami."""
-
-    count: int = Field(description="Liczba person do wygenerowania w tej grupie")
-    demographics: Dict[str, Any] = Field(description="Cechy demograficzne (age, gender, education, etc.)")
-    brief: str = Field(description="Długi (900-1200 znaków) edukacyjny brief dla generatorów")
-    graph_insights: List[GraphInsight] = Field(default_factory=list, description="Insighty z Graph RAG")
-    allocation_reasoning: str = Field(description="Dlaczego tyle person w tej grupie")
-    segment_characteristics: List[str] = Field(default_factory=list, description="4-6 kluczowych cech tego segmentu (np. 'Profesjonaliści z wielkich miast')")
-
-
-class PersonaAllocationPlan(BaseModel):
-    """Plan alokacji person z szczegółowymi briefami dla każdej grupy."""
-
-    total_personas: int = Field(description="Całkowita liczba person do wygenerowania")
-    groups: List[DemographicGroup] = Field(description="Grupy demograficzne z briefami")
-    overall_context: str = Field(description="Ogólny kontekst społeczny Polski z Graph RAG")
-
-
-class PersonaOrchestrationService:
-    """Serwis orkiestracji używający Gemini 2.5 Pro do tworzenia briefów.
-
-    Ten serwis:
-    1. Pobiera comprehensive Graph RAG context (Wskazniki, Grupy_Demograficzne, Trendy)
-    2. Przeprowadza głęboką socjologiczną analizę używając Gemini 2.5 Pro
-    3. Tworzy szczegółowe briefe (900-1200 znaków) dla każdej grupy person
-    4. Wyjaśnia "dlaczego" (edukacyjny output style) dla wszystkich decyzji
-
-    Output style: Konwersacyjny, edukacyjny, wyjaśniający, production-ready.
-    """
-
-    def __init__(self) -> None:
-        """Inicjalizuje orchestration agent (Gemini 2.5 Pro) i RAG service."""
-
-        # Gemini 2.5 Pro dla complex reasoning i długich analiz
-        self.llm = build_chat_model(
-            model="gemini-2.5-pro",
-            temperature=0.3,  # Niższa dla analytical tasks
-            max_tokens=8000,  # Wystarczająco na pełny plan + briefy
-            timeout=120,  # 2 minuty dla complex reasoning
-        )
-
-        # RAG service dla hybrid search kontekstu
-        self.rag_service = PolishSocietyRAG()
-
-        logger.info("PersonaOrchestrationService zainicjalizowany (Gemini 2.5 Pro)")
-
-    async def create_persona_allocation_plan(
-        self,
-        target_demographics: Dict[str, Any],
-        num_personas: int,
-        project_description: Optional[str] = None,
-        additional_context: Optional[str] = None,
-    ) -> PersonaAllocationPlan:
-        """Tworzy szczegółowy plan alokacji person z długimi briefami.
-
-        Gemini 2.5 Pro przeprowadza głęboką analizę:
-        1. Pobiera Graph RAG context (hybrid search dla rozkładów demograficznych)
-        2. Analizuje trendy społeczne i wskaźniki statystyczne
-        3. Tworzy spójne (900-1200 znaków) edukacyjne briefe
-        4. Wyjaśnia "dlaczego" dla każdej decyzji alokacyjnej
-
-        Args:
-            target_demographics: Rozkład demograficzny projektu (age_group, gender, etc.)
-            num_personas: Całkowita liczba person do wygenerowania
-            project_description: Opis projektu badawczego
-            additional_context: Dodatkowy kontekst od użytkownika (z AI Wizard)
-
-        Returns:
-            PersonaAllocationPlan z grupami demograficznymi i szczegółowymi briefami
-
-        Raises:
-            Exception: Jeśli LLM nie może wygenerować planu lub JSON parsing fails
-        """
-        logger.info(f"🎯 Orchestration: Tworzenie planu alokacji dla {num_personas} person...")
-
-        # Krok 1: Pobierz comprehensive Graph RAG context
-        graph_context = await self._get_comprehensive_graph_context(target_demographics)
-        logger.info(f"📊 Pobrano {len(graph_context)} fragmentów z Graph RAG")
-
-        # Krok 2: Zbuduj prompt w stylu edukacyjnym (używając centralnego prompta)
-        prompt = ORCHESTRATION_PROMPT_BUILDER(
-            target_demographics=target_demographics,
+        return ORCHESTRATION_PROMPT_TEMPLATE.format(
             num_personas=num_personas,
+            project_description=project_description or "Badanie person syntetycznych",
+            additional_context=additional_context or "Brak dodatkowego kontekstu",
+            target_demographics="{}",
             graph_context=graph_context,
-            project_description=project_description,
-            additional_context=additional_context,
         )
-
-        # Krok 3: Gemini 2.5 Pro generuje plan (długa analiza)
-        try:
-            logger.info(f"🤖 Wywołuję Gemini 2.5 Pro dla orchestration (max_tokens=8000, timeout=120s)...")
-            response = await self.llm.ainvoke(prompt)
-
-            # DEBUG: Log surowej odpowiedzi od Gemini
-            response_text = response.content if hasattr(response, 'content') else str(response)
-            logger.info(f"📝 Gemini response length: {len(response_text)} chars")
-            logger.info(f"📝 Gemini response preview (first 500 chars): {response_text[:500]}")
-            logger.info(f"📝 Gemini response preview (last 500 chars): {response_text[-500:]}")
-
-            plan_json = self._extract_json_from_response(response_text)
-
-            # DEBUG: Log sparsowanego JSON
-            logger.info(f"✅ JSON parsed successfully: {len(plan_json)} top-level keys")
-            logger.info(f"✅ JSON keys: {list(plan_json.keys())}")
-
-            # Parse do Pydantic model (walidacja)
-            plan = PersonaAllocationPlan(**plan_json)
-
-            logger.info(f"✅ Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
-            return plan
-
-        except Exception as e:
-            logger.error(f"❌ Błąd podczas tworzenia planu alokacji: {e}")
-            logger.error(f"❌ Exception type: {type(e).__name__}")
-            logger.error(f"❌ Exception details: {str(e)[:1000]}")
-            raise
-
-    async def _get_comprehensive_graph_context(
-        self,
-        target_demographics: Dict[str, Any]
-    ) -> str:
-        """Pobiera comprehensive Graph RAG context dla rozkładów demograficznych.
-
-        Hybrid search (vector + keyword + RRF) dla każdej grupy demograficznej:
-        - Age groups (18-24, 25-34, etc.)
-        - Gender
-        - Education levels
-        - Locations
-
-        Args:
-            target_demographics: Rozkład demograficzny (age_group, gender, etc.)
-
-        Returns:
-            Sformatowany string z Graph RAG context (Wskazniki, Obserwacje, Trendy)
-        """
-        # Przygotuj queries dla hybrid search
-        queries = []
-
-        # Age groups
-        if "age_group" in target_demographics:
-            for age_group in target_demographics["age_group"].keys():
-                queries.append(f"demographics statistics age {age_group} Poland")
-
-        # Gender
-        if "gender" in target_demographics:
-            for gender in target_demographics["gender"].keys():
-                queries.append(f"gender {gender} demographics Poland workforce")
-
-        # Education
-        if "education_level" in target_demographics:
-            for education in target_demographics["education_level"].keys():
-                queries.append(f"education level {education} Poland employment")
-
-        # Ogólne trendy społeczne
-        queries.extend([
-            "Polish society trends 2023 2024 demographics",
-            "workforce statistics Poland employment rates",
-            "income housing costs Poland urban areas",
-            "work-life balance trends Poland young professionals",
-        ])
-
-        # Wykonaj parallel hybrid searches z timeout
-        try:
-            results = await asyncio.wait_for(
-                asyncio.gather(*[
-                    self.rag_service.hybrid_search(query=q, top_k=3)
-                    for q in queries[:8]  # Limit do 8 queries (24 results max)
-                ]),
-                timeout=30.0  # 30 sekund dla wszystkich queries
-            )
-        except asyncio.TimeoutError:
-            logger.warning("⚠️ Graph RAG queries przekroczyły timeout (30s) - zwracam pusty kontekst")
-            return "Brak dostępnego kontekstu z Graph RAG (timeout)."
-
-        # Deduplikuj i formatuj
-        all_docs = []
-        seen_texts = set()
-        for docs_list in results:
-            for doc in docs_list:
-                if doc.page_content not in seen_texts:
-                    all_docs.append(doc)
-                    seen_texts.add(doc.page_content)
-
-        # Formatuj jako czytelny context
-        formatted_context = self._format_graph_context(all_docs[:15])  # Top 15 unique
-        return formatted_context
-
-    def _format_graph_context(self, documents: List[Any]) -> str:
-        """Formatuje Graph RAG documents jako czytelny context dla LLM.
-
-        Args:
-            documents: Lista Document objects z Graph RAG
-
-        Returns:
-            Sformatowany string z numbered entries
-        """
-        if not documents:
-            return "Brak dostępnego kontekstu z Graph RAG."
-
-        formatted = "=== KONTEKST Z GRAPH RAG (Raporty o polskim społeczeństwie) ===\n\n"
-
-        for idx, doc in enumerate(documents, 1):
-            formatted += f"[{idx}] {doc.page_content}\n"
-
-            # Dodaj metadata jeśli istnieje
-            if hasattr(doc, 'metadata') and doc.metadata:
-                meta = doc.metadata
-                if 'source' in meta:
-                    formatted += f"    Źródło: {meta['source']}\n"
-                if 'document_title' in meta:
-                    formatted += f"    Tytuł: {meta['document_title']}\n"
-
-            formatted += "\n"
-
-        return formatted
 
     def _extract_json_from_response(self, response_text: str) -> dict[str, Any]:
         """Ekstraktuje JSON z odpowiedzi LLM (może być otoczony markdown lub preambułą).
@@ -1004,7 +493,7 @@ class PersonaOrchestrationService:
             try:
                 return json.loads(json_text)
             except json.JSONDecodeError as e:
-                logger.error(f"❌ Nie można sparsować JSON z bloku markdown: {e}")
+                logger.error(f"[X] Nie można sparsować JSON z bloku markdown: {e}")
                 logger.error(f"JSON block text: {json_text[:500]}...")
                 # Kontynuuj do następnej strategii
 
@@ -1015,7 +504,7 @@ class PersonaOrchestrationService:
             try:
                 return json.loads(json_text)
             except json.JSONDecodeError as e:
-                logger.error(f"❌ Nie można sparsować JSON z bloku kodu: {e}")
+                logger.error(f"[X] Nie można sparsować JSON z bloku kodu: {e}")
                 # Kontynuuj do następnej strategii
 
         # Strategia 3: Znajdź pierwszy { ... } (może być po preambule)
@@ -1025,17 +514,17 @@ class PersonaOrchestrationService:
             try:
                 return json.loads(json_text)
             except json.JSONDecodeError as e:
-                logger.error(f"❌ Nie można sparsować JSON z braces: {e}")
+                logger.error(f"[X] Nie można sparsować JSON z braces: {e}")
                 logger.error(f"Braces text: {json_text[:500]}...")
 
         # Strategia 4: Spróbuj sparsować cały tekst (fallback)
         try:
             return json.loads(text)
         except json.JSONDecodeError as e:
-            logger.error(f"❌ Nie można sparsować JSON (all strategies failed): {e}")
-            logger.error(f"❌ Response text length: {len(text)} chars")
-            logger.error(f"❌ Response text (first 1000 chars): {text[:1000]}")
-            logger.error(f"❌ Response text (last 1000 chars): {text[-1000:]}")
+            logger.error(f"[X] Nie można sparsować JSON (all strategies failed): {e}")
+            logger.error(f"[X] Response text length: {len(text)} chars")
+            logger.error(f"[X] Response text (first 1000 chars): {text[:1000]}")
+            logger.error(f"[X] Response text (last 1000 chars): {text[-1000:]}")
             raise ValueError(f"LLM nie zwrócił poprawnego JSON: {e}")
 
     # === NEW METHODS FOR SEGMENT-BASED ARCHITECTURE ===
@@ -1098,7 +587,7 @@ ZASADY:
 1. Nazwa powinna być 2-4 słowa (np. "Młodzi Prekariusze", "Aspirujące Profesjonalistki 35-44")
 2. Oddaje kluczową charakterystykę grupy (wiek + status społeczno-ekonomiczny)
 3. Używa polskiego języka, brzmi naturalnie
-4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek → "Młodzi Prekariusze")
+4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek -> "Młodzi Prekariusze")
 5. Unikaj ogólników ("Grupa A", "Segment 1")
 6. Jeśli wiek jest istotny, włącz go (np. "35-44")
 
@@ -1131,11 +620,11 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
                 # Fallback: template name
                 segment_name = f"Segment {age_range}, {gender}"
 
-            logger.info(f"✅ Generated segment name: '{segment_name}'")
+            logger.info(f"[OK] Generated segment name: '{segment_name}'")
             return segment_name
 
         except Exception as e:
-            logger.error(f"❌ Failed to generate segment name: {e}")
+            logger.error(f"[X] Failed to generate segment name: {e}")
             # Fallback: template name
             fallback_name = f"Segment {age_range}, {gender}"
             logger.warning(f"Using fallback segment name: '{fallback_name}'")
@@ -1233,11 +722,11 @@ ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
                     "but accepting anyway"
                 )
 
-            logger.info(f"✅ Generated segment context: {len(segment_context)} chars")
+            logger.info(f"[OK] Generated segment context: {len(segment_context)} chars")
             return segment_context
 
         except Exception as e:
-            logger.error(f"❌ Failed to generate segment context: {e}")
+            logger.error(f"[X] Failed to generate segment context: {e}")
             # Fallback: minimal context
             fallback_context = (
                 f"Segment '{segment_name}' obejmuje osoby w wieku {age_range}, {gender}, "
@@ -1325,3 +814,22 @@ ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
 
         # Return top 10
         return filtered[:10]
+
+    # ---------------------------------------------------------------------
+    # Simplified (override) prompt builder – use central template only
+    # ---------------------------------------------------------------------
+    def _build_orchestration_prompt(
+        self,
+        num_personas: int,
+        graph_context: str,
+        project_description: str | None,
+        additional_context: str | None,
+    ) -> str:
+        """Build orchestration prompt using central template (prompts module)."""
+        return ORCHESTRATION_PROMPT_TEMPLATE.format(
+            num_personas=num_personas,
+            project_description=project_description or "Badanie person syntetycznych",
+            additional_context=additional_context or "Brak dodatkowego kontekstu",
+            target_demographics="{}",
+            graph_context=graph_context,
+        )

@@ -112,12 +112,12 @@ from app.services.focus_groups import FocusGroupServiceLangChain
 - `rag_prompts.py` - Cypher, Graph RAG
 - `system_prompts.py` - Wspólne prompty
 
-### Stałe Demograficzne → `app/core/demographics/`
-- `polish_constants.py` - POLISH_* (imiona, miasta, zawody)
-- `international_constants.py` - DEFAULT_* (międzynarodowe)
+### Stałe → `app/core/constants/`
+- `polish.py` - POLISH_* (imiona, miasta, zawody, wartości, itp.)
+- `personas.py` - DEFAULT_* dla cech person (np. wartości, style komunikacji)
 
 **Import:**
 ```python
 from app.core.prompts.persona_prompts import JTBD_ANALYSIS_PROMPT_TEMPLATE
-from app.core.demographics.polish_constants import POLISH_MALE_NAMES
+from app.core.constants.polish import POLISH_MALE_NAMES
 ```

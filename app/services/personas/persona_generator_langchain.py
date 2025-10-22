@@ -1,14 +1,19 @@
 """
 Generator Person oparty na LangChain i Google Gemini
 
-Ten moduł generuje realistyczne, statystycznie reprezentatywne persony
-dla badań rynkowych przy użyciu Google Gemini przez framework LangChain.
+Ten moduł generuje realistyczne persony dla badań rynkowych przy użyciu
+Google Gemini 2.5 Flash przez framework LangChain.
 
 Kluczowe funkcjonalności:
-- Generowanie person zgodnie z zadanymi rozkładami demograficznymi
-- Walidacja statystyczna przy użyciu testu chi-kwadrat
+- Generowanie person z segment-based briefów (od orchestration service)
+- Integracja z RAG/GraphRAG dla kontekstu kulturowego i demograficznego
 - Sampling cech osobowości (Big Five) i wymiarów kulturowych (Hofstede)
 - Integracja z LangChain dla łatwej zmiany modelu LLM
+
+Filozofia:
+- Orchestration (Gemini 2.5 Pro) tworzy szczegółowe briefe dla segmentów
+- Generator (Gemini 2.5 Flash) tworzy konkretne persony z briefów
+- RAG dostarcza kontekst z polskiej kultury i społeczeństwa
 """
 
 import re
@@ -28,6 +33,7 @@ from app.core.constants import (
     POLISH_SURNAMES,
 )
 from app.services.shared.clients import build_chat_model
+from app.core.prompts.personas import PERSONA_GENERATION_CHAT_PROMPT
 
 settings = get_settings()
 
