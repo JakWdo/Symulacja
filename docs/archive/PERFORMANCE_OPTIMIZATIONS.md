@@ -313,12 +313,10 @@ journeys = await asyncio.gather(*tasks)
    - Temperature: 0.7 (unchanged - creativity needed)
    - Performance logging
 
-4. **`app/services/persona_kpi_service.py`**
-   - Semantic caching (demographics hash)
-   - Cache TTL: 24 hours
-   - Performance logging (cache hit/miss)
+4. **Persona KPI (archived/removed)**
+   - Ten serwis został usunięty w refaktoryzacji segment-based; KPI logika może wrócić później jako osobny moduł
 
-5. **`app/services/persona_details_service.py`**
+5. **`app/services/personas/persona_details_service.py`**
    - Smart cache invalidation (include updated_at in key)
    - Cache TTL: 5min → 1h
    - Comprehensive performance logging
