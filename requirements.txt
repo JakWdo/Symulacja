@@ -55,6 +55,10 @@ anthropic
 tiktoken
 # google-generativeai - installed automatically by langchain-google-genai
 
+# Google Cloud Platform Services
+google-cloud-secret-manager>=2.18.0  # Secret Manager for production secrets
+# google-cloud-aiplatform - TODO: Add when implementing Vertex AI Ranking
+
 # ML & Data Science
 numpy
 pandas

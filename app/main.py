@@ -165,12 +165,78 @@ app.include_router(settings_router.router, prefix=settings.API_V1_PREFIX, tags=[
 @app.get("/health")
 async def health_check():
     """
-    Health check endpoint - do monitorowania (Kubernetes, Docker, etc.)
+    Liveness check - basic ping for Cloud Run health monitoring.
 
     Returns:
-        Status zdrowia aplikacji i środowisko
+        Simple status indicating the application process is alive.
     """
-    # Diagnostyka RAG serwisów
+    from datetime import datetime
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
+@app.get("/ready")
+async def readiness_check():
+    """
+    Readiness check - verify dependencies are available.
+
+    Checks:
+    - PostgreSQL connection
+    - Redis connection (optional - degraded if unavailable)
+    - Neo4j connection (optional - degraded if unavailable)
+
+    Returns:
+        Status of application and all dependencies.
+        Status can be: "ready", "not_ready", "degraded"
+    """
+    from datetime import datetime
+    from sqlalchemy import text
+
+    status = {
+        "status": "ready",
+        "timestamp": datetime.utcnow().isoformat(),
+        "dependencies": {}
+    }
+
+    # Check PostgreSQL (REQUIRED)
+    try:
+        from app.db import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT 1"))
+        status["dependencies"]["postgresql"] = {"status": "ok"}
+    except Exception as exc:
+        status["dependencies"]["postgresql"] = {"status": "failed", "error": str(exc)}
+        status["status"] = "not_ready"
+
+    # Check Redis (OPTIONAL - used for caching)
+    try:
+        from app.api.rag import redis_client
+        if redis_client:
+            await redis_client.ping()
+            status["dependencies"]["redis"] = {"status": "ok"}
+        else:
+            status["dependencies"]["redis"] = {"status": "not_initialized"}
+    except Exception as exc:
+        status["dependencies"]["redis"] = {"status": "degraded", "error": str(exc)}
+        # Redis optional - don't block readiness
+
+    # Check Neo4j (OPTIONAL - used for RAG)
+    try:
+        from app.services.rag.clients import get_vector_store
+        import logging
+        logger = logging.getLogger(__name__)
+        vector_store = get_vector_store(logger)
+        if vector_store:
+            status["dependencies"]["neo4j"] = {"status": "ok"}
+        else:
+            status["dependencies"]["neo4j"] = {"status": "degraded", "error": "Vector store unavailable"}
+    except Exception as exc:
+        status["dependencies"]["neo4j"] = {"status": "degraded", "error": str(exc)}
+        # Neo4j optional - don't block readiness
+
+    # Check RAG services status
     rag_status = {}
     try:
         from app.api.rag import _rag_document_service, _polish_society_rag
@@ -184,11 +250,9 @@ async def health_check():
     except Exception as exc:
         rag_status["error"] = str(exc)
 
-    return {
-        "status": "healthy",
-        "environment": settings.ENVIRONMENT,
-        "rag_services": rag_status
-    }
+    status["rag_services"] = rag_status
+
+    return status
 
 
 @app.get("/startup")
