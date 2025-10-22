@@ -53,7 +53,7 @@ steps:
           --cache-from europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
           --build-arg BUILDKIT_INLINE_CACHE=1 \
           -t europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
-          -t europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:$$COMMIT_SHA \
+          -t europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:$COMMIT_SHA \
           .
     id: 'build'
     waitFor: ['pull-cache']  # Wait for cache image to be pulled
