@@ -31,12 +31,12 @@ async def create_project(
     Utwórz nowy projekt badawczy
 
     Projekt to kontener na:
-    - Persony (generowane zgodnie z target_demographics)
+    - Persony (generowane przez segment-based allocation + RAG)
     - Grupy fokusowe (dyskusje z personami)
-    - Wyniki walidacji statystycznej
+    - Analizy badawcze
 
     Args:
-        project: Dane nowego projektu (name, description, target_demographics, target_sample_size)
+        project: Dane nowego projektu (name, description, target_sample_size)
         db: Sesja bazy danych
 
     Returns:
@@ -51,7 +51,6 @@ async def create_project(
         target_audience=project.target_audience,
         research_objectives=project.research_objectives,
         additional_notes=project.additional_notes,
-        target_demographics=project.target_demographics,  # JSON z rozkładami
         target_sample_size=project.target_sample_size,
         owner_id=current_user.id,
     )
@@ -158,8 +157,6 @@ async def update_project(
         project.research_objectives = project_update.research_objectives
     if project_update.additional_notes is not None:
         project.additional_notes = project_update.additional_notes
-    if project_update.target_demographics is not None:
-        project.target_demographics = project_update.target_demographics
     if project_update.target_sample_size is not None:
         project.target_sample_size = project_update.target_sample_size
 

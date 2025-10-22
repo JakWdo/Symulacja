@@ -81,13 +81,6 @@ async def test_complete_research_workflow_end_to_end(db_session):
         "description": "End-to-end test of market research platform",
         "target_audience": "Young professionals aged 25-35",
         "research_objectives": "Test complete workflow",
-        "target_demographics": {
-            "age_group": {"18-24": 0.2, "25-34": 0.5, "35-44": 0.3},
-            "gender": {"male": 0.5, "female": 0.5},
-            "education_level": {"bachelors": 0.6, "masters": 0.4},
-            "income_bracket": {"30k-60k": 0.5, "60k-100k": 0.5},
-            "location": {"urban": 0.7, "suburban": 0.3}
-        },
         "target_sample_size": 10  # Small for faster test
     }
 
@@ -144,17 +137,13 @@ async def test_complete_research_workflow_end_to_end(db_session):
 
     print(f"[E2E] ✓ All personas have required fields")
 
-    # ========== STEP 4: Validate Statistical Distribution ==========
-    print("[E2E] Step 4: Validating statistical distribution...")
+    # ========== STEP 4: Validate Project Structure ==========
+    print("[E2E] Step 4: Validating project structure...")
     project_check = client.get(f"/api/v1/projects/{project_id}", headers=headers)
     project_data = project_check.json()
 
-    # Check if chi-square validation was performed
-    # Note: This might be None if validation happens later
-    if project_data.get("p_values"):
-        print(f"[E2E] ✓ Chi-square validation performed: {project_data['is_statistically_valid']}")
-    else:
-        print(f"[E2E] ⚠ Chi-square validation not yet available")
+    # NOTE: Chi-square validation removed (2025-10-22) - segment-based allocation
+    print(f"[E2E] ✓ Project structure validated")
 
     # ========== STEP 5: Create Focus Group ==========
     print("[E2E] Step 5: Creating focus group...")

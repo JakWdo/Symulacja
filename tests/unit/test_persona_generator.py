@@ -12,40 +12,7 @@ Ten moduł testuje kluczowe funkcjonalności generatora person:
 import pytest
 import numpy as np
 from app.core.config import get_settings
-from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain as PersonaGenerator, DemographicDistribution
-
-
-@pytest.fixture
-def sample_distribution():
-    """
-    Fixture - przykładowy rozkład demograficzny dla testów
-
-    Zwraca obiekt DemographicDistribution z rozkładami prawdopodobieństw dla:
-    - Grup wiekowych (age_groups): 18-24, 25-34, 35-44, 45-54, 55+
-    - Płci (genders): male, female
-    - Poziomów wykształcenia (education_levels): high_school, bachelors, masters, phd
-    - Przedziałów dochodowych (income_brackets): <30k, 30k-60k, 60k-100k, 100k+
-    - Lokalizacji (locations): urban, suburban, rural
-
-    Wszystkie rozkłady sumują się do 1.0 (100%)
-    """
-    return DemographicDistribution(
-        age_groups={"18-24": 0.15, "25-34": 0.25, "35-44": 0.25, "45-54": 0.20, "55+": 0.15},
-        genders={"male": 0.49, "female": 0.51},
-        education_levels={
-            "high_school": 0.30,
-            "bachelors": 0.40,
-            "masters": 0.20,
-            "phd": 0.10,
-        },
-        income_brackets={
-            "<30k": 0.20,
-            "30k-60k": 0.30,
-            "60k-100k": 0.30,
-            "100k+": 0.20,
-        },
-        locations={"urban": 0.60, "suburban": 0.30, "rural": 0.10},
-    )
+from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain as PersonaGenerator
 
 
 @pytest.fixture
@@ -63,62 +30,9 @@ def generator():
     return gen
 
 
-def test_weighted_sampling(generator, sample_distribution):
-    """
-    Test losowania z wagami (weighted sampling)
-
-    Sprawdza czy metoda _weighted_sample respektuje zadane rozkłady prawdopodobieństw:
-    1. Generuje 1000 próbek z rozkładu grup wiekowych
-    2. Weryfikuje że wszystkie kategorie są reprezentowane
-    3. Sprawdza czy obserwowane proporcje są bliskie oczekiwanym (tolerancja ±5%)
-
-    Np. jeśli grupa "25-34" ma wagę 0.25, to ~250/1000 próbek powinno należeć do tej grupy
-    """
-    samples = []
-    for _ in range(1000):
-        sample = generator._weighted_sample(sample_distribution.age_groups)
-        samples.append(sample)
-
-    # Check that all categories are represented
-    unique_values = set(samples)
-    assert unique_values == set(sample_distribution.age_groups.keys())
-
-    # Check proportions (with some tolerance)
-    for category, expected_prob in sample_distribution.age_groups.items():
-        observed_prob = samples.count(category) / len(samples)
-        assert abs(observed_prob - expected_prob) < 0.05  # 5% tolerance
-
-
-def test_sample_demographic_profile(generator, sample_distribution):
-    """
-    Test generowania profili demograficznych
-
-    Sprawdza czy metoda sample_demographic_profile generuje kompletne profile osoby:
-    1. Generuje 10 profili demograficznych
-    2. Weryfikuje że każdy profil zawiera wszystkie wymagane pola:
-       - age_group (grupa wiekowa)
-       - gender (płeć)
-       - education_level (poziom wykształcenia)
-       - income_bracket (przedział dochodowy)
-       - location (lokalizacja)
-    3. Sprawdza czy wartości należą do zdefiniowanych kategorii w rozkładzie
-    """
-    profiles = generator.sample_demographic_profile(sample_distribution, n_samples=10)
-
-    assert len(profiles) == 10
-
-    for profile in profiles:
-        assert "age_group" in profile
-        assert "gender" in profile
-        assert "education_level" in profile
-        assert "income_bracket" in profile
-        assert "location" in profile
-
-        assert profile["age_group"] in sample_distribution.age_groups
-        assert profile["gender"] in sample_distribution.genders
-        assert profile["education_level"] in sample_distribution.education_levels
-        assert profile["income_bracket"] in sample_distribution.income_brackets
-        assert profile["location"] in sample_distribution.locations
+# NOTE: Tests for demographic sampling and chi-square validation removed
+# after refactoring to segment-based allocation (2025-10-22).
+# System now uses PersonaOrchestrationService for allocation planning.
 
 
 def test_big_five_traits_sampling(generator):
@@ -181,79 +95,9 @@ def test_cultural_dimensions_sampling(generator):
         assert 0 <= dimensions[dim] <= 1
 
 
-def test_chi_square_validation(generator, sample_distribution):
-    """
-    Test walidacji statystycznej chi-kwadrat
-
-    Test chi-kwadrat (χ²) sprawdza czy obserwowany rozkład pasuje do oczekiwanego.
-    Jest to kluczowa walidacja dla generatora person - musi tworzyć populacje zgodne
-    z założonymi rozkładami demograficznymi.
-
-    Proces testu:
-    1. Generuje 200 person z zadanym rozkładem demograficznym
-    2. Przeprowadza testy χ² dla każdej kategorii (wiek, płeć, wykształcenie, dochód, lokalizacja)
-    3. Sprawdza strukturę wyniku - każdy test zwraca:
-       - p_value - prawdopodobieństwo (p > 0.05 oznacza zgodność)
-       - chi_square_statistic - wartość statystyki χ²
-       - degrees_of_freedom - stopnie swobody
-    4. Weryfikuje overall_valid=True (wszystkie rozkłady są poprawne)
-
-    Z 200 próbkami rozkład powinien być statystycznie zgodny z oczekiwanym
-    """
-    # Generate personas that match distribution
-    personas = []
-    for _ in range(200):
-        profile = generator.sample_demographic_profile(sample_distribution)[0]
-        personas.append(profile)
-
-    # Validate distribution
-    validation = generator.validate_distribution(personas, sample_distribution)
-
-    # Check structure
-    assert "age" in validation
-    assert "gender" in validation
-    assert "education" in validation
-    assert "income" in validation
-    assert "location" in validation
-    assert "overall_valid" in validation
-
-    # Each test should have p_value
-    for key in ["age", "gender", "education", "income", "location"]:
-        assert "p_value" in validation[key]
-        assert "chi_square_statistic" in validation[key]
-        assert "degrees_of_freedom" in validation[key]
-
-    # With 200 samples, distribution should be valid (p > 0.05)
-    assert validation["overall_valid"] is True
-
-
-def test_chi_square_validation_small_sample(generator, sample_distribution):
-    """
-    Test walidacji chi-kwadrat z małą próbką
-
-    Sprawdza zachowanie testu χ² przy niewystarczającej liczbie próbek.
-
-    Z zaledwie 20 personami:
-    - Test może wykazać rozbieżność od oczekiwanego rozkładu (to normalne)
-    - Struktura wyników powinna być prawidłowa (zawierać overall_valid)
-    - Test powinien zakończyć się bez błędów (nawet jeśli validacja = False)
-
-    Ten test pokazuje że generator działa poprawnie nawet z małymi próbkami,
-    ale ostrzega że walidacja statystyczna wymaga większej liczby person.
-    """
-    # Generate only 20 personas (too small for good statistical validation)
-    personas = []
-    for _ in range(20):
-        profile = generator.sample_demographic_profile(sample_distribution)[0]
-        personas.append(profile)
-
-    validation = generator.validate_distribution(personas, sample_distribution)
-
-    # Structure should still be correct
-    assert "overall_valid" in validation
-
-    # With small sample, might fail validation (that's expected)
-    # Just verify the test completes without error
+# NOTE: Chi-square validation tests removed (2025-10-22)
+# System no longer uses statistical validation of demographics after
+# refactoring to segment-based allocation with PersonaOrchestrationService
 
 
 def test_sanitize_text_single_line(generator):

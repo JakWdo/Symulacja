@@ -33,10 +33,6 @@ async def test_create_project_success(authenticated_client):
         name="Market Research Project",
         description="Testing project creation",
         research_objectives="Understand product preferences",
-        target_demographics={
-            "age_group": {"18-24": 0.2, "25-34": 0.5, "35-44": 0.3},
-            "gender": {"male": 0.48, "female": 0.52},
-        },
         target_sample_size=50,
     )
 
@@ -54,15 +50,7 @@ async def test_create_project_success(authenticated_client):
     assert data["description"] == project_data["description"]
     assert data["target_sample_size"] == 50
 
-    # Verify demographics structure
-    assert "age_group" in data["target_demographics"]
-    assert "gender" in data["target_demographics"]
-
-    # Verify demographics sum to ~1.0
-    age_sum = sum(data["target_demographics"]["age_group"].values())
-    gender_sum = sum(data["target_demographics"]["gender"].values())
-    assert abs(age_sum - 1.0) < 0.01, f"Age distribution sum {age_sum} != 1.0"
-    assert abs(gender_sum - 1.0) < 0.01, f"Gender distribution sum {gender_sum} != 1.0"
+    # NOTE: target_demographics is now optional - demographics removed from validation (2025-10-22)
 
     # Verify timestamps
     assert "created_at" in data
@@ -70,62 +58,8 @@ async def test_create_project_success(authenticated_client):
     assert data["is_active"] is True
 
 
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_create_project_invalid_demographics_sum(authenticated_client):
-    """
-    Test odrzucenia projektu z demografią która nie sumuje się do 1.0.
-
-    KRYTYCZNE: Rozkłady demograficzne muszą być prawidłowe,
-    inaczej walidacja chi-kwadrat będzie błędna.
-    """
-    client, user, headers = await authenticated_client
-
-    # Demographics nie sumują się do 1.0 (suma = 0.6)
-    project_data = project_payload(
-        name="Invalid Demographics Project",
-        target_demographics={
-            "age_group": {"18-24": 0.3, "25-34": 0.3},
-            "gender": {"male": 0.5, "female": 0.5},
-        },
-        target_sample_size=20,
-    )
-
-    response = client.post(
-        "/api/v1/projects",
-        json=project_data,
-        headers=headers
-    )
-
-    # Backend powinien zaakceptować (walidacja sumy jest w PersonaGenerator),
-    # ale projekt będzie mieć nieprawidłowe dane
-    # W przyszłości można dodać walidację na poziomie Pydantic
-    assert response.status_code in [201, 422]
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_create_project_empty_demographics(authenticated_client):
-    """
-    Test odrzucenia projektu z pustą demografią.
-    """
-    client, user, headers = await authenticated_client
-
-    project_data = project_payload(
-        name="Empty Demographics Project",
-        target_demographics={},
-        target_sample_size=20,
-    )
-
-    response = client.post(
-        "/api/v1/projects",
-        json=project_data,
-        headers=headers
-    )
-
-    # Pydantic powinien to zaakceptować (Dict[str, Dict[str, float]]),
-    # ale generowanie person będzie failować
-    assert response.status_code in [201, 422]
+# NOTE: Tests for demographics validation removed (2025-10-22)
+# System no longer validates demographics sums after refactoring to segment-based allocation
 
 
 @pytest.mark.integration
@@ -142,10 +76,6 @@ async def test_list_projects_returns_only_users_projects(authenticated_client):
     for i in range(2):
         project_data = project_payload(
             name=f"Test Project {i+1}",
-            target_demographics={
-                "age_group": {"18-24": 0.5, "25-34": 0.5},
-                "gender": {"male": 0.5, "female": 0.5},
-            },
             target_sample_size=20,
         )
         response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -164,7 +94,6 @@ async def test_list_projects_returns_only_users_projects(authenticated_client):
     for project in data:
         assert "id" in project
         assert "name" in project
-        assert "target_demographics" in project
 
 
 @pytest.mark.integration
@@ -179,10 +108,6 @@ async def test_list_projects_pagination(authenticated_client):
     for i in range(5):
         project_data = project_payload(
             name=f"Pagination Test Project {i+1}",
-            target_demographics={
-                "age_group": {"18-24": 0.5, "25-34": 0.5},
-                "gender": {"male": 0.5, "female": 0.5},
-            },
             target_sample_size=10,
         )
         response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -216,10 +141,6 @@ async def test_get_project_details(authenticated_client):
     project_data = project_payload(
         name="Detail Test Project",
         description="Project for testing details endpoint",
-        target_demographics={
-            "age_group": {"18-24": 0.3, "25-34": 0.4, "35-44": 0.3},
-            "gender": {"male": 0.5, "female": 0.5},
-        },
         target_sample_size=30,
     )
     create_response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -263,23 +184,16 @@ async def test_update_project_demographics(authenticated_client):
     # Create project
     project_data = project_payload(
         name="Update Test Project",
-        target_demographics={
-            "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5},
-        },
         target_sample_size=20,
     )
     create_response = client.post("/api/v1/projects", json=project_data, headers=headers)
     assert create_response.status_code == 201
     project_id = create_response.json()["id"]
 
-    # Update demographics
+    # Update project
     update_data = {
-        "target_demographics": {
-            "age_group": {"18-24": 0.2, "25-34": 0.5, "35-44": 0.3},
-            "gender": {"male": 0.4, "female": 0.6}
-        },
-        "target_sample_size": 50
+        "target_sample_size": 50,
+        "description": "Updated description"
     }
 
     response = client.put(f"/api/v1/projects/{project_id}", json=update_data, headers=headers)
@@ -287,8 +201,7 @@ async def test_update_project_demographics(authenticated_client):
 
     data = response.json()
     assert data["target_sample_size"] == 50
-    assert "35-44" in data["target_demographics"]["age_group"]
-    assert data["target_demographics"]["gender"]["female"] == 0.6
+    assert data["description"] == "Updated description"
 
 
 @pytest.mark.integration
@@ -303,10 +216,6 @@ async def test_update_project_partial_update(authenticated_client):
     project_data = {
         "name": "Partial Update Test",
         "description": "Original description",
-        "target_demographics": {
-            "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
-        },
         "target_sample_size": 20
     }
     create_response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -341,10 +250,6 @@ async def test_delete_project_soft_delete(authenticated_client):
     # Create project
     project_data = {
         "name": "Delete Test Project",
-        "target_demographics": {
-            "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
-        },
         "target_sample_size": 20
     }
     create_response = client.post("/api/v1/projects", json=project_data, headers=headers)

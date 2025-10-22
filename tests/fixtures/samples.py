@@ -38,10 +38,8 @@ def sample_project_dict():
         "owner_id": uuid4(),
         "name": "Test Research Project",
         "description": "Testing market research features",
-        "target_demographics": {
-            "age_group": {"25-34": 0.5, "35-44": 0.5},
-            "gender": {"male": 0.5, "female": 0.5},
-        },
+        "target_audience": "Young professionals",
+        "research_objectives": "Test research features",
         "target_sample_size": 20,
     }
 

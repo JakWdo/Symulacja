@@ -21,10 +21,6 @@ class TestProjectModel:
             owner_id=uuid4(),
             name="Test Project",
             description="Testing new product",
-            target_demographics={
-                "age_group": {"18-24": 0.3, "25-34": 0.7},
-                "gender": {"male": 0.5, "female": 0.5}
-            },
             target_sample_size=20,
             is_active=True  # Musimy ustawić jawnie dla Python ORM instance
         )
@@ -32,52 +28,10 @@ class TestProjectModel:
         assert project.name == "Test Project"
         assert project.target_sample_size == 20
         assert project.is_active is True
-        # is_statistically_valid nie ma server_default, więc jest None jeśli nie ustawione
-        assert project.is_statistically_valid in [False, None]
 
 
-    def test_project_demographics_structure(self):
-        """Test struktury rozkładów demograficznych."""
-        demographics = {
-            "age_group": {"18-24": 0.2, "25-34": 0.3, "35-44": 0.5},
-            "gender": {"male": 0.6, "female": 0.4},
-            "education_level": {
-                "high_school": 0.2,
-                "bachelors": 0.5,
-                "masters": 0.3
-            }
-        }
-
-        project = Project(
-            id=uuid4(),
-            owner_id=uuid4(),
-            name="Demographics Test",
-            target_demographics=demographics,
-            target_sample_size=50
-        )
-
-        assert "age_group" in project.target_demographics
-        assert "gender" in project.target_demographics
-        assert sum(project.target_demographics["age_group"].values()) == pytest.approx(1.0)
-
-
-    def test_project_validation_fields(self):
-        """Test pól związanych z walidacją statystyczną."""
-        project = Project(
-            id=uuid4(),
-            owner_id=uuid4(),
-            name="Validation Test",
-            target_demographics={"age_group": {"18-24": 1.0}},
-            target_sample_size=10,
-            chi_square_statistic={"age": 2.5, "gender": 1.2},
-            p_values={"age": 0.67, "gender": 0.89},
-            is_statistically_valid=True,
-            validation_date=datetime.now(timezone.utc)
-        )
-
-        assert project.is_statistically_valid is True
-        assert "age" in project.chi_square_statistic
-        assert project.p_values["age"] > 0.05  # p > 0.05 = valid
+    # NOTE: Demographics tests removed (2025-10-22)
+    # target_demographics is now optional after refactoring to segment-based allocation
 
 
     def test_project_repr(self):
@@ -86,7 +40,6 @@ class TestProjectModel:
             id=uuid4(),
             owner_id=uuid4(),
             name="Repr Test",
-            target_demographics={},
             target_sample_size=10
         )
 
@@ -415,7 +368,6 @@ class TestModelRelationships:
             id=uuid4(),
             owner_id=uuid4(),
             name="Test",
-            target_demographics={},
             target_sample_size=10
         )
 
@@ -461,14 +413,11 @@ class TestModelDefaults:
             id=uuid4(),
             owner_id=uuid4(),
             name="Test",
-            target_demographics={},
             target_sample_size=10,
             is_active=True  # Musimy ustawić jawnie dla Python ORM instance
         )
 
         assert project.is_active is True
-        # is_statistically_valid nie ma server_default, więc jest None jeśli nie ustawione
-        assert project.is_statistically_valid in [False, None]
 
 
     def test_persona_default_values(self):

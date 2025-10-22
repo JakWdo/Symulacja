@@ -28,10 +28,6 @@ async def test_gemini_api_timeout_handling(authenticated_client):
     # Create project
     project_data = {
         "name": "Timeout Test Project",
-        "target_demographics": {
-            "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
-        },
         "target_sample_size": 10
     }
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -78,10 +74,6 @@ async def test_gemini_api_quota_exceeded_handling(authenticated_client):
     # Create project
     project_data = {
         "name": "Quota Test Project",
-        "target_demographics": {
-            "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
-        },
         "target_sample_size": 5
     }
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -145,10 +137,6 @@ async def test_empty_personas_list_for_focus_group(authenticated_client):
     # Create project
     project_data = {
         "name": "Empty Personas Test",
-        "target_demographics": {
-            "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
-        },
         "target_sample_size": 10
     }
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -198,10 +186,6 @@ async def test_empty_questions_for_focus_group(authenticated_client):
     # Create project with personas
     project_data = {
         "name": "Empty Questions Test",
-        "target_demographics": {
-            "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
-        },
         "target_sample_size": 10
     }
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -237,42 +221,8 @@ async def test_empty_questions_for_focus_group(authenticated_client):
         assert fg_response.status_code in [400, 422]
 
 
-@pytest.mark.asyncio
-async def test_invalid_demographics_distribution(authenticated_client):
-    """
-    Test walidacji demographics - suma != 1.0.
-
-    Edge case: Rozkłady które nie sumują się do 1.0
-    mogą powodować błędy w walidacji chi-kwadrat.
-    """
-    client, user, headers = authenticated_client
-
-    # Demographics sum > 1.0
-    project_data = {
-        "name": "Invalid Demographics",
-        "target_demographics": {
-            "age_group": {"18-24": 0.6, "25-34": 0.6},  # suma = 1.2 > 1.0!
-            "gender": {"male": 0.5, "female": 0.5}
-        },
-        "target_sample_size": 10
-    }
-
-    response = client.post("/api/v1/projects", json=project_data, headers=headers)
-
-    # Może zostać zaakceptowane (walidacja w PersonaGenerator),
-    # ale generowanie person powinno failować
-    if response.status_code == 201:
-        project_id = response.json()["id"]
-
-        # Try to generate personas
-        generate_response = client.post(
-            f"/api/v1/projects/{project_id}/personas/generate",
-            json={"num_personas": 5},
-            headers=headers
-        )
-
-        # Should accept but fail in validation
-        assert generate_response.status_code in [202, 400, 422]
+# NOTE: test_invalid_demographics_distribution removed (2025-10-22)
+# System no longer validates demographics after refactoring to segment-based allocation
 
 
 @pytest.mark.asyncio
@@ -358,10 +308,6 @@ async def test_database_connection_error_handling(authenticated_client):
         # Try to create project
         project_data = {
             "name": "DB Error Test",
-            "target_demographics": {
-                "age_group": {"18-24": 0.5, "25-34": 0.5},
-                "gender": {"male": 0.5, "female": 0.5}
-            },
             "target_sample_size": 10
         }
 

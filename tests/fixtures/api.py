@@ -65,10 +65,8 @@ async def project_with_personas(db_session, authenticated_client):
         owner_id=user.id,
         name="Test Project with Personas",
         description="Project for testing",
-        target_demographics={
-            "age_group": {"18-24": 0.3, "25-34": 0.4, "35-44": 0.3},
-            "gender": {"male": 0.5, "female": 0.5},
-        },
+        target_audience="Test personas",
+        research_objectives="Testing focus group features",
         target_sample_size=10,
     )
 

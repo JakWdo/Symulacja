@@ -49,10 +49,6 @@ async def test_persona_generation_performance_20_personas(db_session):
     # Create project
     project_data = {
         "name": "Performance Test Project",
-        "target_demographics": {
-            "age_group": {"18-24": 0.2, "25-34": 0.3, "35-44": 0.3, "45-54": 0.2},
-            "gender": {"male": 0.5, "female": 0.5}
-        },
         "target_sample_size": 20
     }
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)

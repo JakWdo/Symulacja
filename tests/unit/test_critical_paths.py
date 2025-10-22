@@ -66,40 +66,8 @@ class TestPersonaGenerationCriticalPath:
         assert persona.project_id is not None
 
 
-    def test_chi_square_validation_rejects_bad_distributions(self):
-        """
-        KRYTYCZNE: Walidacja chi-square musi odrzucać złe rozkłady.
-
-        Jeśli wszystkie persony mają ten sam wiek, test powinien failować.
-        """
-        from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain, DemographicDistribution
-
-        gen = PersonaGeneratorLangChain.__new__(PersonaGeneratorLangChain)
-        gen.settings = type('obj', (object,), {'RANDOM_SEED': 42})()
-
-        import numpy as np
-        gen._rng = np.random.default_rng(42)
-
-        # Wygeneruj persony które NIE pasują do rozkładu
-        target = DemographicDistribution(
-            age_groups={"18-24": 0.5, "25-34": 0.5},
-            genders={"male": 0.5, "female": 0.5},
-            education_levels={"high_school": 0.5, "bachelors": 0.5},
-            income_brackets={"<30k": 0.5, "30k-60k": 0.5},
-            locations={"urban": 0.5, "rural": 0.5}
-        )
-
-        # Wszystkie persony z jednej grupy = zły rozkład
-        bad_personas = [
-            {"age_group": "18-24", "gender": "male", "education_level": "high_school",
-             "income_bracket": "<30k", "location": "urban"}
-            for _ in range(20)
-        ]
-
-        validation = gen.validate_distribution(bad_personas, target)
-
-        # Powinno wykryć że rozkład jest invalid
-        assert validation["overall_valid"] is False
+    # NOTE: test_chi_square_validation_rejects_bad_distributions removed (2025-10-22)
+    # System no longer uses chi-square validation after refactoring to segment-based allocation
 
 
 class TestFocusGroupCriticalPath:
@@ -310,7 +278,6 @@ class TestDatabaseConstraintsCriticalPath:
             id=uuid4(),
             owner_id=uuid4(),  # WYMAGANE
             name="Test",
-            target_demographics={},
             target_sample_size=10
         )
 
