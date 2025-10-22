@@ -9,23 +9,26 @@
 # 5. NEO4J INIT: Initialize vector indexes
 # 6. SMOKE TESTS: Post-deployment verification (health + frontend)
 #
-# Total time: ~3-5 min (optimized with Docker cache)
+# Total time: ~5-8 min (with Docker layer caching)
+#   - First build (no cache): ~20-25 min
+#   - Incremental builds (cache hit): ~5-8 min
+#   - Code-only changes (full cache): ~3-5 min
 # Code quality checks: Run locally (ruff, mypy, pytest)
 # ==============================================================================
 
 steps:
   # ==========================================================================
-  # BUILD: Docker Image (Backend + Frontend) - FORCE REBUILD (--no-cache)
+  # BUILD: Docker Image (Backend + Frontend) with Layer Caching
   # ==========================================================================
-  # TEMPORARY: --no-cache forces fresh install of dependencies from requirements.txt
-  # This fixes LLMGraphTransformer crash (additional_instructions) + Neo4j deprecations
-  # REVERT AFTER SUCCESSFUL DEPLOY: Remove --no-cache to restore fast builds (3-5 min)
+  # Uses --cache-from for explicit cache source from previous builds
+  # This dramatically speeds up builds (5-8 min vs 20-30 min without cache)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-f'
       - 'Dockerfile.cloudrun'
-      - '--no-cache'  # TEMPORARY: Force rebuild to install LangChain 0.3.x + langchain-neo4j
+      - '--cache-from'
+      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest'
       - '-t'
       - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest'
       - '-t'

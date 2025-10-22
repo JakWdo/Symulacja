@@ -79,7 +79,7 @@ Skrypt `scripts/setup-gcp-secrets.sh` automatyzuje tworzenie i aktualizację wsz
 
 Pełny deployment pipeline jest zdefiniowany w `cloudbuild.yaml` i składa się z siedmiu sekwencyjnych kroków: quality checks, unit tests, Docker build, database migrations, Cloud Run deploy, Neo4j initialization, oraz smoke tests. Pipeline uruchamia się automatycznie przy każdym push do branch `cleanup/dead-code-removal` przez Cloud Build trigger podpięty do GitHub repo `JakWdo/Symulacja`.
 
-Całkowity czas wykonania wynosi 7-12 minut, w zależności od cache'owania Docker layers i ilości zmian w kodzie. To znaczny wzrost z poprzednich 5 minut, ale reliability deployment wzrosła z ~70% do ponad 95% dzięki dodaniu comprehensive testing i automatic rollback.
+Całkowity czas wykonania wynosi **5-8 minut** dla incremental builds (z cache'owaniem Docker layers), lub **20-25 minut** dla first build bez cache. Code-only changes (bez zmian w dependencies) kompletują w **3-5 minut** dzięki aggressive layer caching. Pipeline używa explicit `--cache-from` dla maximum cache hit rate.
 
 ### Step 1: Code Quality (parallel)
 
@@ -99,7 +99,7 @@ Jeśli choć jeden test failuje, cały build się przerywa z exit code 1. Jest t
 
 ### Step 3-4: Build & Push
 
-Po pomyślnych testach następuje build Docker image z `Dockerfile.cloudrun`. Multi-stage build zajmuje 2-3 minuty dzięki layer caching. Image jest tagowany dwoma tagami: `latest` (zawsze wskazuje na najnowszy build) oraz `$COMMIT_SHA` (konkretny git commit dla rollback).
+Po pomyślnych testach następuje build Docker image z `Dockerfile.cloudrun`. Multi-stage build zajmuje **3-5 minut** dla code-only changes lub **15-20 minut** dla zmian w dependencies, dzięki Docker layer caching z explicit `--cache-from`. Image jest tagowany dwoma tagami: `latest` (zawsze wskazuje na najnowszy build) oraz `$COMMIT_SHA` (konkretny git commit dla rollback).
 
 Push do Artifact Registry w `europe-central2-docker.pkg.dev` następuje natychmiast po build. Registry automatycznie skanuje image pod kątem CVEs i wyświetla wyniki w Cloud Console. Critical CVEs powinny być naprawione przed deploy do produkcji.
 
@@ -211,10 +211,10 @@ Największym kosztem jest Cloud SQL. Dla jeszcze niższych kosztów można rozwa
 
 **Redis cache hits** - segment briefs są cache'owane w Redis na 7 dni. Cache hit rate ~80% oznacza 80% mniej wywołań Gemini API = oszczędność ~$15-20/miesiąc dla aktywnego użytkowania.
 
-**Docker layer caching** - Cloud Build cache'uje Docker layers między buildami. Jeśli `requirements.txt` się nie zmienił, `pip install` step jest skipped = build zajmuje 1 minutę zamiast 3. Mniej compute time = niższe koszty Cloud Build.
+**Docker layer caching** - Cloud Build cache'uje Docker layers między buildami z explicit `--cache-from` source. Jeśli `requirements.txt` i `package.json` się nie zmieniły, instalacja dependencies jest skipped = build zajmuje 3-5 minut zamiast 20-25. Mniej compute time = niższe koszty Cloud Build (~$0.50-1.00 oszczędności per build).
 
 ---
 
-**Ostatnia aktualizacja:** 2025-10-21
-**Wersja:** 1.0
+**Ostatnia aktualizacja:** 2025-10-22
+**Wersja:** 1.1
 **Status:** Production-ready
