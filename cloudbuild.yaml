@@ -115,7 +115,8 @@ steps:
       # ALLOWED_ORIGINS removed - not needed for same-origin deployment (backend + frontend in same container)
       # See app/main.py:114-135 for explanation
       # EMBEDDING_MODEL: CRITICAL - must have "models/" prefix for LangChain Google AI integration
-      - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,EMBEDDING_MODEL=models/gemini-embedding-001'
+      # Models configuration - can be changed via GCP UI without redeploy
+      - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,GRAPH_MODEL=gemini-2.5-flash,PERSONA_GENERATION_MODEL=gemini-2.5-flash,ANALYSIS_MODEL=gemini-2.5-pro,EMBEDDING_MODEL=models/gemini-embedding-001,TEMPERATURE=0.7,MAX_TOKENS=6000,RAG_ENABLED=True,RAG_USE_HYBRID_SEARCH=True,RAG_CHUNK_SIZE=1000,RAG_CHUNK_OVERLAP=300,RAG_TOP_K=8,RAG_VECTOR_WEIGHT=0.7,RAG_RRF_K=60'
     id: 'deploy'
     waitFor: ['migrate']
 
