@@ -120,6 +120,18 @@ class Settings(BaseSettings):
     # Multilingual model wspiera polski lepiej niż English-only ms-marco-MiniLM
     RAG_RERANKER_MODEL: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
 
+    # === RAG PERFORMANCE & FALLBACK ===
+    # Lite mode: uproszczona wersja RAG bez Graph RAG (szybsza dla persona generation)
+    # Gdy True: używa tylko vector/keyword search, pomija Graph RAG queries
+    RAG_LITE_MODE: bool = False
+    # Timeout dla Graph RAG queries (sekundy)
+    # Zmniejszony z domyślnych 150s → 30s dla szybszego fallback
+    # Jeśli Graph RAG nie odpowiada w tym czasie, zwraca pusty kontekst i kontynuuje
+    RAG_GRAPH_TIMEOUT: int = 30
+    # Disable reranking dla persona generation (szybsze queries)
+    # Reranking nadal włączony dla focus groups i analysis
+    RAG_DISABLE_RERANK_FOR_PERSONAS: bool = True
+
     # === GraphRAG NODE PROPERTIES ===
     # Włączanie bogatych metadanych węzłów
     RAG_NODE_PROPERTIES_ENABLED: bool = True

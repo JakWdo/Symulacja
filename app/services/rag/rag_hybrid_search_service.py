@@ -604,22 +604,40 @@ class PolishSocietyRAG:
 
         try:
             # 1. GRAPH RAG - Pobierz strukturalny kontekst z grafu wiedzy
+            # (pomijany w RAG_LITE_MODE dla szybszego działania)
             graph_nodes = []
             graph_context_formatted = ""
-            try:
-                graph_nodes = self.graph_rag_service.get_demographic_graph_context(
-                    age_group=age_group,
-                    location=location,
-                    education=education,
-                    gender=gender
-                )
-                if graph_nodes:
-                    graph_context_formatted = self._format_graph_context(graph_nodes)
-                    logger.info("Pobrano %s węzłów grafu z kontekstem demograficznym", len(graph_nodes))
-                else:
-                    logger.info("Brak wyników z graph context dla podanego profilu")
-            except Exception as graph_exc:
-                logger.warning("Nie udało się pobrać graph context: %s", graph_exc)
+
+            if not settings.RAG_LITE_MODE:
+                try:
+                    import asyncio
+                    # Timeout dla Graph RAG query (domyślnie 30s)
+                    async def get_graph_context_with_timeout():
+                        return self.graph_rag_service.get_demographic_graph_context(
+                            age_group=age_group,
+                            location=location,
+                            education=education,
+                            gender=gender
+                        )
+
+                    graph_nodes = await asyncio.wait_for(
+                        get_graph_context_with_timeout(),
+                        timeout=settings.RAG_GRAPH_TIMEOUT
+                    )
+
+                    if graph_nodes:
+                        graph_context_formatted = self._format_graph_context(graph_nodes)
+                        logger.info("Pobrano %s węzłów grafu z kontekstem demograficznym", len(graph_nodes))
+                    else:
+                        logger.info("Brak wyników z graph context dla podanego profilu")
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        f"Graph RAG timeout po {settings.RAG_GRAPH_TIMEOUT}s - kontynuacja bez graph context"
+                    )
+                except Exception as graph_exc:
+                    logger.warning("Nie udało się pobrać graph context: %s", graph_exc)
+            else:
+                logger.debug("RAG_LITE_MODE włączony - pomijam Graph RAG")
 
             # 2. HYBRID SEARCH (Vector + Keyword) - Pobierz chunki tekstowe
             if settings.RAG_USE_HYBRID_SEARCH:

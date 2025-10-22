@@ -113,6 +113,11 @@ class PersonaGeneratorLangChain:
             except Exception as e:
                 logger.warning(f"RAG service unavailable: {e}")
 
+        # In-memory cache dla RAG queries (eliminuje wielokrotne identyczne zapytania)
+        # Key: (age_group, education, location, gender) tuple
+        # Value: dict z RAG context
+        self._rag_cache: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+
     def sample_demographic_profile(
         self, distribution: DemographicDistribution, n_samples: int = 1
     ) -> list[dict[str, Any]]:
@@ -311,7 +316,7 @@ class PersonaGeneratorLangChain:
         self, demographic: dict[str, Any]
     ) -> dict[str, Any] | None:
         """
-        Pobierz kontekst z RAG dla danego profilu demograficznego
+        Pobierz kontekst z RAG dla danego profilu demograficznego (z cache)
 
         Args:
             demographic: Profil demograficzny persony
@@ -327,13 +332,37 @@ class PersonaGeneratorLangChain:
         import logging
         logger = logging.getLogger(__name__)
 
+        # Przygotuj cache key (normalizuj wartości)
+        age_group = demographic.get('age_group', '25-34')
+        education = demographic.get('education_level', 'wyższe')
+        location = demographic.get('location', 'Warszawa')
+        gender = demographic.get('gender', 'mężczyzna')
+
+        cache_key = (age_group, education, location, gender)
+
+        # Sprawdź cache przed wywołaniem RAG
+        if cache_key in self._rag_cache:
+            logger.debug(
+                f"RAG cache HIT dla profilu: wiek={age_group}, edukacja={education}, "
+                f"lokalizacja={location}, płeć={gender}"
+            )
+            return self._rag_cache[cache_key]
+
+        logger.debug(
+            f"RAG cache MISS dla profilu: wiek={age_group}, edukacja={education}, "
+            f"lokalizacja={location}, płeć={gender}"
+        )
+
         try:
             context_data = await self.rag_service.get_demographic_insights(
-                age_group=demographic.get('age_group', '25-34'),
-                education=demographic.get('education_level', 'wyższe'),
-                location=demographic.get('location', 'Warszawa'),
-                gender=demographic.get('gender', 'mężczyzna')
+                age_group=age_group,
+                education=education,
+                location=location,
+                gender=gender
             )
+
+            # Zapisz w cache dla przyszłych wywołań
+            self._rag_cache[cache_key] = context_data
 
             # Loguj szczegóły RAG context
             context_len = len(context_data.get('context', ''))
