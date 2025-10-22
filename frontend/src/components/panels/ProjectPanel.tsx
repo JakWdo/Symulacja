@@ -34,45 +34,9 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
       alert('Project name is required.');
       return;
     }
-    // Domyślna demografia z większą różnorodnością
-    const defaultDemographics = {
-      age_group: {
-        '18-24': 0.18,
-        '25-34': 0.26,
-        '35-44': 0.22,
-        '45-54': 0.18,
-        '55+': 0.16,
-      },
-      gender: {
-        female: 0.5,
-        male: 0.45,
-        non_binary: 0.05,
-      },
-      education_level: {
-        high_school: 0.25,
-        bachelors: 0.32,
-        masters: 0.22,
-        phd: 0.07,
-        vocational: 0.14,
-      },
-      income_bracket: {
-        '<30k': 0.18,
-        '30k-60k': 0.28,
-        '60k-100k': 0.27,
-        '100k+': 0.27,
-      },
-      location: {
-        urban: 0.45,
-        suburban: 0.33,
-        rural: 0.18,
-        remote: 0.04,
-      },
-    };
-
     createProjectMutation.mutate({
       name: name.trim(),
       description: description.trim() || null,
-      target_demographics: defaultDemographics,
       target_sample_size: 100,
     });
   };

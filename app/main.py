@@ -212,7 +212,8 @@ async def readiness_check():
 
     # Check Redis (OPTIONAL - used for caching)
     try:
-        from app.api.rag import redis_client
+        from app.core.redis import get_redis_client
+        redis_client = await get_redis_client()
         if redis_client:
             await redis_client.ping()
             status["dependencies"]["redis"] = {"status": "ok"}

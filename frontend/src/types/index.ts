@@ -433,18 +433,6 @@ export interface KeyConcept {
   personas: string[];
 }
 
-export interface GraphQueryInsight {
-  title: string;
-  detail: string;
-  metadata?: Record<string, any>;
-}
-
-export interface GraphQueryResponse {
-  answer: string;
-  insights: GraphQueryInsight[];
-  suggested_questions: string[];
-}
-
 // UI State Types
 export interface FloatingPanelState {
   isOpen: boolean;

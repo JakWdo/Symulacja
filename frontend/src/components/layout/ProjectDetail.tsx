@@ -36,7 +36,6 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
         research_objectives: formData.research_objectives,
         additional_notes: formData.additional_notes,
         target_sample_size: formData.target_sample_size,
-        target_demographics: project.target_demographics
       });
     },
     onSuccess: () => {

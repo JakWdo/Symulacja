@@ -814,22 +814,3 @@ ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
 
         # Return top 10
         return filtered[:10]
-
-    # ---------------------------------------------------------------------
-    # Simplified (override) prompt builder – use central template only
-    # ---------------------------------------------------------------------
-    def _build_orchestration_prompt(
-        self,
-        num_personas: int,
-        graph_context: str,
-        project_description: str | None,
-        additional_context: str | None,
-    ) -> str:
-        """Build orchestration prompt using central template (prompts module)."""
-        return ORCHESTRATION_PROMPT_TEMPLATE.format(
-            num_personas=num_personas,
-            project_description=project_description or "Badanie person syntetycznych",
-            additional_context=additional_context or "Brak dodatkowego kontekstu",
-            target_demographics="{}",
-            graph_context=graph_context,
-        )

@@ -33,6 +33,7 @@ from app.core.prompts.system_prompts import (
     STORYTELLING_PROMPT,
     build_system_prompt,
 )
+from app.core.redis import get_redis_client, redis_get_json, redis_set_json
 from app.models.persona import Persona
 from app.schemas.segment_brief import (
     SegmentBrief,
@@ -81,22 +82,6 @@ class SegmentBriefService:
 
         # RAG dla kontekstu społecznego Polski
         self.rag_service = PolishSocietyRAG()
-
-        # Redis dla cache (używamy tego samego co w innych miejscach)
-        self.redis_client = None
-        try:
-            import redis.asyncio as redis
-            self.redis_client = redis.from_url(
-                settings.REDIS_URL,
-                encoding="utf-8",
-                decode_responses=True,
-            )
-            logger.info("✅ SegmentBriefService: Redis połączony")
-        except Exception as exc:
-            logger.warning(
-                "⚠️ SegmentBriefService: Redis niedostępny - cache wyłączony. Error: %s",
-                exc
-            )
 
         # Cache TTL (7 dni)
         self.CACHE_TTL_SECONDS = 7 * 24 * 60 * 60  # 604800 sekund
@@ -162,16 +147,11 @@ class SegmentBriefService:
         Returns:
             SegmentBrief jeśli w cache, None jeśli nie ma
         """
-        if not self.redis_client:
-            return None
-
         cache_key = self._get_cache_key(project_id, segment_id)
 
         try:
-            cached_data = await self.redis_client.get(cache_key)
-            if cached_data:
-                # Deserializuj JSON do SegmentBrief
-                brief_dict = json.loads(cached_data)
+            brief_dict = await redis_get_json(cache_key)
+            if brief_dict:
                 logger.info(
                     "✅ Cache HIT: Segment brief '%s' dla projektu %s",
                     segment_id,
@@ -208,20 +188,14 @@ class SegmentBriefService:
             segment_id: ID segmentu
             brief: SegmentBrief do zapisania
         """
-        if not self.redis_client:
-            return
-
         cache_key = self._get_cache_key(project_id, segment_id)
 
         try:
-            # Serializuj do JSON
-            brief_json = brief.model_dump_json()
-
-            # Zapisz z TTL
-            await self.redis_client.setex(
+            # Zapisz z TTL (redis_set_json obsługuje Pydantic models)
+            await redis_set_json(
                 cache_key,
-                self.CACHE_TTL_SECONDS,
-                brief_json
+                brief.model_dump(mode="json"),
+                ttl_seconds=self.CACHE_TTL_SECONDS
             )
 
             logger.info(
@@ -795,11 +769,12 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
 
         # Sprawdź czy z cache
         from_cache = not request.force_refresh
-        if from_cache and self.redis_client:
+        if from_cache:
             # Sprawdź TTL
             cache_key = self._get_cache_key(str(project_id), brief.segment_id)
             try:
-                ttl = await self.redis_client.ttl(cache_key)
+                redis_client = get_redis_client()
+                ttl = await redis_client.ttl(cache_key)
                 cache_ttl_seconds = ttl if ttl > 0 else None
             except Exception:  # pragma: no cover - best effort cache probe
                 cache_ttl_seconds = None

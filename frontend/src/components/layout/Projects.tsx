@@ -57,10 +57,6 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
       createMutation.mutate({
         name: newProject.name,
         description: newProject.description,
-        target_demographics: {
-          age_group: { '18-24': 0.3, '25-34': 0.4, '35-44': 0.3 },
-          gender: { Male: 0.5, Female: 0.5 },
-        },
         target_sample_size: newProject.target_sample_size,
       });
     }

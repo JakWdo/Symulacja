@@ -19,7 +19,6 @@ import type {
   Survey,
   SurveyResults,
   Question,
-  GraphQueryResponse,
   RAGDocument,
   RAGQueryRequest,
   RAGQueryResponse,
@@ -72,7 +71,6 @@ export interface AccountStats {
 export interface CreateProjectPayload {
   name: string;
   description?: string | null;
-  target_demographics: Record<string, Record<string, number>>;
   target_sample_size: number;
 }
 
@@ -460,50 +458,6 @@ export const surveysApi = {
   },
 };
 
-// Graph Analysis API
-export const graphApi = {
-  buildGraph: async (focusGroupId: string): Promise<any> => {
-    const { data } = await api.post(`/graph/build/${focusGroupId}`);
-    return data;
-  },
-
-  getGraph: async (focusGroupId: string, filterType?: string): Promise<any> => {
-    const { data } = await api.get(`/graph/${focusGroupId}`, {
-      params: { filter_type: filterType }
-    });
-    return data;
-  },
-
-  getInfluentialPersonas: async (focusGroupId: string): Promise<any[]> => {
-    const { data } = await api.get(`/graph/${focusGroupId}/influential`);
-    return data.personas || [];
-  },
-
-  getKeyConcepts: async (focusGroupId: string): Promise<any[]> => {
-    const { data } = await api.get(`/graph/${focusGroupId}/concepts`);
-    return data.concepts || [];
-  },
-
-  getControversialConcepts: async (focusGroupId: string): Promise<any[]> => {
-    const { data } = await api.get(`/graph/${focusGroupId}/controversial`);
-    return data.controversial_concepts || [];
-  },
-
-  getTraitCorrelations: async (focusGroupId: string): Promise<any[]> => {
-    const { data } = await api.get(`/graph/${focusGroupId}/correlations`);
-    return data.correlations || [];
-  },
-
-  getEmotionDistribution: async (focusGroupId: string): Promise<any[]> => {
-    const { data } = await api.get(`/graph/${focusGroupId}/emotions`);
-    return data.emotions || [];
-  },
-
-  askQuestion: async (focusGroupId: string, question: string): Promise<GraphQueryResponse> => {
-    const { data } = await api.post(`/graph/${focusGroupId}/ask`, { question });
-    return data;
-  },
-};
 
 // === AUTH API ===
 export const authApi = {
