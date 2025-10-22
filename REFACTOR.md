@@ -1,14 +1,15 @@
 # Market Research SaaS - Plan Refaktoryzacji
 
 **Branch:** refactor/cloud-run-diagnosis
-**Status:** 🟢 ~75% COMPLETE (12/19 tasków wykonanych)
-**Last Updated:** 2025-10-22 20:00 CET
+**Status:** 🟡 ~85% COMPLETE (15/19 tasków) - BLOCKED by syntax errors
+**Last Updated:** 2025-10-22 21:45 CET
 
 ---
 
 ## 📊 EXECUTIVE SUMMARY
 
 ### Kluczowe Commity
+- **ac1976d** (2025-10-22) - Complete de-demografizacja (16 files, +117/-567 lines)
 - **5aa685c** (2025-10-22) - De-demografizacja + segment-based generation
 - **3953bc4** (2025-10-22) - Secret Manager integration + health checks
 - **3fe8cf9** (2025-10-22) - Cleanup testów demographics
@@ -18,23 +19,28 @@
 | Faza | Status | Progress | Czas |
 |------|--------|----------|------|
 | FAZA 1: Diagnoza | ✅ DONE | 1/1 | 30 min |
-| FAZA 2.1: De-demografizacja | ⚠️ 4/5 | 80% | 4-6h |
+| FAZA 2.1: De-demografizacja | ✅ DONE | 5/5 | 4h |
 | FAZA 2.2: RAG Hardening | ⚠️ 2/3 | 67% | 3-4h |
 | FAZA 2.3: Docker & Cloud Run | ✅ DONE | 3/3 | 3-4h |
-| FAZA 3: Local Testing | ⏭️ SKIP | - | - |
+| FAZA 3: Local Testing | 🔴 BLOCKED | 0/1 | syntax error |
 | FAZA 4: Cloud Deployment | ⏸️ READY | 0/3 | 2-3h |
 | FAZA 5: Testy Cleanup | ✅ DONE | 2/2 | 1-2h |
-| FAZA 6: Dokumentacja | ⚠️ 1/4 | 25% | 2-3h |
+| FAZA 6: Dokumentacja | ⚠️ 2/4 | 50% | 2-3h |
 
-**DONE:** 12 tasków | **TODO:** 7 tasków | **Completion:** ~75%
+**DONE:** 15 tasków | **TODO:** 4 tasków | **BLOCKED:** 1 task | **Completion:** ~85%
 
 ### Co Zostało Zrobione ✅
 
-**Backend Refactor:**
-- ✅ DemographicDistribution class usunięta
-- ✅ Chi-square validation usunięta
+**Backend Refactor (FAZA 2.1 - COMPLETE):**
+- ✅ DemographicDistribution class usunięta z generation.py
+- ✅ DEFAULT_AGE_GROUPS, DEFAULT_GENDERS imports usunięte
+- ✅ Chi-square validation usunięta (L789-799)
 - ✅ Database migration (drop demographics columns)
 - ✅ Segment-based generation (orchestration → segments → RAG → LLM)
+- ✅ demographics.py deleted
+- ✅ __init__.py exports cleaned
+- ✅ reasoning.py simplified (fallback tylko dla UI)
+- ✅ main.py import fixed (rag.clients → rag)
 
 **Infrastructure:**
 - ✅ Secret Manager integration (app/core/secrets.py)
@@ -46,23 +52,108 @@
 - ✅ Testy demographics usunięte (14 plików)
 - ✅ Fixtures zaktualizowane (bez target_demographics)
 - ✅ PLAN.md exists
+- ✅ REFACTOR_SUMMARY.md removed
+- ✅ Git commit (ac1976d): 16 files changed, +117/-567 lines
+
+### Szczegóły Commit ac1976d (2025-10-22 19:18)
+
+**Files Changed (8 total):**
+1. `app/api/personas/generation.py` - Segment-based generation
+   - Removed: DemographicDistribution import, DEFAULT_* imports
+   - Removed: L202-210 distribution construction
+   - Changed: L227 create_persona_allocation_plan (no target_demographics param)
+   - Replaced: L339-367 demographic sampling → orchestration segments
+   - Removed: L789-799 chi-square validation block
+   - **Impact:** -450 lines of demographics logic
+
+2. `app/api/personas/reasoning.py` - Simplified fallback
+   - L136-147: fallback_demographics only for UI segment description
+   - Reasoning solely from: orchestration_brief + graph_insights + allocation_reasoning
+
+3. `app/core/constants/__init__.py` - Cleaned exports
+   - Removed: DEFAULT_AGE_GROUPS, DEFAULT_GENDERS, DEFAULT_LOCATIONS, DEFAULT_EDUCATION_LEVELS, DEFAULT_INCOME_BRACKETS
+   - Kept: POLISH_* constants (used in prompts)
+
+4. `app/core/constants/demographics.py` - **DELETED**
+   - Removed entire US-based demographics file
+
+5. `app/main.py` - Fixed import
+   - L226: `from app.services.rag.clients` → `from app.services.rag`
+
+6. `app/services/personas/persona_generator_langchain.py` - Fixed typing
+   - Added missing imports: Dict, Optional, List, Tuple
+
+7. `app/api/personas/REFACTOR_SUMMARY.md` - **DELETED**
+   - Removed legacy documentation
+
+8. `.claude/agents/` - **KEPT** (user request)
+   - Initially deleted, then restored per user feedback
+
+**New Flow (Verified in Code):**
+```
+User Request
+    ↓
+Orchestration Service (Gemini 2.5 Pro)
+    ├─ Graph RAG context (hybrid search)
+    └─ Persona Allocation Plan (segments + briefy)
+    ↓
+For each persona (parallel):
+    demographics = orchestration_segment[idx]["demographics"]  # Z orchestration!
+    psychological = random sampling (Big Five, Hofstede)
+    ↓
+Generator Service (Gemini 2.5 Flash)
+    ├─ Demographics from orchestration segment
+    ├─ Orchestration Brief (900-1200 chars)
+    ├─ Graph insights
+    └─ RAG Context
+    ↓
+Persony z orchestration_reasoning + rag_context_details
+```
+
+**Verification (Completed):**
+- ✅ `grep -r "DEFAULT_AGE\|DEFAULT_GENDER" app/` → 0 results (tylko __pycache__)
+- ✅ `grep -r "DemographicDistribution" app/` → 1 comment (OK)
+- ✅ `grep -r "from app.core.constants.demographics" .` → 0 results
+- ✅ Git commit successful: ac1976d
+- ❌ `python -c "from app.main import app"` → SyntaxError (persona_orchestration.py)
 
 ### Co Pozostało TODO ❌
 
-**CRITICAL (Priority 1):**
-- ❌ Demographics remnants cleanup (generation.py L204-205 używa DEFAULT_*)
+**CRITICAL (Priority 1 - BLOCKING):**
+- 🔴 **persona_orchestration.py syntax errors** (URGENT!)
+  - **Problem:** Unicode characters w docstrings/f-strings causing SyntaxError
+  - **Affected lines:** L100 (→), L373 (✅), L419 (unmatched ')' w "a) **"), L484 (50m2)
+  - **Root cause:** Python interpreter nie radzi sobie z:
+    - Unicode arrows: `→` (U+2192)
+    - Unicode emojis: `✅❌🎯📊💡` (U+2705, etc.)
+    - Letter + parenthesis: `a) **` interpreted as tuple syntax
+    - Number + unit: `50m2` interpreted as decimal literal
+  - **FIX NEEDED (manual):**
+    ```bash
+    # 1. Replace all → with ->
+    sed -i 's/→/->/g' app/services/personas/persona_orchestration.py
+
+    # 2. Replace emojis with ASCII
+    # ✅ -> [OK], ❌ -> [X], 🎯 -> [TARGET], etc.
+
+    # 3. Replace a), b), c) with 1., 2., 3. in f-strings
+    # OR use raw string: r"""...""" for docstrings
+
+    # 4. Add space: 50m2 -> 50 m2
+    ```
+  - **Status:** Attempted automatic fixes, but complex f-string escaping required manual intervention
+  - **Blocker for:** Tests, local smoke test, Cloud Run deployment
 
 **Dokumentacja (Priority 2):**
-- ❌ REFACTOR_SUMMARY.md cleanup (usunąć legacy doc)
-- ❌ docs/DEPLOYMENT_CLOUD_RUN.md (template ready w tym pliku)
-- ❌ Update PLAN.md (dodać completed tasks)
+- ⏸️ docs/DEPLOYMENT_CLOUD_RUN.md (template ready w tym pliku)
+- ⏸️ Update PLAN.md (dodać completed tasks)
 
 **Optional:**
 - ⏸️ Vertex AI Ranking (komentarz w requirements.txt, implementacja later)
-- ⏸️ Local Docker testing (skip jeśli cloudbuild działa)
+- ⏸️ Local Docker testing (pending - blocked by syntax errors)
 
 **Deployment (Final):**
-- ⏸️ Cloud Run deployment (gdy cleanup done)
+- ⏸️ Cloud Run deployment (gdy syntax errors fixed)
 
 ---
 
@@ -1907,7 +1998,7 @@ Line 204-205: age_groups=_normalize_distribution(..., DEFAULT_AGE_GROUPS)
 ```markdown
 - [x] **De-demografizacja - segment-based generation** (2025-10-22)
   Usunięto DemographicDistribution, chi-square validation, target_demographics.
-  Generacja person przez orchestration → RAG → LLM. Commit: 5aa685c.
+  Generacja person przez orchestration → RAG → LLM. Commit: ac1976d (16 files, +117/-567).
 
 - [x] **Secret Manager integration** (2025-10-22)
   app/core/secrets.py z get_secret(). Production secrets z Cloud Secret Manager,
@@ -1996,28 +2087,55 @@ gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.servic
 
 ## 🎯 Next Actions (Recommended Order)
 
-1. **Cleanup demographics remnants** (30 min) - CRITICAL
-   - Fix generation.py L204-205
-   - Usunąć demographics.py + __init__.py re-exports
-   - Verify zero DEFAULT_* usage
+1. **FIX persona_orchestration.py syntax errors** (15-30 min) - **CRITICAL BLOCKER**
+   ```bash
+   # Option A: Manual edit (recommended)
+   # Replace all unicode characters in docstrings/f-strings:
+   # ✅ → [OK]
+   # ❌ → [X]
+   # 🎯📊💡 → [TARGET][CHART][IDEA]
+   # → → ->
 
-2. **Legacy docs cleanup** (10 min)
-   - rm app/api/personas/REFACTOR_SUMMARY.md
-   - Commit: "docs: Remove legacy REFACTOR_SUMMARY.md"
+   # Option B: Python script (safe)
+   python3 << 'EOF'
+   import re
+   file_path = 'app/services/personas/persona_orchestration.py'
+   with open(file_path, 'r', encoding='utf-8') as f:
+       content = f.read()
 
-3. **Dokumentacja** (2-3h)
-   - Utworzyć docs/DEPLOYMENT_CLOUD_RUN.md
-   - Update PLAN.md (completed tasks)
-   - Update CLAUDE.md (Cloud Run section)
-   - Commit: "docs: Add DEPLOYMENT_CLOUD_RUN.md + update PLAN.md"
+   # Replace unicode with ASCII
+   replacements = {
+       '✅': '[OK]', '❌': '[X]', '⚠️': '[!]',
+       '🎯': '[TARGET]', '📊': '[CHART]', '💡': '[IDEA]',
+       '📝': '[NOTE]', '🔧': '[FIX]', '→': '->',
+   }
+   for old, new in replacements.items():
+       content = content.replace(old, new)
+
+   with open(file_path, 'w', encoding='utf-8') as f:
+       f.write(content)
+   EOF
+
+   # Verify import works
+   python -c "from app.main import app; print('✅ SUCCESS')"
+   ```
+
+2. **Run tests** (10-15 min)
+   ```bash
+   pytest tests/unit/ -v --tb=short -k "not demographic" --maxfail=5
+   pytest tests/integration/ -v --tb=short --maxfail=3
+   ```
+
+3. **Dokumentacja** (1-2h) - Optional
+   - docs/DEPLOYMENT_CLOUD_RUN.md (template ready)
+   - Update PLAN.md (completed tasks from this session)
 
 4. **Cloud deployment** (1-2h) - FINAL
    - gcloud builds submit
    - Smoke tests
    - Monitor logs
-   - Verify persona generation działa
 
-**Total Remaining:** ~3-5h work
+**Total Remaining:** ~2-4h work (mostly blocked by syntax errors!)
 
 ---
 
@@ -2034,10 +2152,63 @@ gcloud logging tail "resource.type=cloud_run_revision AND resource.labels.servic
 ## 📞 Status Update
 
 **Branch:** refactor/cloud-run-diagnosis
-**Completion:** ~75% (12/19 tasków)
-**Priority:** P1 (High - cleanup before deployment)
-**ETA Cleanup:** 30 min (demographics remnants)
-**ETA Docs:** 2-3h (DEPLOYMENT_CLOUD_RUN.md + PLAN.md)
-**ETA Deployment:** 1-2h (gdy cleanup done)
+**Completion:** ~85% (15/19 tasków wykonanych, 1 task blocking, 3 tasks pending)
+**Priority:** P0 (CRITICAL - blocked by syntax errors)
+**Blocker:** persona_orchestration.py unicode in f-strings
+**ETA Fix:** 15-30 min manual edit
+**ETA Tests:** 10-15 min (after fix)
+**ETA Deployment:** 1-2h (after tests pass)
 
-**Last Updated:** 2025-10-22 20:15 CET
+## 📝 Session Notes (2025-10-22 19:00-21:45 CET)
+
+**Completed (7/9 tasks):**
+- ✅ Removed DemographicDistribution from generation.py (replaced with segment-based)
+  - Removed: L35 import, L39-40 DEFAULT_* imports, L202-210 distribution, L227 param
+  - Replaced: L339-367 sampling → orchestration segments
+  - Removed: L789-799 chi-square validation
+- ✅ Deleted demographics.py + cleaned __init__.py exports
+- ✅ Simplified reasoning.py (fallback only for UI segment description)
+- ✅ Fixed import: app.services.rag.clients → app.services.rag (main.py:226)
+- ✅ Removed REFACTOR_SUMMARY.md
+- ✅ Kept .claude/agents/ (user request - initially deleted, then restored)
+- ✅ Git commit ac1976d: 16 files, +117/-567 lines
+- ✅ Fixed typing imports in persona_generator_langchain.py (Dict, Optional, List, Tuple)
+
+**Blocked (2/9 tasks):**
+- 🔴 **persona_orchestration.py syntax errors** (CRITICAL BLOCKER)
+  - Unicode characters (→, ✅, ❌, 🎯, 📊, 💡) in docstrings/f-strings
+  - Lines: L100 (→), L373 (✅), L419 (a) interpreted as tuple), L484 (50m2)
+  - Python cannot parse file → import fails → tests cannot run
+  - **Impact:** Blocks tests, local smoke test, deployment
+  - **Fix required:** Manual edit OR proper f-string escaping
+- 🔴 Tests cannot run (blocked by syntax errors)
+
+**Attempted Fixes:**
+- ✅ sed replacement for → with ->
+- ✅ Python script for emoji replacement
+- ❌ Still failing: complex f-string escaping needed
+- ❌ Automatic fixes insufficient (a), b), c) interpreted as tuples)
+- ❌ Restored from HEAD~1 but unicode still present
+
+**New Flow Implemented:**
+```
+User Request → Orchestration (Gemini Pro) → Segments
+    → For each persona: demographics from segment[idx] → RAG → Generator (Flash) → Persona
+```
+
+**Verification:**
+- ✅ No DEFAULT_* in app/ (verified via grep)
+- ✅ No DemographicDistribution usage (verified)
+- ✅ Git commit successful
+- ❌ `python -c "from app.main import app"` → SyntaxError
+
+**Next Session:**
+1. **CRITICAL:** Fix persona_orchestration.py syntax (15-30 min manual edit)
+   - Replace all unicode with ASCII: → -> ->, ✅ -> [OK], etc.
+   - Fix a), b), c) → 1., 2., 3. OR use raw strings
+   - Fix 50m2 → 50 m2 (add space)
+2. Run full test suite (10-15 min)
+3. Local smoke test (15-20 min)
+4. Deploy to Cloud Run (1-2h)
+
+**Last Updated:** 2025-10-22 21:45 CET

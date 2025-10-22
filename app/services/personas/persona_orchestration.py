@@ -61,7 +61,7 @@ def ORCHESTRATION_PROMPT_BUILDER(
         logger.warning(f"Graph node bez streszczenia: {node}")
         return None
 
-    # Mapowanie pewności PL->EN
+    # Mapowanie pewności PL→EN
     pewnosc_pl = node.get('pewnosc', '').lower()
     confidence_map = {'wysoka': 'high', 'srednia': 'medium', 'niska': 'low'}
     confidence = confidence_map.get(pewnosc_pl, 'medium')
@@ -97,11 +97,11 @@ class GraphInsight(BaseModel):
     Dane w grafie Neo4j używają POLSKICH nazw (streszczenie, skala, pewnosc, etc.).
 
     Konwersja wykonywana przez funkcję _map_graph_node_to_insight():
-    - streszczenie -> summary
-    - skala -> magnitude
-    - pewnosc -> confidence ("wysoka"->"high", "srednia"->"medium", "niska"->"low")
-    - okres_czasu -> time_period
-    - kluczowe_fakty -> why_matters (z dodatkowym edukacyjnym kontekstem)
+    - streszczenie → summary
+    - skala → magnitude
+    - pewnosc → confidence ("wysoka"→"high", "srednia"→"medium", "niska"→"low")
+    - okres_czasu → time_period
+    - kluczowe_fakty → why_matters (z dodatkowym edukacyjnym kontekstem)
     """
 
     type: str = Field(description="Typ węzła (Wskaznik, Obserwacja, Trend, etc.)")
@@ -187,11 +187,11 @@ class PersonaOrchestrationService:
         Raises:
             Exception: Jeśli LLM nie może wygenerować planu lub JSON parsing fails
         """
-        logger.info(f"[TARGET] Orchestration: Tworzenie planu alokacji dla {num_personas} person...")
+        logger.info(f"🎯 Orchestration: Tworzenie planu alokacji dla {num_personas} person...")
 
         # Krok 1: Pobierz comprehensive Graph RAG context
         graph_context = await self._get_comprehensive_graph_context(target_demographics)
-        logger.info(f"[CHART] Pobrano {len(graph_context)} fragmentów z Graph RAG")
+        logger.info(f"📊 Pobrano {len(graph_context)} fragmentów z Graph RAG")
 
         # Krok 2: Zbuduj prompt w stylu edukacyjnym
         prompt = self._build_orchestration_prompt(
@@ -216,19 +216,19 @@ class PersonaOrchestrationService:
             plan_json = self._extract_json_from_response(response_text)
 
             # DEBUG: Log sparsowanego JSON
-            logger.info(f"[OK] JSON parsed successfully: {len(plan_json)} top-level keys")
-            logger.info(f"[OK] JSON keys: {list(plan_json.keys())}")
+            logger.info(f"✅ JSON parsed successfully: {len(plan_json)} top-level keys")
+            logger.info(f"✅ JSON keys: {list(plan_json.keys())}")
 
             # Parse do Pydantic model (walidacja)
             plan = PersonaAllocationPlan(**plan_json)
 
-            logger.info(f"[OK] Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
+            logger.info(f"✅ Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
             return plan
 
         except Exception as e:
-            logger.error(f"[ERROR] Błąd podczas tworzenia planu alokacji: {e}")
-            logger.error(f"[ERROR] Exception type: {type(e).__name__}")
-            logger.error(f"[ERROR] Exception details: {str(e)[:1000]}")
+            logger.error(f"❌ Błąd podczas tworzenia planu alokacji: {e}")
+            logger.error(f"❌ Exception type: {type(e).__name__}")
+            logger.error(f"❌ Exception details: {str(e)[:1000]}")
             raise
 
     async def _get_comprehensive_graph_context(
@@ -289,7 +289,7 @@ class PersonaOrchestrationService:
                 timeout=150.0  # 150 sekund (2.5 min) - temporary safety margin dla Cloud Run
             )
         except asyncio.TimeoutError:
-            logger.warning("[WARNING] Graph RAG queries przekroczyły timeout (150s) - zwracam pusty kontekst")
+            logger.warning("⚠️ Graph RAG queries przekroczyły timeout (150s) - zwracam pusty kontekst")
             return "Brak dostępnego kontekstu z Graph RAG (timeout)."
 
         # Deduplikuj i formatuj
@@ -370,12 +370,12 @@ szczegółowego, EDUKACYJNEGO planu alokacji {num_personas} syntetycznych person
 WAŻNE: Twoim outputem będzie używany bezpośrednio przez innych agentów AI oraz
 pokazywany użytkownikom w interfejsie. Dlatego MUSISZ:
 
-[OK] **Konwersacyjny ton** - Mówisz jak kolega z zespołu, nie jak suchy raport
-[OK] **Wyjaśniaj "dlaczego"** - Nie podawaj tylko faktów, ale ich znaczenie i kontekst
-[OK] **Używaj przykładów z życia** - "Wyobraź sobie Annę z Warszawy, która..."
-[OK] **Production-ready** - Treść może iść bezpośrednio do użytkownika bez edycji
-[OK] **Edukacyjny** - User ma się UCZYĆ o polskim społeczeństwie, nie tylko dostać dane
-[OK] **PO POLSKU** - Naturalnie, bez anglicyzmów gdzie niepotrzebne
+✅ **Konwersacyjny ton** - Mówisz jak kolega z zespołu, nie jak suchy raport
+✅ **Wyjaśniaj "dlaczego"** - Nie podawaj tylko faktów, ale ich znaczenie i kontekst
+✅ **Używaj przykładów z życia** - "Wyobraź sobie Annę z Warszawy, która..."
+✅ **Production-ready** - Treść może iść bezpośrednio do użytkownika bez edycji
+✅ **Edukacyjny** - User ma się UCZYĆ o polskim społeczeństwie, nie tylko dostać dane
+✅ **PO POLSKU** - Naturalnie, bez anglicyzmów gdzie niepotrzebne
 
     DŁUGOŚĆ BRIEFÓW: Każdy brief dla grupy demograficznej ma mieć 900-1200 znaków.
     To ma być edukacyjny mini-esej, który wyjaśnia kontekst społeczny bez lania wody.
@@ -596,7 +596,7 @@ ZASADY:
 1. Nazwa powinna być 2-4 słowa (np. "Młodzi Prekariusze", "Aspirujące Profesjonalistki 35-44")
 2. Oddaje kluczową charakterystykę grupy (wiek + status społeczno-ekonomiczny)
 3. Używa polskiego języka, brzmi naturalnie
-4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek -> "Młodzi Prekariusze")
+4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek → "Młodzi Prekariusze")
 5. Unikaj ogólników ("Grupa A", "Segment 1")
 6. Jeśli wiek jest istotny, włącz go (np. "35-44")
 
@@ -690,11 +690,11 @@ def _map_graph_node_to_insight(node: Dict[str, Any]) -> Optional["GraphInsight"]
     """Konwertuje graph node z polskimi property names na GraphInsight z angielskimi.
 
     Mapowanie:
-    - streszczenie -> summary
-    - skala -> magnitude
-    - pewnosc -> confidence ("wysoka"->"high", "srednia"->"medium", "niska"->"low")
-    - okres_czasu -> time_period
-    - kluczowe_fakty -> why_matters (z dodatkowym kontekstem)
+    - streszczenie → summary
+    - skala → magnitude
+    - pewnosc → confidence ("wysoka"→"high", "srednia"→"medium", "niska"→"low")
+    - okres_czasu → time_period
+    - kluczowe_fakty → why_matters (z dodatkowym kontekstem)
 
     Args:
         node: Dict z grafu Neo4j (polskie property names)
@@ -713,7 +713,7 @@ def _map_graph_node_to_insight(node: Dict[str, Any]) -> Optional["GraphInsight"]
         logger.warning(f"Graph node bez streszczenia: {node}")
         return None
 
-    # Mapowanie pewności PL->EN
+    # Mapowanie pewności PL→EN
     pewnosc_pl = node.get('pewnosc', '').lower()
     confidence_map = {'wysoka': 'high', 'srednia': 'medium', 'niska': 'low'}
     confidence = confidence_map.get(pewnosc_pl, 'medium')
@@ -749,11 +749,11 @@ class GraphInsight(BaseModel):
     Dane w grafie Neo4j używają POLSKICH nazw (streszczenie, skala, pewnosc, etc.).
 
     Konwersja wykonywana przez funkcję _map_graph_node_to_insight():
-    - streszczenie -> summary
-    - skala -> magnitude
-    - pewnosc -> confidence ("wysoka"->"high", "srednia"->"medium", "niska"->"low")
-    - okres_czasu -> time_period
-    - kluczowe_fakty -> why_matters (z dodatkowym edukacyjnym kontekstem)
+    - streszczenie → summary
+    - skala → magnitude
+    - pewnosc → confidence ("wysoka"→"high", "srednia"→"medium", "niska"→"low")
+    - okres_czasu → time_period
+    - kluczowe_fakty → why_matters (z dodatkowym edukacyjnym kontekstem)
     """
 
     type: str = Field(description="Typ węzła (Wskaznik, Obserwacja, Trend, etc.)")
@@ -839,11 +839,11 @@ class PersonaOrchestrationService:
         Raises:
             Exception: Jeśli LLM nie może wygenerować planu lub JSON parsing fails
         """
-        logger.info(f"[TARGET] Orchestration: Tworzenie planu alokacji dla {num_personas} person...")
+        logger.info(f"🎯 Orchestration: Tworzenie planu alokacji dla {num_personas} person...")
 
         # Krok 1: Pobierz comprehensive Graph RAG context
         graph_context = await self._get_comprehensive_graph_context(target_demographics)
-        logger.info(f"[CHART] Pobrano {len(graph_context)} fragmentów z Graph RAG")
+        logger.info(f"📊 Pobrano {len(graph_context)} fragmentów z Graph RAG")
 
         # Krok 2: Zbuduj prompt w stylu edukacyjnym (używając centralnego prompta)
         prompt = ORCHESTRATION_PROMPT_BUILDER(
@@ -868,19 +868,19 @@ class PersonaOrchestrationService:
             plan_json = self._extract_json_from_response(response_text)
 
             # DEBUG: Log sparsowanego JSON
-            logger.info(f"[OK] JSON parsed successfully: {len(plan_json)} top-level keys")
-            logger.info(f"[OK] JSON keys: {list(plan_json.keys())}")
+            logger.info(f"✅ JSON parsed successfully: {len(plan_json)} top-level keys")
+            logger.info(f"✅ JSON keys: {list(plan_json.keys())}")
 
             # Parse do Pydantic model (walidacja)
             plan = PersonaAllocationPlan(**plan_json)
 
-            logger.info(f"[OK] Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
+            logger.info(f"✅ Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
             return plan
 
         except Exception as e:
-            logger.error(f"[ERROR] Błąd podczas tworzenia planu alokacji: {e}")
-            logger.error(f"[ERROR] Exception type: {type(e).__name__}")
-            logger.error(f"[ERROR] Exception details: {str(e)[:1000]}")
+            logger.error(f"❌ Błąd podczas tworzenia planu alokacji: {e}")
+            logger.error(f"❌ Exception type: {type(e).__name__}")
+            logger.error(f"❌ Exception details: {str(e)[:1000]}")
             raise
 
     async def _get_comprehensive_graph_context(
@@ -937,7 +937,7 @@ class PersonaOrchestrationService:
                 timeout=30.0  # 30 sekund dla wszystkich queries
             )
         except asyncio.TimeoutError:
-            logger.warning("[WARNING] Graph RAG queries przekroczyły timeout (30s) - zwracam pusty kontekst")
+            logger.warning("⚠️ Graph RAG queries przekroczyły timeout (30s) - zwracam pusty kontekst")
             return "Brak dostępnego kontekstu z Graph RAG (timeout)."
 
         # Deduplikuj i formatuj
@@ -1004,7 +1004,7 @@ class PersonaOrchestrationService:
             try:
                 return json.loads(json_text)
             except json.JSONDecodeError as e:
-                logger.error(f"[ERROR] Nie można sparsować JSON z bloku markdown: {e}")
+                logger.error(f"❌ Nie można sparsować JSON z bloku markdown: {e}")
                 logger.error(f"JSON block text: {json_text[:500]}...")
                 # Kontynuuj do następnej strategii
 
@@ -1015,7 +1015,7 @@ class PersonaOrchestrationService:
             try:
                 return json.loads(json_text)
             except json.JSONDecodeError as e:
-                logger.error(f"[ERROR] Nie można sparsować JSON z bloku kodu: {e}")
+                logger.error(f"❌ Nie można sparsować JSON z bloku kodu: {e}")
                 # Kontynuuj do następnej strategii
 
         # Strategia 3: Znajdź pierwszy { ... } (może być po preambule)
@@ -1025,17 +1025,17 @@ class PersonaOrchestrationService:
             try:
                 return json.loads(json_text)
             except json.JSONDecodeError as e:
-                logger.error(f"[ERROR] Nie można sparsować JSON z braces: {e}")
+                logger.error(f"❌ Nie można sparsować JSON z braces: {e}")
                 logger.error(f"Braces text: {json_text[:500]}...")
 
         # Strategia 4: Spróbuj sparsować cały tekst (fallback)
         try:
             return json.loads(text)
         except json.JSONDecodeError as e:
-            logger.error(f"[ERROR] Nie można sparsować JSON (all strategies failed): {e}")
-            logger.error(f"[ERROR] Response text length: {len(text)} chars")
-            logger.error(f"[ERROR] Response text (first 1000 chars): {text[:1000]}")
-            logger.error(f"[ERROR] Response text (last 1000 chars): {text[-1000:]}")
+            logger.error(f"❌ Nie można sparsować JSON (all strategies failed): {e}")
+            logger.error(f"❌ Response text length: {len(text)} chars")
+            logger.error(f"❌ Response text (first 1000 chars): {text[:1000]}")
+            logger.error(f"❌ Response text (last 1000 chars): {text[-1000:]}")
             raise ValueError(f"LLM nie zwrócił poprawnego JSON: {e}")
 
     # === NEW METHODS FOR SEGMENT-BASED ARCHITECTURE ===
@@ -1098,7 +1098,7 @@ ZASADY:
 1. Nazwa powinna być 2-4 słowa (np. "Młodzi Prekariusze", "Aspirujące Profesjonalistki 35-44")
 2. Oddaje kluczową charakterystykę grupy (wiek + status społeczno-ekonomiczny)
 3. Używa polskiego języka, brzmi naturalnie
-4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek -> "Młodzi Prekariusze")
+4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek → "Młodzi Prekariusze")
 5. Unikaj ogólników ("Grupa A", "Segment 1")
 6. Jeśli wiek jest istotny, włącz go (np. "35-44")
 
@@ -1131,11 +1131,11 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
                 # Fallback: template name
                 segment_name = f"Segment {age_range}, {gender}"
 
-            logger.info(f"[OK] Generated segment name: '{segment_name}'")
+            logger.info(f"✅ Generated segment name: '{segment_name}'")
             return segment_name
 
         except Exception as e:
-            logger.error(f"[ERROR] Failed to generate segment name: {e}")
+            logger.error(f"❌ Failed to generate segment name: {e}")
             # Fallback: template name
             fallback_name = f"Segment {age_range}, {gender}"
             logger.warning(f"Using fallback segment name: '{fallback_name}'")
@@ -1233,11 +1233,11 @@ ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):"""
                     "but accepting anyway"
                 )
 
-            logger.info(f"[OK] Generated segment context: {len(segment_context)} chars")
+            logger.info(f"✅ Generated segment context: {len(segment_context)} chars")
             return segment_context
 
         except Exception as e:
-            logger.error(f"[ERROR] Failed to generate segment context: {e}")
+            logger.error(f"❌ Failed to generate segment context: {e}")
             # Fallback: minimal context
             fallback_context = (
                 f"Segment '{segment_name}' obejmuje osoby w wieku {age_range}, {gender}, "
