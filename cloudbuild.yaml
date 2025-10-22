@@ -192,9 +192,9 @@ steps:
     waitFor: ['deploy']
 
   # ==========================================================================
-  # SMOKE TESTS: Post-deployment verification
+  # SMOKE TESTS: Post-deployment verification (health + frontend)
   # ==========================================================================
-  - name: 'gcr.io/cloud-builders/curl'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'smoke-tests'
     entrypoint: 'bash'
     args:
