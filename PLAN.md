@@ -2,7 +2,7 @@
 
 Strategiczny roadmap projektu Sight. Utrzymujemy 20-30 najważniejszych zadań pogrupowanych według obszarów. Priorytety według MoSCoW: **High** (Must Have - blokuje inne zadania, security, production bugs), **Medium** (Should Have - ważne features, performance), **Low** (Could Have - nice-to-have, technical debt).
 
-**Ostatnia aktualizacja:** 2025-10-21
+**Ostatnia aktualizacja:** 2025-10-22
 
 ---
 
@@ -161,6 +161,9 @@ Strategiczny roadmap projektu Sight. Utrzymujemy 20-30 najważniejszych zadań p
 
 ## ✅ Completed (Last 30 days)
 
+- [x] **Complete de-demografizacja refactoring** (2025-10-22)
+  Finalizacja refaktoryzacji segment-based generation: usunięto DemographicDistribution class, DEFAULT_* constants, chi-square validation, target_demographics z Project model. Skrócono docs/PERSONA_DETAILS.md (1057→256 linii). Dodano docs/DEPLOYMENT_CLOUD_RUN.md (production guide). Clean codebase ready for Cloud Run deployment.
+
 - [x] **Build test-runner Docker image for CI/CD** (2025-10-21)
   Zbudowano i wrzucono test-runner:latest do Artifact Registry (670MB z dependencies). Naprawia failed Cloud Builds (image not found error). Przyspiesza unit tests: 5min → <60s.
 
@@ -201,7 +204,7 @@ Strategiczny roadmap projektu Sight. Utrzymujemy 20-30 najważniejszych zadań p
 
 ## 📊 Priority Summary
 
-**Total Tasks:** 27 active + 9 completed
+**Total Tasks:** 27 active + 10 completed
 
 **By Priority:**
 - High: 8 tasks (30%)
