@@ -9,10 +9,11 @@
 # 5. NEO4J INIT: Initialize vector indexes
 # 6. SMOKE TESTS: Post-deployment verification (health + frontend)
 #
-# Total time: ~5-8 min (with Docker layer caching)
-#   - First build (no cache): ~20-25 min
-#   - Incremental builds (cache hit): ~5-8 min
-#   - Code-only changes (full cache): ~3-5 min
+# Total time: ~8-12 min (with BuildKit inline cache + pinned base images)
+#   - First build (cold cache): ~20-25 min
+#   - Incremental builds (warm cache): ~8-12 min
+#   - Code-only changes (hot cache): ~5-8 min
+# Optimization: BuildKit inline cache + pinned node:20.18.0/python:3.11.11
 # Code quality checks: Run locally (ruff, mypy, pytest)
 # ==============================================================================
 
@@ -32,24 +33,32 @@ steps:
     waitFor: ['-']  # Start immediately (parallel with tests if any)
 
   # ==========================================================================
-  # BUILD: Docker Image (Backend + Frontend) with Layer Caching
+  # BUILD: Docker Image (Backend + Frontend) with BuildKit Inline Cache
   # ==========================================================================
-  # Uses --cache-from to leverage layers from pulled image
-  # After pull-cache step, Docker has local cache to speed up build
+  # BuildKit inline cache: zapisuje cache metadata WEWNĄTRZ image
+  # To umożliwia cache multi-stage builds (frontend-builder, backend-builder, runtime)
+  # --cache-from: reuse cache z poprzednich buildów
+  # --cache-to type=inline: zapisz cache metadata dla przyszłych buildów
   - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
     args:
-      - 'build'
-      - '-f'
-      - 'Dockerfile.cloudrun'
-      - '--cache-from'
-      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest'
-      - '-t'
-      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest'
-      - '-t'
-      - 'europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:$COMMIT_SHA'
-      - '.'
+      - '-c'
+      - |
+        # Setup BuildKit (nowszy backend Docker z lepszym cachingiem)
+        export DOCKER_BUILDKIT=1
+
+        # Build z inline cache (zapisuje cache metadata w image layers)
+        docker build \
+          -f Dockerfile.cloudrun \
+          --cache-from europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          -t europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
+          -t europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:$$COMMIT_SHA \
+          .
     id: 'build'
     waitFor: ['pull-cache']  # Wait for cache image to be pulled
+    env:
+      - 'DOCKER_BUILDKIT=1'
 
   # ==========================================================================
   # PUSH: Docker Image to Artifact Registry
