@@ -14,6 +14,7 @@
 # Core Framework
 fastapi
 uvicorn[standard]
+gunicorn>=21.2.0  # Production server with worker management
 pydantic
 pydantic-settings
 
@@ -104,4 +105,4 @@ openpyxl
 docling>=2.0.0
 pypdf
 python-docx
-sentence-transformers==2.7.0
+# sentence-transformers removed - using Vertex AI Ranking instead (saves 900MB)

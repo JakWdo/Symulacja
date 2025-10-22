@@ -14,16 +14,12 @@ Kluczowe funkcjonalności:
 import re
 import numpy as np
 from typing import Any
-from scipy import stats
-from dataclasses import dataclass
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
 from app.core.config import get_settings
 from app.core.constants import (
-    DEFAULT_AGE_GROUPS,
-    DEFAULT_GENDERS,
     POLISH_LOCATIONS,
     POLISH_INCOME_BRACKETS,
     POLISH_EDUCATION_LEVELS,
@@ -44,21 +40,6 @@ try:
         _rag_service_available = False
 except ImportError:
     _rag_service_available = False
-
-
-@dataclass
-class DemographicDistribution:
-    """
-    Rozkład demograficzny populacji docelowej
-
-    Każde pole to słownik mapujący kategorie na prawdopodobieństwa (sumujące się do 1.0)
-    Przykład: {"18-24": 0.3, "25-34": 0.5, "35-44": 0.2}
-    """
-    age_groups: dict[str, float]        # Grupy wiekowe
-    genders: dict[str, float]           # Płeć
-    education_levels: dict[str, float]  # Poziomy edukacji
-    income_brackets: dict[str, float]   # Przedziały dochodowe
-    locations: dict[str, float]         # Lokalizacje geograficzne
 
 
 class PersonaGeneratorLangChain:
@@ -118,73 +99,6 @@ class PersonaGeneratorLangChain:
         # Value: dict z RAG context
         self._rag_cache: dict[tuple[str, str, str, str], dict[str, Any]] = {}
 
-    def sample_demographic_profile(
-        self, distribution: DemographicDistribution, n_samples: int = 1
-    ) -> list[dict[str, Any]]:
-        """
-        Próbkuj profile demograficzne zgodnie z zadanym rozkładem
-
-        Metoda ta tworzy losowe profile demograficzne na podstawie prawdopodobieństw
-        w obiekcie DemographicDistribution. Jeśli jakiś rozkład jest pusty lub niepoprawny,
-        używa domyślnych wartości z constants.py.
-
-        Args:
-            distribution: Obiekt zawierający rozkłady prawdopodobieństw dla każdej kategorii
-            n_samples: Liczba profili do wygenerowania (domyślnie 1)
-
-        Returns:
-            Lista słowników, każdy zawiera klucze: age_group, gender, education_level,
-            income_bracket, location
-        """
-        profiles = []
-
-        for _ in range(n_samples):
-            # Normalizuj każdy rozkład lub użyj wartości domyślnych (polskich)
-            age_groups = self._prepare_distribution(
-                distribution.age_groups, DEFAULT_AGE_GROUPS
-            )
-            genders = self._prepare_distribution(distribution.genders, DEFAULT_GENDERS)
-            education_levels = self._prepare_distribution(
-                distribution.education_levels, POLISH_EDUCATION_LEVELS
-            )
-            income_brackets = self._prepare_distribution(
-                distribution.income_brackets, POLISH_INCOME_BRACKETS
-            )
-            locations = self._prepare_distribution(
-                distribution.locations, POLISH_LOCATIONS
-            )
-
-            # Losuj wartość z każdej kategorii zgodnie z wagami
-            profile = {
-                "age_group": self._weighted_sample(age_groups),
-                "gender": self._weighted_sample(genders),
-                "education_level": self._weighted_sample(education_levels),
-                "income_bracket": self._weighted_sample(income_brackets),
-                "location": self._weighted_sample(locations),
-            }
-            profiles.append(profile)
-
-        return profiles
-
-    def _weighted_sample(self, distribution: dict[str, float]) -> str:
-        """
-        Losuj element z rozkładu ważonego (weighted sampling)
-
-        Args:
-            distribution: Słownik kategoria -> prawdopodobieństwo (suma = 1.0)
-
-        Returns:
-            Wylosowana kategoria jako string
-
-        Raises:
-            ValueError: Jeśli rozkład jest pusty
-        """
-        if not distribution:
-            raise ValueError("Distribution cannot be empty")
-        categories = list(distribution.keys())
-        weights = list(distribution.values())
-        return self._rng.choice(categories, p=weights)
-
     def _sanitize_text(self, text: str, preserve_paragraphs: bool = False) -> str:
         """
         Sanityzuj tekst wygenerowany przez LLM, usuwając nadmierne białe znaki
@@ -222,37 +136,6 @@ class PersonaGeneratorLangChain:
         else:
             # Dla pól jednoliniowych - usuń wszystkie \\n i znormalizuj spacje
             return re.sub(r'\s+', ' ', text).strip()
-
-    def _prepare_distribution(
-        self, distribution: dict[str, float], fallback: dict[str, float]
-    ) -> dict[str, float]:
-        """
-        Przygotuj i znormalizuj rozkład prawdopodobieństw
-
-        Sprawdza czy rozkład jest poprawny, normalizuje go do sumy 1.0,
-        lub zwraca fallback jeśli rozkład jest niepoprawny.
-
-        Args:
-            distribution: Rozkład do znormalizowania
-            fallback: Rozkład domyślny używany gdy distribution jest pusty/błędny
-
-        Returns:
-            Znormalizowany rozkład (suma = 1.0) lub fallback
-        """
-        if not distribution:
-            return fallback
-        total = sum(distribution.values())
-        if total <= 0:
-            return fallback
-        # Pierwsza normalizacja - dziel przez sumę
-        normalized = {key: value / total for key, value in distribution.items()}
-        normalized_total = sum(normalized.values())
-        # Druga normalizacja jeśli są błędy zaokrągleń numerycznych
-        if not np.isclose(normalized_total, 1.0):
-            normalized = {
-                key: value / normalized_total for key, value in normalized.items()
-            }
-        return normalized
 
     def sample_big_five_traits(self, personality_skew: dict[str, float] = None) -> dict[str, float]:
         """
@@ -666,156 +549,7 @@ WYŁĄCZNIE JSON (bez markdown):
   "typical_concerns": ["<3-5 SPECYFICZNYCH zmartwień/priorytetów>"]
 }}"""
 
-    def validate_distribution(
-        self,
-        generated_personas: list[dict[str, Any]],
-        target_distribution: DemographicDistribution,
-    ) -> dict[str, Any]:
-        """
-        Waliduj czy wygenerowane persony pasują do docelowego rozkładu (test chi-kwadrat)
-
-        Sprawdza statystycznie czy rzeczywisty rozkład cech demograficznych w wygenerowanych
-        personach odpowiada zadanemu rozkładowi docelowemu. Używa testu chi-kwadrat dla
-        każdej kategorii (wiek, płeć, edukacja, dochód, lokalizacja).
-
-        Args:
-            generated_personas: Lista wygenerowanych person (jako słowniki)
-            target_distribution: Oczekiwany rozkład demograficzny
-
-        Returns:
-            Słownik z wynikami testów dla każdej kategorii oraz ogólną oceną:
-            {
-                "age": {"p_value": float, "chi_square_statistic": float, ...},
-                "gender": {...},
-                "overall_valid": bool  # Wartość True oznacza, że wszystkie p > 0.05
-            }
-        """
-        results = {}
-
-        # Testuj rozkład wieku (tylko jeśli podany)
-        if target_distribution.age_groups:
-            results["age"] = self._chi_square_test(
-                generated_personas, "age_group", target_distribution.age_groups
-            )
-
-        # Testuj rozkład płci (tylko jeśli podany)
-        if target_distribution.genders:
-            results["gender"] = self._chi_square_test(
-                generated_personas, "gender", target_distribution.genders
-            )
-
-        # Testuj rozkład edukacji (tylko jeśli podany)
-        if target_distribution.education_levels:
-            results["education"] = self._chi_square_test(
-                generated_personas, "education_level", target_distribution.education_levels
-            )
-
-        # Testuj rozkład dochodów (tylko jeśli podany)
-        if target_distribution.income_brackets:
-            results["income"] = self._chi_square_test(
-                generated_personas, "income_bracket", target_distribution.income_brackets
-            )
-
-        # Testuj rozkład lokalizacji (tylko jeśli podany)
-        if target_distribution.locations:
-            results["location"] = self._chi_square_test(
-                generated_personas, "location", target_distribution.locations
-            )
-
-        # Ogólna walidacja - wszystkie p-wartości powinny być > 0.05
-        all_p_values = [r["p_value"] for r in results.values() if "p_value" in r]
-        results["overall_valid"] = all(
-            p > settings.STATISTICAL_SIGNIFICANCE_THRESHOLD for p in all_p_values
-        ) if all_p_values else True
-
-        return results
-
-    def _chi_square_test(
-        self, personas: list[dict[str, Any]], field: str, expected_dist: dict[str, float]
-    ) -> dict[str, float]:
-        """
-        Wykonaj test chi-kwadrat dla konkretnego pola demograficznego
-
-        Test chi-kwadrat sprawdza czy obserwowany rozkład kategorii (np. grup wiekowych)
-        statystycznie różni się od rozkładu oczekiwanego. Im wyższe p-value, tym lepiej
-        (p > 0.05 oznacza że rozkłady są zgodne).
-
-        Args:
-            personas: Lista person do sprawdzenia
-            field: Nazwa pola do przetestowania (np. "age_group", "gender")
-            expected_dist: Oczekiwany rozkład prawdopodobieństw
-
-        Returns:
-            Słownik z wynikami testu:
-            - chi_square_statistic: wartość statystyki chi-kwadrat
-            - p_value: p-wartość (>0.05 = dobre dopasowanie)
-            - degrees_of_freedom: liczba stopni swobody
-            - observed: obserwowane liczności
-            - expected: oczekiwane liczności
-        """
-        # Filtruj kategorie z niepoprawnymi prawdopodobieństwami
-        valid_categories = [
-            (category, probability)
-            for category, probability in expected_dist.items()
-            if probability and probability > 0
-        ]
-
-        if not valid_categories:
-            return {
-                "chi_square_statistic": 0.0,
-                "p_value": 1.0,
-                "degrees_of_freedom": 0,
-                "observed": {},
-                "expected": {},
-            }
-
-        # Normalizuj prawdopodobieństwa do sumy = 1.0
-        total_prob = sum(probability for _, probability in valid_categories)
-        normalized_probs = {
-            category: probability / total_prob for category, probability in valid_categories
-        }
-
-        # Policz obserwowane wystąpienia każdej kategorii
-        observed_counts = {category: 0 for category in normalized_probs}
-        valid_samples = 0
-        for persona in personas:
-            value = persona.get(field)
-            if value in observed_counts:
-                observed_counts[value] += 1
-                valid_samples += 1
-
-        if valid_samples == 0:
-            return {
-                "chi_square_statistic": 0.0,
-                "p_value": 1.0,
-                "degrees_of_freedom": len(observed_counts) - 1,
-                "observed": observed_counts,
-                "expected": {category: 0.0 for category in observed_counts},
-            }
-
-        # Oblicz oczekiwane liczności (probability * total_count)
-        expected_counts = {
-            category: normalized_probs[category] * valid_samples
-            for category in normalized_probs
-        }
-
-        # Przygotuj listy do testu chi-kwadrat (scipy wymaga list w tej samej kolejności)
-        observed = [observed_counts[category] for category in normalized_probs]
-        expected = [expected_counts[category] for category in normalized_probs]
-
-        # Wykonaj test chi-kwadrat
-        chi2_stat, p_value = stats.chisquare(f_obs=observed, f_exp=expected)
-
-        return {
-            "chi_square_statistic": float(chi2_stat),
-            "p_value": float(p_value),
-            "degrees_of_freedom": len(normalized_probs) - 1,
-            "observed": observed_counts,
-            "expected": expected_counts,
-            "sample_size": valid_samples,
-        }
-
-    # === SEGMENT-BASED ARCHITECTURE: ENFORCE DEMOGRAPHICS ===
+    # === SEGMENT-BASED ARCHITECTURE ===
 
     async def generate_persona_from_segment(
         self,

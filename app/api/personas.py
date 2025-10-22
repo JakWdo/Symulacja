@@ -10,9 +10,9 @@ Główne funkcjonalności:
 - DELETE /personas/{persona_id} - usuwa personę (soft delete)
 
 Generowanie person:
-1. Parsuje rozkłady demograficzne z target_demographics projektu
+1. Sampinguje profile demograficzne z polskich rozkładów (POLISH_* constants)
 2. Uruchamia PersonaGenerator (Google Gemini Flash) w tle
-3. Waliduje statystycznie wygenerowane persony (chi-kwadrat)
+3. Waliduje jakość wygenerowanych person (PersonaValidator)
 4. Zapisuje do bazy danych
 5. Czas: ~1.5-3s per persona, ~30-60s dla 20 person
 
@@ -59,7 +59,6 @@ from app.services.personas import (
     PersonaDetailsService,
     PersonaAuditService,
 )
-from app.services.personas.persona_generator_langchain import DemographicDistribution
 from app.core.demographics.polish_constants import (
     POLISH_LOCATIONS,
     POLISH_INCOME_BRACKETS,
@@ -67,11 +66,6 @@ from app.core.demographics.polish_constants import (
     POLISH_VALUES,
     POLISH_INTERESTS,
     POLISH_OCCUPATIONS,
-)
-from app.core.demographics.international_constants import (
-    DEFAULT_AGE_GROUPS,
-    DEFAULT_GENDERS,
-    DEFAULT_OCCUPATIONS,
 )
 
 # Alias dla kompatybilności
@@ -567,8 +561,8 @@ def _infer_polish_occupation(
     if occupation:
         return occupation
 
-    # Fallback na wylosowaną angielską listę (ostatnia linia obrony)
-    return random.choice(DEFAULT_OCCUPATIONS) if DEFAULT_OCCUPATIONS else "Specjalista"
+    # Fallback (ostatnia linia obrony)
+    return "Specjalista"
 
 
 def _fallback_polish_list(source: list[str] | None, fallback_pool: list[str]) -> list[str]:
@@ -810,17 +804,6 @@ def _build_location_distribution(
 
     return base_locations
 
-def _normalize_distribution(
-    distribution: dict[str, float], fallback: dict[str, float]
-) -> dict[str, float]:
-    """Normalize distribution to sum to 1.0, or use fallback if invalid."""
-    if not distribution:
-        return fallback
-    total = sum(distribution.values())
-    if total <= 0:
-        return fallback
-    return {key: value / total for key, value in distribution.items()}
-
 
 @router.post(
     "/projects/{project_id}/personas/generate",
@@ -947,16 +930,6 @@ async def _generate_personas_task(
             if not project:
                 logger.error("Project not found in background task.", extra={"project_id": str(project_id)})
                 return
-
-            target_demographics = project.target_demographics or {}
-            distribution = DemographicDistribution(
-                age_groups=_normalize_distribution(target_demographics.get("age_group", {}), DEFAULT_AGE_GROUPS),
-                genders=_normalize_distribution(target_demographics.get("gender", {}), DEFAULT_GENDERS),
-                # Używaj POLSKICH wartości domyślnych dla lepszej realistyczności
-                education_levels=_normalize_distribution(target_demographics.get("education_level", {}), POLISH_EDUCATION_LEVELS),
-                income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), POLISH_INCOME_BRACKETS),
-                locations=_normalize_distribution(target_demographics.get("location", {}), POLISH_LOCATIONS),
-            )
 
             # === ORCHESTRATION STEP (GEMINI 2.5 PRO) - TEMPORARILY DISABLED ===
             # PRODUCTION HOTFIX #2: Wyłączone dla reliability (Graph RAG timeout 150s blokuje generowanie)
@@ -1092,7 +1065,31 @@ async def _generate_personas_task(
             logger.info(f"Generating demographic and psychological profiles for {num_personas} personas")
             concurrency_limit = _calculate_concurrency_limit(num_personas, adversarial_mode)
             semaphore = asyncio.Semaphore(concurrency_limit)
-            demographic_profiles = [generator.sample_demographic_profile(distribution)[0] for _ in range(num_personas)]
+
+            # Simple demographic sampling from Polish constants (no DemographicDistribution)
+            _POLISH_AGE_GROUPS = {
+                "18-24": 0.12,   # Młodzi dorośli, studenci
+                "25-34": 0.22,   # Millennials, wchodzący na rynek pracy
+                "35-44": 0.20,   # Gen X, stabilna kariera
+                "45-54": 0.18,   # Doświadczeni profesjonaliści
+                "55-64": 0.16,   # Zbliżający się do emerytury
+                "65+": 0.12,     # Emeryci
+            }
+            _POLISH_GENDERS = {
+                "Kobieta": 0.50,
+                "Mężczyzna": 0.49,
+                "Osoba niebinarna": 0.01,
+            }
+            demographic_profiles = []
+            for _ in range(num_personas):
+                demographic_profiles.append({
+                    "age_group": _select_weighted(_POLISH_AGE_GROUPS),
+                    "gender": _select_weighted(_POLISH_GENDERS),
+                    "education_level": _select_weighted(POLISH_EDUCATION_LEVELS),
+                    "income_bracket": _select_weighted(POLISH_INCOME_BRACKETS),
+                    "location": _select_weighted(POLISH_LOCATIONS),
+                })
+
             psychological_profiles = [{**generator.sample_big_five_traits(), **generator.sample_cultural_dimensions()} for _ in range(num_personas)]
 
             # === OVERRIDE DEMOGRAPHICS Z ORCHESTRATION - DISABLED ===
@@ -1472,17 +1469,7 @@ async def _generate_personas_task(
             if not validation_results["is_valid"]:
                 logger.warning("Persona validation found issues.", extra=validation_results)
 
-            if not adversarial_mode and hasattr(generator, "validate_distribution"):
-                try:
-                    validation = generator.validate_distribution(demographic_profiles, distribution)
-                    project = await db.get(Project, project_id)  # Ponowne pobranie po commitach batchy
-                    if project:
-                        project.is_statistically_valid = validation.get("overall_valid", False)
-                        project.chi_square_statistic = {k: v.get("chi_square_statistic") for k, v in validation.items() if k != "overall_valid"}
-                        project.p_values = {k: v.get("p_value") for k, v in validation.items() if k != "overall_valid"}
-                        await db.commit()
-                except Exception as e:
-                    logger.error("Statistical validation failed.", exc_info=e)
+            # Chi-square validation removed (statistical validation deprecated)
 
             logger.info("Persona generation task completed.", extra={"project_id": str(project_id), "count": len(personas_data)})
     except Exception as e:

@@ -62,12 +62,6 @@ PersonaGenerator = PersonaGeneratorLangChain
 MemoryService = MemoryServiceLangChain
 FocusGroupService = FocusGroupServiceLangChain
 
-# DemographicDistribution - legacy export (now in PersonaGeneratorLangChain)
-try:
-    from .personas.persona_generator_langchain import DemographicDistribution
-except ImportError:
-    DemographicDistribution = None
-
 __all__ = [
     # Shared
     "build_chat_model",
@@ -95,5 +89,4 @@ __all__ = [
     "PersonaGenerator",
     "MemoryService",
     "FocusGroupService",
-    "DemographicDistribution",
 ]

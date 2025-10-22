@@ -73,10 +73,10 @@ EXPOSE 8000
 # Użyj entrypoint script (czeka na Postgres/Redis, uruchamia migracje)
 ENTRYPOINT ["docker-entrypoint.sh"]
 
-# Default CMD zależy od TARGET environment
-# Development: uvicorn z --reload (hot reload przy zmianach kodu)
-# Production: gunicorn z multiple workers (będzie nadpisane w docker-compose.prod.yml)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Default CMD - Production-ready z gunicorn
+# Cloud Run używa zmiennej $PORT (dynamiczny port assignment)
+# Dla local development można override w docker-compose.yml
+CMD ["sh", "-c", "gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --workers ${GUNICORN_WORKERS:-2} --bind 0.0.0.0:${PORT:-8000} --timeout ${GUNICORN_TIMEOUT:-120} --max-requests ${GUNICORN_MAX_REQUESTS:-1000} --log-level ${LOG_LEVEL:-info}"]
 
 # Switch na non-root user OSTATNI krok
 USER appuser

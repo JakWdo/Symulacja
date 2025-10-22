@@ -22,21 +22,17 @@ class Project(Base):
     Model projektu badawczego
 
     Reprezentuje pojedynczy projekt badań rynkowych, który zawiera:
-    - Definicję docelowej grupy demograficznej
+    - Cel badawczy i opis grupy docelowej
     - Wygenerowane persony
     - Przeprowadzone grupy fokusowe
-    - Wyniki walidacji statystycznej
 
     Attributes:
         id: UUID projektu (klucz główny)
         name: Nazwa projektu
         description: Opis projektu
-        target_demographics: JSON z rozkładami demograficznymi (age_group, gender, education_level, etc.)
+        target_audience: Opis grupy docelowej
+        research_objectives: Cele badawcze
         target_sample_size: Docelowa liczba person do wygenerowania
-        chi_square_statistic: JSON z wartościami chi-kwadrat dla każdej kategorii demograficznej
-        p_values: JSON z p-wartościami testów statystycznych
-        is_statistically_valid: Czy rozkład person przeszedł walidację (wszystkie p > 0.05)
-        validation_date: Data ostatniej walidacji statystycznej
         created_at: Data utworzenia
         updated_at: Data ostatniej aktualizacji
         is_active: Czy projekt jest aktywny (soft delete)
@@ -44,6 +40,10 @@ class Project(Base):
     Relations:
         personas: Lista person należących do projektu
         focus_groups: Lista grup fokusowych należących do projektu
+        surveys: Lista ankiet należących do projektu
+
+    Note: Demographics są teraz generowane przez RAG + segment-based allocation,
+          nie przez hardcoded target_demographics.
     """
     __tablename__ = "projects"
 
@@ -54,12 +54,7 @@ class Project(Base):
     target_audience = Column(Text, nullable=True)
     research_objectives = Column(Text, nullable=True)
     additional_notes = Column(Text, nullable=True)
-    target_demographics = Column(JSON, nullable=False)  # {"age_group": {...}, "gender": {...}, ...}
     target_sample_size = Column(Integer, nullable=False)
-    chi_square_statistic = Column(JSON, nullable=True)  # {"age": 2.34, "gender": 1.12, ...}
-    p_values = Column(JSON, nullable=True)              # {"age": 0.67, "gender": 0.89, ...}
-    is_statistically_valid = Column(Boolean, nullable=False, default=False, server_default=text("false"))
-    validation_date = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
