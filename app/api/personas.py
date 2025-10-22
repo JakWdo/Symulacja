@@ -973,120 +973,120 @@ async def _generate_personas_task(
             if False:  # DISABLED orchestration block
                 logger.info("🎯 Creating orchestration plan with Gemini 2.5 Pro...")
                 try:
-                # Pobierz dodatkowy opis grupy docelowej jeśli istnieje
-                target_audience_desc = None
-                if advanced_options and "target_audience_description" in advanced_options:
-                    target_audience_desc = advanced_options["target_audience_description"]
-
-                # Tworzymy plan alokacji (długie briefe dla każdej grupy)
-                allocation_plan = await orchestration_service.create_persona_allocation_plan(
-                    target_demographics=target_demographics,
-                    num_personas=num_personas,
-                    project_description=project.description,
-                    additional_context=target_audience_desc,
-                )
-
-                logger.info(
-                    f"✅ Orchestration plan created: {len(allocation_plan.groups)} demographic groups, "
-                    f"overall_context={len(allocation_plan.overall_context)} chars"
-                )
-
-                # Mapuj briefe do każdej persony
-                # Strategia: Każda grupa ma `count` person, więc przydzielamy briefe sekwencyjnie
-                persona_index = 0
-                group_metadata: list[dict[str, str | None]] = []
-                for group_index, group in enumerate(allocation_plan.groups):
-                    demographics = (
-                        group.demographics
-                        if isinstance(group.demographics, dict)
-                        else dict(group.demographics)
+                    # Pobierz dodatkowy opis grupy docelowej jeśli istnieje
+                    target_audience_desc = None
+                    if advanced_options and "target_audience_description" in advanced_options:
+                        target_audience_desc = advanced_options["target_audience_description"]
+    
+                    # Tworzymy plan alokacji (długie briefe dla każdej grupy)
+                    allocation_plan = await orchestration_service.create_persona_allocation_plan(
+                        target_demographics=target_demographics,
+                        num_personas=num_personas,
+                        project_description=project.description,
+                        additional_context=target_audience_desc,
                     )
-                    segment_metadata = _build_segment_metadata(
-                        demographics,
-                        group.brief,
-                        group.allocation_reasoning,
-                        group_index,
+    
+                    logger.info(
+                        f"✅ Orchestration plan created: {len(allocation_plan.groups)} demographic groups, "
+                        f"overall_context={len(allocation_plan.overall_context)} chars"
                     )
-                    group_metadata.append(segment_metadata)
-                    group_count = group.count
-                    for _ in range(group_count):
-                        if persona_index < num_personas:
-                            persona_group_mapping[persona_index] = {
-                                "brief": group.brief,
-                                "graph_insights": [insight.model_dump() for insight in group.graph_insights],
-                                "allocation_reasoning": group.allocation_reasoning,
-                                "demographics": demographics,
-                                "segment_characteristics": group.segment_characteristics,
-                                **segment_metadata,
+    
+                    # Mapuj briefe do każdej persony
+                    # Strategia: Każda grupa ma `count` person, więc przydzielamy briefe sekwencyjnie
+                    persona_index = 0
+                    group_metadata: list[dict[str, str | None]] = []
+                    for group_index, group in enumerate(allocation_plan.groups):
+                        demographics = (
+                            group.demographics
+                            if isinstance(group.demographics, dict)
+                            else dict(group.demographics)
+                        )
+                        segment_metadata = _build_segment_metadata(
+                            demographics,
+                            group.brief,
+                            group.allocation_reasoning,
+                            group_index,
+                        )
+                        group_metadata.append(segment_metadata)
+                        group_count = group.count
+                        for _ in range(group_count):
+                            if persona_index < num_personas:
+                                persona_group_mapping[persona_index] = {
+                                    "brief": group.brief,
+                                    "graph_insights": [insight.model_dump() for insight in group.graph_insights],
+                                    "allocation_reasoning": group.allocation_reasoning,
+                                    "demographics": demographics,
+                                    "segment_characteristics": group.segment_characteristics,
+                                    **segment_metadata,
+                                }
+                                persona_index += 1
+    
+                    # KOREKCJA: Jeśli LLM alokował za mało, dolicz brakujące do ostatniej grupy
+                    # To naprawia off-by-one error gdzie LLM czasami zwraca sum(group.count) < num_personas
+                    total_allocated = sum(group.count for group in allocation_plan.groups)
+                    if total_allocated < num_personas and allocation_plan.groups:
+                        shortage = num_personas - total_allocated
+                        logger.info(
+                            f"🔧 Correcting allocation shortage: adding {shortage} personas to last group "
+                            f"(LLM allocated {total_allocated}/{num_personas})"
+                        )
+    
+                        # Zwiększ count ostatniej grupy
+                        allocation_plan.groups[-1].count += shortage
+    
+                        # Dodaj brakujące persony do mapping (używając briefa ostatniej grupy)
+                        last_group = allocation_plan.groups[-1]
+                        if group_metadata:
+                            last_metadata = group_metadata[-1]
+                        else:
+                            last_demographics = (
+                                last_group.demographics
+                                if isinstance(last_group.demographics, dict)
+                                else dict(last_group.demographics)
+                            )
+                            last_metadata = _build_segment_metadata(
+                                last_demographics,
+                                last_group.brief,
+                                last_group.allocation_reasoning,
+                                len(allocation_plan.groups) - 1,
+                            )
+                        for i in range(persona_index, num_personas):
+                            persona_group_mapping[i] = {
+                                "brief": last_group.brief,
+                                "graph_insights": [insight.model_dump() for insight in last_group.graph_insights],
+                                "allocation_reasoning": last_group.allocation_reasoning,
+                                "demographics": last_group.demographics
+                                if isinstance(last_group.demographics, dict)
+                                else dict(last_group.demographics),
+                                "segment_characteristics": last_group.segment_characteristics,
+                                **last_metadata,
                             }
                             persona_index += 1
-
-                # KOREKCJA: Jeśli LLM alokował za mało, dolicz brakujące do ostatniej grupy
-                # To naprawia off-by-one error gdzie LLM czasami zwraca sum(group.count) < num_personas
-                total_allocated = sum(group.count for group in allocation_plan.groups)
-                if total_allocated < num_personas and allocation_plan.groups:
-                    shortage = num_personas - total_allocated
-                    logger.info(
-                        f"🔧 Correcting allocation shortage: adding {shortage} personas to last group "
-                        f"(LLM allocated {total_allocated}/{num_personas})"
-                    )
-
-                    # Zwiększ count ostatniej grupy
-                    allocation_plan.groups[-1].count += shortage
-
-                    # Dodaj brakujące persony do mapping (używając briefa ostatniej grupy)
-                    last_group = allocation_plan.groups[-1]
-                    if group_metadata:
-                        last_metadata = group_metadata[-1]
-                    else:
-                        last_demographics = (
-                            last_group.demographics
-                            if isinstance(last_group.demographics, dict)
-                            else dict(last_group.demographics)
+    
+                    # WALIDACJA: Sprawdź czy wszystkie persony dostały briefe
+                    total_allocated = sum(group.count for group in allocation_plan.groups)
+                    if total_allocated != num_personas:
+                        logger.warning(
+                            f"⚠️ Allocation plan gap: expected {num_personas} personas, "
+                            f"but allocation plan covers {total_allocated}. "
+                            f"{num_personas - total_allocated} personas won't have orchestration briefs."
                         )
-                        last_metadata = _build_segment_metadata(
-                            last_demographics,
-                            last_group.brief,
-                            last_group.allocation_reasoning,
-                            len(allocation_plan.groups) - 1,
+                    elif persona_index < num_personas:
+                        logger.warning(
+                            f"⚠️ Brief mapping incomplete: mapped {persona_index}/{num_personas} personas. "
+                            f"Last {num_personas - persona_index} personas won't have orchestration briefs."
                         )
-                    for i in range(persona_index, num_personas):
-                        persona_group_mapping[i] = {
-                            "brief": last_group.brief,
-                            "graph_insights": [insight.model_dump() for insight in last_group.graph_insights],
-                            "allocation_reasoning": last_group.allocation_reasoning,
-                            "demographics": last_group.demographics
-                            if isinstance(last_group.demographics, dict)
-                            else dict(last_group.demographics),
-                            "segment_characteristics": last_group.segment_characteristics,
-                            **last_metadata,
-                        }
-                        persona_index += 1
-
-                # WALIDACJA: Sprawdź czy wszystkie persony dostały briefe
-                total_allocated = sum(group.count for group in allocation_plan.groups)
-                if total_allocated != num_personas:
-                    logger.warning(
-                        f"⚠️ Allocation plan gap: expected {num_personas} personas, "
-                        f"but allocation plan covers {total_allocated}. "
-                        f"{num_personas - total_allocated} personas won't have orchestration briefs."
+    
+                    logger.info(f"📋 Mapped briefs to {len(persona_group_mapping)} personas")
+    
+                except Exception as orch_error:
+                    # Jeśli orchestration failuje, logujemy ale kontynuujemy (fallback do basic generation)
+                    logger.error(
+                        f"❌ Orchestration failed: {orch_error}. Continuing with basic generation...",
+                        exc_info=orch_error
                     )
-                elif persona_index < num_personas:
-                    logger.warning(
-                        f"⚠️ Brief mapping incomplete: mapped {persona_index}/{num_personas} personas. "
-                        f"Last {num_personas - persona_index} personas won't have orchestration briefs."
-                    )
-
-                logger.info(f"📋 Mapped briefs to {len(persona_group_mapping)} personas")
-
-            except Exception as orch_error:
-                # Jeśli orchestration failuje, logujemy ale kontynuujemy (fallback do basic generation)
-                logger.error(
-                    f"❌ Orchestration failed: {orch_error}. Continuing with basic generation...",
-                    exc_info=orch_error
-                )
-                allocation_plan = None
-                persona_group_mapping = {}
+                    allocation_plan = None
+                    persona_group_mapping = {}
 
             # Kontrolowana współbieżność pozwala przyspieszyć generowanie bez przeciążania modelu
             logger.info(f"Generating demographic and psychological profiles for {num_personas} personas")
