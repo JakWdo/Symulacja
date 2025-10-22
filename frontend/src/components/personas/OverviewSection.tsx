@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { PersonaDetailsResponse } from '@/types';
@@ -12,29 +11,6 @@ interface OverviewSectionProps {
  * Sekcja Overview - podstawowe informacje persony z segment info
  */
 export function OverviewSection({ persona }: OverviewSectionProps) {
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.5,
-        ease: 'easeOut',
-      },
-    },
-  };
-
   const segmentInfo = useMemo(() => {
     const ragDetails = (persona.rag_context_details ?? {}) as Record<string, unknown>;
     const orchestration = (ragDetails['orchestration_reasoning'] ?? {}) as Record<string, unknown>;
@@ -102,14 +78,9 @@ export function OverviewSection({ persona }: OverviewSectionProps) {
   }, [persona]);
 
   return (
-    <motion.div
-      className="space-y-6"
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-    >
+    <div className="space-y-6">
       {/* Basic Info Card */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Podstawowe informacje</CardTitle>
@@ -153,37 +124,19 @@ export function OverviewSection({ persona }: OverviewSectionProps) {
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
-      {/* Segment Context Card */}
-      {segmentInfo.segmentName && (segmentInfo.segmentSocialContext || segmentInfo.segmentDescription) && (
-        <motion.div variants={itemVariants}>
-          <Card className="border-l-4 border-l-primary">
-            <CardHeader className="pb-2 space-y-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <CardTitle className="text-2xl font-bold text-foreground">
-                  {segmentInfo.segmentName}
-                </CardTitle>
-                {segmentInfo.segmentId && (
-                  <Badge variant="outline" className="text-xs uppercase tracking-wide">
-                    Segment {segmentInfo.segmentId}
-                  </Badge>
-                )}
-              </div>
-              {segmentInfo.segmentDescription && (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {segmentInfo.segmentDescription}
-                </p>
-              )}
+      {/* Segment Badge Card - Simplified */}
+      {segmentInfo.segmentName && (
+        <div>
+          <Card className="border border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl font-bold text-foreground">
+                {segmentInfo.segmentName}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {segmentInfo.segmentSocialContext && (
-                <p className="text-base text-foreground leading-relaxed">
-                  {segmentInfo.segmentSocialContext}
-                </p>
-              )}
-
-              {segmentInfo.segmentCharacteristics.length > 0 && (
+            {segmentInfo.segmentCharacteristics.length > 0 && (
+              <CardContent>
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">
                     Kluczowe cechy segmentu
@@ -200,11 +153,11 @@ export function OverviewSection({ persona }: OverviewSectionProps) {
                     ))}
                   </div>
                 </div>
-              )}
-            </CardContent>
+              </CardContent>
+            )}
           </Card>
-        </motion.div>
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 }

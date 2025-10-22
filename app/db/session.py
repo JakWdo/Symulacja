@@ -17,15 +17,36 @@ settings = get_settings()
 
 # Tworzenie silnika async z connection poolingiem
 # Engine to główny punkt wejścia do bazy danych
-engine = create_async_engine(
-    settings.DATABASE_URL,  # URL z pliku .env (postgresql+asyncpg://...)
-    echo=settings.DEBUG,  # Loguj zapytania SQL w trybie DEBUG
-    poolclass=NullPool if settings.ENVIRONMENT == "test" else None,  # Bez poolingu w testach
-    pool_pre_ping=True,  # Sprawdzaj czy połączenie jest aktywne przed użyciem
-    pool_size=5 if settings.ENVIRONMENT == "production" else 5,  # Max 5 aktywnych połączeń
-    max_overflow=10 if settings.ENVIRONMENT == "production" else 10,  # Max 10 dodatkowych przy szczycie
-    pool_recycle=3600,  # Odtwarzaj połączenia co 1h (zapobiega timeout PostgreSQL)
-)
+#
+# WAŻNE: Parametry poolingu (pool_size, max_overflow, pool_pre_ping, pool_recycle)
+# są obsługiwane TYLKO przez PostgreSQL/MySQL z pełnym connection pooling.
+# NIE działają z:
+# - NullPool (używany w testach - ENVIRONMENT=test)
+# - SQLite (używany w Cloud Build unit tests)
+#
+# Dlatego budujemy engine_kwargs conditionally:
+use_null_pool = settings.ENVIRONMENT == "test"
+is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+
+engine_kwargs = {
+    "url": settings.DATABASE_URL,
+    "echo": settings.DEBUG,
+}
+
+# Dodaj parametry poolingu TYLKO dla PostgreSQL w production/development
+if use_null_pool or is_sqlite:
+    # Test environment lub SQLite - tylko NullPool (bez poolingu)
+    engine_kwargs["poolclass"] = NullPool
+else:
+    # PostgreSQL w production/development - full connection pooling
+    engine_kwargs.update({
+        "pool_pre_ping": True,  # Sprawdzaj czy połączenie jest aktywne przed użyciem
+        "pool_size": 5,  # Max 5 aktywnych połączeń
+        "max_overflow": 10,  # Max 10 dodatkowych przy szczycie
+        "pool_recycle": 3600,  # Odtwarzaj połączenia co 1h (zapobiega timeout PostgreSQL)
+    })
+
+engine = create_async_engine(**engine_kwargs)
 
 # Factory do tworzenia sesji asynchronicznych
 # Session = jednostka pracy (transaction, query, flush)

@@ -3,16 +3,15 @@ Schemas dla ustawień użytkownika i zarządzania kontem
 
 Pydantic schemas używane przez endpointy /settings/*
 """
-from pydantic import BaseModel, EmailStr, validator
-from typing import Optional
+from pydantic import BaseModel, validator
 
 
 # === PROFILE SCHEMAS ===
 class ProfileUpdateRequest(BaseModel):
     """Request do aktualizacji profilu użytkownika"""
-    full_name: Optional[str] = None
-    role: Optional[str] = None
-    company: Optional[str] = None
+    full_name: str | None = None
+    role: str | None = None
+    company: str | None = None
 
     @validator('full_name')
     def validate_name(cls, v):
@@ -26,13 +25,13 @@ class ProfileResponse(BaseModel):
     id: str
     email: str
     full_name: str
-    role: Optional[str]
-    company: Optional[str]
-    avatar_url: Optional[str]
+    role: str | None
+    company: str | None
+    avatar_url: str | None
     plan: str
     is_verified: bool
     created_at: str
-    last_login_at: Optional[str]
+    last_login_at: str | None
 
     class Config:
         from_attributes = True
@@ -52,10 +51,10 @@ class NotificationSettingsResponse(BaseModel):
 
 class NotificationSettingsUpdate(BaseModel):
     """Request do aktualizacji ustawień notyfikacji"""
-    email_notifications_enabled: Optional[bool] = None
-    discussion_complete_notifications: Optional[bool] = None
-    weekly_reports_enabled: Optional[bool] = None
-    system_updates_notifications: Optional[bool] = None
+    email_notifications_enabled: bool | None = None
+    discussion_complete_notifications: bool | None = None
+    weekly_reports_enabled: bool | None = None
+    system_updates_notifications: bool | None = None
 
 
 # === ACCOUNT STATS SCHEMAS ===
@@ -87,8 +86,8 @@ class ApiKeyTestResponse(BaseModel):
     """Odpowiedź z testu połączenia API"""
     success: bool
     message: str
-    model_tested: Optional[str] = None
-    error: Optional[str] = None
+    model_tested: str | None = None
+    error: str | None = None
 
 
 # === AVATAR SCHEMAS ===
@@ -102,4 +101,4 @@ class AvatarUploadResponse(BaseModel):
 class MessageResponse(BaseModel):
     """Ogólna odpowiedź z wiadomością"""
     message: str
-    user: Optional[ProfileResponse] = None
+    user: ProfileResponse | None = None

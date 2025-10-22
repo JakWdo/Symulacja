@@ -1,4 +1,4 @@
-# 📚 Dokumentacja Techniczna - Market Research SaaS
+# 📚 Dokumentacja Techniczna - Sight
 
 Indeks dokumentacji technicznej dla deweloperów.
 
@@ -7,11 +7,14 @@ Indeks dokumentacji technicznej dla deweloperów.
 | Dokument | Opis | Rozmiar |
 |----------|------|---------|
 | [../README.md](../README.md) | User-facing docs, quick start, features | ~800 linii |
-| [../CLAUDE.md](../CLAUDE.md) | **Instrukcje dla Claude Code** (architecture, patterns, checklist) | ~260 linii |
-| [DOCKER.md](DOCKER.md) | Architektura Docker, multi-stage builds, deployment | ~224 linie |
-| [TESTING.md](TESTING.md) | Test suite (208 testów), fixtures, performance | ~998 linii |
-| [RAG.md](RAG.md) | System RAG: Hybrid Search + GraphRAG | ~503 linie |
-| [../PLAN.md](../PLAN.md) | **Roadmap i zadania dla Claude** (używany do trackowania) | ~350 linii |
+| [../CLAUDE.md](../CLAUDE.md) | **Instrukcje dla Claude Code** (architecture, patterns, checklist) | ~390 linii |
+| [../PLAN.md](../PLAN.md) | **Strategic Roadmap** (27 aktywnych zadań + 9 completed) | ~350 linii |
+| [INFRASTRUCTURE.md](INFRASTRUCTURE.md) | **Docker, CI/CD, Cloud Run** (narracyjny styl, all-in-one) | ~700 linii |
+| [TESTING.md](TESTING.md) | Test suite (380 testów), fixtures, performance | ~110 linii |
+| [RAG.md](RAG.md) | System RAG: Hybrid Search + GraphRAG | ~123 linie |
+| [AI_ML.md](AI_ML.md) | AI/LLM system, persona generation, LangChain | ~200 linii |
+| [SERVICES.md](SERVICES.md) | Struktura serwisów (domain folders) | ~123 linie |
+| [PERSONA_DETAILS.md](PERSONA_DETAILS.md) | Persona Details MVP feature (dokumentacja feature) | ~1057 linii |
 
 ---
 
@@ -19,16 +22,17 @@ Indeks dokumentacji technicznej dla deweloperów.
 
 ### Dla Nowych Deweloperów
 1. [../README.md](../README.md) - Setup środowiska
-2. [DOCKER.md](DOCKER.md) - Docker commands & architecture
+2. [INFRASTRUCTURE.md](INFRASTRUCTURE.md) - Docker, CI/CD, Cloud Run
 3. [../CLAUDE.md](../CLAUDE.md) - Architektura i konwencje
 4. [TESTING.md](TESTING.md) - Uruchom testy dla weryfikacji
 
 ### Dla Doświadczonych Deweloperów
 - **Architektura:** [../CLAUDE.md#architektura](../CLAUDE.md)
-- **Docker:** [DOCKER.md](DOCKER.md)
+- **Infrastructure:** [INFRASTRUCTURE.md](INFRASTRUCTURE.md) - Docker, CI/CD, Cloud Run
 - **API Docs:** http://localhost:8000/docs (Swagger UI)
 - **Testowanie:** [TESTING.md](TESTING.md)
 - **RAG System:** [RAG.md](RAG.md)
+- **AI/ML:** [AI_ML.md](AI_ML.md)
 - **Roadmap:** [../PLAN.md](../PLAN.md)
 
 ---
@@ -36,16 +40,19 @@ Indeks dokumentacji technicznej dla deweloperów.
 ## 📂 Struktura Projektu
 
 ```
-market-research-saas/
+sight/
 ├── README.md              # User-facing documentation
 ├── CLAUDE.md              # Claude Code instructions (architecture, patterns)
 ├── PLAN.md                # Roadmap & task tracking (używany przez Claude)
 │
 ├── docs/                  # Technical documentation
 │   ├── README.md         # Ten plik - indeks dokumentacji
-│   ├── DOCKER.md         # Docker architecture & deployment
-│   ├── TESTING.md        # Test suite (208 testów)
-│   └── RAG.md            # RAG system: Hybrid Search + GraphRAG
+│   ├── INFRASTRUCTURE.md # Docker, CI/CD, Cloud Run (narracyjny)
+│   ├── TESTING.md        # Test suite (380 testów)
+│   ├── RAG.md            # RAG system: Hybrid Search + GraphRAG
+│   ├── AI_ML.md          # AI/LLM system, persona generation
+│   ├── SERVICES.md       # Struktura serwisów (domain folders)
+│   └── PERSONA_DETAILS.md # Persona Details MVP feature
 │
 ├── app/                   # Backend (FastAPI)
 │   ├── api/              # REST API endpoints
@@ -102,41 +109,41 @@ market-research-saas/
 
 ---
 
-### DOCKER.md - Architektura Docker
+### INFRASTRUCTURE.md - Docker, CI/CD, Cloud Run
 
-**Multi-Stage Builds:**
-- Backend: 850MB → 450MB (builder + runtime)
-- Frontend: 500MB → 25MB production (deps + builder + dev + prod)
+**Nowy plik** (2025-10-21) - konsolidacja DEPLOYMENT.md + DEVOPS.md w narracyjny styl.
 
-**Key Features:**
-- Instant starty (30-60s → <2s) - node_modules cached w image
-- Named volume `frontend_node_modules` zapobiega konfliktom
-- Hot reload out-of-the-box
-- Development vs Production environments
+**Sekcje:**
+- **Architektura Docker** - Multi-stage builds, serwisy, resource limits (84% redukcja rozmiaru)
+- **Local Development** - Quick start, hot reload, debugging
+- **Cloud Run Production** - GCP setup, secrets, single service architecture
+- **CI/CD Pipeline** - cloudbuild.yaml (7 kroków), quality gates, monitoring
+- **Troubleshooting** - Top 5 problemów + rozwiązania
+- **Koszty** - Monthly breakdown (~$16-30), optimization tips
 
 **Performance:**
-- Frontend start: <2s (instant!)
-- Build cached: ~5-10s
-- Hot reload działa natychmiast
+- Build time: -67% (dzięki layer caching)
+- Deployment: 7-12 min (GitHub push → running app)
+- Automated: migrations, Neo4j indexes, smoke tests
 
 ---
 
 ### TESTING.md - Test Suite
 
-**208 testów** pokrywających wszystkie warstwy.
+**380 testów** pokrywających wszystkie warstwy (narracyjny styl).
 
 **Kategorie:**
-- **Unit** (~150, <5s) - Services, utilities, models
-- **Integration** (~35, 10-30s) - API + DB + External services
-- **E2E** (~4, 2-5 min) - Full workflows
-- **Performance** (~5, 5-10 min) - Benchmarks i stress tests
+- **Unit** (~240, <90s) - Services, utilities, models (w CI/CD)
+- **Integration** (~70, 10-30s) - API + DB + External services
+- **E2E** (~5, 2-5 min) - Full workflows
+- **Performance** (~3, 5-10 min) - Benchmarks i stress tests
 - **Error Handling** (~9, 5-10s) - Edge cases & failures
 
 **Coverage:** 80%+ overall, 85%+ dla services
 
 **Cele Wydajnościowe:**
-- 20 person < 60s
-- Focus group 20×4 < 3 min
+- 20 person < 60s (currently ~45s)
+- Focus group 20×4 < 3 min (currently ~2 min)
 - Parallelization speedup >= 3x
 
 ---
@@ -159,24 +166,29 @@ market-research-saas/
 
 ---
 
-### PLAN.md - Roadmap & Task Tracking
+### PLAN.md - Strategic Roadmap
 
-**WAŻNE:** Używany przez Claude do trackowania zadań!
+**WAŻNE:** Strategiczny roadmap projektu (20-30 najważniejszych zadań).
 
 **Struktura:**
-- Docker & Infrastructure
-- Backend & API
-- AI & LLM
-- RAG & Knowledge Graph
-- Frontend
-- Testing
-- Compliance & Legal
-- Priorities (High/Medium/Low)
+- Infrastructure & CI/CD (8 zadań)
+- Backend & API (6 zadań)
+- AI & RAG (6 zadań)
+- Frontend (5 zadań)
+- Testing & Quality (4 zadania)
+- Documentation (3 zadania)
+- Priorities (High/Medium/Low - MoSCoW)
+
+**Current Status:**
+- 27 aktywnych zadań
+- 9 completed (last 30 days)
+- Next Sprint Focus: Integration tests w CI/CD, RBAC enforcement, Semantic chunking RAG, Coverage 85%+
 
 **Gdy Claude wprowadza zmiany:**
-1. Aktualizuje PLAN.md - zaznacza zrealizowane
+1. Aktualizuje PLAN.md - zaznacza zrealizowane (data)
 2. Dodaje nowe zadania według priorytetu
 3. Grupuje według obszaru
+4. Usuwa completed >30 dni
 
 ---
 
@@ -266,6 +278,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
-**Ostatnia aktualizacja:** 2025-10-14
-**Wersja dokumentacji:** 3.0
-**Liczba testów:** 208
+**Ostatnia aktualizacja:** 2025-10-21
+**Wersja dokumentacji:** 4.0
+**Liczba testów:** 380
+**Struktura:** Narracyjna (ciągły tekst)

@@ -29,7 +29,7 @@ import { useAppStore } from '@/store/appStore';
 import { Persona as APIPersona } from '@/types';
 import { toast } from '@/components/ui/toastStore';
 import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 
 
 // Display-friendly Persona interface
@@ -265,7 +265,11 @@ function transformPersona(apiPersona: APIPersona): DisplayPersona {
 
 
 export function Personas() {
-  const { selectedProject, setSelectedProject: setGlobalProject, setActivePanel } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const setGlobalProject = useAppStore(state => state.setSelectedProject);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
+
   const projectLabel = selectedProject?.name || 'Unknown project';
   const [selectedPersonaForDetails, setSelectedPersonaForDetails] = useState<string | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
@@ -301,21 +305,35 @@ export function Personas() {
     },
     enabled: !!selectedProject,
     refetchInterval: (query) => {
+      // Explicit guards to prevent unnecessary refetching
       if (!selectedProject) return false;
       if (!progressMeta) return false;
       if (activeGenerationProjectId !== selectedProject.id) return false;
       if (progressMeta.targetCount <= 0) return false;
+
       const data = query.state.data as APIPersona[] | undefined;
       const currentCount = Array.isArray(data) ? data.length : 0;
       const baseline = progressMeta.baselineCount;
       const expectedTotal = baseline + progressMeta.targetCount;
-      return currentCount >= expectedTotal ? false : 2000;
+
+      // Stop refetching once we reach the target
+      if (currentCount >= expectedTotal) return false;
+
+      // Refetch every 3 seconds while generating (increased from 2s for better performance)
+      return 3000;
     },
   });
 
-  // Transform API personas to display format and apply filters
+  // CRITICAL FIX: Memoize transform separately to avoid recalculating on every filter change
+  // transformPersona is expensive (regex, normalization, mapping), so we only do it when apiPersonas changes
+  const transformedPersonas = useMemo(
+    () => apiPersonas.map(transformPersona),
+    [apiPersonas] // Only recalculate when API data changes!
+  );
+
+  // Now apply filters - this is fast (just array filtering)
   const filteredPersonas = useMemo(() => {
-    let personas = apiPersonas.map(transformPersona);
+    let personas = transformedPersonas;
 
     // Apply gender filter
     if (selectedGenders.length > 0) {
@@ -331,7 +349,7 @@ export function Personas() {
     }
 
     return personas;
-  }, [apiPersonas, selectedGenders, ageRange, selectedOccupations]);
+  }, [transformedPersonas, selectedGenders, ageRange, selectedOccupations]);
 
   // Reset carousel index when filtered personas change
   const prevFilteredLength = React.useRef(filteredPersonas.length);

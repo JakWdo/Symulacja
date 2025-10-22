@@ -12,7 +12,6 @@ Wymaga zmiennych środowiskowych:
 - ACCESS_TOKEN_EXPIRE_MINUTES: Czas życia tokenu (domyślnie 30 min)
 """
 from datetime import datetime, timedelta
-from typing import Optional
 import bcrypt
 from jose import JWTError, jwt
 from cryptography.fernet import Fernet
@@ -74,7 +73,7 @@ def get_password_hash(password: str) -> str:
 
 
 # === TOKENY JWT ===
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """
     Utwórz JWT access token
 
@@ -112,7 +111,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str) -> dict | None:
     """
     Zdekoduj i zwaliduj JWT token
 

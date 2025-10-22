@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.services.focus_groups import FocusGroupServiceLangChain
+from app.services.focus_groups.focus_group_service_langchain import FocusGroupServiceLangChain
 
 
 class DummyLLM:
@@ -211,26 +211,6 @@ def test_fallback_response_for_empty_llm(service):
     assert "Alice" in fallback
     assert "Designer" in fallback or persona.occupation.lower() in fallback.lower()
     assert len(fallback) > 20  # Sensowna długość
-
-
-def test_pizza_fallback_response_personalized(service):
-    """Test czy _pizza_fallback_response generuje spersonalizowaną odpowiedź."""
-    persona = DummyPersona("Alice")
-    persona.full_name = "Alice Johnson"
-    persona.occupation = "Fitness Coach"
-    persona.values = ["Health", "Wellness"]
-    persona.interests = ["Yoga", "Running"]
-    persona.location = "Warsaw"
-
-    response = service._pizza_fallback_response(persona)
-
-    # Powinna wybrać zdrową pizzę bazując na values
-    assert "Alice" in response
-    # "pizza" może być odmieniona (pizzę, pizzy, etc.) więc sprawdzamy "pizz"
-    assert "pizz" in response.lower()
-    assert len(response) > 50  # Szczegółowa odpowiedź
-    # Powinno wspomnieć o zdrowiu bazując na values
-    assert any(word in response.lower() for word in ["lekką", "lekka", "cienkim", "rukolą", "rukola", "warzywami", "zdrowych"])
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,6 @@ import logging
 import shutil
 import uuid
 from pathlib import Path
-from typing import List
 
 from fastapi import (
     APIRouter,
@@ -34,11 +33,9 @@ from app.schemas.rag import (
     RAGQueryRequest,
     RAGQueryResponse,
 )
-from app.services.rag import (
-    RAGDocumentService,
-    PolishSocietyRAG,
-    GraphRAGService,
-)
+from app.services.rag.rag_document_service import RAGDocumentService
+from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.rag.rag_graph_service import GraphRAGService
 
 settings = get_settings()
 router = APIRouter(prefix="/rag", tags=["RAG Knowledge Base"])
@@ -193,7 +190,7 @@ async def upload_document(
     return document
 
 
-@router.get("/documents", response_model=List[RAGDocumentResponse])
+@router.get("/documents", response_model=list[RAGDocumentResponse])
 async def list_documents(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -222,8 +219,8 @@ async def query_rag(
 
     try:
         results = await rag.vector_store.asimilarity_search_with_score(request.query, k=request.top_k)
-        context_chunks: List[str] = []
-        citations: List[RAGCitation] = []
+        context_chunks: list[str] = []
+        citations: list[RAGCitation] = []
         for doc, score in results:
             context_chunks.append(doc.page_content)
             citations.append(

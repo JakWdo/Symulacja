@@ -4,41 +4,44 @@ Settings endpoints: profile, avatar upload, account stats
 Endpointy do zarządzania ustawieniami użytkownika i kontem.
 Wszystkie wymagają uwierzytelnienia JWT.
 """
+import asyncio
+import io
+import logging
+import uuid
 from datetime import datetime
-from typing import Optional, Union
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from PIL import Image
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from app.models.user import User
-from app.models.project import Project
-from app.models.persona import Persona
-from app.models.focus_group import FocusGroup
-from app.models.survey import Survey
+
+from app.api.dependencies import get_current_user
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.models.focus_group import FocusGroup
+from app.models.persona import Persona
+from app.models.project import Project
+from app.models.survey import Survey
+from app.models.user import User
 from app.schemas.settings import (
-    ProfileUpdateRequest,
-    ProfileResponse,
     AccountStatsResponse,
     AvatarUploadResponse,
     MessageResponse,
+    ProfileResponse,
+    ProfileUpdateRequest,
 )
-import uuid
-from pathlib import Path
 try:
     import aiofiles  # type: ignore
 except ModuleNotFoundError:  # pragma: no cover - fallback for environments without aiofiles
     aiofiles = None
-import asyncio
-from PIL import Image
-import io
+logger = logging.getLogger(__name__)
 
 
 class _AsyncFileWrapper:
     """Minimal async context manager when aiofiles is unavailable."""
 
-    def __init__(self, path: Union[str, Path], mode: str, *args, **kwargs):
+    def __init__(self, path: str | Path, mode: str, *args, **kwargs):
         self._path = path
         self._mode = mode
         self._args = args
@@ -58,7 +61,7 @@ class _AsyncFileWrapper:
         await loop.run_in_executor(None, self._file.close)
 
 
-def _open_async(path: Union[str, Path], mode: str, *args, **kwargs):
+def _open_async(path: str | Path, mode: str, *args, **kwargs):
     if aiofiles is not None:
         return aiofiles.open(path, mode, *args, **kwargs)
     return _AsyncFileWrapper(path, mode, *args, **kwargs)
@@ -293,7 +296,7 @@ async def get_account_stats(
     projects_result = await db.execute(
         select(func.count(Project.id)).where(
             Project.owner_id == current_user.id,
-            Project.is_active == True
+            Project.is_active.is_(True),
         )
     )
     projects_count = projects_result.scalar() or 0

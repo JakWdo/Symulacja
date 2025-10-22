@@ -19,7 +19,7 @@ async def test_engine():
     afterwards so CI runs always start from a clean slate.
     """
     settings = get_settings()
-    test_db_url = settings.DATABASE_URL.replace("/market_research_db", "/test_market_research_db")
+    test_db_url = settings.DATABASE_URL.replace("/sight_db", "/test_sight_db")
 
     engine = create_async_engine(
         test_db_url,
@@ -50,4 +50,3 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
         async with session.begin():
             yield session
             await session.rollback()
-

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/ui/logo';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAvatarUrl, getInitials } from '@/lib/avatar';

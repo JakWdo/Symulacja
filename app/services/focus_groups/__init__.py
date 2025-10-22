@@ -1,21 +1,18 @@
 """
-Serwisy grup fokusowych i ankiet
+Focus group and discussion services.
 
-Ten moduł zawiera serwisy do:
-- Symulacji grup fokusowych (group_service.py)
-- Podsumowań dyskusji (summarizer.py)
-- Pamięci person (memory.py)
-- Odpowiedzi na ankiety (survey_responses.py)
+Serwisy odpowiedzialne za symulacje grup fokusowych i ich analizę:
+- FocusGroupServiceLangChain - Orkiestracja dyskusji grup fokusowych
+- DiscussionSummarizerService - AI-powered podsumowania dyskusji
+- MemoryServiceLangChain - Event sourcing dla person (pamięć długoterminowa)
 """
 
-from app.services.focus_groups.group_service import FocusGroupServiceLangChain
-from app.services.focus_groups.summarizer import DiscussionSummarizerService
-from app.services.focus_groups.memory import MemoryServiceLangChain
-from app.services.focus_groups.survey_responses import SurveyResponseGenerator
+from .focus_group_service_langchain import FocusGroupServiceLangChain
+from .discussion_summarizer import DiscussionSummarizerService
+from .memory_service_langchain import MemoryServiceLangChain
 
 __all__ = [
     "FocusGroupServiceLangChain",
     "DiscussionSummarizerService",
     "MemoryServiceLangChain",
-    "SurveyResponseGenerator",
 ]

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from app.services.discussion_summarizer import (
+from app.services.focus_groups.discussion_summarizer import (
     DiscussionSummarizerService,
     _simple_sentiment_score,
 )

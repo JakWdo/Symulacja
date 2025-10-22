@@ -28,10 +28,6 @@ async def test_generate_personas_success(authenticated_client):
     # Create project
     project_data = project_payload(
         name="Persona Generation Test",
-        target_demographics={
-            "age_group": {"18-24": 0.3, "25-34": 0.4, "35-44": 0.3},
-            "gender": {"male": 0.5, "female": 0.5},
-        },
         target_sample_size=5,
     )
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -103,10 +99,6 @@ async def test_generate_personas_invalid_num(authenticated_client):
     # Create project
     project_data = project_payload(
         name="Invalid Num Test",
-        target_demographics={
-            "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5},
-        },
         target_sample_size=10,
     )
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)
@@ -235,10 +227,6 @@ async def test_generate_adversarial_personas(authenticated_client):
     # Create project
     project_data = {
         "name": "Adversarial Test",
-        "target_demographics": {
-            "age_group": {"25-34": 0.5, "35-44": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
-        },
         "target_sample_size": 3
     }
     project_response = client.post("/api/v1/projects", json=project_data, headers=headers)

@@ -7,16 +7,16 @@ from uuid import uuid4
 
 
 def project_payload(**overrides: Any) -> Dict[str, Any]:
-    """Return a default project payload that satisfies validation rules."""
+    """Return a default project payload that satisfies validation rules.
+
+    Note: target_demographics is now optional. Projects use segment-based
+    allocation via PersonaOrchestrationService instead of demographics.
+    """
     payload: Dict[str, Any] = {
         "name": "Test Research Project",
         "description": "Integration test project",
         "target_audience": "Young professionals aged 25-35",
         "research_objectives": "Validate feature set",
-        "target_demographics": {
-            "age_group": {"18-24": 0.2, "25-34": 0.5, "35-44": 0.3},
-            "gender": {"male": 0.5, "female": 0.5},
-        },
         "target_sample_size": 10,
     }
     payload.update(overrides)

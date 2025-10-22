@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FloatingPanel } from '@/components/ui/FloatingPanel';
+import { FloatingPanel } from '@/components/ui/floating-panel';
 import { focusGroupsApi, personasApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import {
@@ -20,7 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { toast } from '@/components/ui/toastStore';
 import type { FocusGroup } from '@/types';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -88,7 +88,8 @@ function FocusGroupCard({
   index: number;
   onEdit: () => void;
 }) {
-  const { setSelectedFocusGroup } = useAppStore();
+  // Use Zustand selector to prevent unnecessary re-renders
+  const setSelectedFocusGroup = useAppStore(state => state.setSelectedFocusGroup);
   const queryClient = useQueryClient();
 
   const runMutation = useMutation({
@@ -658,16 +659,15 @@ function FocusGroupForm({
 }
 
 export function FocusGroupPanel() {
-  const {
-    activePanel,
-    setActivePanel,
-    selectedProject,
-    selectedFocusGroup,
-    personas,
-    focusGroups,
-    setFocusGroups,
-    setSelectedFocusGroup,
-  } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const activePanel = useAppStore(state => state.activePanel);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const selectedFocusGroup = useAppStore(state => state.selectedFocusGroup);
+  const personas = useAppStore(state => state.personas);
+  const focusGroups = useAppStore(state => state.focusGroups);
+  const setFocusGroups = useAppStore(state => state.setFocusGroups);
+  const setSelectedFocusGroup = useAppStore(state => state.setSelectedFocusGroup);
   const [formState, setFormState] = useState<
     | { mode: 'create' }
     | { mode: 'edit'; focusGroup: FocusGroup }

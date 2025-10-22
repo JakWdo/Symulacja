@@ -3,7 +3,8 @@ API Endpoints dla Analiz i Podsumowań AI
 
 Ten moduł zawiera endpoints do zaawansowanej analizy grup fokusowych:
 - POST /focus-groups/{id}/ai-summary - AI-powered podsumowanie dyskusji (Gemini)
-- GET /focus-groups/{id}/sentiment-analysis - Analiza sentymentu odpowiedzi
+- GET /focus-groups/{id}/ai-summary - Pobiera cache'owane AI summary
+- GET /focus-groups/{id}/responses - Pełne transkrypty odpowiedzi
 
 Podsumowania używają Google Gemini (2.5 Pro lub Flash) do:
 - Executive summary
@@ -13,7 +14,7 @@ Podsumowania używają Google Gemini (2.5 Pro lub Flash) do:
 - Sentiment narrative
 """
 from collections import defaultdict
-from typing import Any, Dict
+from typing import Any
 from uuid import UUID
 import logging
 
@@ -22,9 +23,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.models import FocusGroup, Persona, PersonaResponse, User
+from app.models import FocusGroup, PersonaResponse, User
 from app.api.dependencies import get_current_user, get_focus_group_for_user
-from app.services.focus_groups import DiscussionSummarizerService
+from app.services.focus_groups.discussion_summarizer import DiscussionSummarizerService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ async def generate_ai_summary(
     include_recommendations: bool = Query(True, description="Include strategic recommendations"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate AI-powered discussion summary for a focus group
 
@@ -84,48 +85,9 @@ async def get_ai_summary(
     focus_group_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Retrieve cached AI summary for a focus group.
-
-    Alias for GET /focus-groups/{id}/insights to keep backwards compatibility.
-    """
-    return await get_insights(focus_group_id, db, current_user)
-
-
-@router.post("/focus-groups/{focus_group_id}/insights")
-async def generate_insights(
-    focus_group_id: UUID,
-    use_pro_model: bool = Query(
-        True,
-        description="Use Gemini 2.5 Pro for highest-quality analysis"
-    ),
-    include_recommendations: bool = Query(True, description="Include strategic recommendations"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """
-    Alias for /ai-summary - Generate AI-powered insights for a focus group
-
-    This endpoint provides the same functionality as /ai-summary
-    """
-    return await generate_ai_summary(
-        focus_group_id,
-        use_pro_model,
-        include_recommendations,
-        db,
-        current_user,
-    )
-
-
-@router.get("/focus-groups/{focus_group_id}/insights")
-async def get_insights(
-    focus_group_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """
-    Get cached insights for a focus group
 
     Returns the most recently generated AI summary cached on the focus group.
     """
@@ -134,7 +96,7 @@ async def get_insights(
     if not focus_group.ai_summary:
         raise HTTPException(
             status_code=404,
-            detail="Insights not found. Generate them first using POST /focus-groups/{id}/insights"
+            detail="AI summary not found. Generate it first using POST /focus-groups/{id}/ai-summary"
         )
 
     return focus_group.ai_summary

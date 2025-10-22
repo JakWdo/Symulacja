@@ -1,15 +1,13 @@
 /**
  * PersonaReasoningPanel - Wyświetla szczegółowe reasoning persony
  *
- * Panel prezentuje edukacyjne wyjaśnienia:
- * - Demographics (always visible, compact)
- * - Top 3 Graph Insights (always visible)
- * - Orchestration brief (collapsible)
- * - Overall context Polski (collapsible)
- * - Allocation reasoning (collapsible)
+ * Panel prezentuje informacje o segmencie społecznym:
+ * - Segment społeczny (nazwa, demografia, cechy, opis segmentu)
+ * - Top 3 Graph Insights (najważniejsze dane z raportów)
+ * - Allocation reasoning (dlaczego tyle person w tej grupie)
  *
  * Output style: Edukacyjny, konwersacyjny, production-ready
- * UX: Progressive disclosure, collapsible sections, mobile-friendly
+ * UX: Czytelna struktura, lepsze formatowanie markdown
  */
 
 import { useState, useMemo } from 'react';
@@ -23,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AlertCircle, Lightbulb, ChevronDown, Users, Sparkles, Circle } from 'lucide-react';
+import { AlertCircle, ChevronDown, Users, Sparkles, Circle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
@@ -43,7 +41,6 @@ interface GraphInsight {
 
 export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
   const [expanded, setExpanded] = useState({
-    brief: false,
     allocation: false,
     allInsights: false,
   });
@@ -55,13 +52,18 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
   });
 
   const personaStory = persona.background_story?.trim() ?? '';
-  const personaStoryParagraphs = useMemo(() => {
-    if (!personaStory) return [];
-    return personaStory
-      .split(/\n+/)
-      .map((paragraph) => paragraph.trim())
-      .filter((paragraph) => paragraph.length > 0);
-  }, [personaStory]);
+
+  // Polskie nazwy dla kluczy demografii
+  const demographicLabels: Record<string, string> = {
+    'age': 'Wiek',
+    'age_range': 'Przedział wiekowy',
+    'gender': 'Płeć',
+    'location': 'Lokalizacja',
+    'education': 'Wykształcenie',
+    'income': 'Dochód',
+    'income_range': 'Przedział dochodowy',
+    'occupation': 'Zawód',
+  };
 
   // Get top 3 high-confidence insights
   const topInsights = useMemo(() => {
@@ -77,11 +79,6 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
     if (!reasoning?.graph_insights) return [];
     return reasoning.graph_insights;
   }, [reasoning?.graph_insights]);
-
-  const segmentContext = useMemo(() => {
-    if (!reasoning) return null;
-    return reasoning.segment_social_context || reasoning.overall_context || null;
-  }, [reasoning]);
 
   // Validation: check if persona age matches segment
   // IMPORTANT: This hook must be called BEFORE any early returns (React Rules of Hooks)
@@ -232,28 +229,16 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                 </h2>
               </div>
             </div>
-            {reasoning.segment_description && (
-              <p className="text-sm text-muted-foreground mt-2">
-                {reasoning.segment_description}
-              </p>
-            )}
           </CardHeader>
 
           <CardContent>
-            {segmentContext && (
-              <div className="prose prose-sm dark:prose-invert max-w-none mb-4">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {segmentContext}
-                </ReactMarkdown>
-              </div>
-            )}
             {/* Demographics Grid */}
             {reasoning.demographics && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-muted/30 rounded-lg">
                 {Object.entries(reasoning.demographics).map(([key, value]) => (
                   <div key={key} className="space-y-1">
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {key.replace(/_/g, ' ')}
+                    <p className="text-xs text-muted-foreground">
+                      {demographicLabels[key] || key.replace(/_/g, ' ')}
                     </p>
                     <p className="text-sm font-semibold text-foreground">
                       {String(value)}
@@ -282,21 +267,49 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                 </div>
               </div>
             )}
+
+            {/* Opis segmentu (orchestration_brief) */}
+            {(() => {
+              const orchestrationBrief = reasoning?.orchestration_brief?.trim() ?? '';
+              if (!orchestrationBrief) return null;
+              if (personaStory && orchestrationBrief === personaStory) return null;
+
+              return (
+                <div className="mt-6 space-y-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">
+                    Opis segmentu
+                  </h3>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        strong: ({children}) => <strong className="font-bold text-foreground">{children}</strong>,
+                        em: ({children}) => <em className="italic text-foreground/90">{children}</em>,
+                        h3: ({children}) => <h3 className="text-base font-bold mt-4 mb-2 text-foreground">{children}</h3>,
+                        p: ({children}) => <p className="mb-3 leading-relaxed">{children}</p>,
+                      }}
+                    >
+                      {orchestrationBrief}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
 
       {/* 2. Top 3 Graph Insights - Always visible */}
       {topInsights.length > 0 && (
-        <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+        <Card className="bg-muted/30 border-border">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-amber-600" />
-              <CardTitle className="text-base font-semibold text-amber-900 dark:text-amber-100">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base font-semibold text-foreground">
                 Kluczowe Spostrzeżenia AI
               </CardTitle>
             </div>
-            <CardDescription className="text-amber-700 dark:text-amber-300">
+            <CardDescription className="text-muted-foreground">
               Najważniejsze dane z raportów o polskim społeczeństwie
             </CardDescription>
           </CardHeader>
@@ -309,7 +322,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => setExpanded(prev => ({ ...prev, allInsights: true }))}
-                className="w-full mt-4 border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                className="w-full mt-4 border-primary text-primary hover:bg-primary/10"
               >
                 Pokaż wszystkie wskaźniki ({allInsights.length})
                 <ChevronDown className="ml-2 h-4 w-4" />
@@ -318,8 +331,8 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
 
             {/* All remaining insights */}
             {expanded.allInsights && allInsights.length > 3 && (
-              <div className="space-y-4 mt-4 pt-4 border-t border-amber-200 dark:border-amber-800">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-3">
+              <div className="space-y-4 mt-4 pt-4 border-t border-border">
+                <p className="text-sm font-medium text-foreground mb-3">
                   Pozostałe wskaźniki:
                 </p>
                 {allInsights.slice(3).map((insight, idx) => renderInsight(insight, idx + 3))}
@@ -327,7 +340,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                   variant="ghost"
                   size="sm"
                   onClick={() => setExpanded(prev => ({ ...prev, allInsights: false }))}
-                  className="w-full mt-2 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                  className="w-full mt-2 text-primary hover:bg-primary/10"
                 >
                   <ChevronDown className="mr-2 h-4 w-4 rotate-180" />
                   Zwiń wskaźniki
@@ -338,87 +351,8 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
         </Card>
       )}
 
-      {/* 3. Persona Story */}
-      {personaStoryParagraphs.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              <Lightbulb className="h-5 w-5 text-primary" />
-              Historia {persona.full_name || 'tej osoby'}
-            </CardTitle>
-            <CardDescription>
-              Dlaczego ta persona jest wyjątkowa w swoim segmencie
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {personaStoryParagraphs.map((paragraph, idx) => (
-              <p
-                key={`persona-story-${idx}`}
-                className="text-sm text-foreground leading-relaxed"
-              >
-                {paragraph}
-              </p>
-            ))}
-          </CardContent>
-        </Card>
-      )}
 
-      {/* 4. Orchestration Brief - Collapsible, collapsed by default */}
-      {(() => {
-        const orchestrationBrief = reasoning?.orchestration_brief?.trim() ?? '';
-        if (!orchestrationBrief) return null;
-        if (personaStory && orchestrationBrief === personaStory) return null;
-
-        return (
-          <Card>
-            <Collapsible
-              open={expanded.brief}
-              onOpenChange={(open) => setExpanded(prev => ({ ...prev, brief: open }))}
-            >
-              <CardHeader className="pb-3">
-                <CollapsibleTrigger asChild>
-                  <button
-                    className="flex w-full items-center justify-between text-left hover:opacity-80 transition-opacity"
-                    aria-label="Pokaż szczegółową analizę segmentu"
-                  >
-                    <CardTitle className="flex items-center gap-2">
-                      <Lightbulb className="h-5 w-5 text-primary" />
-                      Brief segmentu (orchestration)
-                    </CardTitle>
-                    <ChevronDown
-                      className={cn(
-                        "h-5 w-5 transition-transform duration-200 text-muted-foreground",
-                        expanded.brief && "rotate-180"
-                      )}
-                    />
-                  </button>
-                </CollapsibleTrigger>
-                <CardDescription>
-                  Edukacyjny kontekst społeczny przygotowany przez orchestration agent
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent>
-                {!expanded.brief && (
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {orchestrationBrief.slice(0, 180)}...
-                  </p>
-                )}
-
-                <CollapsibleContent className="space-y-2">
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {orchestrationBrief}
-                    </ReactMarkdown>
-                  </div>
-                </CollapsibleContent>
-              </CardContent>
-            </Collapsible>
-          </Card>
-        );
-      })()}
-
-      {/* 5. Allocation Reasoning - Collapsible, collapsed by default */}
+      {/* Allocation Reasoning - Collapsible, collapsed by default */}
       {reasoning.allocation_reasoning && (
         <Card>
           <Collapsible

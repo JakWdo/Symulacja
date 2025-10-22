@@ -9,8 +9,13 @@
  * @returns Full URL or undefined if no avatar
  *
  * @example
+ * // Development:
  * getAvatarUrl('/static/avatars/abc123.jpg')
- * // => 'http://localhost:8000/static/avatars/abc123.jpg'
+ * // => 'http://localhost:8000/static/avatars/abc123.jpg' (from VITE_API_BASE_URL)
+ *
+ * // Production (same-origin deployment):
+ * getAvatarUrl('/static/avatars/abc123.jpg')
+ * // => 'https://sight-xxx.run.app/static/avatars/abc123.jpg' (from window.location.origin)
  */
 export function getAvatarUrl(avatarUrl?: string | null): string | undefined {
   if (!avatarUrl) return undefined;
@@ -21,7 +26,9 @@ export function getAvatarUrl(avatarUrl?: string | null): string | undefined {
   }
 
   // Build full URL from relative path
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  // In production (Cloud Run), use same origin as the app
+  // In development, use VITE_API_BASE_URL from .env
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
   return `${baseUrl.replace(/\/$/, '')}${avatarUrl}`;
 }
 

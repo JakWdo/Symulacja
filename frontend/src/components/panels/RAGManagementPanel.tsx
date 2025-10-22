@@ -1,13 +1,13 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Upload, FileText, Trash2, RefreshCw, Search, Loader2 } from 'lucide-react';
-import { FloatingPanel } from '@/components/ui/FloatingPanel';
+import { FloatingPanel } from '@/components/ui/floating-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { ragApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import type { RAGDocument, RAGQueryResponse } from '@/types';
@@ -41,7 +41,9 @@ function formatDate(value: string) {
 }
 
 export function RAGManagementPanel() {
-  const { activePanel, setActivePanel } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const activePanel = useAppStore(state => state.activePanel);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
   const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentTitle, setDocumentTitle] = useState('');

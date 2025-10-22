@@ -1,7 +1,7 @@
 """
 Model użytkownika z pełnym wsparciem dla autentykacji i ustawień
 
-Ten model reprezentuje użytkownika systemu Market Research SaaS.
+Ten model reprezentuje użytkownika systemu Sight.
 Zawiera dane profilowe, ustawienia notyfikacji, szyfrowany API key i relacje do projektów.
 """
 from sqlalchemy import Column, String, Boolean, DateTime, Text

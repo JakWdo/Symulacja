@@ -1,8 +1,8 @@
-# Strategia Testowania - Market Research SaaS
+# Strategia Testowania - Sight
 
 ## Wprowadzenie
 
-System testów dla platformy Market Research SaaS został zaprojektowany jako kompleksowy, wielowarstwowy mechanizm zapewnienia jakości oprogramowania. Nasz cel to nie tylko weryfikacja poprawności funkcjonalnej, ale również budowanie zaufania do systemu poprzez dokładne pokrycie różnych scenariuszy użycia.
+System testów dla platformy Sight został zaprojektowany jako kompleksowy, wielowarstwowy mechanizm zapewnienia jakości oprogramowania. Nasz cel to nie tylko weryfikacja poprawności funkcjonalnej, ale również budowanie zaufania do systemu poprzez dokładne pokrycie różnych scenariuszy użycia.
 
 Całkowita liczba testów wynosi około 380, podzielonych na kategorie: jednostkowe, integracyjne, end-to-end, wydajnościowe i obsługi błędów. Każda z tych kategorii pełni kluczową rolę w utrzymaniu wysokiej jakości oprogramowania.
 

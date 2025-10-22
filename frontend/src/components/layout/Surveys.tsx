@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { surveysApi, projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import type { Survey } from '@/types';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useState } from 'react';
 import { toast } from '@/components/ui/toastStore';
 

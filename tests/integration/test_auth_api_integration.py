@@ -279,10 +279,6 @@ async def test_protected_endpoint_requires_auth(api_client):
     # Try to create project without auth
     project_data = {
         "name": "Unauthorized Project",
-        "target_demographics": {
-            "age_group": {"18-24": 0.5, "25-34": 0.5},
-            "gender": {"male": 0.5, "female": 0.5}
-        },
         "target_sample_size": 20
     }
 

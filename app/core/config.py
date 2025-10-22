@@ -6,7 +6,6 @@ zmienne środowiskowe projektu (baza danych, LLM-y, bezpieczeństwo).
 Funkcja `get_settings()` zwraca jedną, współdzieloną instancję ustawień.
 """
 
-from typing import Optional
 from functools import lru_cache
 
 try:
@@ -25,10 +24,10 @@ class Settings(BaseSettings):
 
     # === BAZA DANYCH ===
     # PostgreSQL z asyncpg driver (wymagane dla SQLAlchemy async)
-    DATABASE_URL: str = "postgresql+asyncpg://market_research:password@localhost:5432/market_research_db"
-    POSTGRES_USER: str = "market_research"
+    DATABASE_URL: str = "postgresql+asyncpg://sight:password@localhost:5432/sight_db"
+    POSTGRES_USER: str = "sight"
     POSTGRES_PASSWORD: str = "password"
-    POSTGRES_DB: str = "market_research_db"
+    POSTGRES_DB: str = "sight_db"
 
     # === CACHE ===
     # Redis do cache'owania
@@ -36,8 +35,8 @@ class Settings(BaseSettings):
 
     # === TASK QUEUE (opcjonalnie) ===
     # Umożliwia ustawienie broker backend dla Celery bez wymuszania ich obecności
-    CELERY_BROKER_URL: Optional[str] = None
-    CELERY_RESULT_BACKEND: Optional[str] = None
+    CELERY_BROKER_URL: str | None = None
+    CELERY_RESULT_BACKEND: str | None = None
 
     # === GRAF WIEDZY ===
     # Neo4j używany dla graph analysis i RAG vectorstore
@@ -47,9 +46,9 @@ class Settings(BaseSettings):
 
     # === KLUCZE API LLM ===
     # Klucze do modeli językowych (jeden musi być ustawiony)
-    OPENAI_API_KEY: Optional[str] = None
-    ANTHROPIC_API_KEY: Optional[str] = None
-    GOOGLE_API_KEY: Optional[str] = None  # Używany domyślnie (Gemini)
+    OPENAI_API_KEY: str | None = None
+    ANTHROPIC_API_KEY: str | None = None
+    GOOGLE_API_KEY: str | None = None  # Używany domyślnie (Gemini)
 
     # === BEZPIECZEŃSTWO ===
     # SECRET_KEY: Używany do podpisywania tokenów JWT (ZMIEŃ W PRODUKCJI!)
@@ -139,6 +138,18 @@ class Settings(BaseSettings):
     # Multilingual model wspiera polski lepiej niż English-only ms-marco-MiniLM
     RAG_RERANKER_MODEL: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
 
+    # === RAG PERFORMANCE & FALLBACK ===
+    # Lite mode: uproszczona wersja RAG bez Graph RAG (szybsza dla persona generation)
+    # Gdy True: używa tylko vector/keyword search, pomija Graph RAG queries
+    RAG_LITE_MODE: bool = False
+    # Timeout dla Graph RAG queries (sekundy)
+    # Zmniejszony z domyślnych 150s → 30s dla szybszego fallback
+    # Jeśli Graph RAG nie odpowiada w tym czasie, zwraca pusty kontekst i kontynuuje
+    RAG_GRAPH_TIMEOUT: int = 30
+    # Disable reranking dla persona generation (szybsze queries)
+    # Reranking nadal włączony dla focus groups i analysis
+    RAG_DISABLE_RERANK_FOR_PERSONAS: bool = True
+
     # === GraphRAG NODE PROPERTIES ===
     # Włączanie bogatych metadanych węzłów
     RAG_NODE_PROPERTIES_ENABLED: bool = True
@@ -151,7 +162,9 @@ class Settings(BaseSettings):
 
     # === EMBEDDINGS (Google Gemini) ===
     # Model do generowania embeddingów tekstowych
-    EMBEDDING_MODEL: str = "gemini-embedding-001"
+    # UWAGA: LangChain wymaga prefiksu "models/" dla Google Generative AI
+    # Upgrade do text-embedding-004 wymagałby re-indexu Neo4j (inny wymiar: 768 vs 3072)
+    EMBEDDING_MODEL: str = "models/gemini-embedding-001"
     # Wymiarowość wektorów embeddingowych
     # gemini-embedding-001 generuje 3072-wymiarowe wektory (nie 768!)
     EMBEDDING_DIMENSION: int = 3072
@@ -166,7 +179,7 @@ class Settings(BaseSettings):
     # Prefix dla wszystkich endpointów API v1
     API_V1_PREFIX: str = "/api/v1"
     # Nazwa projektu (wyświetlana w docs)
-    PROJECT_NAME: str = "Market Research SaaS"
+    PROJECT_NAME: str = "Sight"
     # ALLOWED_ORIGINS: Lista origin dozwolonych dla CORS (rozdzielone przecinkami)
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 

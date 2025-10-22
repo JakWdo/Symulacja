@@ -1,28 +1,30 @@
 """
-Serwisy zarządzania personami
+Persona management services.
 
-Ten moduł zawiera wszystkie serwisy związane z lifecycle person:
-- Generacja person (generator.py)
-- Orkiestracja segment-based (orchestration.py)
-- Walidacja (validator.py)
-- Porównania (comparison.py)
-- Batch processing (batch_processor.py)
-- Audit logging (audit.py)
+Serwisy odpowiedzialne za generowanie, walidację i zarządzanie personami:
+- PersonaGeneratorLangChain - Generowanie person z RAG
+- PersonaOrchestrationService - Orkiestracja alokacji person do segmentów
+- PersonaValidatorService - Walidacja person
+- PersonaDetailsService - Orchestrator dla Persona Detail View
+- PersonaNeedsService - Generowanie JTBD i pain points
+- PersonaAuditService - Audit log dla person
+- SegmentBriefService - Generowanie briefów segmentów (NEW)
 """
 
-from app.services.personas.generator import PersonaGeneratorLangChain, DemographicDistribution
-from app.services.personas.orchestration import PersonaOrchestrationService
-from app.services.personas.validator import PersonaValidator
-from app.services.personas.comparison import PersonaComparisonService
-from app.services.personas.batch_processor import PersonaBatchProcessor
-from app.services.personas.audit import PersonaAuditService
+from .persona_generator_langchain import PersonaGeneratorLangChain
+from .persona_orchestration import PersonaOrchestrationService
+from .persona_validator import PersonaValidator
+from .persona_details_service import PersonaDetailsService
+from .persona_needs_service import PersonaNeedsService
+from .persona_audit_service import PersonaAuditService
+from .segment_brief_service import SegmentBriefService
 
 __all__ = [
     "PersonaGeneratorLangChain",
-    "DemographicDistribution",
     "PersonaOrchestrationService",
     "PersonaValidator",
-    "PersonaComparisonService",
-    "PersonaBatchProcessor",
+    "PersonaDetailsService",
+    "PersonaNeedsService",
     "PersonaAuditService",
+    "SegmentBriefService",
 ]

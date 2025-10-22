@@ -1,0 +1,31 @@
+[tool.ruff]
+line-length = 240
+target-version = "py311"
+
+[tool.ruff.lint]
+extend-ignore = [
+    "B008",    # FastAPI dependency injection patterns
+    "B904",    # HTTPException chaining noise
+    "ERA001",  # Allow temporary commented code blocks
+    "PLR0911", # Complex control flow in async handlers
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR2004", # Domain-specific magic numbers
+    "PLR5501",
+    "PLR1711",
+    "PLW0603",
+    "PLC0415",
+    "RET503",
+    "RET504",
+    "RET505",
+    "SIM103",
+    "SIM102",
+    "SIM114",
+    "SIM115",
+    "SIM118",
+    "ARG001",
+    "ARG002",
+    "C420",
+    "DTZ003",
+]

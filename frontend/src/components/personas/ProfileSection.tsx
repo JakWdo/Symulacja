@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useMemo } from 'react';
+import { Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { PersonaDetailsResponse } from '@/types';
@@ -18,37 +18,23 @@ interface ProfileSectionProps {
  */
 export function ProfileSection({ persona }: ProfileSectionProps) {
 
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
+  // Extract persona uniqueness from rag_context_details
+  const personaUniqueness = useMemo(() => {
+    const ragDetails = (persona.rag_context_details ?? {}) as Record<string, unknown>;
+    const orchestration = (ragDetails['orchestration_reasoning'] ?? {}) as Record<string, unknown>;
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-      },
-    },
-  };
+    // persona_uniqueness będzie stringiem
+    const uniqueness = orchestration['persona_uniqueness'];
+    if (typeof uniqueness === 'string' && uniqueness.trim().length > 0) {
+      return uniqueness.trim();
+    }
+    return null;
+  }, [persona.rag_context_details]);
 
   return (
-    <motion.div
-      className="space-y-6"
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-    >
+    <div className="space-y-6">
       {/* Demographics Card */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Dane demograficzne</CardTitle>
@@ -82,10 +68,10 @@ export function ProfileSection({ persona }: ProfileSectionProps) {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Values & Interests Card */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Wartości i zainteresowania</CardTitle>
@@ -93,85 +79,95 @@ export function ProfileSection({ persona }: ProfileSectionProps) {
           <CardContent className="space-y-4">
             {/* Values */}
             {persona.values && persona.values.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
+              <div>
                 <p className="text-sm text-muted-foreground mb-2">Wartości</p>
                 <div className="flex flex-wrap gap-2">
                   {persona.values.map((value, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.2 + idx * 0.05 }}
-                      whileHover={{ scale: 1.05 }}
-                    >
+                    <div key={idx}>
                       <Badge
                         variant="outline"
                         className="border-primary text-primary hover:bg-primary/10 transition-colors cursor-default"
                       >
                         {value}
                       </Badge>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Interests */}
             {persona.interests && persona.interests.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
+              <div>
                 <p className="text-sm text-muted-foreground mb-2">Zainteresowania</p>
                 <div className="flex flex-wrap gap-2">
                   {persona.interests.map((interest, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.3 + idx * 0.05 }}
-                      whileHover={{ scale: 1.05 }}
-                    >
+                    <div key={idx}>
                       <Badge
                         variant="secondary"
                         className="bg-secondary/50 hover:bg-secondary transition-colors cursor-default"
                       >
                         {interest}
                       </Badge>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
-              </motion.div>
+              </div>
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Background Story Card */}
       {persona.background_story && (
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="border-l-4 border-l-primary">
             <CardHeader>
               <CardTitle className="text-base">Historia</CardTitle>
             </CardHeader>
             <CardContent>
-              <motion.p
-                className="text-sm text-foreground leading-relaxed"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                {persona.background_story}
-              </motion.p>
+              <div className="space-y-3">
+                {persona.background_story.split('\n\n').map((paragraph, idx) => (
+                  <p
+                    key={idx}
+                    className="text-sm text-foreground leading-relaxed"
+                  >
+                    {paragraph.trim()}
+                  </p>
+                ))}
+              </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       )}
-    </motion.div>
+
+      {/* Persona Uniqueness Card - NEW */}
+      {personaUniqueness && (
+        <div>
+          <Card className="border-l-4 border-l-accent bg-accent/5">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-accent" />
+                <CardTitle className="text-base">
+                  Dlaczego {persona.full_name?.split(' ')[0] || 'ta osoba'} jest wyjątkowa/y w swoim segmencie
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="space-y-3">
+                {personaUniqueness.split('\n\n').map((paragraph, idx) => (
+                  <p
+                    key={idx}
+                    className="text-sm text-foreground leading-relaxed"
+                  >
+                    {paragraph.trim()}
+                  </p>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
   );
 }

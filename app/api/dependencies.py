@@ -11,7 +11,6 @@ Użycie w endpointach:
     async def protected_route(current_user: User = Depends(get_current_user)):
         return {"user_id": current_user.id}
 """
-from typing import Optional
 from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -172,9 +171,9 @@ async def get_current_admin_user(
 
 # Opcjonalna zależność dla publicznych endpointów (token jest opcjonalny)
 async def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db)
-) -> Optional[User]:
+) -> User | None:
     """
     Dependency zwracające użytkownika jeśli jest zalogowany, None w przeciwnym razie
 

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FloatingPanel } from '@/components/ui/FloatingPanel';
+import { FloatingPanel } from '@/components/ui/floating-panel';
 import { personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
@@ -18,7 +18,7 @@ import { toast } from '@/components/ui/toastStore';
 import type { Persona } from '@/types';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
-import { SpinnerLogo } from '@/components/ui/SpinnerLogo';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 
 const NAME_FROM_STORY_REGEX = /^(?<name>[A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\s+is\s+(?:an|a)\s/;
 
@@ -61,7 +61,8 @@ function formatLocation(location?: string | null) {
 }
 
 function PersonaListItem({ persona, isSelected }: { persona: Persona; isSelected: boolean }) {
-  const { setSelectedPersona } = useAppStore();
+  // Use Zustand selector to prevent unnecessary re-renders
+  const setSelectedPersona = useAppStore(state => state.setSelectedPersona);
   const firstName = getPersonaFirstName(persona);
 
   return (
@@ -248,14 +249,13 @@ function PersonaDetails({ persona }: { persona: Persona | null }) {
 }
 
 export function PersonaPanel() {
-  const {
-    activePanel,
-    setActivePanel,
-    selectedProject,
-    selectedPersona,
-    setPersonas,
-    setSelectedPersona,
-  } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const activePanel = useAppStore(state => state.activePanel);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
+  const selectedProject = useAppStore(state => state.selectedProject);
+  const selectedPersona = useAppStore(state => state.selectedPersona);
+  const setPersonas = useAppStore(state => state.setPersonas);
+  const setSelectedPersona = useAppStore(state => state.setSelectedPersona);
   const [showWizard, setShowWizard] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const queryClient = useQueryClient();
@@ -268,26 +268,40 @@ export function PersonaPanel() {
     queryKey: ['personas', selectedProject?.id],
     queryFn: async () => {
       if (!selectedProject) return [];
-      const data = await personasApi.getByProject(selectedProject.id);
-      setPersonas(data); // Update store immediately
-      return data;
+      return await personasApi.getByProject(selectedProject.id);
     },
     enabled: !!selectedProject,
     refetchInterval: (query) => {
-      // Refetch every 3s if project exists but no personas yet (generation in progress)
-      const data = query.state.data;
-      return selectedProject && (!data || data.length === 0) ? 3000 : false;
-    },
-    onSuccess: (data) => {
-      // Show toast when personas generation completes
-      if (data.length > 0 && personas && personas.length === 0) {
-        toast.success(
-          'Personas generated',
-          `${projectLabel} • ${data.length} personas ready`
-        );
+      // Refetch every 5s if project exists but no personas yet (generation in progress)
+      // Only refetch if we're actively generating for this project
+      if (!selectedProject || activeGenerationProjectId !== selectedProject.id) {
+        return false;
       }
+      const data = query.state.data;
+      return (!data || data.length === 0) ? 5000 : false;
     },
   });
+
+  // Sync personas to global store
+  useEffect(() => {
+    if (personas) {
+      setPersonas(personas);
+    }
+  }, [personas, setPersonas]);
+
+  // Track previous personas length for toast notification
+  const prevPersonasLength = useRef<number>(0);
+
+  // Show toast when personas generation completes
+  useEffect(() => {
+    if (personas && personas.length > 0 && prevPersonasLength.current === 0) {
+      toast.success(
+        'Personas generated',
+        `${projectLabel} • ${personas.length} personas ready`
+      );
+    }
+    prevPersonasLength.current = personas?.length ?? 0;
+  }, [personas, projectLabel]);
 
   const isAwaitingPersonas = !personas || personas.length === 0;
   const isCurrentProjectGenerating =

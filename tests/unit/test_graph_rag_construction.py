@@ -200,7 +200,6 @@ class TestNodeCreation:
             id=uuid4(),
             owner_id=user.id,
             name="Test",
-            target_demographics={"age_group": {"25-34": 1.0}},
             target_sample_size=10
         )
         db_session.add(project)

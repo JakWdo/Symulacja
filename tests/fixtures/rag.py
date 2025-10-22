@@ -156,9 +156,9 @@ def mock_gemini_2_5_pro():
 @pytest_asyncio.fixture
 async def rag_document_service_with_mocks(mock_vector_store, mock_graph_store, mock_embeddings):
     """Instantiate RAGDocumentService with mocked dependencies to avoid network calls."""
-    from app.services.rag import RAGDocumentService
+    from app.services.rag.rag_document_service import RAGDocumentService
 
-    with patch("app.services.rag_document_service.GoogleGenerativeAIEmbeddings", return_value=mock_embeddings):
+    with patch("app.services.rag.rag_document_service.GoogleGenerativeAIEmbeddings", return_value=mock_embeddings):
         service = RAGDocumentService()
         service.vector_store = mock_vector_store
         service.graph_store = mock_graph_store
@@ -168,9 +168,9 @@ async def rag_document_service_with_mocks(mock_vector_store, mock_graph_store, m
 @pytest_asyncio.fixture
 async def polish_society_rag_with_mocks(mock_vector_store, mock_embeddings):
     """Return a PolishSocietyRAG instance backed by fake vector store and embeddings."""
-    from app.services.rag import PolishSocietyRAG
+    from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
 
-    with patch("app.services.rag_hybrid_search_service.GoogleGenerativeAIEmbeddings", return_value=mock_embeddings):
+    with patch("app.services.rag.rag_hybrid_search_service.GoogleGenerativeAIEmbeddings", return_value=mock_embeddings):
         rag = PolishSocietyRAG()
         rag.vector_store = mock_vector_store
         rag._fulltext_index_initialized = True
@@ -191,7 +191,7 @@ async def graph_service_with_mocks(mock_neo4j_driver, mock_llm):
 @pytest_asyncio.fixture
 async def persona_orchestration_with_mocks(mock_gemini_2_5_pro, polish_society_rag_with_mocks):
     """Return PersonaOrchestrationService with mocked Gemini and RAG dependencies."""
-    from app.services.personas import PersonaOrchestrationService
+    from app.services.personas.persona_orchestration import PersonaOrchestrationService
 
     service = PersonaOrchestrationService()
     service.llm = mock_gemini_2_5_pro

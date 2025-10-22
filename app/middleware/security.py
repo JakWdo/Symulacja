@@ -14,7 +14,7 @@ Używa Starlette BaseHTTPMiddleware dla compatibility z FastAPI.
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from typing import Callable
+from collections.abc import Callable
 import logging
 
 logger = logging.getLogger(__name__)
@@ -73,14 +73,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Content-Security-Policy: Restrykcyjna polityka zasobów
         # default-src 'self' = domyślnie tylko same-origin
         # script-src - pozwól inline scripts (potrzebne dla Swagger UI)
-        # style-src - pozwól inline styles (potrzebne dla Swagger UI)
+        # style-src - pozwól inline styles (potrzebne dla Swagger UI) + Google Fonts
         # img-src - pozwól data: URIs (dla base64 images) i same-origin
+        # font-src - pozwól fonty z Google Fonts CDN
         csp_directives = [
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # unsafe-eval needed for Swagger
-            "style-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "img-src 'self' data: https:",
-            "font-src 'self' data:",
+            "font-src 'self' data: https://fonts.gstatic.com",
             "connect-src 'self'",
             "frame-ancestors 'none'",  # Równoważne X-Frame-Options: DENY
             "base-uri 'self'",

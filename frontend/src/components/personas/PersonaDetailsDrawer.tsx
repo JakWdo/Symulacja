@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dialog,
   DialogContent,
@@ -35,17 +34,40 @@ export function PersonaDetailsDrawer({
   isOpen,
   onClose,
 }: PersonaDetailsDrawerProps) {
-  const { data: persona, isLoading, error } = usePersonaDetails(personaId);
+  // Only fetch when drawer is actually open
+  const { data: persona, isLoading, error } = usePersonaDetails(isOpen ? personaId : null);
 
+  // Cleanup: close any nested dialogs when main drawer closes
   useEffect(() => {
-    // Reset state when drawer opens
-  }, [isOpen, personaId]);
+    if (!isOpen) {
+      // Allow nested dialogs to cleanup
+      const timer = setTimeout(() => {
+        if (typeof document !== 'undefined') {
+          document.body.style.pointerEvents = '';
+          document.body.style.overflow = '';
+          document.body.style.removeProperty('padding-right');
+          document.body.removeAttribute('data-scroll-locked');
+          const inertElements = document.querySelectorAll('[inert]');
+          inertElements.forEach((element) => {
+            element.removeAttribute('inert');
+          });
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   return (
-    <AnimatePresence>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
       {isOpen && (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-          <DialogContent className="max-w-[90vw] w-full h-[90vh] p-0 overflow-hidden flex flex-col min-h-0">
+        <DialogContent className="max-w-[90vw] w-full h-[90vh] p-0 overflow-hidden flex flex-col min-h-0">
             {/* Header */}
             <DialogHeader className="p-6 border-b border-border shrink-0">
               {isLoading ? (
@@ -119,12 +141,7 @@ export function PersonaDetailsDrawer({
                   </div>
 
                   <TabsContent value="osoba" className="flex-1 overflow-y-auto p-6 space-y-8 mt-0 min-h-0">
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                      className="space-y-8"
-                    >
+                    <div className="space-y-8">
                       {/* Przegląd Section */}
                       <section id="przeglad">
                         <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
@@ -151,16 +168,11 @@ export function PersonaDetailsDrawer({
                         </h2>
                         <NeedsDashboard data={persona.needs_and_pains} />
                       </section>
-                    </motion.div>
+                    </div>
                   </TabsContent>
 
                   <TabsContent value="segment" className="flex-1 overflow-y-auto p-6 space-y-8 mt-0 min-h-0">
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                      className="space-y-8"
-                    >
+                    <div className="space-y-8">
                       {/* Segment context section */}
                       <section id="kontekst-rag">
                         <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
@@ -169,14 +181,13 @@ export function PersonaDetailsDrawer({
                         </h2>
                         <PersonaReasoningPanel persona={persona} />
                       </section>
-                    </motion.div>
+                    </div>
                   </TabsContent>
                 </Tabs>
               </div>
             ) : null}
-          </DialogContent>
-        </Dialog>
+        </DialogContent>
       )}
-    </AnimatePresence>
+    </Dialog>
   );
 }

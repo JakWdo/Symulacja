@@ -2,16 +2,19 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MessageSquare, Sparkles, User, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FloatingPanel } from '@/components/ui/FloatingPanel';
+import { FloatingPanel } from '@/components/ui/floating-panel';
 import { focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { AISummaryPanel } from '@/components/analysis/AISummaryPanel';
 import type { FocusGroupResponses } from '@/types';
 import { formatDate, cn } from '@/lib/utils';
-import { Logo } from '@/components/ui/Logo';
+import { Logo } from '@/components/ui/logo';
 
 export function AnalysisPanel() {
-  const { selectedFocusGroup, activePanel, setActivePanel } = useAppStore();
+  // Use Zustand selectors to prevent unnecessary re-renders
+  const selectedFocusGroup = useAppStore(state => state.selectedFocusGroup);
+  const activePanel = useAppStore(state => state.activePanel);
+  const setActivePanel = useAppStore(state => state.setActivePanel);
   const [activeView, setActiveView] = useState<'responses' | 'ai-summary'>('responses');
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set([0]));
 
