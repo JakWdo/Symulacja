@@ -9,14 +9,51 @@ Użycie:
     setup_logging()  # Wywołaj przed utworzeniem FastAPI app
 """
 
+import json
 import logging
 import logging.config
 import sys
+from datetime import date, datetime
 from typing import Any
+from uuid import UUID
 
 from app.core.config import get_settings
 
 settings = get_settings()
+
+
+class SafeJSONEncoder(json.JSONEncoder):
+    """JSON encoder that safely handles common Python types not supported by default.
+
+    Supports:
+    - bool, int, float, str, None (default types)
+    - datetime, date → ISO format string
+    - UUID → string
+    - bytes → UTF-8 decoded string
+
+    For any other type, falls back to str() representation.
+    """
+
+    def default(self, obj):
+        """Convert non-serializable objects to JSON-safe formats."""
+        # Basic types (explicitly handled for clarity)
+        if isinstance(obj, (bool, int, float, str, type(None))):
+            return obj
+
+        # Date and time objects
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+
+        # UUID objects
+        if isinstance(obj, UUID):
+            return str(obj)
+
+        # Bytes objects
+        if isinstance(obj, bytes):
+            return obj.decode('utf-8', errors='replace')
+
+        # Fallback: convert to string
+        return str(obj)
 
 
 class JSONFormatter(logging.Formatter):
@@ -77,7 +114,8 @@ class JSONFormatter(logging.Formatter):
         if record.exc_info:
             log_entry["exc_info"] = self.formatException(record.exc_info)
 
-        return json.dumps(log_entry, ensure_ascii=False)
+        # Use SafeJSONEncoder to handle bool, datetime, UUID, etc.
+        return json.dumps(log_entry, ensure_ascii=False, cls=SafeJSONEncoder)
 
 
 def setup_logging() -> None:

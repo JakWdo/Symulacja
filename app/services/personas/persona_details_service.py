@@ -234,6 +234,11 @@ def _ensure_segment_metadata(persona: Persona) -> dict[str, Any] | None:
     return details_copy
 
 
+# Module-level tracking set for background async tasks
+# Prevents garbage collection of tasks created with asyncio.create_task()
+_running_tasks: set[asyncio.Task] = set()
+
+
 class PersonaDetailsService:
     """
     Orchestrator dla Persona Detail View
@@ -258,6 +263,9 @@ class PersonaDetailsService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.audit_service = PersonaAuditService()
+        # Connection pool semaphore: limit concurrent DB connections to prevent exhaustion
+        # Max 5 concurrent connections (PostgreSQL default max_connections=100, shared across all services)
+        self._db_semaphore = asyncio.Semaphore(5)
 
     async def get_persona_details(
         self,
@@ -311,7 +319,11 @@ class PersonaDetailsService:
             if cached:
                 try:
                     cached_response = PersonaDetailsResponse.model_validate(cached)
-                    asyncio.create_task(self._log_view_event(persona_id, user_id))
+
+                    # Create tracked task (prevent garbage collection)
+                    task = asyncio.create_task(self._log_view_event(persona_id, user_id))
+                    _running_tasks.add(task)
+                    task.add_done_callback(_running_tasks.discard)
 
                     total_elapsed_ms = int((time.time() - start_time) * 1000)
                     logger.info(
@@ -432,9 +444,10 @@ class PersonaDetailsService:
 
         # === LOG VIEW EVENT ===
         # Async non-blocking (używamy create_task aby nie czekać na commit)
-        asyncio.create_task(
-            self._log_view_event(persona_id, user_id)
-        )
+        # Track task to prevent garbage collection
+        task = asyncio.create_task(self._log_view_event(persona_id, user_id))
+        _running_tasks.add(task)
+        task.add_done_callback(_running_tasks.discard)
 
         total_elapsed_ms = int((time.time() - start_time) * 1000)
         logger.info(
@@ -482,7 +495,12 @@ class PersonaDetailsService:
             # Generate needs with RAG context
             needs_data = await service.generate_needs_analysis(persona, rag_context=rag_context)
             persona.needs_and_pains = needs_data
-            asyncio.create_task(self._persist_persona_field(persona.id, "needs_and_pains", needs_data))
+
+            # Track background task to prevent garbage collection
+            task = asyncio.create_task(self._persist_persona_field(persona.id, "needs_and_pains", needs_data))
+            _running_tasks.add(task)
+            task.add_done_callback(_running_tasks.discard)
+
             return needs_data
         except Exception as exc:
             logger.error("Failed to generate needs for persona %s: %s", persona.id, exc, exc_info=True)
@@ -545,19 +563,24 @@ class PersonaDetailsService:
             logger.warning("Failed to log view event: %s", e)
 
     async def _persist_persona_field(self, persona_id: UUID, field_name: str, value: dict[str, Any]) -> None:
-        """Persist a JSONB field on Persona in a dedicated transaction."""
-        try:
-            async with AsyncSessionLocal() as session:
-                result = await session.execute(select(Persona).where(Persona.id == persona_id))
-                persona = result.scalars().first()
-                if not persona:
-                    logger.warning("Persona %s not found when persisting %s", persona_id, field_name)
-                    return
+        """Persist a JSONB field on Persona in a dedicated transaction.
 
-                setattr(persona, field_name, value)
-                await session.commit()
-                logger.debug("Persisted %s for persona %s", field_name, persona_id)
-                await redis_delete(f"persona_details:{persona_id}")
+        Uses semaphore to limit concurrent DB connections and prevent connection pool exhaustion.
+        """
+        try:
+            # Limit concurrent DB connections (max 5)
+            async with self._db_semaphore:
+                async with AsyncSessionLocal() as session:
+                    result = await session.execute(select(Persona).where(Persona.id == persona_id))
+                    persona = result.scalars().first()
+                    if not persona:
+                        logger.warning("Persona %s not found when persisting %s", persona_id, field_name)
+                        return
+
+                    setattr(persona, field_name, value)
+                    await session.commit()
+                    logger.debug("Persisted %s for persona %s", field_name, persona_id)
+                    await redis_delete(f"persona_details:{persona_id}")
         except Exception as exc:
             logger.warning("Failed to persist %s for persona %s: %s", field_name, persona_id, exc)
 

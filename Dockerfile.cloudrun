@@ -101,7 +101,7 @@ LABEL org.opencontainers.image.vendor="Sight"
 # --bind :$PORT              → Listen on Cloud Run port (8080)
 # --workers 2                → 2 workers for better CPU utilization (Cloud Run has 1+ vCPU)
 # --worker-class uvicorn...  → ASGI worker for async FastAPI
-# --timeout 300              → 5min timeout (LLM requests + RAG can be slow)
+# --timeout 600              → 10min timeout (TEMPORARY: persona generation ~10min, will optimize to 3-5min)
 # --graceful-timeout 30      → Graceful shutdown for ongoing requests
 # --keep-alive 5             → Keep-alive connections
 # --log-level info           → Production logging
@@ -111,7 +111,7 @@ CMD exec gunicorn \
     --bind :$PORT \
     --workers 2 \
     --worker-class uvicorn.workers.UvicornWorker \
-    --timeout 300 \
+    --timeout 600 \
     --graceful-timeout 30 \
     --keep-alive 5 \
     --log-level info \
