@@ -118,6 +118,20 @@ steps:
   # ==========================================================================
   # DEPLOY: Cloud Run Service (sight)
   # ==========================================================================
+  # Step 4a: Clear any command override from previous deploys
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'update'
+      - 'sight'
+      - '--clear-command'
+      - '--region=europe-central2'
+    id: 'clear-command'
+    waitFor: ['migrate']
+
+  # Step 4b: Deploy new revision
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: 'gcloud'
     args:
@@ -128,7 +142,6 @@ steps:
       - '--region=europe-central2'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--clear-command'  # Clear any command override from previous deploys
       - '--port=8080'
       - '--memory=4Gi'
       - '--cpu=2'
@@ -136,12 +149,12 @@ steps:
       - '--timeout=600'  # TEMPORARY: 10min for persona generation (will optimize to 3-5min)
       - '--min-instances=0'
       - '--max-instances=5'
-      - '--execution-environment=gen2' 
+      - '--execution-environment=gen2'
       - '--add-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight'
       - '--set-secrets=DATABASE_URL=DATABASE_URL_CLOUD:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,NEO4J_PASSWORD=NEO4J_PASSWORD:latest,NEO4J_URI=NEO4J_URI:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD:latest,REDIS_URL=REDIS_URL:latest,SECRET_KEY=SECRET_KEY:latest'
       - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,LOG_LEVEL=INFO,STRUCTURED_LOGGING=true,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,GRAPH_MODEL=gemini-2.5-flash,PERSONA_GENERATION_MODEL=gemini-2.5-flash,ANALYSIS_MODEL=gemini-2.5-pro,EMBEDDING_MODEL=models/gemini-embedding-001,TEMPERATURE=0.7,MAX_TOKENS=6000,RAG_ENABLED=True,RAG_USE_HYBRID_SEARCH=True,RAG_CHUNK_SIZE=1000,RAG_CHUNK_OVERLAP=300,RAG_TOP_K=8,RAG_VECTOR_WEIGHT=0.7,RAG_RRF_K=60'
     id: 'deploy'
-    waitFor: ['migrate']
+    waitFor: ['clear-command']
 
   # ==========================================================================
   # NEO4J INIT: Initialize Neo4j Indexes (AFTER deploy)
