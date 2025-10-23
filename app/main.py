@@ -22,11 +22,15 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.core.config import get_settings
+from app.core.logging import setup_logging
 from app.middleware.security import SecurityHeadersMiddleware
 from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_router, rag
 import logging
 import os
 import mimetypes
+
+# Setup logging FIRST (before any other imports that use logging)
+setup_logging()
 
 logger = logging.getLogger(__name__)
 
