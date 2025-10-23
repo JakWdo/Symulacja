@@ -141,7 +141,8 @@ class SegmentBriefService:
         income = str(income).lower().replace(" ", "-")
 
         # Skrócona wersja dla czytelności (zamiast hash)
-        segment_id = f"seg_{age}_{education}_{location}_{gender}"
+        # FIXED: Dodano income do segment_id (bug fix - różne progi dochodowe muszą mieć osobne segmenty)
+        segment_id = f"seg_{age}_{education}_{location}_{gender}_{income}"
 
         return segment_id
 
@@ -372,7 +373,7 @@ class SegmentBriefService:
         project_id: UUID,
         max_example_personas: int = 3,
         force_refresh: bool = False
-    ) -> SegmentBrief:
+    ) -> tuple[SegmentBrief, bool]:
         """
         Generuje lub pobiera z cache segment brief.
 
@@ -384,7 +385,7 @@ class SegmentBriefService:
            b. Pobierz przykładowe persony z segmentu
            c. Wygeneruj brief przez LLM (Gemini 2.5 Pro)
            d. Zapisz do cache
-        4. Zwróć brief
+        4. Zwróć brief + from_cache flag
 
         Args:
             demographics: Dict z age, gender, education, location, income
@@ -393,7 +394,9 @@ class SegmentBriefService:
             force_refresh: Czy pominąć cache i wygenerować na nowo
 
         Returns:
-            SegmentBrief
+            Tuple[SegmentBrief, bool]: (brief, was_cached)
+            - was_cached=True jeśli brief był w cache
+            - was_cached=False jeśli brief został wygenerowany przez LLM
 
         Performance:
             - Cache hit: < 50ms
@@ -419,7 +422,7 @@ class SegmentBriefService:
                     "✅ Segment brief z cache (elapsed: %sms)",
                     elapsed_ms
                 )
-                return cached_brief
+                return cached_brief, True  # Cache HIT
 
         # 3. Cache miss - generuj brief
         logger.info("🤖 Generowanie nowego segment brief (LLM + RAG)...")
@@ -496,7 +499,7 @@ class SegmentBriefService:
             len(description)
         )
 
-        return brief
+        return brief, False  # Cache MISS (nowo wygenerowany)
 
     async def _generate_segment_name(
         self,
@@ -653,7 +656,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         if "25-34" in str(age):
             characteristics.append("Młodzi profesjonaliści")
         elif "35-44" in str(age):
-            characteristics.append("Established professionals")
+            characteristics.append("Profesjonaliści o ugruntowanej pozycji")  # FIXED: było EN "Established professionals"
 
         education = demographics.get("education") or demographics.get("education_level", "")
         if "wyższe" in str(education).lower() or "magisterskie" in str(education).lower():
@@ -704,6 +707,11 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
 
         Returns:
             Opis unikalności (2-4 zdania, max 300 znaków)
+
+        Note:
+            - Uses Redis cache (TTL 7 days) keyed by persona_id:updated_at
+            - Cache HIT: < 50ms
+            - Cache MISS: < 2s (LLM call)
         """
         # Skróć segment brief summary (max 500 chars)
         brief_summary = segment_brief.description[:500]
@@ -723,6 +731,26 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         # segment_brief.segment_name może być inne (generowane dynamicznie przez LLM)
         segment_name_to_use = persona.segment_name or segment_brief.segment_name
 
+        # === CACHE CHECK (PERFORMANCE OPTIMIZATION) ===
+        # Cache key includes updated_at timestamp for auto-invalidation on persona update
+        cache_key = f"persona_uniqueness:{persona.id}:{int(persona.updated_at.timestamp())}"
+
+        if self.redis_client:
+            try:
+                cached_uniqueness = await self.redis_client.get(cache_key)
+                if cached_uniqueness:
+                    logger.info(
+                        "✅ Persona uniqueness z cache dla %s (length: %s chars)",
+                        persona.full_name,
+                        len(cached_uniqueness)
+                    )
+                    return cached_uniqueness
+            except Exception as cache_exc:
+                logger.debug("Cache probe failed: %s", cache_exc)
+
+        # === GENERATE VIA LLM (CACHE MISS) ===
+        logger.info("🤖 Generowanie persona uniqueness dla %s (LLM call)...", persona.full_name)
+
         # Prompt (PERSONA_UNIQUENESS_PROMPT_TEMPLATE z persona_prompts.py)
         prompt = PERSONA_UNIQUENESS_PROMPT_TEMPLATE.format(
             persona_name=persona.full_name or "Ta osoba",
@@ -740,14 +768,27 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
             llm_flash = build_chat_model(
                 model=settings.DEFAULT_MODEL,
                 temperature=0.7,
-                max_tokens=600,  # 3-4 akapity (250-400 słów)
+                max_tokens=150,  # 2-4 zdania (~100-200 znaków) - FIXED: było 600 (inconsistency)
                 timeout=20,
             )
 
             response = await llm_flash.ainvoke(prompt)
             uniqueness = response.content.strip() if hasattr(response, 'content') else str(response).strip()
 
-            # Brak limitu długości - AI dostaje pełną swobodę (250-400 słów jak w promptcie)
+            # Truncate do max 300 chars (zgodnie z docstring)
+            if len(uniqueness) > 300:
+                # Obetnij przy ostatniej spacji przed 297 chars + dodaj "..."
+                truncated = uniqueness[:297].rsplit(' ', 1)[0]
+                uniqueness = truncated + "..."
+                logger.debug("Uniqueness truncated from %d to 300 chars", len(response.content))
+
+            # === SAVE TO CACHE (TTL 7 days like segment brief) ===
+            if self.redis_client and uniqueness:
+                try:
+                    await self.redis_client.setex(cache_key, self.CACHE_TTL_SECONDS, uniqueness)
+                    logger.debug("Persona uniqueness saved to cache: %s", cache_key)
+                except Exception as save_exc:
+                    logger.warning("Failed to save uniqueness to cache: %s", save_exc)
 
             logger.info(
                 "✅ Persona uniqueness wygenerowana dla %s (length: %s chars)",
@@ -785,26 +826,23 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         """
         project_id = UUID(request.project_id)
 
-        # Generuj brief
-        brief = await self.generate_segment_brief(
+        # Generuj brief (returns tuple: brief, was_cached)
+        brief, from_cache = await self.generate_segment_brief(
             demographics=request.demographics,
             project_id=project_id,
             max_example_personas=request.max_example_personas,
             force_refresh=request.force_refresh
         )
 
-        # Sprawdź czy z cache
-        from_cache = not request.force_refresh
+        # Sprawdź TTL cache (best effort)
+        cache_ttl_seconds = None
         if from_cache and self.redis_client:
-            # Sprawdź TTL
             cache_key = self._get_cache_key(str(project_id), brief.segment_id)
             try:
                 ttl = await self.redis_client.ttl(cache_key)
                 cache_ttl_seconds = ttl if ttl > 0 else None
             except Exception:  # pragma: no cover - best effort cache probe
                 cache_ttl_seconds = None
-        else:
-            cache_ttl_seconds = None
 
         return SegmentBriefResponse(
             brief=brief,
