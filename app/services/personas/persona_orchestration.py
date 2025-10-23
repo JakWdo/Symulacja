@@ -143,7 +143,7 @@ class PersonaOrchestrationService:
         # Gemini 2.5 Pro dla complex reasoning i długich analiz
         self.llm = build_chat_model(
             model="gemini-2.5-pro",
-            temperature=0.3,  # Niższa dla analytical tasks
+            temperature=0.0,  # Deterministyczny output dla JSON generation (zero creativity needed)
             max_tokens=8000,  # Wystarczająco na pełny plan + briefy
             timeout=120,  # 2 minuty dla complex reasoning
         )
@@ -195,34 +195,72 @@ class PersonaOrchestrationService:
             additional_context=additional_context,
         )
 
-        # Krok 3: Gemini 2.5 Pro generuje plan (długa analiza)
-        try:
-            logger.info("🤖 Wywołuję Gemini 2.5 Pro dla orchestration (max_tokens=8000, timeout=120s)...")
-            response = await self.llm.ainvoke(prompt)
+        # Krok 3: Gemini 2.5 Pro generuje plan z retry logic
+        max_retries = 2
+        last_error = None
 
-            # DEBUG: Log surowej odpowiedzi od Gemini
-            response_text = response.content if hasattr(response, 'content') else str(response)
-            logger.info(f"📝 Gemini response length: {len(response_text)} chars")
-            logger.info(f"📝 Gemini response preview (first 500 chars): {response_text[:500]}")
-            logger.info(f"📝 Gemini response preview (last 500 chars): {response_text[-500:]}")
+        for attempt in range(1, max_retries + 1):
+            try:
+                logger.info(f"🤖 Gemini 2.5 Pro attempt {attempt}/{max_retries} (max_tokens=8000, timeout=120s)...")
+                response = await self.llm.ainvoke(prompt)
 
-            plan_json = self._extract_json_from_response(response_text)
+                # DEBUG: Log surowej odpowiedzi od Gemini
+                response_text = response.content if hasattr(response, 'content') else str(response)
+                logger.info(f"📝 Gemini response length: {len(response_text)} chars")
+                logger.info(f"📝 Gemini response preview (first 500 chars): {response_text[:500]}")
+                logger.info(f"📝 Gemini response preview (last 500 chars): {response_text[-500:]}")
 
-            # DEBUG: Log sparsowanego JSON
-            logger.info(f"✅ JSON parsed successfully: {len(plan_json)} top-level keys")
-            logger.info(f"✅ JSON keys: {list(plan_json.keys())}")
+                plan_json = self._extract_json_from_response(response_text)
 
-            # Parse do Pydantic model (walidacja)
-            plan = PersonaAllocationPlan(**plan_json)
+                # DEBUG: Log sparsowanego JSON
+                logger.info(f"✅ JSON parsed successfully: {len(plan_json)} top-level keys")
+                logger.info(f"✅ JSON keys: {list(plan_json.keys())}")
 
-            logger.info(f"✅ Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
-            return plan
+                # Parse do Pydantic model (walidacja)
+                plan = PersonaAllocationPlan(**plan_json)
 
-        except Exception as e:
-            logger.error(f"❌ Błąd podczas tworzenia planu alokacji: {e}")
-            logger.error(f"❌ Exception type: {type(e).__name__}")
-            logger.error(f"❌ Exception details: {str(e)[:1000]}")
-            raise
+                logger.info(f"✅ Plan alokacji utworzony: {len(plan.groups)} grup demograficznych")
+                return plan
+
+            except json.JSONDecodeError as e:
+                last_error = e
+                logger.warning(f"⚠️  Attempt {attempt}/{max_retries} - JSON syntax error: {e}")
+                logger.warning(f"   Error at: line {e.lineno} col {e.colno} (pos {e.pos})")
+
+                if attempt < max_retries:
+                    logger.info("   Retrying with enhanced error feedback in prompt...")
+                    # Dodaj do promptu feedback o błędzie (dla retry)
+                    error_context = f"""
+
+⚠️  **PREVIOUS ATTEMPT FAILED - FIX THIS ERROR:**
+- JSON syntax error at line {e.lineno}, column {e.colno}
+- Error: {str(e)}
+- CRITICAL: Check for trailing commas, unclosed brackets, or invalid escapes
+- Return ONLY valid JSON, no preamble, no explanations!
+"""
+                    prompt = prompt + error_context
+                else:
+                    logger.error(f"❌ All {max_retries} attempts failed with JSON syntax errors")
+                    logger.error(f"❌ Last error: {e}")
+                    raise
+
+            except Exception as e:
+                last_error = e
+                logger.error(f"❌ Attempt {attempt}/{max_retries} - Unexpected error: {e}")
+                logger.error(f"❌ Exception type: {type(e).__name__}")
+                logger.error(f"❌ Exception details: {str(e)[:1000]}")
+
+                if attempt < max_retries:
+                    logger.info("   Retrying...")
+                else:
+                    logger.error(f"❌ All {max_retries} attempts failed")
+                    raise
+
+        # Jeśli tu dojdziemy, znaczy że wszystkie retries failed
+        if last_error:
+            raise last_error
+        else:
+            raise Exception("Failed to create persona allocation plan after all retries")
 
     async def _get_comprehensive_graph_context(
         self,
@@ -478,6 +516,59 @@ konieczność ekonomiczna.
 [... dalszy tekst 1000+ znaków ...]
 ```
 
+=== CRITICAL: JSON OUTPUT REQUIREMENTS ===
+
+⚠️  **BARDZO WAŻNE - PRZECZYTAJ UWAŻNIE:**
+
+Your output will be parsed by `json.loads()`. MUSISZ przestrzegać tych zasad:
+
+1. **TYLKO JSON** - Zwróć WYŁĄCZNIE obiekt JSON, bez ŻADNEGO dodatkowego tekstu:
+   - ❌ NIE: "Jasne, rozumiem zadanie. Zaczynajmy!\\n```json\\n{{...}}"
+   - ✅ TAK: "{{...}}" (tylko czysty JSON)
+   - ❌ NIE: Dodawanie preambuły, wyjaśnień przed JSON
+   - ✅ TAK: Start response bezpośrednio z `{{`
+
+2. **Poprawna składnia JSON:**
+   - ❌ NIE: trailing commas: `"key": "value",]` lub `{{"x": 1,}}`
+   - ✅ TAK: brak trailing comma: `"key": "value"]` i `{{"x": 1}}`
+   - ❌ NIE: single quotes: `{{'key': 'value'}}`
+   - ✅ TAK: double quotes: `{{"key": "value"}}`
+   - ❌ NIE: comments: `// this is comment`
+   - ✅ TAK: tylko valid JSON (brak komentarzy)
+
+3. **Zamknięte nawiasy** - każdy `{{` ma swoje `}}`, każdy `[` ma swoje `]`
+   - Sprawdź szczególnie długie listy (graph_insights!)
+
+4. **Escaped characters** - użyj `\\n` dla newlines w długich tekstach
+   - Brief może mieć 1200 znaków → użyj `\\n` dla nowych linii
+
+5. **Valid Unicode** - polskie znaki (ą, ę, ś, etc.) są OK w UTF-8
+
+**BAD Example (WILL CRASH):**
+```
+Cześć! Przeanalizowałem dane. Oto plan:
+```json
+{{
+  "groups": [
+    {{"count": 2, "demographics": {{...}},}}  // trailing comma!
+  ]
+}}
+```
+```
+
+**GOOD Example (VALID):**
+```json
+{{
+  "total_personas": 4,
+  "overall_context": "Tekst...",
+  "groups": [
+    {{"count": 2, "demographics": {{"age": "25-34"}}}}
+  ]
+}}
+```
+
+Jeśli masz wątpliwości, mentalnie zwaliduj output przez https://jsonlint.com/
+
 === OUTPUT FORMAT ===
 
 Generuj JSON zgodny z tym schematem:
@@ -536,6 +627,12 @@ Generuj plan alokacji:
     def _extract_json_from_response(self, response_text: str) -> dict[str, Any]:
         """Ekstraktuje JSON z odpowiedzi LLM (może być otoczony markdown lub preambułą).
 
+        Próbuje 4 strategii parsowania w kolejności:
+        1. ```json ... ``` blok markdown
+        2. ``` ... ``` blok kodu bez typu
+        3. Pierwszy { ... } (może być po preambule)
+        4. Cały tekst (fallback)
+
         Args:
             response_text: Surowa odpowiedź od LLM
 
@@ -543,47 +640,77 @@ Generuj plan alokacji:
             Parsed JSON jako dict
 
         Raises:
-            ValueError: Jeśli nie można sparsować JSON
+            ValueError: Jeśli żadna strategia nie zadziała
         """
         text = response_text.strip()
-
-        # Strategia 1: Znajdź blok ```json ... ``` (może być w środku tekstu)
         import re
+
+        # Strategia 1: Znajdź blok ```json ... ``` (may be embedded in text)
+        logger.debug("Trying strategy 1: ```json ... ``` block")
         json_block_match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
         if json_block_match:
             json_text = json_block_match.group(1).strip()
+            logger.debug(f"Found ```json block, length: {len(json_text)} chars")
+            logger.debug(f"JSON preview: {json_text[:200]}...")
+
             try:
-                return json.loads(json_text)
+                parsed = json.loads(json_text)
+                logger.info("✅ JSON parsed successfully via strategy 1 (```json block)")
+                return parsed
             except json.JSONDecodeError as e:
-                logger.error(f"❌ Nie można sparsować JSON z bloku markdown: {e}")
-                logger.error(f"JSON block text: {json_text[:500]}...")
+                logger.warning(f"⚠️  Strategy 1 failed: {e}")
+                logger.warning(f"   At position: line {e.lineno}, col {e.colno}")
+                if e.pos < len(json_text):
+                    error_snippet = json_text[max(0, e.pos-50):min(len(json_text), e.pos+50)]
+                    logger.warning(f"   Error context: ...{error_snippet}...")
                 # Kontynuuj do następnej strategii
 
-        # Strategia 2: Znajdź blok ``` ... ``` (bez json)
+        # Strategia 2: Znajdź blok ``` ... ``` (without json marker)
+        logger.debug("Trying strategy 2: ``` ... ``` code block")
         code_block_match = re.search(r'```\s*(.*?)\s*```', text, re.DOTALL)
         if code_block_match:
             json_text = code_block_match.group(1).strip()
+            logger.debug(f"Found code block, length: {len(json_text)} chars")
+
             try:
-                return json.loads(json_text)
+                parsed = json.loads(json_text)
+                logger.info("✅ JSON parsed successfully via strategy 2 (code block)")
+                return parsed
             except json.JSONDecodeError as e:
-                logger.error(f"❌ Nie można sparsować JSON z bloku kodu: {e}")
+                logger.warning(f"⚠️  Strategy 2 failed: {e}")
+                logger.warning(f"   At position: line {e.lineno}, col {e.colno}")
                 # Kontynuuj do następnej strategii
 
-        # Strategia 3: Znajdź pierwszy { ... } (może być po preambule)
+        # Strategia 3: Znajdź pierwszy { ... } (after potential preamble)
+        logger.debug("Trying strategy 3: First { ... } braces")
         brace_match = re.search(r'\{.*\}', text, re.DOTALL)
         if brace_match:
             json_text = brace_match.group(0).strip()
+            logger.debug(f"Found braces block, length: {len(json_text)} chars")
+            logger.debug(f"JSON preview: {json_text[:200]}...")
+
             try:
-                return json.loads(json_text)
+                parsed = json.loads(json_text)
+                logger.info("✅ JSON parsed successfully via strategy 3 (braces)")
+                return parsed
             except json.JSONDecodeError as e:
-                logger.error(f"❌ Nie można sparsować JSON z braces: {e}")
-                logger.error(f"Braces text: {json_text[:500]}...")
+                logger.warning(f"⚠️  Strategy 3 failed: {e}")
+                logger.warning(f"   At position: line {e.lineno}, col {e.colno}")
+                if e.pos < len(json_text):
+                    error_snippet = json_text[max(0, e.pos-50):min(len(json_text), e.pos+50)]
+                    logger.warning(f"   Error context: ...{error_snippet}...")
+                # Kontynuuj do następnej strategii
 
         # Strategia 4: Spróbuj sparsować cały tekst (fallback)
+        logger.debug("Trying strategy 4: Full text parsing")
         try:
-            return json.loads(text)
+            parsed = json.loads(text)
+            logger.info("✅ JSON parsed successfully via strategy 4 (full text)")
+            return parsed
         except json.JSONDecodeError as e:
-            logger.error(f"❌ Nie można sparsować JSON (all strategies failed): {e}")
+            logger.error(f"❌ ALL 4 STRATEGIES FAILED")
+            logger.error(f"❌ Final error: {e}")
+            logger.error(f"❌ At position: line {e.lineno}, col {e.colno}")
             logger.error(f"❌ Response text length: {len(text)} chars")
             logger.error(f"❌ Response text (first 1000 chars): {text[:1000]}")
             logger.error(f"❌ Response text (last 1000 chars): {text[-1000:]}")

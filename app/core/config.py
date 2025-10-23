@@ -142,6 +142,13 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     # DEBUG: Włącz szczegółowe logi błędów
     DEBUG: bool = True
+    # LOG_LEVEL: Poziom logowania (CRITICAL, ERROR, WARNING, INFO, DEBUG)
+    # Production: INFO (strukturalne logi bez debug noise)
+    # Development: DEBUG (szczegółowe logi dla debugging)
+    LOG_LEVEL: str = "DEBUG"
+    # STRUCTURED_LOGGING: JSON format dla Cloud Logging (production)
+    # True w production umożliwia łatwe filtrowanie w GCP Logs Explorer
+    STRUCTURED_LOGGING: bool = False
 
     # === API ===
     # Prefix dla wszystkich endpointów API v1
