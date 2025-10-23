@@ -68,7 +68,7 @@ needs_and_pains = Column(JSONB, nullable=True)
 Struktura danych Jobs-to-be-Done + Pain Points:
 {
   "generated_at": "2025-10-16T14:30:00Z",
-  "generated_by": "gemini-2.0-flash-exp",
+  "generated_by": "gemini-2.5-flash",
   "jobs_to_be_done": [
     {
       "job_statement": "When [situation], I want [motivation], so I can [outcome]",
@@ -534,7 +534,7 @@ Główny endpoint zwracający pełne szczegóły persony.
 
   "needs_and_pains": {
     "generated_at": "2025-10-16T14:30:00Z",
-    "generated_by": "gemini-2.0-flash-exp",
+    "generated_by": "gemini-2.5-flash,
     "jobs_to_be_done": [
       {
         "job_statement": "When I'm planning quarterly budget, I want to forecast ROI, so I can justify spend to CFO.",

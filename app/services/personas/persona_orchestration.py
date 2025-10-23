@@ -791,7 +791,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
         try:
             # Use Gemini Flash for quick naming (cheap, fast)
             llm_flash = build_chat_model(
-                model="gemini-2.0-flash-exp",
+                model=settings.DEFAULT_MODEL,
                 temperature=0.7,
                 max_tokens=50,
                 timeout=10,

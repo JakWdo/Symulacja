@@ -21,6 +21,7 @@ from langchain_core.documents import Document
 
 from app.core.config import get_settings
 from app.services.rag.rag_clients import get_vector_store
+from app.services.rag.utils import escape_lucene_query
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -159,7 +160,7 @@ class PolishSocietyRAG:
 
                 try:
                     # Zabezpiecz query dla parsera Lucene (escape special chars)
-                    safe_query = self._escape_lucene_query(query)
+                    safe_query = escape_lucene_query(query)
 
                     result = session.run(
                         """
@@ -231,35 +232,6 @@ class PolishSocietyRAG:
             logger.warning("Keyword search nie powiodło się, używam fallbacku: %s", exc)
             return []
 
-    @staticmethod
-    def _escape_lucene_query(query: str) -> str:
-        """Escapuje znaki specjalne Lucene w zapytaniu fulltext.
-
-        Lucene reserved chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \\ /
-        oraz dwukropek, ukośnik i cudzysłowy. Zastępuje nowe linie spacją.
-
-        Args:
-            query: Surowe zapytanie użytkownika
-
-        Returns:
-            Bezpieczny string do użycia w db.index.fulltext.queryNodes
-        """
-        if not query:
-            return ""
-
-        reserved = set(list(r"+ - & | ! ( ) { } [ ] ^ \" ~ * ? : \\ /") + ["&&", "||"])  # type: ignore
-
-        # Escapuj znak po znaku (&& i || nie będą rozbite – traktujemy po znaku)
-        escaped_chars: list[str] = []
-        for ch in query.replace("\n", " "):
-            if ch in {"+", "-", "&", "|", "!", "(", ")", "{", "}", "[", "]", "^", '"', "~", "*", "?", ":", "\\", "/"}:
-                escaped_chars.append("\\" + ch)
-            else:
-                escaped_chars.append(ch)
-
-        # Dodatkowo normalizuj wielokrotne spacje
-        safe = " ".join("".join(escaped_chars).split())
-        return safe
 
     def _format_graph_context(self, graph_nodes: list[dict[str, Any]]) -> str:
         """Formatuje węzły grafu do czytelnego kontekstu tekstowego dla LLM.

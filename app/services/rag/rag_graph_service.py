@@ -21,6 +21,7 @@ from app.core.config import get_settings
 from app.schemas.rag import GraphRAGQuery
 from app.services.shared.clients import build_chat_model
 from app.services.rag.rag_clients import get_graph_store, get_vector_store
+from app.services.rag.utils import escape_lucene_query
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -326,13 +327,16 @@ class GraphRAGService:
             return []
 
         # Budujemy search query string - krótkie terminy dla fulltext
-        query_string = f"{gender} {age_group} {location} {education}"
+        # WAŻNE: Escapujemy znaki specjalne Lucene (/, -, etc.) aby uniknąć crash Neo4j parser
+        raw_query = f"{gender} {age_group} {location} {education}"
+        query_string = escape_lucene_query(raw_query)
 
         logger.info(
             "📊 Graph context search (FULLTEXT) - Profil: wiek=%s, lokalizacja=%s, wykształcenie=%s, płeć=%s",
             age_group, location, education, gender
         )
-        logger.info("🔍 Fulltext query: '%s'", query_string)
+        logger.info("🔍 Fulltext query (raw): '%s'", raw_query)
+        logger.info("🔍 Fulltext query (escaped): '%s'", query_string)
 
         try:
             # Zapytanie Cypher z FULLTEXT INDEX (zamiast CONTAINS)
