@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -81,6 +82,95 @@ def _map_graph_node_to_insight(node: dict[str, Any]) -> "GraphInsight" | None:
     except Exception as e:
         logger.error(f"Nie można utworzyć GraphInsight z node: {node}, error: {e}")
         return None
+
+
+def _extract_cities_from_description(description: str | None) -> list[str] | None:
+    """Ekstraktuje polskie miasta z opisu projektu.
+
+    Rozpoznaje miasta w różnych formach gramatycznych (nominative + genitive):
+    - "młodzi gdańszczanie" → ["Gdańsk"]
+    - "warszawiacy 25-34" → ["Warszawa"]
+    - "ludzie z Krakowa i Poznania" → ["Kraków", "Poznań"]
+    - "badanie wrocławian" → ["Wrocław"]
+
+    Args:
+        description: Opis projektu (project.description)
+
+    Returns:
+        Lista znalezionych miast lub None jeśli nie znaleziono
+
+    Examples:
+        >>> _extract_cities_from_description("młodzi gdańszczanie")
+        ['Gdańsk']
+        >>> _extract_cities_from_description("Warszawiacy i kraków")
+        ['Warszawa', 'Kraków']
+        >>> _extract_cities_from_description("polacy")
+        None
+    """
+    if not description:
+        return None
+
+    # Polish city patterns (nominative + genitive + adjective forms)
+    # Format: (pattern, canonical_city_name)
+    city_patterns = {
+        # Gdańsk (gdańszczanin, gdańszczanie, Gdańsk, gdańsk)
+        r'\b[Gg]da[nń]sk\w*': 'Gdańsk',
+
+        # Warszawa (warszawiak, warszawiacy, Warszawa, warszawa)
+        r'\b[Ww]arszaw\w*': 'Warszawa',
+
+        # Kraków (krakowianin, krakowianie, Kraków, Krakowa, krakow)
+        r'\b[Kk]rak[oó]w\w*': 'Kraków',
+
+        # Poznań (poznaniak, poznaniacy, Poznań, Poznania, poznan)
+        r'\b[Pp]ozna[nń]\w*': 'Poznań',
+
+        # Wrocław (wrocławianin, wrocławianie, Wrocław, Wrocławia, wroclaw)
+        r'\b[Ww]rocław\w*': 'Wrocław',
+        r'\b[Ww]roclaw\w*': 'Wrocław',  # Alternative spelling
+
+        # Łódź (łodzianin, łodzianie, Łódź, Łodzi, lodz)
+        r'\b[Łł][oó]d[zź]\w*': 'Łódź',
+
+        # Szczecin (szczecin, szczecinie)
+        r'\b[Ss]zczecin\w*': 'Szczecin',
+
+        # Katowice (katowiczanin, katowiczanie)
+        r'\b[Kk]atowic\w*': 'Katowice',
+
+        # Częstochowa
+        r'\b[Cc]z[eę]stochow\w*': 'Częstochowa',
+
+        # Lublin
+        r'\b[Ll]ublin\w*': 'Lublin',
+
+        # Bydgoszcz
+        r'\b[Bb]ydgoszcz\w*': 'Bydgoszcz',
+
+        # Białystok
+        r'\b[Bb]iałystok\w*': 'Białystok',
+
+        # Rzeszów
+        r'\b[Rr]zesz[oó]w\w*': 'Rzeszów',
+
+        # Toruń
+        r'\b[Tt]oru[nń]\w*': 'Toruń',
+
+        # Kielce
+        r'\b[Kk]ielc\w*': 'Kielce',
+
+        # Olsztyn
+        r'\b[Oo]lsztyn\w*': 'Olsztyn',
+    }
+
+    found_cities = []
+    for pattern, city in city_patterns.items():
+        if re.search(pattern, description, re.IGNORECASE):
+            # Avoid duplicates
+            if city not in found_cities:
+                found_cities.append(city)
+
+    return found_cities if found_cities else None
 
 
 class GraphInsight(BaseModel):
@@ -159,6 +249,7 @@ class PersonaOrchestrationService:
         num_personas: int,
         project_description: str | None = None,
         additional_context: str | None = None,
+        target_cities: list[str] | None = None,
     ) -> PersonaAllocationPlan:
         """Tworzy szczegółowy plan alokacji person z długimi briefami.
 
@@ -173,6 +264,7 @@ class PersonaOrchestrationService:
             num_personas: Całkowita liczba person do wygenerowania
             project_description: Opis projektu badawczego
             additional_context: Dodatkowy kontekst od użytkownika (z AI Wizard)
+            target_cities: Lista miast do wymuszenia lokalizacji person (np. ["Gdańsk"])
 
         Returns:
             PersonaAllocationPlan z grupami demograficznymi i szczegółowymi briefami
@@ -193,6 +285,7 @@ class PersonaOrchestrationService:
             graph_context=graph_context,
             project_description=project_description,
             additional_context=additional_context,
+            target_cities=target_cities,
         )
 
         # Krok 3: Gemini 2.5 Pro generuje plan z retry logic
@@ -369,6 +462,7 @@ class PersonaOrchestrationService:
         graph_context: str,
         project_description: str | None,
         additional_context: str | None,
+        target_cities: list[str] | None,
     ) -> str:
         """Buduje prompt w stylu edukacyjnym dla Gemini 2.5 Pro.
 
@@ -384,15 +478,29 @@ class PersonaOrchestrationService:
             graph_context: Kontekst z Graph RAG
             project_description: Opis projektu
             additional_context: Dodatkowy kontekst od użytkownika
+            target_cities: Lista miast do wymuszenia (enforcement)
 
         Returns:
             Długi prompt string (production-ready instrukcje)
         """
+        # Build location constraint if target_cities specified
+        location_constraint = ""
+        if target_cities:
+            cities_str = ", ".join(target_cities)
+            location_constraint = f"""
+⚠️  🌍 LOCATION CONSTRAINT (MUST FOLLOW - KRYTYCZNE!):
+ALL {num_personas} personas MUST be from: {cities_str}
+DO NOT use other cities - this is a STRICT requirement!
+Every demographics dict MUST include: "location": "{target_cities[0]}" (or one of: {cities_str})
+
+"""
+
         prompt = f"""
 Jesteś ekspertem od socjologii i badań społecznych w Polsce. Twoim zadaniem jest
 przeanalizowanie danych demograficznych i Graph RAG context, a następnie stworzenie
 szczegółowego, EDUKACYJNEGO planu alokacji {num_personas} syntetycznych person.
 
+{location_constraint}
 === STYL KOMUNIKACJI (KRYTYCZNY!) ===
 
 WAŻNE: Twoim outputem będzie używany bezpośrednio przez innych agentów AI oraz
@@ -585,7 +693,7 @@ Generuj JSON zgodny z tym schematem:
         "age": "25-34",
         "gender": "kobieta",
         "education": "wyższe",
-        "location": "Warszawa"
+        "location": "{target_cities[0] if target_cities else 'Warszawa'}"
       }},
       "brief": "Edukacyjny brief (900-1200 znaków) jak w przykładzie...",
       "segment_characteristics": [

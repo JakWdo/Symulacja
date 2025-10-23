@@ -971,12 +971,31 @@ async def _generate_personas_task(
                 if advanced_options and "target_audience_description" in advanced_options:
                     target_audience_desc = advanced_options["target_audience_description"]
 
+                # Ekstraktuj target_cities z wielu źródeł (priorytet: advanced_options > project description > dodatkowy opis)
+                target_cities = None
+                if advanced_options and "target_cities" in advanced_options:
+                    # Priorytet 1: Jawnie podane w advanced_options
+                    target_cities = advanced_options["target_cities"]
+                    logger.info(f"🌍 Using target_cities from advanced_options: {target_cities}")
+                else:
+                    # Priorytet 2: Ekstraktuj z project description
+                    from app.services.personas.persona_orchestration import _extract_cities_from_description
+                    target_cities = _extract_cities_from_description(project.description)
+                    if target_cities:
+                        logger.info(f"🌍 Extracted target_cities from project description: {target_cities}")
+                    elif target_audience_desc:
+                        # Priorytet 3: Ekstraktuj z dodatkowego opisu (pole "Dodatkowy Opis")
+                        target_cities = _extract_cities_from_description(target_audience_desc)
+                        if target_cities:
+                            logger.info(f"🌍 Extracted target_cities from additional context: {target_cities}")
+
                 # Tworzymy plan alokacji (długie briefe dla każdej grupy)
                 allocation_plan = await orchestration_service.create_persona_allocation_plan(
                     target_demographics=target_demographics,
                     num_personas=num_personas,
                     project_description=project.description,
                     additional_context=target_audience_desc,
+                    target_cities=target_cities,
                 )
 
                 logger.info(

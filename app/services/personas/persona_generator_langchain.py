@@ -82,7 +82,7 @@ class PersonaGeneratorLangChain:
 
         self.llm = build_chat_model(
             model=persona_model,
-            temperature=0.9,  # Podniesiona wartość dla bardziej kreatywnych, zróżnicowanych person
+            temperature=0.7,  # Balansuje kreatywność z deterministycznym enforcement demographics
             max_tokens=settings.MAX_TOKENS,
             top_p=0.95,
             top_k=40,
@@ -584,9 +584,12 @@ KONTEKST (RAG + Brief + Audience):
 
 {unified_context}PERSONA #{persona_seed}: {suggested_first_name} {suggested_surname}
 
-PROFIL:
-• Wiek: {demographic.get('age_group')} | Płeć: {demographic.get('gender')} | Lokalizacja: {demographic.get('location')}
-• Wykształcenie: {demographic.get('education_level')} | Dochód: {demographic.get('income_bracket')}
+⚠️  DEMOGRAPHICS - MUSISZ DOKŁADNIE PRZESTRZEGAĆ (KRYTYCZNE!):
+• WIEK: {demographic.get('age_group')} lat - generuj osobę DOKŁADNIE z tego przedziału!
+• PŁEĆ: {demographic.get('gender')} - generuj TYLKO tę płeć, NIE odwrotną!
+• LOKALIZACJA: {demographic.get('location')} - osoba MIESZKA TAM, nie gdzie indziej!
+• WYKSZTAŁCENIE: {demographic.get('education_level')}
+• DOCHÓD: {demographic.get('income_bracket')}
 
 OSOBOWOŚĆ (Big Five - wartości 0-1):
 • Otwartość (Openness): {openness_val:.2f}
