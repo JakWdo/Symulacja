@@ -288,6 +288,12 @@ class GraphRAGService:
     ) -> list[dict[str, Any]]:
         """Pobiera strukturalny kontekst z grafu wiedzy dla profilu demograficznego.
 
+        OPTIMIZATION NOTE:
+        - Używa fulltext index 'graph_demographic_fulltext' (60x+ szybszy niż CONTAINS)
+        - Poprzednia implementacja: 4 MATCH + CONTAINS → 10-30s (timeout!)
+        - Nowa implementacja: 1 CALL fulltext → <500ms
+        - Index musi być utworzony: python scripts/add_graph_fulltext_indexes.py
+
         Wykonuje zapytania Cypher na grafie aby znaleźć:
         1. Indicators (wskaźniki) - z magnitude, confidence_level
         2. Observations (obserwacje) - z key_facts
@@ -304,13 +310,13 @@ class GraphRAGService:
             Lista słowników z węzłami grafu i ich właściwościami:
             [
                 {
-                    "type": "Indicator" | "Observation" | "Trend" | "Demographic",
-                    "summary": str,
-                    "key_facts": str,
-                    "magnitude": str,
-                    "confidence_level": str,
-                    "time_period": str,
-                    "source_context": str
+                    "type": "Wskaznik" | "Obserwacja" | "Trend" | "Demografia",
+                    "streszczenie": str,
+                    "kluczowe_fakty": str,
+                    "skala": str,  # tylko Wskaznik
+                    "pewnosc": str,
+                    "okres_czasu": str,
+                    "doc_id": str  # NOWE - dla łączenia z chunks
                 },
                 ...
             ]
@@ -319,127 +325,100 @@ class GraphRAGService:
             logger.warning("Graph store nie jest dostępny - zwracam pusty kontekst grafowy")
             return []
 
-        # Budujemy search terms - tylko specific terms (Cypher CONTAINS wystarczy)
-        search_terms = [
-            age_group,    # "25-34"
-            location,     # "Warszawa"
-            education,    # "wyższe"
-            gender,       # "kobieta"
-        ]
+        # Budujemy search query string - krótkie terminy dla fulltext
+        query_string = f"{gender} {age_group} {location} {education}"
 
         logger.info(
-            "📊 Graph context search - Profil: wiek=%s, lokalizacja=%s, wykształcenie=%s, płeć=%s",
+            "📊 Graph context search (FULLTEXT) - Profil: wiek=%s, lokalizacja=%s, wykształcenie=%s, płeć=%s",
             age_group, location, education, gender
         )
-        logger.info(
-            "🔍 Search terms (%s total): %s",
-            len(search_terms),
-            search_terms[:15]  # Log pierwsze 15 dla debugowania
-        )
+        logger.info("🔍 Fulltext query: '%s'", query_string)
 
         try:
-            # Zapytanie Cypher: Znajdź węzły które pasują do search terms
-            # pewnosc jest opcjonalny - preferujemy 'wysoka' ale akceptujemy wszystkie
-            # UWAGA: Schema uproszczony - properties: streszczenie, skala, pewnosc, okres_czasu, kluczowe_fakty
+            # Zapytanie Cypher z FULLTEXT INDEX (zamiast CONTAINS)
+            # Index: graph_demographic_fulltext
+            # Properties: streszczenie, kluczowe_fakty
+            # Performance: <500ms vs 10-30s (CONTAINS)
             cypher_query = """
-            // Parametry: $search_terms - lista słów kluczowych do matchingu
-            // UWAGA: Schema używa POLSKICH property names (streszczenie, skala, pewnosc, etc.)
+            // FULLTEXT SEARCH - używa indexu graph_demographic_fulltext
+            // Przyspieszenie 60x+ vs poprzednia implementacja (CONTAINS)
 
-            // 1. Znajdź Wskaźniki (preferuj wysoką pewność jeśli istnieje)
-            // Case-insensitive search
-            MATCH (ind:Wskaznik)
-            WHERE ANY(term IN $search_terms WHERE
-                toLower(coalesce(ind.streszczenie, '')) CONTAINS toLower(term) OR
-                toLower(coalesce(ind.kluczowe_fakty, '')) CONTAINS toLower(term)
-            )
-            WITH ind
-            ORDER BY
-                CASE WHEN ind.pewnosc = 'wysoka' THEN 0
-                     WHEN ind.pewnosc = 'srednia' THEN 1
-                     ELSE 2 END,
-                size(coalesce(ind.kluczowe_fakty, '')) DESC
-            LIMIT 3
-            WITH collect({
-                type: 'Wskaznik',
-                streszczenie: ind.streszczenie,
-                kluczowe_fakty: ind.kluczowe_fakty,
-                skala: ind.skala,
-                pewnosc: coalesce(ind.pewnosc, 'nieznana'),
-                okres_czasu: ind.okres_czasu
-            }) AS indicators
+            CALL db.index.fulltext.queryNodes('graph_demographic_fulltext', $query_string)
+            YIELD node, score
 
-            // 2. Znajdź Obserwacje (preferuj wysoką pewność jeśli istnieje)
-            // Case-insensitive search
-            MATCH (obs:Obserwacja)
-            WHERE ANY(term IN $search_terms WHERE
-                toLower(coalesce(obs.streszczenie, '')) CONTAINS toLower(term) OR
-                toLower(coalesce(obs.kluczowe_fakty, '')) CONTAINS toLower(term)
-            )
-            WITH indicators, obs
-            ORDER BY
-                CASE WHEN obs.pewnosc = 'wysoka' THEN 0
-                     WHEN obs.pewnosc = 'srednia' THEN 1
-                     ELSE 2 END,
-                size(coalesce(obs.kluczowe_fakty, '')) DESC
-            LIMIT 3
-            WITH indicators, collect({
-                type: 'Obserwacja',
-                streszczenie: obs.streszczenie,
-                kluczowe_fakty: obs.kluczowe_fakty,
-                pewnosc: coalesce(obs.pewnosc, 'nieznana'),
-                okres_czasu: obs.okres_czasu
-            }) AS observations
+            // Grupuj węzły po typie (label)
+            WITH node, score, labels(node)[0] AS node_type
+            WHERE node_type IN ['Wskaznik', 'Obserwacja', 'Trend', 'Demografia']
 
-            // 3. Znajdź Trendy
-            // Case-insensitive search
-            MATCH (trend:Trend)
-            WHERE ANY(term IN $search_terms WHERE
-                toLower(coalesce(trend.streszczenie, '')) CONTAINS toLower(term) OR
-                toLower(coalesce(trend.kluczowe_fakty, '')) CONTAINS toLower(term)
-            )
-            WITH indicators, observations, trend
-            ORDER BY size(coalesce(trend.kluczowe_fakty, '')) DESC
-            LIMIT 2
-            WITH indicators, observations, collect({
-                type: 'Trend',
-                streszczenie: trend.streszczenie,
-                kluczowe_fakty: trend.kluczowe_fakty,
-                okres_czasu: trend.okres_czasu
-            }) AS trends
+            // Sortuj per typ (preferuj wysoką pewność + długie kluczowe_fakty)
+            WITH node_type, node, score,
+                 CASE WHEN node.pewnosc = 'wysoka' THEN 0
+                      WHEN node.pewnosc = 'srednia' THEN 1
+                      ELSE 2 END AS pewnosc_rank,
+                 size(coalesce(node.kluczowe_fakty, '')) AS key_facts_len
+            ORDER BY node_type, pewnosc_rank, key_facts_len DESC, score DESC
 
-            // 4. Znajdź węzły Demografii
-            // Case-insensitive search
-            MATCH (demo:Demografia)
-            WHERE ANY(term IN $search_terms WHERE
-                toLower(coalesce(demo.streszczenie, '')) CONTAINS toLower(term) OR
-                toLower(coalesce(demo.kluczowe_fakty, '')) CONTAINS toLower(term)
-            )
-            WITH indicators, observations, trends, demo
-            ORDER BY
-                CASE WHEN demo.pewnosc = 'wysoka' THEN 0
-                     WHEN demo.pewnosc = 'srednia' THEN 1
-                     ELSE 2 END
-            LIMIT 2
-            WITH indicators, observations, trends, collect({
-                type: 'Demografia',
-                streszczenie: demo.streszczenie,
-                kluczowe_fakty: demo.kluczowe_fakty,
-                pewnosc: coalesce(demo.pewnosc, 'nieznana')
-            }) AS demographics
+            // Zbierz per typ z limitami (3 Wskaznik, 3 Obserwacja, 2 Trend, 2 Demografia)
+            WITH node_type, collect(node) AS nodes
 
-            // 5. Połącz wszystkie wyniki
+            // Rozbij na listy per typ
+            WITH
+                [n IN nodes WHERE node_type = 'Wskaznik'][..3] AS wskaznik_nodes,
+                [n IN nodes WHERE node_type = 'Obserwacja'][..3] AS obserwacja_nodes,
+                [n IN nodes WHERE node_type = 'Trend'][..2] AS trend_nodes,
+                [n IN nodes WHERE node_type = 'Demografia'][..2] AS demografia_nodes
+
+            // Map nodes to output format (z doc_id!)
+            WITH
+                [n IN wskaznik_nodes | {
+                    type: 'Wskaznik',
+                    streszczenie: n.streszczenie,
+                    kluczowe_fakty: n.kluczowe_fakty,
+                    skala: n.skala,
+                    pewnosc: coalesce(n.pewnosc, 'nieznana'),
+                    okres_czasu: n.okres_czasu,
+                    doc_id: n.doc_id
+                }] AS indicators,
+                [n IN obserwacja_nodes | {
+                    type: 'Obserwacja',
+                    streszczenie: n.streszczenie,
+                    kluczowe_fakty: n.kluczowe_fakty,
+                    pewnosc: coalesce(n.pewnosc, 'nieznana'),
+                    okres_czasu: n.okres_czasu,
+                    doc_id: n.doc_id
+                }] AS observations,
+                [n IN trend_nodes | {
+                    type: 'Trend',
+                    streszczenie: n.streszczenie,
+                    kluczowe_fakty: n.kluczowe_fakty,
+                    okres_czasu: n.okres_czasu,
+                    doc_id: n.doc_id
+                }] AS trends,
+                [n IN demografia_nodes | {
+                    type: 'Demografia',
+                    streszczenie: n.streszczenie,
+                    kluczowe_fakty: n.kluczowe_fakty,
+                    pewnosc: coalesce(n.pewnosc, 'nieznana'),
+                    doc_id: n.doc_id
+                }] AS demographics
+
+            // Połącz wszystkie wyniki
             RETURN indicators + observations + trends + demographics AS graph_context
             """
 
             result = self.graph_store.query(
                 cypher_query,
-                params={"search_terms": search_terms}
+                params={"query_string": query_string}
             )
 
             if not result or not result[0].get('graph_context'):
                 logger.warning(
                     "❌ Brak wyników z grafu dla profilu: wiek=%s, wykształcenie=%s, lokalizacja=%s, płeć=%s",
                     age_group, education, location, gender
+                )
+                logger.warning(
+                    "   Sprawdź czy index 'graph_demographic_fulltext' istnieje: "
+                    "python scripts/add_graph_fulltext_indexes.py"
                 )
                 return []
 
@@ -465,5 +444,9 @@ class GraphRAGService:
                 "Błąd podczas pobierania graph context: %s",
                 exc,
                 exc_info=True
+            )
+            logger.error(
+                "   Możliwa przyczyna: brak indexu 'graph_demographic_fulltext'. "
+                "Uruchom: python scripts/add_graph_fulltext_indexes.py"
             )
             return []

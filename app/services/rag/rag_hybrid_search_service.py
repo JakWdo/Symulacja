@@ -621,10 +621,12 @@ class PolishSocietyRAG:
             logger.warning("Vector store niedostępny – zwracam pusty kontekst.")
             return {"context": "", "citations": [], "query": "", "num_results": 0}
 
+        # OPTIMIZATION: Krótkie frazy dla BM25 keyword search (nie długie opisy!)
+        # Poprzednia wersja: "Profil demograficzny: ... Jakie są typowe cechy..." (słabe BM25)
+        # Nowa wersja: "{gender} {age_group} {location} {education} wartości zainteresowania"
         query = (
-            f"Profil demograficzny: {gender}, wiek {age_group}, wykształcenie {education}, "
-            f"lokalizacja {location} w Polsce. Jakie są typowe cechy, wartości, zainteresowania, "
-            f"style życia oraz aspiracje dla tej grupy?"
+            f"{gender} {age_group} {location} {education} Polska "
+            f"wartości zainteresowania styl życia aspiracje cechy"
         )
 
         logger.info(
