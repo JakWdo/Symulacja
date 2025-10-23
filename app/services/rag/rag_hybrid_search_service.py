@@ -609,8 +609,16 @@ class PolishSocietyRAG:
         # OPTIMIZATION: Krótkie frazy dla BM25 keyword search (nie długie opisy!)
         # Poprzednia wersja: "Profil demograficzny: ... Jakie są typowe cechy..." (słabe BM25)
         # Nowa wersja: "{gender} {age_group} {location} {education} wartości zainteresowania"
+
+        # FIX: Normalize "Kobieta i Mężczyzna" → "Kobieta Mężczyzna" dla fulltext search
+        # Fulltext nie rozumie "i"/"&" jako OR operator → usuń dla lepszych matches
+        gender_for_query = gender
+        if " i " in gender.lower() or " & " in gender.lower():
+            gender_for_query = gender.replace(" i ", " ").replace(" I ", " ").replace(" & ", " ").strip()
+            logger.debug(f"Normalized gender query: '{gender}' → '{gender_for_query}'")
+
         query = (
-            f"{gender} {age_group} {location} {education} Polska "
+            f"{gender_for_query} {age_group} {location} {education} Polska "
             f"wartości zainteresowania styl życia aspiracje cechy"
         )
 

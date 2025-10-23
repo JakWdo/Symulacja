@@ -1132,6 +1132,11 @@ async def _generate_personas_task(
                         if "income" in orch_demo and orch_demo["income"]:
                             profile["income_bracket"] = orch_demo["income"]
 
+                        # CRITICAL FIX: Override location from orchestration plan
+                        # Orchestration creates location-specific briefs → enforce location match!
+                        if "location" in orch_demo and orch_demo["location"]:
+                            profile["location"] = orch_demo["location"]
+
                         logger.debug(
                             f"Persona {idx}: enforced demographics from orchestration "
                             f"(age={orch_demo.get('age')}, gender={orch_demo.get('gender')})",
