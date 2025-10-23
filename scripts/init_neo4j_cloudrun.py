@@ -2,7 +2,11 @@
 """
 Inicjalizacja Neo4j Indexes dla Cloud Run Deployment
 
-Wrapper dla init_neo4j_indexes.py z dodatkowymi features dla Cloud Run:
+Tworzy wszystkie wymagane indeksy dla RAG System:
+1. Chunk indexes (vector + fulltext dla RAGChunk nodes) - CRITICAL
+2. Graph indexes (fulltext dla demographic nodes) - PERFORMANCE
+
+Wrapper dla init_neo4j_indexes.py + add_graph_fulltext_indexes.py z dodatkowymi features dla Cloud Run:
 - Enhanced retry logic z exponential backoff
 - Cloud Run Jobs specific error handling
 - Healthcheck przed inicjalizacją
@@ -24,9 +28,9 @@ Wymaga:
     - Połączenie sieciowe do Neo4j (firewall allow Cloud Run IPs)
 
 Exit Codes:
-    0 - Success (indexes created or already exist)
-    1 - Fatal error (Neo4j unreachable, auth failed)
-    2 - Partial success (some indexes failed but not critical)
+    0 - Success (all indexes created or already exist)
+    1 - Fatal error (Neo4j unreachable, chunk indexes failed)
+    2 - Partial success (chunks OK, graph indexes failed - non-critical)
 """
 
 import sys
@@ -124,14 +128,20 @@ def init_neo4j_indexes_cloudrun():
     """
     Inicjalizuj Neo4j indexes w Cloud Run environment.
 
+    Tworzy dwa typy indeksów:
+    1. Chunk indexes (vector + fulltext dla RAGChunk) - CRITICAL dla RAG
+    2. Graph indexes (fulltext dla demographic nodes) - PERFORMANCE dla GraphRAG
+
     Returns:
-        0 - Success
-        1 - Fatal error
-        2 - Partial success
+        0 - Success (all indexes created)
+        1 - Fatal error (Neo4j unreachable, chunk indexes failed)
+        2 - Partial success (chunks OK, graph indexes failed - non-critical)
     """
     log_structured("INFO", "=== NEO4J INDEXES INITIALIZATION (Cloud Run) ===")
+    log_structured("INFO", "Pipeline: connectivity check → chunk indexes → graph indexes")
 
     # STEP 1: Test connectivity
+    log_structured("INFO", "STEP 1/3: Testing Neo4j connectivity...")
     if not test_neo4j_connectivity():
         log_structured(
             "ERROR",
@@ -146,35 +156,87 @@ def init_neo4j_indexes_cloudrun():
         )
         return 1  # Fatal error
 
-    # STEP 2: Create indexes (używamy istniejącego skryptu)
-    log_structured("INFO", "Starting index creation")
+    # STEP 2: Create chunk indexes (vector + fulltext for RAGChunk nodes)
+    # CRITICAL - bez tych indeksów RAG w ogóle nie zadziała
+    log_structured("INFO", "STEP 2/3: Creating indexes for RAG chunks (vector + fulltext)...")
 
     try:
         from scripts.init_neo4j_indexes import init_neo4j_indexes
 
-        success = init_neo4j_indexes()
+        chunks_success = init_neo4j_indexes()
 
-        if success:
-            log_structured("INFO", "✅ Neo4j indexes initialized successfully")
-            return 0  # Success
-        else:
+        if not chunks_success:
             log_structured(
-                "WARNING",
-                "⚠️  Index initialization completed with warnings",
-                note="Some indexes may have failed but system can continue"
+                "ERROR",
+                "❌ Chunk indexes initialization FAILED",
+                impact="RAG system will not work - vector/keyword search requires these indexes",
+                indexes=["rag_document_embeddings (vector)", "rag_fulltext_index (fulltext)"]
             )
-            return 2  # Partial success
+            return 1  # Fatal error - bez chunk indexes RAG nie zadziała
+
+        log_structured(
+            "INFO",
+            "✅ Chunk indexes created successfully",
+            indexes=["rag_document_embeddings (vector)", "rag_fulltext_index (fulltext)"]
+        )
 
     except Exception as e:
         log_structured(
             "ERROR",
-            "❌ Unexpected error during index initialization",
+            "❌ Unexpected error during chunk index initialization",
             error=str(e),
             exception_type=type(e).__name__
         )
         import traceback
         log_structured("ERROR", "Traceback", traceback=traceback.format_exc())
         return 1  # Fatal error
+
+    # STEP 3: Create graph indexes (fulltext for graph demographic nodes)
+    # NON-CRITICAL - system może działać bez tego (queries będą wolniejsze)
+    log_structured("INFO", "STEP 3/3: Creating fulltext index for graph nodes...")
+
+    try:
+        from scripts.add_graph_fulltext_indexes import add_graph_fulltext_indexes
+
+        graph_success = add_graph_fulltext_indexes()
+
+        if graph_success:
+            log_structured(
+                "INFO",
+                "✅ Graph fulltext index created successfully",
+                index="graph_demographic_fulltext",
+                performance="GraphRAG queries will be 60x+ faster (<500ms vs 10-30s)"
+            )
+        else:
+            log_structured(
+                "WARNING",
+                "⚠️  Graph fulltext index initialization failed",
+                index="graph_demographic_fulltext",
+                impact="Non-critical - GraphRAG will fall back to slower CONTAINS queries",
+                note="System will continue to work but persona generation may be slower"
+            )
+            return 2  # Partial success - chunks OK, graph failed
+
+    except Exception as e:
+        log_structured(
+            "WARNING",
+            "⚠️  Graph fulltext index initialization error",
+            error=str(e)[:200],  # Truncate long errors
+            exception_type=type(e).__name__,
+            impact="Non-critical - GraphRAG will use slower queries",
+            note="System can continue without graph fulltext index"
+        )
+        return 2  # Partial success - chunks OK, graph error
+
+    # All successful
+    log_structured(
+        "INFO",
+        "✅ All Neo4j indexes initialized successfully",
+        total_indexes=3,
+        chunk_indexes=["rag_document_embeddings", "rag_fulltext_index"],
+        graph_indexes=["graph_demographic_fulltext"]
+    )
+    return 0  # Success
 
 
 if __name__ == "__main__":
