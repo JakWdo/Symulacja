@@ -424,24 +424,35 @@ class PersonaGeneratorLangChain:
                     f"search_type={rag_context_details['search_type']}"
                 )
 
-        # Pobierz target_audience_description i orchestration brief z advanced_options
+        # Pobierz target_audience_description, orchestration brief, focus_area z advanced_options
         target_audience_desc = None
         orchestration_brief = None
+        focus_area = None
+        demographic_preset = None
         if advanced_options:
             target_audience_desc = advanced_options.get('target_audience_description')
             orchestration_brief = advanced_options.get('orchestration_brief')
+            focus_area = advanced_options.get('focus_area')
+            demographic_preset = advanced_options.get('demographic_preset')
+
             if target_audience_desc:
                 logger.info(f"Using target audience description: {target_audience_desc[:100]}...")
             if orchestration_brief:
                 logger.info(f"Using orchestration brief: {orchestration_brief[:150]}... ({len(orchestration_brief)} chars)")
+            if focus_area:
+                logger.info(f"Using focus area: {focus_area}")
+            if demographic_preset:
+                logger.info(f"Using demographic preset: {demographic_preset}")
 
-        # Generuj prompt (z RAG, target audience, i orchestration brief jeśli dostępne)
+        # Generuj prompt (z RAG, target audience, orchestration brief, focus_area)
         prompt_text = self._create_persona_prompt(
             demographic_profile,
             psychological_profile,
             rag_context=rag_context,
             target_audience_description=target_audience_desc,
-            orchestration_brief=orchestration_brief
+            orchestration_brief=orchestration_brief,
+            focus_area=focus_area,
+            demographic_preset=demographic_preset
         )
 
         try:
@@ -491,13 +502,31 @@ class PersonaGeneratorLangChain:
             # Fallback dla błędów parsowania
             raise ValueError(f"Failed to generate persona: {str(e)}")
 
+    def _get_focus_area_enforcement(self, focus_area: str | None) -> str:
+        """Zwraca enforcement rules dla focus_area (używane w ZASADY prompt section)."""
+        if not focus_area:
+            return ""
+
+        enforcements = {
+            "technology": "\n• 🎯 FOCUS AREA: TECHNOLOGIA - Interests MUSZĄ zawierać tech keywords (AI, programming, gadgets, software, gaming, etc.)!",
+            "lifestyle": "\n• 🎯 FOCUS AREA: LIFESTYLE - Interests MUSZĄ zawierać lifestyle keywords (fitness, yoga, wellness, healthy eating, meditation, etc.)!",
+            "finance": "\n• 🎯 FOCUS AREA: FINANSE - Interests MUSZĄ zawierać finance keywords (investing, stocks, budgeting, financial planning, crypto, etc.)!",
+            "shopping": "\n• 🎯 FOCUS AREA: ZAKUPY - Interests MUSZĄ zawierać shopping keywords (fashion, online shopping, deals, brands, e-commerce, etc.)!",
+            "entertainment": "\n• 🎯 FOCUS AREA: ROZRYWKA - Interests MUSZĄ zawierać entertainment keywords (films, music, concerts, gaming, social events, etc.)!",
+            "general": "\n• 🎯 FOCUS AREA: OGÓLNE - Interests powinny być różnorodne, nie ograniczone do jednej dziedziny"
+        }
+
+        return enforcements.get(focus_area.lower(), "")
+
     def _create_persona_prompt(
         self,
         demographic: dict[str, Any],
         psychological: dict[str, Any],
         rag_context: str | None = None,
         target_audience_description: str | None = None,
-        orchestration_brief: str | None = None  # NOWY PARAMETR - długi brief od Gemini 2.5 Pro
+        orchestration_brief: str | None = None,  # Długi brief od Gemini 2.5 Pro
+        focus_area: str | None = None,  # UI dropdown: Obszar Zainteresowań (PRIORYTET!)
+        demographic_preset: str | None = None  # UI dropdown: Grupa Demograficzna (kontekst)
     ) -> str:
         """
         Utwórz prompt dla LLM do generowania persony - WERSJA POLSKA
@@ -550,26 +579,46 @@ class PersonaGeneratorLangChain:
         agreeableness_val = psychological.get('agreeableness', 0.5)
         neuroticism_val = psychological.get('neuroticism', 0.5)
 
-        # Unified context section (merge RAG + Target Audience + Orchestration Brief)
+        # Unified context section (merge focus_area + target_audience + brief + RAG)
+        # NOWA KOLEJNOŚĆ: focus_area (PRIORYTET!) → target_audience → brief → RAG
         unified_context = ""
-        if rag_context or target_audience_description or orchestration_brief:
+        if rag_context or target_audience_description or orchestration_brief or focus_area:
             context_parts = []
 
-            if rag_context:
-                context_parts.append(f"📊 KONTEKST RAG:\n{rag_context}")
+            # 1. FOCUS AREA - NAJWYŻSZY PRIORYTET (UI dropdown)
+            if focus_area and focus_area.strip():
+                focus_area_descriptions = {
+                    "technology": "🎯 OBSZAR ZAINTERESOWAŃ (PRIORYTET #1!):\nPersona MUSI być zainteresowana TECHNOLOGIĄ - produkty tech, oprogramowanie, gadżety, innowacje cyfrowe. Interests powinny zawierać tech-related keywords (programowanie, AI, gaming, tech gadgets, etc.)",
+                    "lifestyle": "🎯 OBSZAR ZAINTERESOWAŃ (PRIORYTET #1!):\nPersona MUSI być zainteresowana STYLEM ŻYCIA - zdrowie, fitness, wellness, hobby, rozwój osobisty. Interests powinny zawierać lifestyle keywords (yoga, medytacja, zdrowa żywność, sport, self-improvement, etc.)",
+                    "finance": "🎯 OBSZAR ZAINTERESOWAŃ (PRIORYTET #1!):\nPersona MUSI być zainteresowana FINANSAMI - bankowość, inwestycje, oszczędzanie, planowanie finansowe. Interests powinny zawierać finance keywords (investing, stocks, budgeting, financial planning, etc.)",
+                    "shopping": "🎯 OBSZAR ZAINTERESOWAŃ (PRIORYTET #1!):\nPersona MUSI być zainteresowana ZAKUPAMI - retail, e-commerce, konsumpcja, trendy zakupowe. Interests powinny zawierać shopping keywords (fashion, online shopping, deals, brands, etc.)",
+                    "entertainment": "🎯 OBSZAR ZAINTERESOWAŃ (PRIORYTET #1!):\nPersona MUSI być zainteresowana ROZRYWKĄ - media, kultura, czas wolny, entertainment. Interests powinny zawierać entertainment keywords (films, music, concerts, gaming, social events, etc.)",
+                    "general": "🎯 OBSZAR ZAINTERESOWAŃ (PRIORYTET #1!):\nPersona ma SZEROKĄ PERSPEKTYWĘ SPOŁECZNĄ - różnorodne zainteresowania, nie ograniczone do jednej dziedziny."
+                }
+                focus_desc = focus_area_descriptions.get(focus_area.lower(), f"🎯 OBSZAR ZAINTERESOWAŃ: {focus_area}")
+                context_parts.append(focus_desc)
+
+            # 2. TARGET AUDIENCE DESCRIPTION - WYSOKI PRIORYTET (UI textarea)
+            if target_audience_description and target_audience_description.strip():
+                context_parts.append(f"🎯 DODATKOWY OPIS GRUPY DOCELOWEJ (PRIORYTET #2!):\n{target_audience_description.strip()}")
+
+            # 3. ORCHESTRATION BRIEF - średni priorytet (Gemini 2.5 Pro analysis)
             if orchestration_brief and orchestration_brief.strip():
                 context_parts.append(f"📋 ORCHESTRATION BRIEF:\n{orchestration_brief.strip()}")
-            if target_audience_description and target_audience_description.strip():
-                context_parts.append(f"🎯 GRUPA DOCELOWA:\n{target_audience_description.strip()}")
+
+            # 4. RAG CONTEXT - najniższy priorytet (background knowledge)
+            if rag_context:
+                context_parts.append(f"📊 KONTEKST RAG (tło):\n{rag_context}")
 
             unified_context = f"""
 ═══════════════════════════════════════════
-KONTEKST (RAG + Brief + Audience):
+KONTEKST (Focus Area + Target Audience + Brief + RAG):
 ═══════════════════════════════════════════
 
 {chr(10).join(context_parts)}
 
 ⚠️ KLUCZOWE ZASADY:
+• PRIORYTET: Focus Area i Target Audience MUSZĄ mieć wpływ na interests i values!
 • Użyj kontekstu jako TŁA życia persony (nie cytuj statystyk!)
 • Stwórz FASCYNUJĄCĄ historię - kontekst to fundament, nie lista faktów
 • Wskaźniki → konkretne detale życia (housing crisis → wynajmuje, oszczędza)
@@ -606,7 +655,7 @@ HOFSTEDE (wartości 0-1): PD={psychological.get('power_distance', 0.5):.2f} | IN
 ZASADY:
 • Zawód = wykształcenie + dochód
 • Osobowość → historia (O→podróże, S→planowanie)
-• Detale: dzielnice, marki, konkretne hobby
+• Detale: dzielnice, marki, konkretne hobby{self._get_focus_area_enforcement(focus_area)}
 • UNIKALNOŚĆ: Każda persona MUSI mieć RÓŻNĄ historię życiową - nie kopiuj opisów!
 • Background_story NIE może kopiować briefu segmentu ani powtarzać całych akapitów z kontekstu
 {headline_age_rule}• Pokaż codzienne wybory i motywacje tej osoby - zero ogólników

@@ -118,9 +118,10 @@ class Settings(BaseSettings):
     # OPTIMIZATION: Zmniejszono 25→15 (40% mniej compute) dla lepszej performance na CPU Cloud Run
     RAG_RERANK_CANDIDATES: int = 15
     # Cross-encoder model dla reranking
-    # OPTIMIZATION: L6 (6 layers) zamiast L12 (12 layers) → 3-5x szybszy na CPU przy ~95% accuracy
-    # Multilingual model wspiera polski lepiej niż English-only ms-marco-MiniLM
-    RAG_RERANKER_MODEL: str = "cross-encoder/mmarco-mMiniLMv2-L6-v1"
+    # FIX: Poprzedni model "mmarco-mMiniLMv2-L6-v1" nie istniał na HuggingFace
+    # CURRENT: ms-marco-MiniLM-L-6-v2 - English, 6 layers, SZYBKI (~100-150ms dla 15 docs)
+    # ALTERNATIVE: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1" (multilingual, wolniejszy)
+    RAG_RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     # === GraphRAG NODE PROPERTIES ===
     # Włączanie bogatych metadanych węzłów

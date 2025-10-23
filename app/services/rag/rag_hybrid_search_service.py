@@ -51,29 +51,42 @@ class PolishSocietyRAG:
             # Leniwa inicjalizacja GraphRAGService dla dostępu do kontekstu grafowego
             self._graph_rag_service = None
 
-            # Inicjalizuj cross-encoder dla reranking (opcjonalny)
+            # Inicjalizuj cross-encoder dla reranking (opcjonalny) z retry logic
             self.reranker = None
             if settings.RAG_USE_RERANKING:
-                try:
-                    from sentence_transformers import CrossEncoder
-                    self.reranker = CrossEncoder(
-                        settings.RAG_RERANKER_MODEL,
-                        max_length=512
-                    )
-                    logger.info(
-                        "Cross-encoder reranker zainicjalizowany: %s",
-                        settings.RAG_RERANKER_MODEL
-                    )
-                except ImportError:
-                    logger.warning(
-                        "sentence-transformers nie jest zainstalowany - reranking wyłączony. "
-                        "Zainstaluj: pip install sentence-transformers"
-                    )
-                except Exception as rerank_exc:
-                    logger.warning(
-                        "Nie udało się załadować reranker: %s - kontynuacja bez rerankingu",
-                        rerank_exc
-                    )
+                max_retries = 2
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        from sentence_transformers import CrossEncoder
+                        logger.info(
+                            f"🔄 Initializing cross-encoder reranker (attempt {attempt}/{max_retries}): %s",
+                            settings.RAG_RERANKER_MODEL
+                        )
+                        self.reranker = CrossEncoder(
+                            settings.RAG_RERANKER_MODEL,
+                            max_length=512
+                        )
+                        logger.info(
+                            "✅ Cross-encoder reranker zainicjalizowany: %s",
+                            settings.RAG_RERANKER_MODEL
+                        )
+                        break  # Success - exit retry loop
+                    except ImportError:
+                        logger.warning(
+                            "❌ sentence-transformers nie jest zainstalowany - reranking wyłączony. "
+                            "Zainstaluj: pip install sentence-transformers"
+                        )
+                        break  # No point retrying ImportError
+                    except Exception as rerank_exc:
+                        if attempt < max_retries:
+                            logger.warning(
+                                f"⚠️ Attempt {attempt}/{max_retries} failed to load reranker: {rerank_exc}, retrying..."
+                            )
+                        else:
+                            logger.error(
+                                f"❌ Failed to load reranker after {max_retries} attempts: {rerank_exc} - kontynuacja bez rerankingu"
+                            )
+                        self.reranker = None
         else:
             logger.error("❌ PolishSocietyRAG: Neo4j Vector Store failed - RAG wyłączony")
             self._fulltext_index_initialized = False

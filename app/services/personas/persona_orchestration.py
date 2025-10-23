@@ -537,6 +537,52 @@ pokazywany użytkownikom w interfejsie. Dlatego MUSISZ:
 
 Przeprowadź głęboką socjologiczną analizę i stwórz plan alokacji person który zawiera:
 
+⚠️ **LOCATION SPECIFICITY (KRYTYCZNE!) - PRZECZYTAJ UWAŻNIE:**
+
+Jeśli generujesz persony z WIELU LOKALIZACJI (np. Gdańsk, Warszawa, Poznań):
+- MUSISZ stworzyć OSOBNE grupy demograficzne dla KAŻDEJ lokalizacji!
+- Brief dla każdej grupy MUSI być specyficzny dla TEJ lokalizacji (nie pisz o "gdańszczanach" dla person z Warszawy!)
+- ❌ BŁĄD: 1 grupa "Kobiety 25-34 wyższe" z briefem o Gdańsku → używana dla Warszawy, Poznania (ŹLE!)
+- ✅ POPRAWNIE: 3 grupy - "Kobiety 25-34 wyższe Gdańsk", "Kobiety 25-34 wyższe Warszawa", "Kobiety 25-34 wyższe Poznań"
+
+**PRZYKŁAD POPRAWNEGO PLANU (3 lokalizacje):**
+```json
+{{
+  "groups": [
+    {{
+      "count": 4,
+      "demographics": {{"age": "25-34", "gender": "kobieta", "education": "wyższe", "location": "Gdańsk"}},
+      "brief": "Kobiety 25-34 z wyższym wykształceniem w Gdańsku... [opis SPECYFICZNY dla Gdańska - praca w sektorze morskim, Trójmiasto vibe, etc.]"
+    }},
+    {{
+      "count": 3,
+      "demographics": {{"age": "25-34", "gender": "kobieta", "education": "wyższe", "location": "Warszawa"}},
+      "brief": "Kobiety 25-34 z wyższym wykształceniem w Warszawie... [opis SPECYFICZNY dla Warszawy - startupy, corporate, ceny mieszkań, etc.]"
+    }},
+    {{
+      "count": 3,
+      "demographics": {{"age": "25-34", "gender": "kobieta", "education": "wyższe", "location": "Poznań"}},
+      "brief": "Kobiety 25-34 z wyższym wykształceniem w Poznaniu... [opis SPECYFICZNY dla Poznania - zachodnie firmy, studentki UAM, etc.]"
+    }}
+  ]
+}}
+```
+
+**PRZYKŁAD BŁĘDNY ❌:**
+```json
+{{
+  "groups": [
+    {{
+      "count": 10,
+      "demographics": {{"age": "25-34", "gender": "kobieta", "education": "wyższe"}},  // ❌ Brak "location"!
+      "brief": "Kobiety 25-34... młode gdańszczanki..."  // ❌ Brief o Gdańsku będzie używany dla WSZYSTKICH miast!
+    }}
+  ]
+}}
+```
+
+ZAPAMIĘTAJ: Każda lokalizacja = osobna grupa z location-specific brief!
+
 ### 1. OGÓLNY KONTEKST SPOŁECZNY (500-800 znaków)
 
 Zrób overview polskiego społeczeństwa bazując na Graph RAG context:

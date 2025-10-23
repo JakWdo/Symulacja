@@ -87,6 +87,24 @@ class PersonaGenerationAdvancedOptions(BaseModel):
         description="Skew Big Five personality traits (openness, conscientiousness, extraversion, agreeableness, neuroticism). Values 0.0-1.0 shift mean towards low/high."
     )
 
+    # === FRONTEND UI OPTIONS (z PersonaGenerationWizard) ===
+    # Te pola są wysyłane przez frontend ale były ignorowane przez backend!
+
+    focus_area: str | None = Field(
+        None,
+        description="Area of interest from UI dropdown: technology, lifestyle, finance, shopping, entertainment, general. Used to enforce persona interests."
+    )
+
+    demographic_preset: str | None = Field(
+        None,
+        description="Demographic preset from UI dropdown: gen-z, millennials, gen-x, boomers, diverse. Provides additional age/generation context."
+    )
+
+    target_audience_description: str | None = Field(
+        None,
+        description="Additional description of target audience from UI textarea (user-provided text). High priority in prompt context."
+    )
+
 
 class PersonaGenerateRequest(BaseModel):
     """

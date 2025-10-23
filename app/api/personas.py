@@ -1450,6 +1450,24 @@ async def _generate_personas_task(
                         **psychological
                     }
 
+                    # VALIDATION: Check if orchestration brief matches expected location
+                    if idx in persona_group_mapping and location_value:
+                        orchestration_brief = persona_group_mapping[idx]["brief"]
+                        expected_location = location_value
+
+                        # Simple heuristic: check if location name appears in brief
+                        # (normalize: lowercase, remove spaces/diacritics)
+                        location_normalized = expected_location.lower().replace(" ", "").replace("ł", "l").replace("ń", "n").replace("ó", "o")
+                        brief_normalized = orchestration_brief.lower().replace(" ", "").replace("ł", "l").replace("ń", "n").replace("ó", "o")
+
+                        if location_normalized not in brief_normalized:
+                            logger.warning(
+                                f"⚠️ Brief/location mismatch for persona {idx} ('{full_name}'): "
+                                f"orchestration brief doesn't mention expected location '{expected_location}'. "
+                                f"Brief may be generic or location-specific to a different city.",
+                                extra={"project_id": str(project_id), "index": idx, "location": expected_location}
+                            )
+
                     if idx in persona_group_mapping:
                         mapping_entry = persona_group_mapping[idx]
                         if mapping_entry.get("segment_id"):
