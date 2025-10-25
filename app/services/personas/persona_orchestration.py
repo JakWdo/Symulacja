@@ -649,41 +649,6 @@ g) **Allocation Reasoning**
    - Dlaczego tyle person w tej grupie (X z {num_personas})?
    - Jak to odnosi się do % populacji vs. relevance dla badania?
 
-### 3. PRZYKŁAD DOBREGO BRIEFU
-
-```
-# Grupa: Kobiety 25-34, wyższe wykształcenie, Warszawa (6 person)
-
-## Dlaczego ta grupa?
-
-W polskim społeczeństwie kobiety 25-34 z wyższym wykształceniem stanowią
-około 17.3% populacji miejskiej według danych GUS z 2022 roku. To fascynująca
-grupa społeczna która znajduje się w momencie życia pełnym zmian - balansują
-między budowaniem kariery a decyzjami o rodzinie, między niezależnością finansową
-a realiami rynku nieruchomości.
-
-Dla tego badania ta grupa jest kluczowa bo to oni są early adopters nowych
-produktów i usług. Wskaźniki pokazują że 78.4% tej grupy jest zatrudnionych
-(najwyższa stopa w Polsce!), co oznacza że mają purchasing power. Jednocześnie
-63% wykazuje wysoką mobilność zawodową - często zmieniają pracę, co czyni ich
-otwartymi na nowe rozwiązania.
-
-## Kontekst zawodowy i życiowy
-
-Warszawa koncentruje 35% polskiego rynku tech, fintech i consulting. Dla młodych
-kobiet z wyższym wykształceniem to oznacza szeroki wybór możliwości kariery - od
-project managerów przez UX designerów po analityków danych. Typowe zarobki w tej
-grupie to 7000-12000 zł netto, co brzmi nieźle, ale...
-
-...ale tu zaczyna się problem. Cena m2 w Warszawie to ~15000 zł. Dla osoby
-zarabiającej 9000 zł netto (mediana), zakup 50m2 mieszkania wymaga odłożenia
-~750000 zł, co przy oszczędzaniu 2000 zł miesięcznie daje... 31 lat. Nie dziwi
-więc że 45% tej grupy wynajmuje mieszkania. To nie wybór stylu życia - to
-konieczność ekonomiczna.
-
-[... dalszy tekst 1000+ znaków ...]
-```
-
 === CRITICAL: JSON OUTPUT REQUIREMENTS ===
 
 ⚠️  **BARDZO WAŻNE - PRZECZYTAJ UWAŻNIE:**

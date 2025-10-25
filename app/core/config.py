@@ -142,6 +142,22 @@ class Settings(BaseSettings):
     # gemini-embedding-001 generuje 3072-wymiarowe wektory (nie 768!)
     EMBEDDING_DIMENSION: int = 3072
 
+    # === SEGMENT CACHE (Faza 2 - Segment-First Architecture) ===
+    # Feature flag: Włącz segment-first cache (zamiast per-persona RAG)
+    # Benefits: 3x szybsze, 60% mniej tokenów, lepsza spójność
+    # Rollback: Ustaw na False aby wrócić do starego flow
+    SEGMENT_CACHE_ENABLED: bool = True
+    # TTL dla segment cache w Redis (dni)
+    SEGMENT_CACHE_TTL_DAYS: int = 7
+    # Retrieval mode dla RetrievalService
+    # - "vector": Tylko vector search (najszybsze, ~500ms)
+    # - "hybrid": Vector + keyword + RRF (~1000ms)
+    # - "hybrid+rerank": + cross-encoder reranking (~1500ms)
+    RETRIEVAL_MODE: str = "vector"
+    # Threshold dla auto-switching do hybrid search
+    # Jeśli vector results < N, przełącz na hybrid (quality safeguard)
+    RERANK_THRESHOLD: int = 3
+
     # === ŚRODOWISKO ===
     # ENVIRONMENT: development / staging / production
     ENVIRONMENT: str = "development"
