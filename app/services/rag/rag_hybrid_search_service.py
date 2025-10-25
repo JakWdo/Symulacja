@@ -51,7 +51,7 @@ class PolishSocietyRAG:
             # Leniwa inicjalizacja GraphRAGService dla dostępu do kontekstu grafowego
             self._graph_rag_service = None
 
-            # Inicjalizuj cross-encoder dla reranking (opcjonalny) z retry logic
+            # Inicjalizuj cross-encoder dla reranking (opcjonalny) z enhanced error handling
             self.reranker = None
             if settings.RAG_USE_RERANKING:
                 max_retries = 2
@@ -64,19 +64,44 @@ class PolishSocietyRAG:
                         )
                         self.reranker = CrossEncoder(
                             settings.RAG_RERANKER_MODEL,
-                            max_length=512
+                            max_length=512,
+                            trust_remote_code=False,  # Security: don't execute remote code
+                            local_files_only=True      # Cloud Run: enforce offline mode
                         )
                         logger.info(
                             "✅ Cross-encoder reranker zainicjalizowany: %s",
                             settings.RAG_RERANKER_MODEL
                         )
                         break  # Success - exit retry loop
-                    except ImportError:
+                    except ImportError as import_exc:
                         logger.warning(
-                            "❌ sentence-transformers nie jest zainstalowany - reranking wyłączony. "
-                            "Zainstaluj: pip install sentence-transformers"
+                            "❌ sentence-transformers lub safetensors nie jest zainstalowany - reranking wyłączony. "
+                            "Zainstaluj: pip install sentence-transformers safetensors"
                         )
                         break  # No point retrying ImportError
+                    except OSError as os_exc:
+                        # Handle missing model files or safetensors deserialization errors
+                        error_msg = str(os_exc).lower()
+                        if "safetensors" in error_msg:
+                            logger.error(
+                                f"❌ Safetensors error: {os_exc}. "
+                                "Missing dependency - add to requirements.txt: safetensors"
+                            )
+                            break
+                        elif "local_files_only" in error_msg or "offline mode" in error_msg:
+                            logger.error(
+                                f"❌ Model not pre-downloaded in Docker image. "
+                                f"Check Dockerfile pre-download step (line 29): {os_exc}"
+                            )
+                            break
+                        else:
+                            if attempt < max_retries:
+                                logger.warning(f"⚠️ Attempt {attempt}/{max_retries} OSError: {os_exc}, retrying...")
+                            else:
+                                logger.error(
+                                    f"❌ OSError after {max_retries} attempts: {os_exc} - kontynuacja bez rerankingu"
+                                )
+                        self.reranker = None
                     except Exception as rerank_exc:
                         if attempt < max_retries:
                             logger.warning(

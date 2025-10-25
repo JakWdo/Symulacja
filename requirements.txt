@@ -102,3 +102,4 @@ docling>=2.0.0
 pypdf
 python-docx
 sentence-transformers==2.7.0
+safetensors  # REQUIRED for CrossEncoder model deserialization (sentence-transformers 2.7+)

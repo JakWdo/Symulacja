@@ -26,7 +26,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Pre-download reranker model (~100MB) to eliminate Cloud Run cold start delay
 # This adds ~100MB to image but removes 30-60s download time on first request
-RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')" || true
+# Note: Requires safetensors dependency (see requirements.txt) - build will FAIL if missing
+RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 
 # ==============================================================================
 # STAGE 2: RUNTIME - Finalny lekki image
