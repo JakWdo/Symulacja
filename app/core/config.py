@@ -97,8 +97,9 @@ class Settings(BaseSettings):
     # Więcej results kompensuje mniejszy rozmiar chunków, zachowując podobną ilość kontekstu
     RAG_TOP_K: int = 8
     # Maksymalna długość kontekstu RAG (znaki)
-    # Wystarczająco duży aby pomieścić TOP_K chunków + graph context bez truncation
-    RAG_MAX_CONTEXT_CHARS: int = 12000
+    # OPTIMIZATION: Reduced from 12000 → 8000 to reduce LLM input tokens
+    # Still sufficient for TOP_K=8 chunks (8 × 1000 = 8000) + moderate graph context
+    RAG_MAX_CONTEXT_CHARS: int = 8000
     # Ścieżka do katalogu z dokumentami
     DOCUMENT_STORAGE_PATH: str = "data/documents"
     # Maksymalny rozmiar uploadowanego dokumentu (50MB)
@@ -115,8 +116,9 @@ class Settings(BaseSettings):
     RAG_USE_RERANKING: bool = True
     # Liczba candidatów dla reranking (przed finalnym top_k)
     # Cross-encoder jest wolniejszy, więc rerankujemy więcej niż potrzebujemy i bierzemy top
-    # OPTIMIZATION: Zmniejszono 25→15 (40% mniej compute) dla lepszej performance na CPU Cloud Run
-    RAG_RERANK_CANDIDATES: int = 15
+    # OPTIMIZATION: Zmniejszono 25→15→10 (60% mniej compute vs original)
+    # Cloud Run CPU: 10 candidates × 100-150ms = 1.0-1.5s (vs 2.3s dla 15)
+    RAG_RERANK_CANDIDATES: int = 10
     # Cross-encoder model dla reranking
     # FIX: Poprzedni model "mmarco-mMiniLMv2-L6-v1" nie istniał na HuggingFace
     # CURRENT: ms-marco-MiniLM-L-6-v2 - English, 6 layers, SZYBKI (~100-150ms dla 15 docs)

@@ -353,6 +353,12 @@ class GraphRAGService:
             // Grupuj węzły po typie (label)
             WITH node, score, labels(node)[0] AS node_type
             WHERE node_type IN ['Wskaznik', 'Obserwacja', 'Trend', 'Demografia']
+              AND score > 0.3  // Filter low-relevance results
+
+            // CRITICAL FIX: LIMIT before collect() to prevent memory issues
+            // Previously: collected ALL nodes (11k+), then limited to 10
+            // Now: process max 100 nodes, then limit to 10
+            LIMIT 100
 
             // Sortuj per typ (preferuj wysoką pewność + długie kluczowe_fakty)
             WITH node_type, node, score,

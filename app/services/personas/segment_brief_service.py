@@ -34,6 +34,7 @@ from app.core.prompts.system_prompts import (
     build_system_prompt,
 )
 from app.models.persona import Persona
+from app.services.shared.llm_utils import retry_critical_llm_call, retry_llm_call
 from app.schemas.segment_brief import (
     SegmentBrief,
     SegmentBriefRequest,
@@ -367,6 +368,7 @@ class SegmentBriefService:
 
         return formatted
 
+    @retry_critical_llm_call
     async def generate_segment_brief(
         self,
         demographics: dict[str, Any],
@@ -376,6 +378,8 @@ class SegmentBriefService:
     ) -> tuple[SegmentBrief, bool]:
         """
         Generuje lub pobiera z cache segment brief.
+
+        Retry policy: 5 attempts with exponential backoff (critical operation).
 
         Flow:
         1. Wygeneruj segment_id z demografii
@@ -501,6 +505,7 @@ class SegmentBriefService:
 
         return brief, False  # Cache MISS (nowo wygenerowany)
 
+    @retry_llm_call
     async def _generate_segment_name(
         self,
         demographics: dict[str, Any],
@@ -508,6 +513,8 @@ class SegmentBriefService:
     ) -> str:
         """
         Generuje mówiącą nazwę segmentu (np. 'Młodzi Prekariusze').
+
+        Retry policy: 3 attempts with exponential backoff (standard retry).
 
         Args:
             demographics: Demografia segmentu
@@ -693,6 +700,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
             f"i charakteryzuje się specyficznymi wartościami, aspiracjami oraz wyzwaniami życiowymi."
         )
 
+    @retry_critical_llm_call
     async def generate_persona_uniqueness(
         self,
         persona: Persona,
@@ -700,6 +708,8 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
     ) -> str:
         """
         Generuje opis unikalności persony w kontekście segmentu.
+
+        Retry policy: 5 attempts with exponential backoff (critical for detail view).
 
         Args:
             persona: Persona object

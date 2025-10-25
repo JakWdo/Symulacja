@@ -25,6 +25,7 @@ from app.models.persona import Persona
 from app.models.persona_events import PersonaResponse
 from app.schemas.persona_details import NeedsAndPains
 from app.services.shared.clients import build_chat_model
+from app.services.shared.llm_utils import retry_critical_llm_call
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ class PersonaNeedsService:
         # Use structured output for direct Pydantic model generation
         self.llm = base_llm.with_structured_output(NeedsAndPains)
 
+    @retry_critical_llm_call
     async def generate_needs_analysis(
         self,
         persona: Persona,
@@ -60,6 +62,9 @@ class PersonaNeedsService:
     ) -> dict[str, Any]:
         """
         Generate structured needs data using LLM, focus group responses, and RAG context.
+
+        Retry policy: 5 attempts with exponential backoff (1s, 2s, 4s, 8s, 16s).
+        Critical operation - users expect detail view to succeed.
 
         Optimizations:
         - Structured output (Pydantic) eliminates JSON parsing

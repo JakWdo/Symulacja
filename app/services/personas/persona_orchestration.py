@@ -423,7 +423,20 @@ class PersonaOrchestrationService:
                     seen_texts.add(doc.page_content)
 
         # Formatuj jako czytelny context
+        # OPTIMIZATION: Limit graph context to 4000 chars max (was unlimited)
+        # This prevents token explosion while preserving quality (15 docs × ~250 chars avg = ~3750)
         formatted_context = self._format_graph_context(all_docs[:15])  # Top 15 unique
+
+        # Truncate to 4000 chars if needed (smart truncation at sentence boundary)
+        if len(formatted_context) > 4000:
+            truncated = formatted_context[:4000]
+            # Find last complete sentence
+            last_period = truncated.rfind('.')
+            if last_period > 3500:  # Keep if within last 500 chars
+                formatted_context = truncated[:last_period + 1] + "\n\n[... context truncated for brevity]"
+            else:
+                formatted_context = truncated + "..."
+
         return formatted_context
 
     def _format_graph_context(self, documents: list[Any]) -> str:
