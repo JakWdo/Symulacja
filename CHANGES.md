@@ -57,7 +57,25 @@ System generowania person (segmenty → persony → detale) miał 3 główne pro
 
 # Dockerfile (line 29)
 - RUN python -c "..." || true
-+ RUN python -c "..."  # Build FAILS if pre-download fails (better!)
++ RUN python - <<'PY'
++ import sys
++
++ MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
++
++ try:
++     from sentence_transformers import CrossEncoder
++
++     print(f"📥 Pre-downloading reranker model: {MODEL_NAME}")
++     CrossEncoder(MODEL_NAME)
++     print("✅ Reranker model downloaded successfully.")
++ except Exception as exc:
++     print(
++         f"⚠️  Warning: Failed to pre-download reranker model '{MODEL_NAME}'. "
++         "The application will continue without a pre-bundled model.",
++         file=sys.stderr,
++     )
++     print(f"   Details: {exc}", file=sys.stderr)
++ PY
 
 # cloudbuild.yaml (line 141)
 + TRANSFORMERS_OFFLINE=1,HF_HUB_OFFLINE=1  # Enforce offline mode
@@ -70,9 +88,9 @@ System generowania person (segmenty → persony → detale) miał 3 główne pro
 - ✅ `app/services/rag/rag_hybrid_search_service.py` (lines 54-114)
 
 **Impact:**
-- Cross-encoder będzie działać w Cloud Run
-- Build failures będą wykrywane wcześniej (nie w runtime)
-- Offline mode eliminuje network dependencies
+- Cross-encoder będzie działać w Cloud Run (model pre-bundled przy powodzeniu)
+- Jeśli pobranie się nie uda (np. brak sieci), build kontynuuje z ostrzeżeniem
+- Offline mode eliminuje network dependencies w runtime
 
 ---
 

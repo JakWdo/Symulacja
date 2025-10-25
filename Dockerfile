@@ -24,10 +24,28 @@ COPY requirements.txt .
 # -r requirements.txt: Install z pliku
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download reranker model (~100MB) to eliminate Cloud Run cold start delay
-# This adds ~100MB to image but removes 30-60s download time on first request
-# Note: Requires safetensors dependency (see requirements.txt) - build will FAIL if missing
-RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
+# Pre-download reranker model (~100MB) to eliminate Cloud Run cold start delay.
+# Jeżeli pobranie się nie powiedzie (np. chwilowy brak sieci), kontynuuj build
+# i zaloguj ostrzeżenie – aplikacja poradzi sobie bez rerankera.
+RUN python - <<'PY'
+import sys
+
+MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+try:
+    from sentence_transformers import CrossEncoder
+
+    print(f"📥 Pre-downloading reranker model: {MODEL_NAME}")
+    CrossEncoder(MODEL_NAME)
+    print("✅ Reranker model downloaded successfully.")
+except Exception as exc:
+    print(
+        f"⚠️  Warning: Failed to pre-download reranker model '{MODEL_NAME}'. "
+        "The application will continue without a pre-bundled model.",
+        file=sys.stderr,
+    )
+    print(f"   Details: {exc}", file=sys.stderr)
+PY
 
 # ==============================================================================
 # STAGE 2: RUNTIME - Finalny lekki image
