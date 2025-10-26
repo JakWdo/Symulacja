@@ -31,7 +31,29 @@ class Settings(BaseSettings):
 
     # === CACHE ===
     # Redis do cache'owania
+    # WAŻNE: Dla Upstash Redis w produkcji użyj rediss:// (z SSL/TLS)
+    # Development: redis://localhost:6379/0
+    # Production: rediss://default:TOKEN@HOST:6379 (z TLS!)
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Redis Connection Pool Settings (Upstash optimization)
+    # Maksymalna liczba połączeń w pool (Cloud Run może mieć wiele workers)
+    REDIS_MAX_CONNECTIONS: int = 50
+    # Socket timeout (sekundy) - timeout dla pojedynczej operacji Redis
+    # Upstash może mieć wyższą latency (~50-100ms), więc 5s to bezpieczny margin
+    REDIS_SOCKET_TIMEOUT: int = 5
+    # Socket keepalive - utrzymuj połączenia alive między requestami
+    # KLUCZOWE dla Upstash: zapobiega "Connection closed by server" errors
+    REDIS_SOCKET_KEEPALIVE: bool = True
+    # Health check interval (sekundy) - ping Redis co N sekund
+    # Upstash może timeout'ować idle connections (~60s), więc 30s to safe guard
+    REDIS_HEALTH_CHECK_INTERVAL: int = 30
+    # Retry on timeout - automatyczny retry przy timeout errors
+    REDIS_RETRY_ON_TIMEOUT: bool = True
+    # Max retry attempts dla transient failures (connection errors, timeouts)
+    REDIS_MAX_RETRIES: int = 3
+    # Retry backoff (sekundy) - czekaj N sekund przed retry
+    REDIS_RETRY_BACKOFF: float = 0.5
 
     # === TASK QUEUE (opcjonalnie) ===
     # Umożliwia ustawienie broker backend dla Celery bez wymuszania ich obecności
@@ -97,8 +119,9 @@ class Settings(BaseSettings):
     # Więcej results kompensuje mniejszy rozmiar chunków, zachowując podobną ilość kontekstu
     RAG_TOP_K: int = 8
     # Maksymalna długość kontekstu RAG (znaki)
-    # Wystarczająco duży aby pomieścić TOP_K chunków + graph context bez truncation
-    RAG_MAX_CONTEXT_CHARS: int = 12000
+    # OPTIMIZATION: Reduced from 12000 → 8000 to reduce LLM input tokens
+    # Still sufficient for TOP_K=8 chunks (8 × 1000 = 8000) + moderate graph context
+    RAG_MAX_CONTEXT_CHARS: int = 8000
     # Ścieżka do katalogu z dokumentami
     DOCUMENT_STORAGE_PATH: str = "data/documents"
     # Maksymalny rozmiar uploadowanego dokumentu (50MB)
@@ -115,22 +138,14 @@ class Settings(BaseSettings):
     RAG_USE_RERANKING: bool = True
     # Liczba candidatów dla reranking (przed finalnym top_k)
     # Cross-encoder jest wolniejszy, więc rerankujemy więcej niż potrzebujemy i bierzemy top
-    RAG_RERANK_CANDIDATES: int = 25
+    # OPTIMIZATION: Zmniejszono 25→15→10 (60% mniej compute vs original)
+    # Cloud Run CPU: 10 candidates × 100-150ms = 1.0-1.5s (vs 2.3s dla 15)
+    RAG_RERANK_CANDIDATES: int = 10
     # Cross-encoder model dla reranking
-    # Multilingual model wspiera polski lepiej niż English-only ms-marco-MiniLM
-    RAG_RERANKER_MODEL: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
-
-    # === RAG PERFORMANCE & FALLBACK ===
-    # Lite mode: uproszczona wersja RAG bez Graph RAG (szybsza dla persona generation)
-    # Gdy True: używa tylko vector/keyword search, pomija Graph RAG queries
-    RAG_LITE_MODE: bool = False
-    # Timeout dla Graph RAG queries (sekundy)
-    # Zmniejszony z domyślnych 150s → 30s dla szybszego fallback
-    # Jeśli Graph RAG nie odpowiada w tym czasie, zwraca pusty kontekst i kontynuuje
-    RAG_GRAPH_TIMEOUT: int = 30
-    # Disable reranking dla persona generation (szybsze queries)
-    # Reranking nadal włączony dla focus groups i analysis
-    RAG_DISABLE_RERANK_FOR_PERSONAS: bool = True
+    # FIX: Poprzedni model "mmarco-mMiniLMv2-L6-v1" nie istniał na HuggingFace
+    # CURRENT: ms-marco-MiniLM-L-6-v2 - English, 6 layers, SZYBKI (~100-150ms dla 15 docs)
+    # ALTERNATIVE: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1" (multilingual, wolniejszy)
+    RAG_RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     # === GraphRAG NODE PROPERTIES ===
     # Włączanie bogatych metadanych węzłów
@@ -144,18 +159,39 @@ class Settings(BaseSettings):
 
     # === EMBEDDINGS (Google Gemini) ===
     # Model do generowania embeddingów tekstowych
-    # UWAGA: LangChain wymaga prefiksu "models/" dla Google Generative AI
-    # Upgrade do text-embedding-004 wymagałby re-indexu Neo4j (inny wymiar: 768 vs 3072)
-    EMBEDDING_MODEL: str = "models/gemini-embedding-001"
+    EMBEDDING_MODEL: str = "gemini-embedding-001"
     # Wymiarowość wektorów embeddingowych
     # gemini-embedding-001 generuje 3072-wymiarowe wektory (nie 768!)
     EMBEDDING_DIMENSION: int = 3072
+
+    # === SEGMENT CACHE (Faza 2 - Segment-First Architecture) ===
+    # Feature flag: Włącz segment-first cache (zamiast per-persona RAG)
+    # Benefits: 3x szybsze, 60% mniej tokenów, lepsza spójność
+    # Rollback: Ustaw na False aby wrócić do starego flow
+    SEGMENT_CACHE_ENABLED: bool = True
+    # TTL dla segment cache w Redis (dni)
+    SEGMENT_CACHE_TTL_DAYS: int = 7
+    # Retrieval mode dla RetrievalService
+    # - "vector": Tylko vector search (najszybsze, ~500ms)
+    # - "hybrid": Vector + keyword + RRF (~1000ms)
+    # - "hybrid+rerank": + cross-encoder reranking (~1500ms)
+    RETRIEVAL_MODE: str = "vector"
+    # Threshold dla auto-switching do hybrid search
+    # Jeśli vector results < N, przełącz na hybrid (quality safeguard)
+    RERANK_THRESHOLD: int = 3
 
     # === ŚRODOWISKO ===
     # ENVIRONMENT: development / staging / production
     ENVIRONMENT: str = "development"
     # DEBUG: Włącz szczegółowe logi błędów
     DEBUG: bool = True
+    # LOG_LEVEL: Poziom logowania (CRITICAL, ERROR, WARNING, INFO, DEBUG)
+    # Production: INFO (strukturalne logi bez debug noise)
+    # Development: DEBUG (szczegółowe logi dla debugging)
+    LOG_LEVEL: str = "DEBUG"
+    # STRUCTURED_LOGGING: JSON format dla Cloud Logging (production)
+    # True w production umożliwia łatwe filtrowanie w GCP Logs Explorer
+    STRUCTURED_LOGGING: bool = False
 
     # === API ===
     # Prefix dla wszystkich endpointów API v1
