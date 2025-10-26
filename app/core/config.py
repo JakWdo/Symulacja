@@ -31,7 +31,29 @@ class Settings(BaseSettings):
 
     # === CACHE ===
     # Redis do cache'owania
+    # WAŻNE: Dla Upstash Redis w produkcji użyj rediss:// (z SSL/TLS)
+    # Development: redis://localhost:6379/0
+    # Production: rediss://default:TOKEN@HOST:6379 (z TLS!)
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Redis Connection Pool Settings (Upstash optimization)
+    # Maksymalna liczba połączeń w pool (Cloud Run może mieć wiele workers)
+    REDIS_MAX_CONNECTIONS: int = 50
+    # Socket timeout (sekundy) - timeout dla pojedynczej operacji Redis
+    # Upstash może mieć wyższą latency (~50-100ms), więc 5s to bezpieczny margin
+    REDIS_SOCKET_TIMEOUT: int = 5
+    # Socket keepalive - utrzymuj połączenia alive między requestami
+    # KLUCZOWE dla Upstash: zapobiega "Connection closed by server" errors
+    REDIS_SOCKET_KEEPALIVE: bool = True
+    # Health check interval (sekundy) - ping Redis co N sekund
+    # Upstash może timeout'ować idle connections (~60s), więc 30s to safe guard
+    REDIS_HEALTH_CHECK_INTERVAL: int = 30
+    # Retry on timeout - automatyczny retry przy timeout errors
+    REDIS_RETRY_ON_TIMEOUT: bool = True
+    # Max retry attempts dla transient failures (connection errors, timeouts)
+    REDIS_MAX_RETRIES: int = 3
+    # Retry backoff (sekundy) - czekaj N sekund przed retry
+    REDIS_RETRY_BACKOFF: float = 0.5
 
     # === TASK QUEUE (opcjonalnie) ===
     # Umożliwia ustawienie broker backend dla Celery bez wymuszania ich obecności

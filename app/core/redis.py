@@ -1,89 +1,316 @@
 """
 Asynchronous Redis client helper.
 
-Provides a shared Redis connection used across the backend for caching persona
-details, undo windows and other low-latency features.
+Provides a shared Redis connection pool used across the backend for caching persona
+details, segment cache, undo windows and other low-latency features.
+
+Optimizations for Upstash Redis (TLS, connection pooling, retry logic):
+- ConnectionPool z SSL/TLS support (rediss:// schema)
+- Health check (ping) before returning client
+- Retry logic z exponential backoff dla transient failures
+- Socket keepalive dla long-lived connections
+- Graceful degradation - cache failures don't crash aplikacji
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import time
 from typing import Any
 
-from redis.asyncio import Redis
+from redis.asyncio import Redis, ConnectionPool
+from redis.exceptions import ConnectionError, TimeoutError, RedisError
 
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-_redis_client: Redis | None = None
+_redis_pool: ConnectionPool | None = None
+_last_health_check: float = 0
 
 
-def get_redis_client() -> Redis:
+def _create_connection_pool() -> ConnectionPool:
     """
-    Return a singleton Redis client configured from settings.
+    Tworzy ConnectionPool z SSL/TLS support i Upstash-optimized settings.
 
-    The connection is created lazily and re-used for subsequent calls.
+    Kluczowe ustawienia dla Upstash Redis:
+    - SSL/TLS (rediss:// schema) - WYMAGANE dla Upstash
+    - socket_keepalive=True - zapobiega "Connection closed by server" errors
+    - socket_timeout=5s - timeout dla pojedynczej operacji
+    - retry_on_timeout=True - automatyczny retry przy timeout
+    - health_check_interval=30s - ping Redis co 30s (Upstash idle timeout ~60s)
+
+    Returns:
+        ConnectionPool: Configured connection pool dla Redis
     """
-    global _redis_client
-    if _redis_client is None:
-        settings = get_settings()
-        _redis_client = Redis.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True,
-        )
-    return _redis_client
+    settings = get_settings()
+
+    # Parsuj REDIS_URL dla SSL detection
+    # rediss:// (z dwoma 's') = SSL enabled
+    # redis:// (jedno 's') = no SSL
+    is_ssl = settings.REDIS_URL.startswith("rediss://")
+
+    logger.info(
+        f"Creating Redis ConnectionPool: SSL={is_ssl}, "
+        f"max_connections={settings.REDIS_MAX_CONNECTIONS}, "
+        f"socket_keepalive={settings.REDIS_SOCKET_KEEPALIVE}"
+    )
+
+    pool = ConnectionPool.from_url(
+        settings.REDIS_URL,
+        # Connection pool settings
+        max_connections=settings.REDIS_MAX_CONNECTIONS,
+        # Socket settings (Upstash optimization)
+        socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
+        socket_keepalive=settings.REDIS_SOCKET_KEEPALIVE,
+        socket_keepalive_options={},  # Use OS defaults
+        # Retry settings
+        retry_on_timeout=settings.REDIS_RETRY_ON_TIMEOUT,
+        # Health check interval (ping co N sekund)
+        health_check_interval=settings.REDIS_HEALTH_CHECK_INTERVAL,
+        # Encoding
+        encoding="utf-8",
+        decode_responses=True,
+        # SSL/TLS (automatycznie z rediss://)
+        # ConnectionPool.from_url() automatycznie wykrywa rediss:// i dodaje ssl=True
+    )
+
+    return pool
+
+
+async def get_redis_client() -> Redis:
+    """
+    Zwraca Redis client z connection pool.
+
+    Connection pool jest tworzony lazily (singleton pattern).
+    Przed zwróceniem clienta wykonywany jest health check (ping).
+
+    Returns:
+        Redis: Async Redis client z connection pool
+
+    Raises:
+        ConnectionError: Jeśli health check failuje (Redis unavailable)
+    """
+    global _redis_pool, _last_health_check
+
+    # Lazy initialization - utwórz pool przy pierwszym wywołaniu
+    if _redis_pool is None:
+        _redis_pool = _create_connection_pool()
+
+    client = Redis(connection_pool=_redis_pool)
+
+    # Health check co REDIS_HEALTH_CHECK_INTERVAL sekund
+    # Nie pingujemy przy każdym request (overhead), tylko co N sekund
+    settings = get_settings()
+    current_time = time.time()
+    if current_time - _last_health_check > settings.REDIS_HEALTH_CHECK_INTERVAL:
+        try:
+            await client.ping()
+            _last_health_check = current_time
+            logger.debug("Redis health check: OK")
+        except Exception as exc:
+            logger.warning(f"Redis health check failed: {exc}")
+            # NIE raise - graceful degradation, spróbujemy użyć client anyway
+            # Jeśli connection dead, redis_get_json/set_json zwróci None
+
+    return client
+
+
+async def _retry_with_backoff(
+    operation: callable,
+    *args,
+    max_retries: int = 3,
+    backoff: float = 0.5,
+    **kwargs
+) -> Any:
+    """
+    Wykonuje operację Redis z retry logic i exponential backoff.
+
+    Retry dla transient failures:
+    - ConnectionError (server closed connection)
+    - TimeoutError (operation timeout)
+
+    Args:
+        operation: Async funkcja do wykonania (np. client.get, client.set)
+        *args: Argumenty dla operacji
+        max_retries: Maksymalna liczba retry attempts
+        backoff: Początkowy backoff (sekundy), rosnący exponentially
+        **kwargs: Keyword argumenty dla operacji
+
+    Returns:
+        Wynik operacji lub None przy failure
+
+    Raises:
+        Exception: Jeśli wszystkie retry attempts failują
+    """
+    last_exception = None
+
+    for attempt in range(max_retries):
+        try:
+            return await operation(*args, **kwargs)
+        except (ConnectionError, TimeoutError) as exc:
+            last_exception = exc
+            if attempt < max_retries - 1:
+                # Exponential backoff: 0.5s, 1s, 2s
+                wait_time = backoff * (2 ** attempt)
+                logger.warning(
+                    f"Redis operation failed (attempt {attempt + 1}/{max_retries}): {exc}. "
+                    f"Retrying in {wait_time}s..."
+                )
+                await asyncio.sleep(wait_time)
+            else:
+                logger.error(
+                    f"Redis operation failed after {max_retries} attempts: {exc}",
+                    exc_info=exc
+                )
+                raise
+        except Exception as exc:
+            # Non-transient error - nie retry
+            logger.error(f"Redis operation failed (non-retryable): {exc}", exc_info=exc)
+            raise
+
+    # Shouldn't reach here, but for type safety
+    if last_exception:
+        raise last_exception
 
 
 async def redis_get_json(key: str) -> Any | None:
     """Fetch JSON data from Redis and decode it.
 
-    Returns None on any failure (connection error, JSON decode error).
-    Graceful degradation - cache failures don't break the application.
+    Graceful degradation:
+    - Connection errors → return None (cache miss)
+    - JSON decode errors → delete corrupted key, return None
+    - Timeout errors → retry z exponential backoff, potem return None
+
+    Returns None on any failure - cache failures don't break the application.
+
+    Args:
+        key: Redis key
+
+    Returns:
+        Decoded JSON value lub None jeśli key nie istnieje lub error
     """
     try:
-        client = get_redis_client()
-        raw = await client.get(key)
+        client = await get_redis_client()
+        settings = get_settings()
+
+        # Retry z exponential backoff dla transient failures
+        raw = await _retry_with_backoff(
+            client.get,
+            key,
+            max_retries=settings.REDIS_MAX_RETRIES,
+            backoff=settings.REDIS_RETRY_BACKOFF,
+        )
+
         if raw is None:
             return None
+
         try:
             return json.loads(raw)
         except json.JSONDecodeError as json_exc:
             logger.warning(f"Redis JSON decode error for key '{key}': {json_exc}")
-            await client.delete(key)  # Clean up corrupted data
+            # Clean up corrupted data (fire and forget)
+            try:
+                await client.delete(key)
+            except Exception:
+                pass  # Ignore cleanup errors
             return None
-    except Exception as exc:
+
+    except (ConnectionError, TimeoutError, RedisError) as exc:
         logger.warning(f"Redis GET failed for key '{key}': {exc}")
         return None  # Graceful fallback - treat as cache miss
 
+    except Exception as exc:
+        # Unexpected error - log z backtrace
+        logger.error(f"Unexpected error in redis_get_json for key '{key}': {exc}", exc_info=exc)
+        return None
 
-async def redis_set_json(key: str, value: Any, ttl_seconds: int | None = None) -> None:
+
+async def redis_set_json(key: str, value: Any, ttl_seconds: int | None = None) -> bool:
     """Store JSON-serialisable value in Redis with optional TTL.
 
-    Fails silently on connection errors - cache write failures don't break the application.
+    Graceful degradation:
+    - Connection errors → silent failure, return False
+    - Timeout errors → retry z exponential backoff, potem silent failure
+
+    Cache write failures don't break the application.
+
+    Args:
+        key: Redis key
+        value: JSON-serialisable value
+        ttl_seconds: Optional TTL (time-to-live) w sekundach
+
+    Returns:
+        True jeśli set successful, False przy failure
     """
     try:
-        client = get_redis_client()
+        client = await get_redis_client()
+        settings = get_settings()
         payload = json.dumps(value)
+
+        # Retry z exponential backoff dla transient failures
         if ttl_seconds is not None:
-            await client.set(key, payload, ex=ttl_seconds)
+            await _retry_with_backoff(
+                client.set,
+                key,
+                payload,
+                ex=ttl_seconds,
+                max_retries=settings.REDIS_MAX_RETRIES,
+                backoff=settings.REDIS_RETRY_BACKOFF,
+            )
         else:
-            await client.set(key, payload)
-    except Exception as exc:
+            await _retry_with_backoff(
+                client.set,
+                key,
+                payload,
+                max_retries=settings.REDIS_MAX_RETRIES,
+                backoff=settings.REDIS_RETRY_BACKOFF,
+            )
+
+        return True
+
+    except (ConnectionError, TimeoutError, RedisError) as exc:
         logger.warning(f"Redis SET failed for key '{key}': {exc}")
-        # Silent failure - cache write is not critical
+        return False  # Silent failure - cache write is not critical
+
+    except Exception as exc:
+        # Unexpected error - log z backtrace
+        logger.error(f"Unexpected error in redis_set_json for key '{key}': {exc}", exc_info=exc)
+        return False
 
 
-async def redis_delete(key: str) -> None:
+async def redis_delete(key: str) -> bool:
     """Remove a key from Redis.
 
-    Fails silently on connection errors - cache delete failures don't break the application.
+    Graceful degradation - cache delete failures don't break the application.
+
+    Args:
+        key: Redis key to delete
+
+    Returns:
+        True jeśli delete successful, False przy failure
     """
     try:
-        client = get_redis_client()
-        await client.delete(key)
-    except Exception as exc:
+        client = await get_redis_client()
+        settings = get_settings()
+
+        # Retry z exponential backoff dla transient failures
+        await _retry_with_backoff(
+            client.delete,
+            key,
+            max_retries=settings.REDIS_MAX_RETRIES,
+            backoff=settings.REDIS_RETRY_BACKOFF,
+        )
+
+        return True
+
+    except (ConnectionError, TimeoutError, RedisError) as exc:
         logger.warning(f"Redis DELETE failed for key '{key}': {exc}")
-        # Silent failure - cache invalidation is not critical
+        return False  # Silent failure - cache invalidation is not critical
+
+    except Exception as exc:
+        # Unexpected error - log z backtrace
+        logger.error(f"Unexpected error in redis_delete for key '{key}': {exc}", exc_info=exc)
+        return False
