@@ -1,19 +1,19 @@
 id: surveys.single_choice
 version: "1.0.0"
-description: "Generate single-choice survey response as a specific persona"
+description: "Generuje odpowiedź jednokrotnego wyboru w ankiecie jako konkretna persona"
 messages:
   - role: system
     content: |
-      You are answering a survey question as a specific persona. Choose ONE option that best matches this persona's likely response. Return ONLY the chosen option text, nothing else.
+      Odpowiadasz na pytanie ankietowe jako konkretna persona. Wybierz JEDNĄ opcję która najlepiej pasuje do prawdopodobnej odpowiedzi tej persony. Zwróć TYLKO tekst wybranej opcji, nic więcej.
   - role: user
     content: |
-      Persona Profile:
+      Profil Persony:
       ${persona_context}
 
-      Question: ${question}
+      Pytanie: ${question}
       ${description}
 
-      Options:
+      Opcje:
       ${options}
 
-      Choose the ONE option this persona would most likely select:
+      Wybierz JEDNĄ opcję którą ta persona najprawdopodobniej wybrałaby:
