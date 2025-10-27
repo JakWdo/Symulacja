@@ -12,6 +12,7 @@ Centralny system konfiguracji dla Market Research SaaS - wszystkie prompty, mode
 ```
 config/
 ├── README.md                   # Ten plik
+├── PROMPTS_INDEX.md            # 📑 Katalog wszystkich 25 promptów (QUICK REFERENCE!)
 ├── models.yaml                 # Model registry (fallback chain)
 ├── pricing.yaml                # Model pricing (USD/1M tokens)
 ├── features.yaml               # Feature flags
@@ -63,6 +64,8 @@ config/
 ```
 
 ## 🚀 Quick Start
+
+> **📑 Szukasz konkretnego promptu?** Zobacz **[PROMPTS_INDEX.md](PROMPTS_INDEX.md)** - kompletny katalog wszystkich 25 promptów z parametrami i przykładami!
 
 ### 1. Używanie Promptów
 
