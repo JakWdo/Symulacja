@@ -65,9 +65,15 @@ class Project(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
     is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Relacje (cascade="all, delete-orphan" = usunięcie projektu usuwa persony i grupy)
-    owner = relationship("User", back_populates="projects")
+    owner = relationship("User", back_populates="projects", foreign_keys=[owner_id])
     personas = relationship(
         "Persona", back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
@@ -83,6 +89,7 @@ class Project(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    deleted_by_user = relationship("User", foreign_keys=[deleted_by])
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Project id={self.id} name={self.name!r}>"

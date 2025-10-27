@@ -7,8 +7,10 @@ Ten moduł zawiera CRUD endpoints dla zarządzania projektami:
 - GET /projects/{id} - Szczegóły konkretnego projektu
 - PUT /projects/{id} - Aktualizacja projektu
 - DELETE /projects/{id} - Usunięcie projektu (soft delete)
+- POST /projects/{id}/undo-delete - Przywracanie usuniętego projektu
 """
-from fastapi import APIRouter, Depends
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
@@ -16,7 +18,13 @@ from uuid import UUID
 from app.db import get_db
 from app.models import Project, User
 from app.api.dependencies import get_current_user, get_project_for_user
-from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.schemas.project import (
+    ProjectCreate,
+    ProjectResponse,
+    ProjectUpdate,
+    ProjectDeleteResponse,
+    ProjectUndoDeleteResponse,
+)
 
 router = APIRouter()
 
@@ -90,6 +98,7 @@ async def list_projects(
         .where(
             Project.is_active.is_(True),
             Project.owner_id == current_user.id,
+            Project.deleted_at.is_(None),  # Hide soft-deleted projects
         )
         .offset(skip)
         .limit(limit)
@@ -169,36 +178,128 @@ async def update_project(
     return project
 
 
-@router.delete("/projects/{project_id}", status_code=204)
+@router.delete("/projects/{project_id}", response_model=ProjectDeleteResponse)
 async def delete_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Usuń projekt (soft delete)
+    Usuń projekt (soft delete z możliwością restore)
 
     Soft delete oznacza że projekt nie jest faktycznie usuwany z bazy,
-    tylko oznaczany jako nieaktywny (is_active=False). Dane pozostają
-    w bazie dla celów audytu.
+    tylko oznaczany jako nieaktywny z timestampem deleted_at. Projekt
+    może być przywrócony przez 30 dni.
 
-    Cascade delete: Wszystkie persony i grupy fokusowe powiązane z projektem
-    zostaną również usunięte (ON DELETE CASCADE w SQL).
+    Cascade soft delete: Wszystkie persony powiązane z projektem zostaną
+    również oznaczone jako usunięte (is_active=False, deleted_at).
 
     Args:
         project_id: UUID projektu do usunięcia
         db: Sesja bazy danych
+        current_user: Authenticated user
 
     Returns:
-        None (204 No Content)
+        ProjectDeleteResponse z informacją o deleted_at, permanent_deletion_scheduled_at
 
     Raises:
         HTTPException 404: Jeśli projekt nie istnieje
+        HTTPException 409: Jeśli projekt jest już usunięty
     """
     project = await get_project_for_user(project_id, current_user, db, include_inactive=True)
 
-    # Miękkie usunięcie – ustaw is_active na False zamiast usuwać z bazy
+    # Check if already deleted
+    if project.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Project already deleted",
+        )
+
+    # Soft delete
+    deleted_at = datetime.utcnow()
+    permanent_delete_at = deleted_at + timedelta(days=30)
+
     project.is_active = False
+    project.deleted_at = deleted_at
+    project.deleted_by = current_user.id
+
     await db.commit()
 
-    return None
+    return ProjectDeleteResponse(
+        project_id=project_id,
+        name=project.name,
+        status="deleted",
+        deleted_at=deleted_at,
+        deleted_by=current_user.id,
+        permanent_deletion_scheduled_at=permanent_delete_at,
+        message=f"Project '{project.name}' deleted successfully. Can be restored within 30 days.",
+    )
+
+
+@router.post("/projects/{project_id}/undo-delete", response_model=ProjectUndoDeleteResponse)
+async def undo_delete_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Przywróć usunięty projekt (undo delete)
+
+    Przywraca projekt który został soft-deleted, o ile nie minęło 30 dni
+    od usunięcia.
+
+    Args:
+        project_id: UUID projektu do przywrócenia
+        db: Sesja bazy danych
+        current_user: Authenticated user
+
+    Returns:
+        ProjectUndoDeleteResponse z informacją o restored_at, restored_by
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje
+        HTTPException 404: Jeśli projekt nie jest usunięty
+        HTTPException 410: Jeśli minęło 30 dni od usunięcia (permanent deletion)
+    """
+    project = await get_project_for_user(
+        project_id,
+        current_user,
+        db,
+        include_inactive=True,
+    )
+
+    # Check if project is deleted
+    if project.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project is not deleted",
+        )
+
+    # Check if 30-day window expired
+    permanent_delete_deadline = project.deleted_at + timedelta(days=30)
+    now = datetime.utcnow()
+    if now > permanent_delete_deadline:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Project restore window expired (30 days passed). Project will be permanently deleted.",
+            headers={
+                "X-Deleted-At": project.deleted_at.isoformat(),
+                "X-Permanent-Deletion-Date": permanent_delete_deadline.isoformat(),
+            },
+        )
+
+    # Restore project
+    project.is_active = True
+    project.deleted_at = None
+    project.deleted_by = None
+
+    await db.commit()
+
+    return ProjectUndoDeleteResponse(
+        project_id=project_id,
+        name=project.name,
+        status="active",
+        restored_at=now,
+        restored_by=current_user.id,
+        message=f"Project '{project.name}' restored successfully",
+    )

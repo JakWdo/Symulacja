@@ -257,34 +257,34 @@ KRYTYCZNE OGRANICZENIA ILOŚCIOWE:
 
 PRZYKŁAD 1 - Wskaznik:
 Tekst: "W 2022 stopa zatrudnienia kobiet 25-34 z wyższym wynosiła 78.4% według GUS"
-Węzeł: {
+Węzeł: {{
   type: "Wskaznik",
   streszczenie: "Stopa zatrudnienia kobiet 25-34 z wyższym wykształceniem",
   skala: "78.4%",
   pewnosc: "wysoka",
   okres_czasu: "2022",
   kluczowe_fakty: "wysoka stopa zatrudnienia; kobiety młode; wykształcenie wyższe"
-}
+}}
 
 PRZYKŁAD 2 - Obserwacja:
 Tekst: "Młodzi mieszkańcy dużych miast coraz częściej wynajmują mieszkania zamiast kupować"
-Węzeł: {
+Węzeł: {{
   type: "Obserwacja",
   streszczenie: "Młodzi w miastach preferują wynajem nad zakup mieszkań",
   pewnosc: "srednia",
   kluczowe_fakty: "młodzi dorośli; duże miasta; wynajem mieszkań"
-}
+}}
 
 PRZYKŁAD 3 - Trend:
 Tekst: "Od 2018 do 2023 wzrósł odsetek osób pracujących zdalnie z 12% do 31%"
-Węzeł: {
+Węzeł: {{
   type: "Trend",
   streszczenie: "Wzrost pracy zdalnej w Polsce",
   skala: "12% → 31%",
   pewnosc: "wysoka",
   okres_czasu: "2018-2023",
   kluczowe_fakty: "praca zdalna; wzrost; pandemia"
-}
+}}
 
 === DEDUPLIKACJA (KRYTYCZNE!) ===
 Przed utworzeniem węzła sprawdź czy podobny już istnieje:

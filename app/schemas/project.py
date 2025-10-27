@@ -116,3 +116,45 @@ class ProjectResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ProjectDeleteResponse(BaseModel):
+    """
+    Schema odpowiedzi po soft delete projektu
+
+    Zwraca informacje o usuniętym projekcie i możliwości restore:
+    - project_id: UUID usuniętego projektu
+    - name: Nazwa projektu
+    - status: "deleted"
+    - deleted_at: Timestamp usunięcia
+    - deleted_by: UUID użytkownika który usunął projekt
+    - permanent_deletion_scheduled_at: Kiedy projekt zostanie trwale usunięty (deleted_at + 30 dni)
+    - message: Komunikat dla użytkownika
+    """
+    project_id: UUID
+    name: str
+    status: str  # "deleted"
+    deleted_at: datetime
+    deleted_by: UUID
+    permanent_deletion_scheduled_at: datetime
+    message: str
+
+
+class ProjectUndoDeleteResponse(BaseModel):
+    """
+    Schema odpowiedzi po przywróceniu (undo delete) projektu
+
+    Zwraca informacje o przywróconym projekcie:
+    - project_id: UUID przywróconego projektu
+    - name: Nazwa projektu
+    - status: "active"
+    - restored_at: Timestamp przywrócenia
+    - restored_by: UUID użytkownika który przywrócił projekt
+    - message: Komunikat dla użytkownika
+    """
+    project_id: UUID
+    name: str
+    status: str  # "active"
+    restored_at: datetime
+    restored_by: UUID
+    message: str

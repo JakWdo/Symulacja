@@ -147,7 +147,10 @@ class RAGDocumentService:
             # 4. GRAPH – próbujemy zbudować graf wiedzy, jeśli Neo4j Graph jest dostępny.
             if self.graph_store:
                 try:
-                    logger.info("Generuję strukturę grafową na podstawie uniwersalnego modelu.")
+                    logger.info(
+                        "Generuję strukturę grafową na podstawie uniwersalnego modelu.",
+                        extra={"doc_id": str(doc_id), "chunk_count": len(chunks)}
+                    )
                     transformer = LLMGraphTransformer(
                         llm=self.llm,
                         allowed_nodes=GRAPH_TRANSFORMER_ALLOWED_NODES,
@@ -167,12 +170,40 @@ class RAGDocumentService:
                     )
 
                     self.graph_store.add_graph_documents(enriched_graph_documents, include_source=True)
-                    logger.info("Zapisano strukturę grafową dla dokumentu %s", doc_id)
-                except Exception as graph_exc:  # pragma: no cover - logujemy, ale nie przerywamy
-                    logger.error(
-                        "Nie udało się wygenerować grafu wiedzy dla dokumentu %s: %s",
+                    logger.info(
+                        "Zapisano strukturę grafową dla dokumentu %s",
                         doc_id,
-                        graph_exc,
+                        extra={
+                            "doc_id": str(doc_id),
+                            "graph_nodes_count": len(enriched_graph_documents)
+                        }
+                    )
+                except KeyError as key_exc:  # Specyficzny handling dla template errors
+                    error_msg = str(key_exc)
+                    logger.error(
+                        "❌ Graph transformer template error for document %s: %s",
+                        doc_id,
+                        error_msg,
+                        extra={
+                            "doc_id": str(doc_id),
+                            "error_type": "template_variable_error",
+                            "error_stage": "graph_transformation",
+                            "suggestion": "Check GRAPH_TRANSFORMER_ADDITIONAL_INSTRUCTIONS for unescaped curly braces",
+                            "user_message": "Nie udało się wygenerować grafu wiedzy (błąd szablonu). Dokument zostanie zapisany bez struktury grafowej."
+                        }
+                    )
+                    # Kontynuuj bez grafu - vector store zostanie zapisany normalnie
+                except Exception as graph_exc:  # pragma: no cover - catch-all dla innych błędów
+                    logger.error(
+                        "❌ Nie udało się wygenerować grafu wiedzy dla dokumentu %s: %s",
+                        doc_id,
+                        str(graph_exc)[:200],  # Limit error message length
+                        extra={
+                            "doc_id": str(doc_id),
+                            "error_type": type(graph_exc).__name__,
+                            "error_stage": "graph_transformation",
+                            "user_message": f"Nie udało się wygenerować grafu wiedzy ({type(graph_exc).__name__}). Dokument zostanie zapisany bez struktury grafowej."
+                        },
                         exc_info=True,
                     )
 
