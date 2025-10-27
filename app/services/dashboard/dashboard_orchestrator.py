@@ -23,6 +23,7 @@ from app.services.dashboard.metrics_service import DashboardMetricsService
 from app.services.dashboard.notification_service import NotificationService
 from app.services.dashboard.quick_actions_service import QuickActionsService
 from app.services.dashboard.usage_tracking_service import UsageTrackingService
+from app.core.redis import redis_get_json, redis_set_json
 
 
 class DashboardOrchestrator:
@@ -71,8 +72,55 @@ class DashboardOrchestrator:
                 "blockers_count": MetricCard,
             }
         """
-        # TODO: Redis caching (skipped for MVP, add later)
-        # cache_key = f"dashboard:overview:{user_id}"
+        # Check Redis cache (30s TTL)
+        cache_key = f"dashboard:overview:{user_id}"
+        cached = await redis_get_json(cache_key)
+        if cached is not None:
+            return cached
+
+        def build_trend(current_value: float | None, previous_value: float | None, *, invert: bool = False) -> dict[str, Any] | None:
+            """
+            Helper to build trend dictionary.
+
+            Args:
+                current_value: Current numeric value
+                previous_value: Previous numeric value
+                invert: Treat decrease as positive trend
+
+            Returns:
+                Trend dict or None if not enough data
+            """
+            if current_value is None or previous_value is None:
+                return None
+
+            if previous_value == 0:
+                if current_value == 0:
+                    change_percent = 0.0
+                else:
+                    change_percent = 100.0
+            else:
+                change_percent = ((current_value - previous_value) / abs(previous_value)) * 100.0
+
+            direction = "stable"
+            if change_percent > 0.5:
+                direction = "up"
+            elif change_percent < -0.5:
+                direction = "down"
+
+            if invert and direction != "stable":
+                direction = "down" if direction == "up" else "up"
+
+            return {
+                "value": current_value,
+                "change_percent": change_percent,
+                "direction": direction,
+            }
+
+        now = datetime.utcnow()
+        this_week_start = now - timedelta(days=now.weekday())
+        this_week_start = this_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        last_week_start = this_week_start - timedelta(days=7)
+        last_week_end = this_week_start
 
         # Count active projects
         active_projects_count = await self.db.scalar(
@@ -108,15 +156,42 @@ class DashboardOrchestrator:
             + trends["this_week"]["focus_groups_completed"]
             + trends["this_week"]["insights_extracted"]
         )
+        last_week_total = (
+            trends["last_week"]["personas_generated"]
+            + trends["last_week"]["focus_groups_completed"]
+            + trends["last_week"]["insights_extracted"]
+        )
+        activity_trend = build_trend(this_week_total, last_week_total)
 
         # TTI metrics
-        tti = await self.metrics_service.calculate_time_to_insight(user_id)
-        tti_median_minutes = (
-            (tti["median_seconds"] / 60) if tti["median_seconds"] else None
+        tti_overall = await self.metrics_service.calculate_time_to_insight(user_id)
+        tti_current = await self.metrics_service.calculate_time_to_insight(
+            user_id, start_date=this_week_start, end_date=now
+        )
+        tti_previous = await self.metrics_service.calculate_time_to_insight(
+            user_id, start_date=last_week_start, end_date=last_week_end
         )
 
+        tti_median_minutes = (
+            (tti_overall["median_seconds"] / 60) if tti_overall["median_seconds"] else None
+        )
+        tti_current_minutes = (
+            (tti_current["median_seconds"] / 60) if tti_current["median_seconds"] else None
+        )
+        tti_previous_minutes = (
+            (tti_previous["median_seconds"] / 60) if tti_previous["median_seconds"] else None
+        )
+        tti_trend = build_trend(tti_current_minutes, tti_previous_minutes, invert=True)
+
         # Adoption rate
-        adoption_rate = await self.metrics_service.calculate_adoption_rate(user_id)
+        adoption_overall = await self.metrics_service.calculate_adoption_rate(user_id)
+        adoption_current = await self.metrics_service.calculate_adoption_rate(
+            user_id, start_date=this_week_start, end_date=now
+        )
+        adoption_previous = await self.metrics_service.calculate_adoption_rate(
+            user_id, start_date=last_week_start, end_date=last_week_end
+        )
+        adoption_trend = build_trend(adoption_current, adoption_previous)
 
         # Persona coverage
         persona_coverage = await self.metrics_service.calculate_persona_coverage(
@@ -141,13 +216,13 @@ class DashboardOrchestrator:
             if health["health_status"] != "on_track":
                 blockers_count += 1
 
-        # Format response
-        return {
+        # Format response and store in Redis cache (30s TTL)
+        result = {
             "active_research": {
                 "label": "Active Research",
                 "value": str(active_projects_count or 0),
                 "raw_value": active_projects_count or 0,
-                "trend": None,  # TODO: Add w/w trend
+                "trend": None,
                 "tooltip": "Number of active research projects",
             },
             "pending_actions": {
@@ -168,7 +243,7 @@ class DashboardOrchestrator:
                 "label": "This Week",
                 "value": str(this_week_total),
                 "raw_value": this_week_total,
-                "trend": None,
+                "trend": activity_trend,
                 "tooltip": "Total activity this week (personas + focus groups + insights)",
             },
             "time_to_insight": {
@@ -178,15 +253,15 @@ class DashboardOrchestrator:
                     if tti_median_minutes
                     else "No data"
                 ),
-                "raw_value": tti_median_minutes or 0,
-                "trend": None,
+                "raw_value": tti_median_minutes,
+                "trend": tti_trend,
                 "tooltip": "Median time from project creation to first insight",
             },
             "insight_adoption_rate": {
                 "label": "Adoption Rate",
-                "value": f"{adoption_rate * 100:.0f}%",
-                "raw_value": adoption_rate,
-                "trend": None,
+                "value": f"{adoption_overall * 100:.0f}%",
+                "raw_value": adoption_overall,
+                "trend": adoption_trend,
                 "tooltip": "Percentage of insights acted upon (viewed/shared/exported/adopted)",
             },
             "persona_coverage": {
@@ -204,6 +279,8 @@ class DashboardOrchestrator:
                 "tooltip": "Projects with blockers or at risk",
             },
         }
+        await redis_set_json(cache_key, result, ttl_seconds=30)
+        return result
 
     async def get_active_projects(
         self, user_id: UUID
@@ -234,6 +311,38 @@ class DashboardOrchestrator:
         result = await self.db.execute(stmt)
         projects = list(result.scalars().all())
 
+        # Optimize N+1: Get all insights counts in one query with GROUP BY
+        project_ids = [p.id for p in projects]
+
+        # Total insights per project
+        insights_counts_stmt = (
+            select(
+                InsightEvidence.project_id,
+                func.count(InsightEvidence.id).label("count")
+            )
+            .where(InsightEvidence.project_id.in_(project_ids))
+            .group_by(InsightEvidence.project_id)
+        )
+        insights_counts_result = await self.db.execute(insights_counts_stmt)
+        insights_counts_map = {row.project_id: row.count for row in insights_counts_result}
+
+        # New (unviewed) insights per project
+        new_insights_counts_stmt = (
+            select(
+                InsightEvidence.project_id,
+                func.count(InsightEvidence.id).label("count")
+            )
+            .where(
+                and_(
+                    InsightEvidence.project_id.in_(project_ids),
+                    InsightEvidence.viewed_at.is_(None),
+                )
+            )
+            .group_by(InsightEvidence.project_id)
+        )
+        new_insights_counts_result = await self.db.execute(new_insights_counts_stmt)
+        new_insights_counts_map = {row.project_id: row.count for row in new_insights_counts_result}
+
         output = []
         for project in projects:
             # Get health
@@ -246,22 +355,9 @@ class DashboardOrchestrator:
                 project.focus_groups and len(project.focus_groups) > 0
             )
 
-            # Count insights
-            insights_count = await self.db.scalar(
-                select(func.count(InsightEvidence.id)).where(
-                    InsightEvidence.project_id == project.id
-                )
-            )
-
-            # Count new (unviewed) insights
-            new_insights_count = await self.db.scalar(
-                select(func.count(InsightEvidence.id)).where(
-                    and_(
-                        InsightEvidence.project_id == project.id,
-                        InsightEvidence.viewed_at.is_(None),
-                    )
-                )
-            )
+            # Get insights counts from pre-fetched maps (N+1 optimization)
+            insights_count = insights_counts_map.get(project.id, 0)
+            new_insights_count = new_insights_counts_map.get(project.id, 0)
 
             # Determine current stage
             if not has_personas:
@@ -334,14 +430,17 @@ class DashboardOrchestrator:
         return output
 
     async def get_weekly_completion(
-        self, user_id: UUID, weeks: int = 8
+        self, user_id: UUID, weeks: int = 8, project_id: UUID | None = None
     ) -> dict[str, Any]:
         """
         Pobierz weekly completion chart data
 
+        Cached: Redis 30s
+
         Args:
             user_id: UUID użytkownika
             weeks: Liczba tygodni wstecz
+            project_id: Opcjonalne UUID projektu (filter dla konkretnego projektu)
 
         Returns:
             {
@@ -351,6 +450,12 @@ class DashboardOrchestrator:
                 "insights": [5, 8, ...],
             }
         """
+        # Check Redis cache (30s TTL)
+        cache_key = f"dashboard:weekly:{user_id}:{weeks}:{project_id or 'all'}"
+        cached = await redis_get_json(cache_key)
+        if cached is not None:
+            return cached
+
         # Import models
         from app.models import FocusGroup, Persona
 
@@ -371,17 +476,35 @@ class DashboardOrchestrator:
             week_label = week_start.strftime("%Y-W%V")
             weeks_data.append(week_label)
 
+            # Base filters
+            personas_filters = [
+                Project.owner_id == user_id,
+                Persona.created_at >= week_start,
+                Persona.created_at < week_end,
+            ]
+            focus_groups_filters = [
+                Project.owner_id == user_id,
+                FocusGroup.status == "completed",
+                FocusGroup.completed_at >= week_start,
+                FocusGroup.completed_at < week_end,
+            ]
+            insights_filters = [
+                Project.owner_id == user_id,
+                InsightEvidence.created_at >= week_start,
+                InsightEvidence.created_at < week_end,
+            ]
+
+            # Add project_id filter if provided
+            if project_id:
+                personas_filters.append(Persona.project_id == project_id)
+                focus_groups_filters.append(FocusGroup.project_id == project_id)
+                insights_filters.append(InsightEvidence.project_id == project_id)
+
             # Count personas
             personas_count = await self.db.scalar(
                 select(func.count(Persona.id))
                 .join(Project, Persona.project_id == Project.id)
-                .where(
-                    and_(
-                        Project.owner_id == user_id,
-                        Persona.created_at >= week_start,
-                        Persona.created_at < week_end,
-                    )
-                )
+                .where(and_(*personas_filters))
             )
             personas_data.append(personas_count or 0)
 
@@ -389,14 +512,7 @@ class DashboardOrchestrator:
             focus_groups_count = await self.db.scalar(
                 select(func.count(FocusGroup.id))
                 .join(Project, FocusGroup.project_id == Project.id)
-                .where(
-                    and_(
-                        Project.owner_id == user_id,
-                        FocusGroup.status == "completed",
-                        FocusGroup.updated_at >= week_start,
-                        FocusGroup.updated_at < week_end,
-                    )
-                )
+                .where(and_(*focus_groups_filters))
             )
             focus_groups_data.append(focus_groups_count or 0)
 
@@ -404,22 +520,20 @@ class DashboardOrchestrator:
             insights_count = await self.db.scalar(
                 select(func.count(InsightEvidence.id))
                 .join(Project, InsightEvidence.project_id == Project.id)
-                .where(
-                    and_(
-                        Project.owner_id == user_id,
-                        InsightEvidence.created_at >= week_start,
-                        InsightEvidence.created_at < week_end,
-                    )
-                )
+                .where(and_(*insights_filters))
             )
             insights_data.append(insights_count or 0)
 
-        return {
+        result = {
             "weeks": weeks_data,
             "personas": personas_data,
             "focus_groups": focus_groups_data,
             "insights": insights_data,
         }
+
+        # Store in Redis cache (30s TTL)
+        await redis_set_json(cache_key, result, ttl_seconds=30)
+        return result
 
     async def get_latest_insights(
         self, user_id: UUID, limit: int = 10
@@ -590,9 +704,17 @@ class DashboardOrchestrator:
         """
         Pobierz token usage, costs, forecast, alerts
 
+        Cached: Redis 60s
+
         Returns:
             Usage & budget data
         """
+        # Check Redis cache (60s TTL - usage changes less frequently)
+        cache_key = f"dashboard:usage:{user_id}"
+        cached = await redis_get_json(cache_key)
+        if cached is not None:
+            return cached
+
         # Calculate current month costs
         now = datetime.utcnow()
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -601,8 +723,24 @@ class DashboardOrchestrator:
             user_id, start_date=month_start
         )
 
-        # Forecast (assume $100 budget limit for MVP)
-        budget_limit = 100.0  # TODO: Get from user settings
+        # Get user to determine budget limit based on plan
+        from app.models import User
+
+        user_stmt = select(User).where(User.id == user_id)
+        user_result = await self.db.execute(user_stmt)
+        user = user_result.scalar_one_or_none()
+
+        # Determine budget limit based on user plan
+        if user and user.plan:
+            budget_map = {
+                "free": 50.0,
+                "pro": 100.0,
+                "enterprise": 500.0,
+            }
+            budget_limit = budget_map.get(user.plan, 100.0)  # default to pro if unknown plan
+        else:
+            budget_limit = 100.0  # fallback
+
         forecast = await self.usage_service.forecast_budget(user_id, budget_limit)
 
         # Alerts
@@ -627,7 +765,7 @@ class DashboardOrchestrator:
                 }
             )
 
-        return {
+        result = {
             "total_tokens": costs["total_tokens"],
             "total_cost": costs["total_cost"],
             "forecast_month_end": forecast["forecast_month_end"],
@@ -636,18 +774,41 @@ class DashboardOrchestrator:
             "history": history,
         }
 
-    async def get_insight_analytics(self, user_id: UUID) -> dict[str, Any]:
+        # Store in Redis cache (60s TTL)
+        await redis_set_json(cache_key, result, ttl_seconds=60)
+        return result
+
+    async def get_insight_analytics(
+        self, user_id: UUID, project_id: UUID | None = None, top_n: int = 10
+    ) -> dict[str, Any]:
         """
         Pobierz insight analytics (top concepts, sentiment, patterns)
+
+        Cached: Redis 30s
+
+        Args:
+            user_id: UUID użytkownika
+            project_id: Opcjonalne UUID projektu (filter dla konkretnego projektu)
+            top_n: Liczba top concepts do zwrócenia (default: 10)
 
         Returns:
             Analytics data
         """
-        # Get all insights for user
+        # Check Redis cache (30s TTL)
+        cache_key = f"dashboard:analytics:insights:{user_id}:{project_id or 'all'}:{top_n}"
+        cached = await redis_get_json(cache_key)
+        if cached is not None:
+            return cached
+
+        # Get all insights for user (with optional project filter)
+        filters = [Project.owner_id == user_id]
+        if project_id:
+            filters.append(InsightEvidence.project_id == project_id)
+
         stmt = (
             select(InsightEvidence)
             .join(Project, InsightEvidence.project_id == Project.id)
-            .where(Project.owner_id == user_id)
+            .where(and_(*filters))
         )
 
         result = await self.db.execute(stmt)
@@ -663,7 +824,7 @@ class DashboardOrchestrator:
             {"concept": concept, "count": count}
             for concept, count in sorted(
                 concept_counts.items(), key=lambda x: x[1], reverse=True
-            )[:10]
+            )[:top_n]
         ]
 
         # Sentiment distribution
@@ -672,8 +833,20 @@ class DashboardOrchestrator:
             sentiment = insight.sentiment or "neutral"
             sentiment_counts[sentiment] = sentiment_counts.get(sentiment, 0) + 1
 
-        return {
+        # Insight types distribution
+        insight_type_counts = {"opportunity": 0, "risk": 0, "trend": 0, "pattern": 0}
+        for insight in insights:
+            insight_type = insight.insight_type
+            if insight_type in insight_type_counts:
+                insight_type_counts[insight_type] += 1
+
+        result = {
             "top_concepts": top_concepts,
             "sentiment_distribution": sentiment_counts,
+            "insight_types": insight_type_counts,
             "response_patterns": [],  # TODO: Implement pattern analysis
         }
+
+        # Store in Redis cache (30s TTL)
+        await redis_set_json(cache_key, result, ttl_seconds=30)
+        return result

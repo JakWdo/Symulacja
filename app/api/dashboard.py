@@ -112,20 +112,39 @@ async def get_active_projects(
 @router.get("/dashboard/analytics/weekly", response_model=WeeklyCompletionData)
 async def get_weekly_completion(
     weeks: int = 8,
+    project_id: UUID | None = None,
     current_user: User = Depends(get_current_user),
     orchestrator: DashboardOrchestrator = Depends(get_dashboard_orchestrator),
 ):
-    """Pobierz weekly completion chart data"""
-    return await orchestrator.get_weekly_completion(current_user.id, weeks)
+    """
+    Pobierz weekly completion chart data
+
+    Args:
+        weeks: Liczba tygodni wstecz (default: 8)
+        project_id: Opcjonalnie filtruj dla konkretnego projektu
+    """
+    return await orchestrator.get_weekly_completion(current_user.id, weeks, project_id)
 
 
 @router.get("/dashboard/analytics/insights", response_model=InsightAnalyticsData)
 async def get_insight_analytics(
+    project_id: UUID | None = None,
+    top_n: int = 10,
     current_user: User = Depends(get_current_user),
     orchestrator: DashboardOrchestrator = Depends(get_dashboard_orchestrator),
 ):
-    """Pobierz insight analytics (top concepts, sentiment, patterns)"""
-    return await orchestrator.get_insight_analytics(current_user.id)
+    """
+    Pobierz insight analytics (top concepts, sentiment, patterns)
+
+    Args:
+        project_id: Opcjonalnie filtruj dla konkretnego projektu
+        top_n: Liczba top concepts do zwrócenia (default: 10, max: 20)
+    """
+    # Validate top_n
+    if top_n < 1 or top_n > 20:
+        raise HTTPException(status_code=400, detail="top_n must be between 1 and 20")
+
+    return await orchestrator.get_insight_analytics(current_user.id, project_id, top_n)
 
 
 @router.get("/dashboard/insights/latest", response_model=list[InsightHighlight])

@@ -24,6 +24,9 @@ import {
   MessageSquare,
   Lightbulb,
   TrendingUp,
+  Rocket,
+  PlayCircle,
+  Plus,
   ArrowUp,
   ArrowDown,
   Minus,
@@ -51,7 +54,8 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
   const { data: actions, isLoading: actionsLoading } = useQuickActions(4);
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-screen-2xl mx-auto p-4 md:p-6">
       {/* Header */}
       <div className="mb-6 md:mb-8">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -75,20 +79,35 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
           </Alert>
         ) : overview ? (
           <>
-            {/* 4 Main Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <MetricCard metric={overview.active_research} />
-              <MetricCard metric={overview.pending_actions} />
-              <MetricCard metric={overview.insights_ready} />
-              <MetricCard metric={overview.this_week_activity} />
-            </div>
+            {/* 8 KPI Cards (Figma Make Design: 1 grid, 8 columns on XL) */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+              {/* Row 1: Main 4 cards */}
+              <div className="xl:col-span-2">
+                <MetricCard metric={overview.active_research} />
+              </div>
+              <div className="xl:col-span-2">
+                <MetricCard metric={overview.pending_actions} />
+              </div>
+              <div className="xl:col-span-2">
+                <MetricCard metric={overview.insights_ready} />
+              </div>
+              <div className="xl:col-span-2">
+                <MetricCard metric={overview.this_week_activity} />
+              </div>
 
-            {/* 4 Extensions */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <MetricCard metric={overview.time_to_insight} />
-              <MetricCard metric={overview.insight_adoption_rate} />
-              <MetricCard metric={overview.persona_coverage} />
-              <MetricCard metric={overview.blockers_count} />
+              {/* Row 2: Extensions 4 cards */}
+              <div className="xl:col-span-2">
+                <MetricCard metric={overview.time_to_insight} />
+              </div>
+              <div className="xl:col-span-2">
+                <MetricCard metric={overview.insight_adoption_rate} />
+              </div>
+              <div className="xl:col-span-2">
+                <MetricCard metric={overview.persona_coverage} />
+              </div>
+              <div className="xl:col-span-2">
+                <MetricCard metric={overview.blockers_count} />
+              </div>
             </div>
           </>
         ) : null}
@@ -160,6 +179,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
         <h2 className="text-xl font-semibold">Notifications</h2>
         <NotificationsSection />
       </div>
+      </div>
     </div>
   );
 }
@@ -229,8 +249,15 @@ function ActionCard({ action, onNavigate }: { action: QuickAction; onNavigate?: 
     low: 'bg-blue-500 text-white',
   };
 
-  const handleExecute = () => {
-    executeAction.mutate(action.action_id);
+  const handleExecute = async () => {
+    try {
+      const result = await executeAction.mutateAsync(action.action_id);
+      if (result?.status === 'redirect' && result.redirect_url) {
+        window.location.href = result.redirect_url;
+      }
+    } catch (error) {
+      console.error('Failed to execute dashboard action', error);
+    }
   };
 
   const getIcon = (iconName: string) => {
@@ -240,6 +267,9 @@ function ActionCard({ action, onNavigate }: { action: QuickAction; onNavigate?: 
       MessageSquare,
       Lightbulb,
       TrendingUp,
+      Rocket,
+      PlayCircle,
+      Plus,
     };
     const Icon = icons[iconName] || AlertTriangle;
     return <Icon className="h-5 w-5" />;

@@ -151,10 +151,19 @@ class SentimentData(BaseModel):
     mixed: int
 
 
+class InsightTypesData(BaseModel):
+    """Insight types distribution"""
+    opportunity: int
+    risk: int
+    trend: int
+    pattern: int
+
+
 class InsightAnalyticsData(BaseModel):
     """Analytics insightów"""
     top_concepts: list[ConceptData]
     sentiment_distribution: SentimentData
+    insight_types: InsightTypesData
     response_patterns: list[dict[str, Any]]
 
 
