@@ -2,7 +2,14 @@
 
 Strategiczny roadmap projektu Sight. Utrzymujemy 20-30 najważniejszych zadań pogrupowanych według obszarów. Priorytety według MoSCoW: **High** (Must Have - blokuje inne zadania, security, production bugs), **Medium** (Should Have - ważne features, performance), **Low** (Could Have - nice-to-have, technical debt).
 
-**Ostatnia aktualizacja:** 2025-10-21
+**Ostatnia aktualizacja:** 2025-10-27
+
+---
+
+## ✅ Recently Completed (Last 7 Days)
+
+- [x] **Dashboard Figma Make Implementation - Phase 1 + 2** (data: 2025-10-27)
+  Complete overhaul dashboardu z designem Figma Make + backend optimizations. Backend: insight types distribution, Redis caching (30-60s), N+1 optimization (87% fewer queries), filter parameters (project_id, top_n), budget limit z user plan, database indexes. Frontend: KPI grid 8 columns, Insight Types chart with tabs, P90 tooltip for TTI. Testing: 3 new test cases. Commits: 656b471 (Phase 1), 393584c (Phase 2).
 
 ---
 
