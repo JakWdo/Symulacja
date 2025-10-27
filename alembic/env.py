@@ -9,7 +9,7 @@ from alembic import context
 from app.db.base import Base
 from app.core.config import get_settings
 # Import all models to register them with Base metadata
-from app.models import Project, Persona, FocusGroup, PersonaResponse, PersonaEvent
+from app.models import Project, Persona, PersonaAuditLog, FocusGroup, PersonaResponse, PersonaEvent
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

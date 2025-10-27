@@ -1,31 +1,43 @@
-"""add_persona_details_mvp
+"""add persona metadata (needs, audit, soft delete)
 
-Revision ID: 20251016_persona_details
+Revision ID: 20251027_persona_metadata
 Revises: 20251015_segment_tracking
-Create Date: 2025-10-16
+Create Date: 2025-10-27
 
-Dodaje funkcjonalność Szczegółowego Widoku Persony (MVP):
-- JSONB columns dla KPI snapshot, customer journey, needs & pains
-- Tabela persona_audit_log dla audit trail
-- Indexes dla performance
+Konsolidacja metadanych persony:
+- needs_and_pains (JSONB) - JTBD analysis
+- deleted_at, deleted_by - soft delete
+- persona_audit_log table - audit trail
 """
-
+from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '20251016_persona_details'
-down_revision = '20251015_segment_tracking'
-branch_labels = None
-depends_on = None
+revision: str = '20251027_persona_metadata'
+down_revision: Union[str, Sequence[str], None] = '20251015_segment_tracking'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade():
-    # === DODAJ JSONB COLUMNS DO PERSONAS ===
-    op.add_column('personas', sa.Column('kpi_snapshot', postgresql.JSONB, nullable=True))
-    op.add_column('personas', sa.Column('customer_journey', postgresql.JSONB, nullable=True))
+    """Add persona metadata fields and audit log table."""
+
+    # === DODAJ JSONB COLUMN DLA NEEDS & PAINS ===
     op.add_column('personas', sa.Column('needs_and_pains', postgresql.JSONB, nullable=True))
+
+    # === DODAJ SOFT DELETE METADATA ===
+    op.add_column('personas', sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True))
+    op.add_column(
+        'personas',
+        sa.Column(
+            'deleted_by',
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey('users.id', ondelete='SET NULL'),
+            nullable=True
+        )
+    )
 
     # === UTWÓRZ TABELĘ PERSONA_AUDIT_LOG ===
     op.create_table(
@@ -43,7 +55,11 @@ def upgrade():
     )
 
     # === DODAJ INDEXES DLA PERFORMANCE ===
-    # Indexes dla persona_audit_log
+    # Soft delete indexes
+    op.create_index('idx_persona_deleted_at', 'personas', ['deleted_at'])
+    op.create_index('idx_persona_deleted_by', 'personas', ['deleted_by'])
+
+    # Audit log indexes
     op.create_index('idx_audit_persona_id', 'persona_audit_log', ['persona_id'])
     op.create_index('idx_audit_user_id', 'persona_audit_log', ['user_id'])
     op.create_index('idx_audit_action', 'persona_audit_log', ['action'])
@@ -56,28 +72,22 @@ def upgrade():
         ['persona_id', sa.text('timestamp DESC')]
     )
 
-    # GIN indexes dla JSONB fields (umożliwiają query'owanie po nested fields)
-    op.create_index(
-        'idx_persona_kpi_snapshot_gin',
-        'personas',
-        ['kpi_snapshot'],
-        postgresql_using='gin'
-    )
-
 
 def downgrade():
+    """Remove persona metadata fields and audit log table."""
     # Drop indexes
-    op.drop_index('idx_persona_kpi_snapshot_gin', table_name='personas')
     op.drop_index('idx_audit_persona_time_desc', table_name='persona_audit_log')
     op.drop_index('idx_audit_timestamp', table_name='persona_audit_log')
     op.drop_index('idx_audit_action', table_name='persona_audit_log')
     op.drop_index('idx_audit_user_id', table_name='persona_audit_log')
     op.drop_index('idx_audit_persona_id', table_name='persona_audit_log')
+    op.drop_index('idx_persona_deleted_by', table_name='personas')
+    op.drop_index('idx_persona_deleted_at', table_name='personas')
 
     # Drop table
     op.drop_table('persona_audit_log')
 
     # Drop columns
+    op.drop_column('personas', 'deleted_by')
+    op.drop_column('personas', 'deleted_at')
     op.drop_column('personas', 'needs_and_pains')
-    op.drop_column('personas', 'customer_journey')
-    op.drop_column('personas', 'kpi_snapshot')
