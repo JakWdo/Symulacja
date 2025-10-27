@@ -18,7 +18,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useNotifications } from '@/hooks/dashboard/useNotifications';
-import { useNotificationActions } from '@/hooks/dashboard/useNotificationActions';
+import { useMarkNotificationRead, useMarkNotificationDone } from '@/hooks/dashboard/useNotificationActions';
 import type { Notification } from '@/types/dashboard';
 
 const PRIORITY_CONFIG = {
@@ -48,7 +48,8 @@ export function NotificationsSection() {
     filter === 'unread',
     20
   );
-  const { markAsRead, markAsDone } = useNotificationActions();
+  const markAsRead = useMarkNotificationRead();
+  const markAsDone = useMarkNotificationDone();
 
   if (isLoading) {
     return <NotificationsSkeleton />;
