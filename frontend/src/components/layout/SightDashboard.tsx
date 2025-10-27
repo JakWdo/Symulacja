@@ -1,9 +1,15 @@
 /**
  * Sight Dashboard - Production Dashboard with KPIs and Next Best Actions
  *
- * MVP includes:
+ * Phase 2 Complete - All sections:
  * - Overview Section (4 main metrics + 4 extensions)
  * - Quick Actions Section (Next Best Action)
+ * - Active Projects Section
+ * - Research Activity Charts (Weekly Completion + Insight Analytics)
+ * - Latest Insights Section (with Detail Modal)
+ * - Health & Blockers Section
+ * - Usage & Budget Section
+ * - Notifications Section
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
   AlertTriangle,
   Users,
@@ -26,6 +33,12 @@ import { useDashboardOverview } from '@/hooks/dashboard/useDashboardOverview';
 import { useQuickActions } from '@/hooks/dashboard/useQuickActions';
 import { useExecuteAction } from '@/hooks/dashboard/useExecuteAction';
 import { ActiveProjectsSection } from '@/components/dashboard/ActiveProjectsSection';
+import { WeeklyCompletionChart } from '@/components/dashboard/WeeklyCompletionChart';
+import { InsightAnalyticsCharts } from '@/components/dashboard/InsightAnalyticsCharts';
+import { LatestInsightsSection } from '@/components/dashboard/LatestInsightsSection';
+import { HealthBlockersSection } from '@/components/dashboard/HealthBlockersSection';
+import { UsageBudgetSection } from '@/components/dashboard/UsageBudgetSection';
+import { NotificationsSection } from '@/components/dashboard/NotificationsSection';
 import type { MetricCard as MetricCardType, QuickAction } from '@/types/dashboard';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -38,11 +51,11 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
   const { data: actions, isLoading: actionsLoading } = useQuickActions(4);
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
           Track your research progress, insights, and next actions
         </p>
       </div>
@@ -103,7 +116,50 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
       </div>
 
       {/* Active Projects Section */}
-      <ActiveProjectsSection />
+      <div className="mb-8">
+        <ActiveProjectsSection />
+      </div>
+
+      <Separator className="my-8" />
+
+      {/* Research Activity Charts */}
+      <div className="space-y-6 mb-8">
+        <h2 className="text-xl font-semibold">Research Activity</h2>
+        <WeeklyCompletionChart weeks={8} />
+        <InsightAnalyticsCharts />
+      </div>
+
+      <Separator className="my-8" />
+
+      {/* Latest Insights Section */}
+      <div className="space-y-6 mb-8">
+        <h2 className="text-xl font-semibold">Latest Insights</h2>
+        <LatestInsightsSection />
+      </div>
+
+      <Separator className="my-8" />
+
+      {/* Health & Blockers Section */}
+      <div className="space-y-6 mb-8">
+        <h2 className="text-xl font-semibold">Project Health</h2>
+        <HealthBlockersSection />
+      </div>
+
+      <Separator className="my-8" />
+
+      {/* Usage & Budget Section */}
+      <div className="space-y-6 mb-8">
+        <h2 className="text-xl font-semibold">Usage & Budget</h2>
+        <UsageBudgetSection />
+      </div>
+
+      <Separator className="my-8" />
+
+      {/* Notifications Section */}
+      <div className="space-y-6 mb-8">
+        <h2 className="text-xl font-semibold">Notifications</h2>
+        <NotificationsSection />
+      </div>
     </div>
   );
 }
