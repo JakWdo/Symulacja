@@ -353,3 +353,146 @@ async def test_dashboard_requires_authentication(
 
     # Should return 401 Unauthorized or 403 Forbidden
     assert response.status_code in [401, 403]
+
+
+# ============= PHASE 2: New Tests (Figma Make Implementation) =============
+
+
+@pytest.mark.asyncio
+async def test_insight_analytics_includes_insight_types(
+    async_client: AsyncClient,
+    test_user: User,
+    auth_headers: dict[str, str],
+):
+    """
+    Test: GET /dashboard/analytics/insights zwraca insight_types distribution
+
+    Phase 2 Feature: insight_types (opportunity/risk/trend/pattern)
+    """
+    response = await async_client.get(
+        "/api/v1/dashboard/analytics/insights",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Verify insight_types field exists
+    assert "insight_types" in data
+    assert isinstance(data["insight_types"], dict)
+
+    # Verify insight types keys
+    insight_types = data["insight_types"]
+    assert "opportunity" in insight_types
+    assert "risk" in insight_types
+    assert "trend" in insight_types
+    assert "pattern" in insight_types
+
+    # Verify all are integers
+    assert isinstance(insight_types["opportunity"], int)
+    assert isinstance(insight_types["risk"], int)
+    assert isinstance(insight_types["trend"], int)
+    assert isinstance(insight_types["pattern"], int)
+
+
+@pytest.mark.asyncio
+async def test_analytics_with_filters(
+    async_client: AsyncClient,
+    test_user: User,
+    test_project: Project,
+    auth_headers: dict[str, str],
+):
+    """
+    Test: Analytics endpoints support filter parameters (project_id, top_n)
+
+    Phase 2 Feature: Filter parameters for analytics
+    """
+    # Test insight analytics with top_n filter
+    response = await async_client.get(
+        "/api/v1/dashboard/analytics/insights?top_n=5",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "top_concepts" in data
+    # Should return max 5 concepts
+    assert len(data["top_concepts"]) <= 5
+
+    # Test insight analytics with project_id filter
+    response = await async_client.get(
+        f"/api/v1/dashboard/analytics/insights?project_id={test_project.id}",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    # Should filter to specific project (may have 0 insights)
+
+    # Test weekly analytics with project_id filter
+    response = await async_client.get(
+        f"/api/v1/dashboard/analytics/weekly?project_id={test_project.id}&weeks=4",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "weeks" in data
+    assert "personas" in data
+    assert "focus_groups" in data
+    assert "insights" in data
+
+
+@pytest.mark.asyncio
+async def test_budget_limit_based_on_user_plan(
+    async_client: AsyncClient,
+    test_user: User,
+    auth_headers: dict[str, str],
+    db_session: AsyncSession,
+):
+    """
+    Test: Budget limit varies based on user plan (free/pro/enterprise)
+
+    Phase 2 Feature: Budget limit from user settings
+    """
+    # Test with free plan (should be $50)
+    test_user.plan = "free"
+    await db_session.commit()
+    await db_session.refresh(test_user)
+
+    response = await async_client.get(
+        "/api/v1/dashboard/usage",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "budget_limit" in data
+    assert data["budget_limit"] == 50.0
+
+    # Test with pro plan (should be $100)
+    test_user.plan = "pro"
+    await db_session.commit()
+    await db_session.refresh(test_user)
+
+    response = await async_client.get(
+        "/api/v1/dashboard/usage",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["budget_limit"] == 100.0
+
+    # Test with enterprise plan (should be $500)
+    test_user.plan = "enterprise"
+    await db_session.commit()
+    await db_session.refresh(test_user)
+
+    response = await async_client.get(
+        "/api/v1/dashboard/usage",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["budget_limit"] == 500.0

@@ -5,6 +5,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle } from 'lucide-react';
 import { useInsightAnalytics } from '@/hooks/dashboard/useInsightAnalytics';
 import {
@@ -26,6 +27,13 @@ const SENTIMENT_COLORS = {
   negative: '#ef4444',
   neutral: '#6b7280',
   mixed: '#f59e0b',
+};
+
+const INSIGHT_TYPE_COLORS = {
+  opportunity: '#10b981', // green
+  risk: '#ef4444', // red
+  trend: '#f59e0b', // amber
+  pattern: '#3b82f6', // blue
 };
 
 export function InsightAnalyticsCharts() {
@@ -73,12 +81,25 @@ export function InsightAnalyticsCharts() {
     data.sentiment_distribution &&
     Object.values(data.sentiment_distribution).some((val) => val > 0);
 
+  const hasInsightTypesData =
+    data.insight_types &&
+    Object.values(data.insight_types).some((val) => val > 0);
+
   // Transform sentiment data for pie chart
   const sentimentData = hasSentimentData
     ? Object.entries(data.sentiment_distribution).map(([name, value]) => ({
         name: name.charAt(0).toUpperCase() + name.slice(1),
         value,
         originalName: name as keyof typeof SENTIMENT_COLORS,
+      }))
+    : [];
+
+  // Transform insight types data for pie chart
+  const insightTypesData = hasInsightTypesData
+    ? Object.entries(data.insight_types).map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        value,
+        originalName: name as keyof typeof INSIGHT_TYPE_COLORS,
       }))
     : [];
 
@@ -123,53 +144,108 @@ export function InsightAnalyticsCharts() {
         </CardContent>
       </Card>
 
-      {/* Sentiment Distribution Pie Chart */}
+      {/* Sentiment & Insight Types - Tabs */}
       <Card>
         <CardHeader>
-          <CardTitle>Sentiment Distribution</CardTitle>
+          <CardTitle>Insight Analytics</CardTitle>
         </CardHeader>
         <CardContent>
-          {hasSentimentData ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={sentimentData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={(entry) => `${entry.name}: ${entry.value}`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {sentimentData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={SENTIMENT_COLORS[entry.originalName]}
+          <Tabs defaultValue="sentiment" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="sentiment">Sentiment</TabsTrigger>
+              <TabsTrigger value="types">Types</TabsTrigger>
+            </TabsList>
+
+            {/* Sentiment Distribution Tab */}
+            <TabsContent value="sentiment">
+              {hasSentimentData ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={sentimentData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={(entry) => `${entry.name}: ${entry.value}`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {sentimentData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={SENTIMENT_COLORS[entry.originalName]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                      }}
                     />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: '12px' }}
-                  iconType="circle"
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[300px]">
-              <p className="text-center text-muted-foreground">
-                No sentiment data available yet
-              </p>
-            </div>
-          )}
+                    <Legend
+                      wrapperStyle={{ fontSize: '12px' }}
+                      iconType="circle"
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px]">
+                  <p className="text-center text-muted-foreground">
+                    No sentiment data available yet
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Insight Types Tab */}
+            <TabsContent value="types">
+              {hasInsightTypesData ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={insightTypesData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={(entry) => `${entry.name}: ${entry.value}`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {insightTypesData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={INSIGHT_TYPE_COLORS[entry.originalName]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                      }}
+                    />
+                    <Legend
+                      wrapperStyle={{ fontSize: '12px' }}
+                      iconType="circle"
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px]">
+                  <p className="text-center text-muted-foreground">
+                    No insight types data available yet
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

@@ -12,6 +12,7 @@ export interface MetricCard {
   label: string;
   value: string; // formatted (e.g., "2.5 min")
   raw_value: number | string;
+  p90?: number; // P90 value (for TTI metric)
   trend?: TrendData;
   tooltip?: string;
 }
@@ -101,9 +102,17 @@ export interface SentimentData {
   mixed: number;
 }
 
+export interface InsightTypesData {
+  opportunity: number;
+  risk: number;
+  trend: number;
+  pattern: number;
+}
+
 export interface InsightAnalyticsData {
   top_concepts: ConceptData[];
   sentiment_distribution: SentimentData;
+  insight_types: InsightTypesData;
   response_patterns: Array<{ pattern: string; count: number }>;
 }
 

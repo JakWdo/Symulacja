@@ -42,7 +42,14 @@ export function MetricCard({ metric }: MetricCardProps) {
                   <HelpCircle className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="max-w-xs text-sm">{metric.tooltip}</p>
+                  <div className="max-w-xs text-sm space-y-1">
+                    <p>{metric.tooltip}</p>
+                    {metric.p90 && (
+                      <p className="text-muted-foreground">
+                        P90: {metric.p90.toFixed(1)} min
+                      </p>
+                    )}
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

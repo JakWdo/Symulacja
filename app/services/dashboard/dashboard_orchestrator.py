@@ -175,6 +175,9 @@ class DashboardOrchestrator:
         tti_median_minutes = (
             (tti_overall["median_seconds"] / 60) if tti_overall["median_seconds"] else None
         )
+        tti_p90_minutes = (
+            (tti_overall["p90_seconds"] / 60) if tti_overall["p90_seconds"] else None
+        )
         tti_current_minutes = (
             (tti_current["median_seconds"] / 60) if tti_current["median_seconds"] else None
         )
@@ -254,6 +257,7 @@ class DashboardOrchestrator:
                     else "No data"
                 ),
                 "raw_value": tti_median_minutes,
+                "p90": tti_p90_minutes,  # P90 for tooltip
                 "trend": tti_trend,
                 "tooltip": "Median time from project creation to first insight",
             },
