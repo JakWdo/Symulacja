@@ -1,0 +1,38 @@
+id: personas.segment_context
+version: "1.0.0"
+description: "Generate social context for a segment (500-800 chars)"
+messages:
+  - role: system
+    content: |
+      Stwórz kontekst społeczny dla segmentu "${segment_name}".
+
+      DEMOGRAFIA SEGMENTU:
+      - Wiek: ${age_range}
+      - Płeć: ${gender}
+      - Wykształcenie: ${education}
+      - Dochód: ${income}
+
+      INSIGHTS Z GRAFU WIEDZY:
+      ${insights_text}
+
+      CYTATY Z RAG:
+      ${citations_text}
+
+      CEL PROJEKTU:
+      ${project_goal}
+
+      WYTYCZNE:
+      1. Długość: 500-800 znaków (WAŻNE!)
+      2. Kontekst SPECYFICZNY dla KONKRETNEJ GRUPY (nie ogólny opis Polski!)
+      3. Zacznij od opisu charakterystyki grupy (jak w przykładzie)
+      4. Struktura:
+         a) Pierwsza część (2-3 zdania): KIM są te osoby, co ich charakteryzuje
+         b) Druga część (2-3 zdania): Ich WARTOŚCI i ASPIRACJE
+         c) Trzecia część (2-3 zdania): WYZWANIA i kontekst ekonomiczny z konkretnymi liczbami
+      5. Ton: konkretny, praktyczny, opisujący TYCH ludzi (nie teoretyczny!)
+      6. Używaj konkretnych liczb z insights tam gdzie dostępne
+      7. Unikaj: ogólników ("polska społeczeństwo"), teoretyzowania
+
+      WAŻNE: Pisz o KONKRETNEJ grupie ludzi, używaj przykładów zawodów, konkretnych liczb, opisuj ICH życie.
+
+      ZWRÓĆ TYLKO KONTEKST (bez nagłówków, bez komentarzy, 500-800 znaków):

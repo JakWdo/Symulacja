@@ -16,18 +16,12 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import UsageMetric
+from config.loader import ConfigLoader
 
-# Model pricing (USD per 1M tokens) - Gemini 2.5 pricing
-MODEL_PRICING = {
-    "gemini-2.5-flash": {
-        "input_price_per_million": 0.075,  # $0.075 per 1M input tokens
-        "output_price_per_million": 0.30,  # $0.30 per 1M output tokens
-    },
-    "gemini-2.5-pro": {
-        "input_price_per_million": 1.25,  # $1.25 per 1M input tokens
-        "output_price_per_million": 5.00,  # $5.00 per 1M output tokens
-    },
-}
+# Load model pricing from centralized config
+_config_loader = ConfigLoader()
+_pricing_config = _config_loader.load_yaml("pricing.yaml")
+MODEL_PRICING = _pricing_config["models"]
 
 
 class UsageTrackingService:
@@ -277,3 +271,102 @@ class UsageTrackingService:
                 )
 
         return alerts
+
+    async def calculate_breakdown_by_operation_type(
+        self,
+        user_id: UUID,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
+        """
+        Oblicz breakdown usage per operation type
+
+        Args:
+            user_id: UUID użytkownika
+            start_date: Data początkowa (default: początek miesiąca)
+            end_date: Data końcowa (default: teraz)
+
+        Returns:
+            {
+                "persona_generation": {"tokens": int, "cost": float, "percentage": float},
+                "focus_group": {"tokens": int, "cost": float, "percentage": float},
+                "rag_query": {"tokens": int, "cost": float, "percentage": float},
+                "other": {"tokens": int, "cost": float, "percentage": float},
+                "total": {"tokens": int, "cost": float}
+            }
+        """
+        if start_date is None:
+            now = datetime.utcnow()
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        if end_date is None:
+            end_date = datetime.utcnow()
+
+        # Query: GROUP BY operation_type, SUM tokens and cost
+        query = (
+            select(
+                UsageMetric.operation_type,
+                func.sum(UsageMetric.total_tokens).label("total_tokens"),
+                func.sum(UsageMetric.total_cost).label("total_cost"),
+            )
+            .where(
+                and_(
+                    UsageMetric.user_id == user_id,
+                    UsageMetric.operation_timestamp >= start_date,
+                    UsageMetric.operation_timestamp <= end_date,
+                )
+            )
+            .group_by(UsageMetric.operation_type)
+        )
+
+        result = await self.db.execute(query)
+        rows = result.all()
+
+        # Aggregate by category
+        breakdown = {
+            "persona_generation": {"tokens": 0, "cost": 0.0, "percentage": 0.0},
+            "focus_group": {"tokens": 0, "cost": 0.0, "percentage": 0.0},
+            "rag_query": {"tokens": 0, "cost": 0.0, "percentage": 0.0},
+            "other": {"tokens": 0, "cost": 0.0, "percentage": 0.0},
+            "total": {"tokens": 0, "cost": 0.0},
+        }
+
+        # Map operation types to categories
+        category_map = {
+            "persona_generation": "persona_generation",
+            "focus_group": "focus_group",
+            "focus_group_discussion": "focus_group",
+            "rag_query": "rag_query",
+            "rag_document": "rag_query",
+            "graph_query": "rag_query",
+            "insight_extraction": "other",
+            "analysis": "other",
+        }
+
+        total_tokens = 0
+        total_cost = 0.0
+
+        for row in rows:
+            operation_type = row.operation_type
+            tokens = int(row.total_tokens or 0)
+            cost = float(row.total_cost or 0.0)
+
+            total_tokens += tokens
+            total_cost += cost
+
+            # Map to category
+            category = category_map.get(operation_type, "other")
+            breakdown[category]["tokens"] += tokens
+            breakdown[category]["cost"] += cost
+
+        # Calculate percentages
+        if total_cost > 0:
+            for category in ["persona_generation", "focus_group", "rag_query", "other"]:
+                breakdown[category]["percentage"] = (
+                    breakdown[category]["cost"] / total_cost
+                ) * 100
+
+        breakdown["total"]["tokens"] = total_tokens
+        breakdown["total"]["cost"] = total_cost
+
+        return breakdown

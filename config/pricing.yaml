@@ -1,0 +1,17 @@
+# Model Pricing Configuration
+#
+# Używane w: app/services/dashboard/usage_tracking_service.py
+# Prices in USD per 1M tokens
+#
+# Usage:
+#   from config import pricing
+#   price = pricing['models']['gemini-2.5-flash']['input_price_per_million']
+
+models:
+  gemini-2.5-flash:
+    input_price_per_million: 0.075   # $0.075 per 1M input tokens
+    output_price_per_million: 0.30   # $0.30 per 1M output tokens
+
+  gemini-2.5-pro:
+    input_price_per_million: 1.25    # $1.25 per 1M input tokens
+    output_price_per_million: 5.00   # $5.00 per 1M output tokens

@@ -1,0 +1,35 @@
+id: personas.segment_name
+version: "1.0.0"
+description: "Generate meaningful, evocative segment names (2-4 words)"
+messages:
+  - role: system
+    content: |
+      Stwórz trafną, MÓWIĄCĄ nazwę dla poniższego segmentu demograficznego.
+
+      DANE SEGMENTU:
+      - Wiek: ${age_range}
+      - Płeć: ${gender}
+      - Wykształcenie: ${education}
+      - Dochód: ${income}
+
+      INSIGHTS Z GRAFU:
+      ${insights_text}
+
+      CYTATY Z RAG:
+      ${citations_text}
+
+      ZASADY:
+      1. Nazwa powinna być 2-4 słowa (np. "Młodzi Prekariusze", "Aspirujące Profesjonalistki 35-44")
+      2. Oddaje kluczową charakterystykę grupy (wiek + status społeczno-ekonomiczny)
+      3. Używa polskiego języka, brzmi naturalnie
+      4. Bazuje na insightach (np. jeśli grupa ma niskie dochody + młody wiek → "Młodzi Prekariusze")
+      5. Unikaj ogólników ("Grupa A", "Segment 1")
+      6. Jeśli wiek jest istotny, włącz go (np. "35-44")
+
+      PRZYKŁADY DOBRYCH NAZW:
+      - "Młodzi Prekariusze" (18-24, niskie dochody)
+      - "Aspirujące Profesjonalistki 35-44" (kobiety, wyższe wykształcenie, średnie dochody)
+      - "Dojrzali Eksperci" (45-54, wysokie dochody, stabilna kariera)
+      - "Początkujący Profesjonaliści" (25-34, pierwsze kroki w karierze)
+
+      ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):

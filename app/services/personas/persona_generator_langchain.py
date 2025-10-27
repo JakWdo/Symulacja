@@ -11,6 +11,7 @@ Kluczowe funkcjonalności:
 - Integracja z LangChain dla łatwej zmiany modelu LLM
 """
 
+import logging
 import re
 import numpy as np
 from typing import Any
@@ -32,6 +33,11 @@ from app.core.constants import (
     POLISH_SURNAMES,
 )
 from app.services.shared.clients import build_chat_model
+from app.services.dashboard.usage_logging import (
+    UsageLogContext,
+    context_with_model,
+    schedule_usage_logging,
+)
 
 settings = get_settings()
 
@@ -77,23 +83,22 @@ class PersonaGeneratorLangChain:
         self.settings = settings
         self._rng = np.random.default_rng(self.settings.RANDOM_SEED)
 
-        # Inicjalizujemy model Gemini z wyższą temperaturą dla większej różnorodności
-        persona_model = getattr(settings, "PERSONA_GENERATION_MODEL", settings.DEFAULT_MODEL)
+        from config import models, prompts
 
-        self.llm = build_chat_model(
-            model=persona_model,
-            temperature=0.9,  # Podniesiona wartość dla bardziej kreatywnych, zróżnicowanych person
-            max_tokens=settings.MAX_TOKENS,
-            top_p=0.95,
-            top_k=40,
-        )
+        # Model config z centralnego registry
+        model_config = models.get("personas", "generation")
+        self.llm = build_chat_model(**model_config.params)
 
         # Konfigurujemy parser JSON, aby wymusić strukturalną odpowiedź
         self.json_parser = JsonOutputParser()
 
+        # System prompt z centralnego registry
+        system_prompt_template = prompts.get("personas.persona_generation_system")
+        system_message = system_prompt_template.messages[0]["content"]
+
         # Budujemy szablon promptu do generowania person
         self.persona_prompt = ChatPromptTemplate.from_messages([
-            ("system", "Jesteś ekspertem od badań rynkowych tworzącym realistyczne syntetyczne persony dla polskiego rynku. Zawsze odpowiadaj poprawnym JSONem."),
+            ("system", system_message),
             ("user", "{prompt}")
         ])
 
@@ -387,12 +392,68 @@ class PersonaGeneratorLangChain:
             logger.error(f"RAG context retrieval failed: {e}", exc_info=True)
             return None
 
+    async def _invoke_persona_llm(
+        self,
+        prompt_text: str,
+        usage_context: UsageLogContext | None = None,
+    ) -> str:
+        """Invoke the chat model and optionally log token usage."""
+        messages = self.persona_prompt.format_messages(prompt=prompt_text)
+
+        result = await self.llm.ainvoke(messages)
+
+        if usage_context:
+            usage_meta = None
+            if hasattr(result, "response_metadata"):
+                meta = result.response_metadata or {}
+                if isinstance(meta, dict):
+                    usage_meta = meta.get("usage_metadata") or meta.get("token_usage") or meta
+            if usage_meta is None and hasattr(result, "additional_kwargs"):
+                extras = result.additional_kwargs or {}
+                if isinstance(extras, dict):
+                    usage_meta = extras.get("usage_metadata") or extras.get("token_usage")
+
+            schedule_usage_logging(
+                context_with_model(usage_context, getattr(self.llm, "model", None)),
+                usage_meta,
+            )
+
+        return self._extract_text_from_result(result)
+
+    def _extract_text_from_result(self, result: Any) -> str:
+        """Normalise LangChain AIMessage/content into a plain string."""
+        content = getattr(result, "content", result)
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict):
+                    parts.append(str(item.get("text", "")))
+                else:
+                    parts.append(str(item))
+            content = " ".join(part for part in parts if part)
+        if not isinstance(content, str):
+            content = str(content)
+        return content.strip()
+
+    def _parse_persona_response(self, raw_response: str) -> dict[str, Any]:
+        """Parse persona JSON output, preserving existing parser behaviour."""
+        cleaned = raw_response.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        return self.json_parser.parse(cleaned)
+
     async def generate_persona_personality(
         self,
         demographic_profile: dict[str, Any],
         psychological_profile: dict[str, Any],
         use_rag: bool = True,  # NOWY PARAMETR - domyślnie włączony
-        advanced_options: dict[str, Any] | None = None
+        advanced_options: dict[str, Any] | None = None,
+        usage_context: UsageLogContext | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Generuj osobowość persony przy użyciu LangChain + Gemini
@@ -480,7 +541,8 @@ class PersonaGeneratorLangChain:
                 f" | RAG: {'YES' if rag_context else 'NO'}"
             )
             # Wywołaj łańcuch LangChain (prompt -> LLM -> parser JSON)
-            response = await self.persona_chain.ainvoke({"prompt": prompt_text})
+            raw_response = await self._invoke_persona_llm(prompt_text, usage_context)
+            response = self._parse_persona_response(raw_response)
 
             # Loguj odpowiedź do debugowania
             logger.info(f"LLM response type: {type(response)}, keys: {response.keys() if isinstance(response, dict) else 'N/A'}")
@@ -825,7 +887,8 @@ WYŁĄCZNIE JSON (bez markdown):
         demographics_constraints: dict[str, Any],  # Will be DemographicConstraints from SegmentDefinition
         graph_insights: list[Any] = None,
         rag_citations: list[Any] = None,
-        personality_skew: dict[str, float] | None = None
+        personality_skew: dict[str, float] | None = None,
+        usage_context: UsageLogContext | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Generuj personę Z WYMUSZENIEM demographics z segmentu.
@@ -896,7 +959,8 @@ WYŁĄCZNIE JSON (bez markdown):
         )
 
         try:
-            response = await self.persona_chain.ainvoke({"prompt": prompt_text})
+            raw_response = await self._invoke_persona_llm(prompt_text, usage_context)
+            response = self._parse_persona_response(raw_response)
 
             # ENFORCE demographic fields (override LLM if needed)
             response['age'] = age

@@ -1,0 +1,62 @@
+id: personas.segment_brief
+version: "1.0.0"
+description: "Generate long, engaging, personal segment description (400-800 words)"
+messages:
+  - role: system
+    content: |
+      Stwórz fascynujący opis segmentu społecznego, z którym czytający może się utożsamić.
+
+      DEMOGRAFIA SEGMENTU:
+      - Nazwa segmentu: ${segment_name}
+      - Wiek: ${age_range}
+      - Płeć: ${gender}
+      - Wykształcenie: ${education}
+      - Lokalizacja: ${location}
+      - Dochód: ${income}
+
+      KONTEKST RAG (dane społeczne z Polski):
+      ${rag_context}
+
+      PRZYKŁADOWE PERSONY Z TEGO SEGMENTU (jeśli istnieją):
+      ${example_personas}
+
+      ZADANIE:
+      Napisz DŁUGI (400-800 słów), CIEKAWY, PERSONALNY opis tego segmentu społecznego.
+
+      STRUKTURA (4 sekcje):
+
+      1. **Kim są ci ludzie?** (100-150 słów)
+         - W jakim momencie życia się znajdują?
+         - Co jest dla nich typowe? (praca, życie, relacje)
+         - Jakie mają wykształcenie i doświadczenie?
+         - Napisz tak, żeby czytelnik pomyślał "Znam takich ludzi!" lub "To ja!"
+
+      2. **Kontekst zawodowy i ekonomiczny** (150-200 słów)
+         - Jakie zawody wykonują? (konkretne przykłady)
+         - Ile zarabiają? (realne liczby w PLN)
+         - Jak wygląda ich sytuacja mieszkaniowa? (własne/wynajem, ceny)
+         - Jakie mają wyzwania finansowe? (kredyty, oszczędności, koszty życia)
+         - Dlaczego tak jest? (kontekst społeczno-ekonomiczny)
+         - Używaj KONKRETNYCH LICZB z RAG context!
+
+      3. **Wartości i aspiracje** (100-150 słów)
+         - Co jest dla nich ważne w życiu?
+         - Do czego dążą? (career goals, life goals)
+         - Dlaczego te wartości? (kontekst pokoleniowy)
+         - Jak się to zmienia w czasie? (trendy)
+         - Pisz o EMOCJACH i MOTIVACJACH, nie tylko faktach!
+
+      4. **Typowe wyzwania i zainteresowania** (50-100 słów)
+         - Jakie mają realne problemy życiowe?
+         - Co robią w wolnym czasie?
+         - Dlaczego te zainteresowania pasują do profilu?
+
+      TON I STYL:
+      - Pisz jak storyteller, nie jak statystyk!
+      - Używaj przykładów z życia (imiona, sytuacje, dialogi wewnętrzne)
+      - Używaj KONKRETNYCH LICZB (nie "wysokie zarobki" ale "8-12k PLN netto")
+      - Pisz tak, żeby czytelnik mógł się UTOŻSAMIĆ lub ROZPOZNAĆ tych ludzi
+      - Unikaj: ogólników, suchych statystyk, teoretyzowania
+      - To ma być HISTORIA tego segmentu, nie raport demograficzny!
+
+      ZWRÓĆ TYLKO OPIS SEGMENTU (400-800 słów, bez nagłówków sekcji, płynny tekst):

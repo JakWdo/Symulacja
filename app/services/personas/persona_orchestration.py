@@ -139,19 +139,19 @@ class PersonaOrchestrationService:
 
     def __init__(self) -> None:
         """Inicjalizuje orchestration agent (Gemini 2.5 Pro) i RAG service."""
+        from config import models
 
-        # Gemini 2.5 Pro dla complex reasoning i długich analiz
-        self.llm = build_chat_model(
-            model="gemini-2.5-pro",
-            temperature=0.3,  # Niższa dla analytical tasks
-            max_tokens=8000,  # Wystarczająco na pełny plan + briefy
-            timeout=120,  # 2 minuty dla complex reasoning
-        )
+        # Model config z centralnego registry
+        model_config = models.get("personas", "orchestration")
+        self.llm = build_chat_model(**model_config.params)
 
         # RAG service dla hybrid search kontekstu
         self.rag_service = PolishSocietyRAG()
 
-        logger.info("PersonaOrchestrationService zainicjalizowany (Gemini 2.5 Pro)")
+        logger.info(
+            "PersonaOrchestrationService zainicjalizowany (%s)",
+            model_config.model
+        )
 
     async def create_persona_allocation_plan(
         self,
@@ -668,7 +668,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
         try:
             # Use Gemini Flash for quick naming (cheap, fast)
             llm_flash = build_chat_model(
-                model="gemini-2.0-flash-exp",
+                model=settings.DEFAULT_MODEL,
                 temperature=0.7,
                 max_tokens=50,
                 timeout=10,

@@ -1,0 +1,74 @@
+id: focus_groups.discussion_summary
+version: "1.0.0"
+description: "Generate comprehensive strategic summary of focus group discussion"
+messages:
+  - role: system
+    content: |
+      You are a world-class market research analyst specializing in qualitative research synthesis.
+      Your role is to analyze focus group discussions and generate strategic insights for product teams.
+
+      IMPORTANT GUIDELINES:
+      - Be concise yet comprehensive
+      - Focus on actionable insights, not just description
+      - Identify patterns, contradictions, and surprising findings
+      - Consider demographic differences in opinions
+      - Provide strategic recommendations grounded in data
+      - Use professional, business-oriented language
+      - Avoid generic statements - be specific and evidence-based
+  - role: user
+    content: |
+      Analyze this focus group discussion and generate a comprehensive strategic summary.
+
+      **FOCUS GROUP TOPIC:** ${topic}
+      **DESCRIPTION:** ${description}
+
+      ${demo_context}
+
+      **DISCUSSION TRANSCRIPT:**
+      ${discussion_text}
+
+      ---
+
+      Please provide a detailed analysis in the following structure:
+
+      ## 1. EXECUTIVE SUMMARY (90-120 words)
+      Synthesize the core findings into a high-level overview that answers:
+      - What was the overall reception to the concept/topic?
+      - What are the most critical takeaways?
+      - What is the strategic implication?
+
+      ## 2. KEY INSIGHTS (3-5 bullet points, ≤25 words each)
+      Surface the most important patterns and themes from the discussion.
+      Structure every bullet as: **Insight label**: implication grounded in evidence.
+      Use proper markdown bold syntax: **text** (two asterisks on both sides).
+      Prioritize by business impact.
+
+      ## 3. SURPRISING FINDINGS (1-2 bullet points, ≤20 words each)
+      Highlight unexpected or counterintuitive discoveries that challenge assumptions.
+      These could be:
+      - Contradictions between what participants say vs. underlying sentiment
+      - Minority opinions that reveal edge cases
+      - Demographic differences that weren't anticipated
+
+      ## 4. SEGMENT ANALYSIS
+      Break down how different demographic segments (age, gender, occupation) responded differently.
+      Structure as:
+      **Segment name**: Key differentiator with quote/evidence (≤25 words)
+      Use proper markdown bold syntax: **text** (two asterisks on both sides).
+
+      ${recommendations_section}
+
+      ## 6. SENTIMENT NARRATIVE (40-60 words)
+      Describe the emotional journey of the discussion:
+      - How did sentiment evolve across questions?
+      - Were there polarizing topics?
+      - What drove positive vs. negative reactions?
+
+      ---
+
+      **IMPORTANT:**
+      - Use specific quotes and data points as evidence
+      - Avoid generic marketing jargon
+      - Be honest about weaknesses or concerns raised
+      - Consider both explicit feedback and implicit patterns
+      - Format using Markdown for readability (## headings, **bold** emphasis)

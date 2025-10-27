@@ -43,13 +43,12 @@ class PersonaNeedsService:
     """
 
     def __init__(self, db: AsyncSession) -> None:
+        from config import models
+
         self.db = db
-        base_llm = build_chat_model(
-            model="gemini-2.5-pro",  # Upgraded from ANALYSIS_MODEL for better quality JTBD
-            temperature=0.25,  # Deterministic, high-quality output
-            max_tokens=4000,  # Increased from 2000 for more detailed needs analysis
-            timeout=120,
-        )
+        # Model config z centralnego registry
+        model_config = models.get("personas", "needs")
+        base_llm = build_chat_model(**model_config.params)
         # Use structured output for direct Pydantic model generation
         self.llm = base_llm.with_structured_output(NeedsAndPains)
 

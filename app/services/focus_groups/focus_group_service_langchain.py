@@ -12,6 +12,7 @@ import logging
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 import asyncio
 import time
 from datetime import datetime, timezone
@@ -23,6 +24,11 @@ from app.services.focus_groups.memory_service_langchain import MemoryServiceLang
 from app.db import AsyncSessionLocal
 from app.core.config import get_settings
 from app.services.shared.clients import build_chat_model
+from app.services.dashboard.usage_logging import (
+    UsageLogContext,
+    context_with_model,
+    schedule_usage_logging,
+)
 
 settings = get_settings()
 
@@ -37,16 +43,14 @@ class FocusGroupServiceLangChain:
 
     def __init__(self):
         """Inicjalizuj serwis z LangChain LLM i serwisem pamięci"""
+        from config import models
+
         self.settings = settings
         self.memory_service = MemoryServiceLangChain()
 
-        # Inicjalizujemy model Gemini w LangChain
-        # Uwaga: modele gemini-2.5 zużywają więcej tokenów na wnioskowanie, więc podnosimy limit
-        self.llm = build_chat_model(
-            model=settings.DEFAULT_MODEL,
-            temperature=settings.TEMPERATURE,
-            max_tokens=2048,  # Większa liczba tokenów na potrzeby rozumowania gemini-2.5
-        )
+        # Model config z centralnego registry
+        model_config = models.get("focus_groups", "discussion")
+        self.llm = build_chat_model(**model_config.params)
 
     async def run_focus_group(
         self, db: AsyncSession, focus_group_id: str
@@ -85,10 +89,14 @@ class FocusGroupServiceLangChain:
 
         # Pobieramy grupę fokusową z bazy danych
         result = await db.execute(
-            select(FocusGroup).where(FocusGroup.id == focus_group_id)
+            select(FocusGroup)
+            .options(selectinload(FocusGroup.project))
+            .where(FocusGroup.id == focus_group_id)
         )
         focus_group = result.scalar_one()
         logger.info(f"📋 Focus group loaded: {focus_group.name}, questions: {len(focus_group.questions)}")
+        project_owner_id = focus_group.project.owner_id if focus_group.project else None
+        project_id = focus_group.project_id
 
         # Aktualizujemy status grupy
         focus_group.status = "running"
@@ -113,7 +121,11 @@ class FocusGroupServiceLangChain:
 
                 # Równolegle pobieramy odpowiedzi od wszystkich person
                 responses = await self._get_concurrent_responses(
-                    personas, question, focus_group_id
+                    personas,
+                    question,
+                    focus_group_id,
+                    owner_id=project_owner_id,
+                    project_id=project_id,
                 )
 
                 print(f"✅ GOT {len(responses)} RESPONSES for question")
@@ -191,6 +203,8 @@ class FocusGroupServiceLangChain:
         personas: list[Persona],
         question: str,
         focus_group_id: str,
+        owner_id: UUID | None,
+        project_id: UUID,
     ) -> list[dict[str, Any]]:
         """
         Pobierz odpowiedzi od wszystkich person równolegle (concurrent execution)
@@ -215,7 +229,13 @@ class FocusGroupServiceLangChain:
 
         # Utwórz zadania asynchroniczne dla każdej persony
         tasks = [
-            self._get_persona_response(persona, question, focus_group_id)
+            self._get_persona_response(
+                persona,
+                question,
+                focus_group_id,
+                owner_id,
+                project_id,
+            )
             for persona in personas
         ]
 
@@ -246,6 +266,8 @@ class FocusGroupServiceLangChain:
         persona: Persona,
         question: str,
         focus_group_id: str,
+        owner_id: UUID | None,
+        project_id: UUID,
     ) -> dict[str, Any]:
         """
         Pobierz odpowiedź od pojedynczej persony
@@ -279,7 +301,23 @@ class FocusGroupServiceLangChain:
 
             # Wygeneruj odpowiedź używając LangChain + Gemini (mierz czas)
             start_time = time.time()
-            response_text = await self._generate_response(persona, question, context)
+            usage_context = UsageLogContext(
+                user_id=owner_id,
+                project_id=project_id,
+                operation_type="focus_group_response",
+                operation_id=focus_group_uuid,
+                metadata={
+                    "persona_id": str(persona.id),
+                    "question": question[:120],
+                },
+            )
+
+            response_text = await self._generate_response(
+                persona,
+                question,
+                context,
+                usage_context,
+            )
             response_time = time.time() - start_time
 
             print(f"💬 Generated response (length={len(response_text) if response_text else 0}): {response_text[:50] if response_text else 'EMPTY'}...")
@@ -318,7 +356,11 @@ class FocusGroupServiceLangChain:
         }
 
     async def _generate_response(
-        self, persona: Persona, question: str, context: list[dict[str, Any]]
+        self,
+        persona: Persona,
+        question: str,
+        context: list[dict[str, Any]],
+        usage_context: UsageLogContext,
     ) -> str:
         """
         Wygeneruj odpowiedź persony używając LangChain
@@ -342,7 +384,7 @@ class FocusGroupServiceLangChain:
         logger.info(f"Persona data - name: {persona.full_name}, age: {persona.age}, occupation: {persona.occupation}")
         logger.info(f"Full prompt:\n{prompt_text}")
 
-        response_text = await self._invoke_llm(prompt_text)
+        response_text = await self._invoke_llm(prompt_text, usage_context)
 
         if response_text:
             return response_text
@@ -355,7 +397,7 @@ IMPORTANT INSTRUCTION:
 - Do not return an empty string or placeholders.
 - Stay in character as the persona described above.
 """
-        response_text = await self._invoke_llm(retry_prompt)
+        response_text = await self._invoke_llm(retry_prompt, usage_context)
 
         if response_text:
             return response_text
@@ -364,7 +406,11 @@ IMPORTANT INSTRUCTION:
         logger.warning(f"Using fallback response for persona {persona.id}")
         return fallback
 
-    async def _invoke_llm(self, prompt_text: str) -> str:
+    async def _invoke_llm(
+        self,
+        prompt_text: str,
+        usage_context: UsageLogContext | None = None,
+    ) -> str:
         """Wywołaj model LLM i zwróć oczyszczony tekst odpowiedzi."""
         logger = logging.getLogger(__name__)
         try:
@@ -372,6 +418,24 @@ IMPORTANT INSTRUCTION:
         except Exception as err:
             logger.error(f"LLM invocation failed: {err}")
             return ""
+
+        if usage_context:
+            usage_meta = None
+            if hasattr(result, "response_metadata"):
+                meta = result.response_metadata or {}
+                if isinstance(meta, dict):
+                    usage_meta = meta.get("usage_metadata") or meta.get("token_usage") or meta
+            if usage_meta is None and hasattr(result, "additional_kwargs"):
+                extras = result.additional_kwargs or {}
+                if isinstance(extras, dict):
+                    usage_meta = extras.get("usage_metadata") or extras.get("token_usage")
+
+            context_with_model_name = context_with_model(
+                usage_context,
+                getattr(self.llm, "model", None),
+            )
+
+            schedule_usage_logging(context_with_model_name, usage_meta)
 
         content = getattr(result, "content", "")
         if isinstance(content, list):

@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Model Configuration Schema",
+  "description": "JSON schema for validating models.yaml",
+  "type": "object",
+  "required": ["defaults"],
+  "properties": {
+    "defaults": {
+      "type": "object",
+      "required": ["chat"],
+      "properties": {
+        "chat": {
+          "$ref": "#/definitions/modelConfig"
+        }
+      }
+    },
+    "domains": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-z_]+$": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-z_]+$": {
+              "$ref": "#/definitions/modelConfig"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "modelConfig": {
+      "type": "object",
+      "required": ["model"],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "top_p": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "top_k": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600
+        },
+        "retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        }
+      }
+    }
+  }
+}

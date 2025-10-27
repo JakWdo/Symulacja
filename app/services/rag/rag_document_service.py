@@ -57,14 +57,13 @@ class RAGDocumentService:
     def __init__(self) -> None:
         """Inicjalizuje wszystkie niezbędne komponenty LangChain i Neo4j."""
 
+        from config import models
+
         self.settings = settings
 
-        # Model konwersacyjny wykorzystywany zarówno do budowy grafu, jak i
-        # generowania finalnych odpowiedzi Graph RAG.
-        self.llm = build_chat_model(
-            model=settings.GRAPH_MODEL,
-            temperature=0,
-        )
+        # Model config z centralnego registry
+        model_config = models.get("rag", "graph")
+        self.llm = build_chat_model(**model_config.params)
 
         # Połączenia do Neo4j (współdzielone, z retry logic)
         self.vector_store = get_vector_store(logger)

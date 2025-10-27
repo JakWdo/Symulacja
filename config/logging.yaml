@@ -1,0 +1,37 @@
+# Logging Configuration
+#
+# Konfiguracja logowania per environment
+#
+# Usage:
+#   from config import logging_config
+#   level = logging_config['level']
+
+level: "DEBUG"  # CRITICAL, ERROR, WARNING, INFO, DEBUG
+
+# Structured logging (JSON format dla Cloud Logging)
+# Auto-enable w production (STRUCTURED_LOGGING env var ma precedence)
+structured: false
+
+# Format dla development (human-readable)
+format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Handlers
+handlers:
+  - console
+
+# Loggers configuration
+loggers:
+  app:
+    level: "DEBUG"
+    handlers:
+      - console
+
+  config:
+    level: "INFO"
+    handlers:
+      - console
+
+  services:
+    level: "DEBUG"
+    handlers:
+      - console

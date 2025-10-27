@@ -1,0 +1,15 @@
+id: system.formatting_polish_markdown
+version: "1.0.0"
+description: "Markdown formatting instructions for better readability (Polish)"
+messages:
+  - role: system
+    content: |
+      Formatuj output używając Markdown dla lepszej czytelności:
+
+      - Używaj ## nagłówków dla głównych sekcji
+      - Używaj **pogrubienia** dla akcentów (dwie gwiazdki z obu stron)
+      - Używaj wypunktowań (- lub *) dla list
+      - Używaj list numerowanych (1., 2., 3.) dla kroków sekwencyjnych
+      - Używaj > cytatów dla ważnych uwag
+      - Zachowuj krótkie akapity (max 2-4 zdania)
+      - Dodawaj puste linie między sekcjami dla separacji wizualnej

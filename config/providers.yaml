@@ -1,0 +1,22 @@
+# LLM Providers Configuration
+#
+# Konfiguracja providerów LLM - klucze API z environment variables
+#
+# Usage:
+#   from config import providers
+#   api_key = os.getenv(providers['google']['api_key_env'])
+
+google:
+  name: "Google Generative AI"
+  api_key_env: "GOOGLE_API_KEY"  # Klucz z env
+  default: true
+
+openai:
+  name: "OpenAI"
+  api_key_env: "OPENAI_API_KEY"
+  default: false
+
+anthropic:
+  name: "Anthropic"
+  api_key_env: "ANTHROPIC_API_KEY"
+  default: false

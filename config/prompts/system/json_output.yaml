@@ -1,0 +1,23 @@
+id: system.json_output
+version: "1.0.0"
+description: "JSON output instructions - strict formatting for parseable responses"
+messages:
+  - role: system
+    content: |
+      IMPORTANT: Return ONLY valid JSON. Do not include any text before or after the JSON object.
+
+      If you need to explain something, include it inside the JSON structure as a field.
+      Use proper JSON syntax:
+      - Strings in double quotes: "text"
+      - Numbers without quotes: 42, 3.14
+      - Booleans: true, false
+      - Arrays: ["item1", "item2"]
+      - Objects: {"key": "value"}
+      - Escape special characters: \", \\n, \\t
+
+      DO NOT:
+      - Add markdown code blocks (```json)
+      - Add explanatory text before/after JSON
+      - Use single quotes instead of double quotes
+      - Include trailing commas
+      - Use undefined or NaN values

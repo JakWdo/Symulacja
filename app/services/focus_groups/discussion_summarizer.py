@@ -87,34 +87,22 @@ class DiscussionSummarizerService:
         self.settings = settings
 
         # Dobieramy model do jakości i czasu wykonania
-        analysis_model = getattr(settings, "ANALYSIS_MODEL", "gemini-2.5-pro")
-        generation_model = getattr(settings, "PERSONA_GENERATION_MODEL", settings.DEFAULT_MODEL)
+        from config import models, prompts
 
-        model_name = analysis_model if use_pro_model else generation_model
-
-        self.llm = build_chat_model(
-            model=model_name,
-            temperature=0.3,  # Niższa temperatura dla bardziej faktycznych podsumowań
-            max_tokens=4096,  # Długie odpowiedzi
-        )
+        # Model config z centralnego registry
+        model_config = models.get("focus_groups", "summarization")
+        self.llm = build_chat_model(**model_config.params)
 
         self.str_parser = StrOutputParser()
 
+        # System prompt z centralnego registry
+        summary_prompt_template = prompts.get("focus_groups.discussion_summary")
+        rendered_messages = summary_prompt_template.render()
+
         # Budujemy wzorzec promptu dla podsumowania
         self.summary_prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a world-class market research analyst specializing in qualitative research synthesis.
-Your role is to analyze focus group discussions and generate strategic insights for product teams.
-
-IMPORTANT GUIDELINES:
-- Be concise yet comprehensive
-- Focus on actionable insights, not just description
-- Identify patterns, contradictions, and surprising findings
-- Consider demographic differences in opinions
-- Provide strategic recommendations grounded in data
-- Use professional, business-oriented language
-- Avoid generic statements - be specific and evidence-based"""),
-            ("user", "{prompt}")
-        ])
+            (msg["role"], msg["content"]) for msg in rendered_messages
+        ] + [("user", "{prompt}")])
 
         self.chain = self.summary_prompt | self.llm | self.str_parser
 

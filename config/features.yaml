@@ -1,0 +1,44 @@
+# Feature Flags Configuration
+#
+# Używane w: app/core/config.py
+# Toggles dla feature flags i parametrów systemu
+#
+# Usage:
+#   from config import features
+#   if features['rag']['enabled']:
+#       ...
+
+rag:
+  # Globalny toggle dla systemu RAG
+  enabled: true
+
+  # GraphRAG NODE PROPERTIES
+  node_properties_enabled: true
+  extract_summaries: true
+  extract_key_facts: true
+  relationship_confidence: true
+
+segment_cache:
+  # Feature flag: Włącz segment-first cache (zamiast per-persona RAG)
+  # Benefits: 3x szybsze, 60% mniej tokenów, lepsza spójność
+  # Rollback: Ustaw na False aby wrócić do starego flow
+  enabled: true
+
+  # TTL dla segment cache w Redis (dni)
+  ttl_days: 7
+
+performance:
+  # Maksymalny czas odpowiedzi pojedynczej persony (sekundy)
+  max_response_time_per_persona: 3
+
+  # Maksymalny całkowity czas wykonania grupy fokusowej (sekundy)
+  max_focus_group_time: 30
+
+  # Próg błędu spójności (0.0-1.0)
+  consistency_error_threshold: 0.05
+
+  # Próg istotności statystycznej (p-value, domyślnie 0.05)
+  statistical_significance_threshold: 0.05
+
+  # Seed dla reproducibility (ten sam seed = te same wyniki)
+  random_seed: 42

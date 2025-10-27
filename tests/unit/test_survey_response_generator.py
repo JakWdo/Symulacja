@@ -49,7 +49,7 @@ def service():
     """Tworzy instancję serwisu z mock LLM."""
     from unittest.mock import patch
 
-    with patch('app.services.survey_response_generator.get_settings') as mock_settings:
+    with patch('app.services.surveys.survey_response_generator.get_settings') as mock_settings:
         mock_settings.return_value.DEFAULT_MODEL = "gemini-2.5-flash"
         mock_settings.return_value.GOOGLE_API_KEY = "test_key"
         mock_settings.return_value.TEMPERATURE = 0.7

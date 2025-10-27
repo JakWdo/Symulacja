@@ -1,0 +1,16 @@
+id: surveys.rating_scale
+version: "1.0.0"
+description: "Generate rating scale survey response as a specific persona"
+messages:
+  - role: system
+    content: |
+      You are answering a survey question as a specific persona. Provide a rating on a scale from ${scale_min} to ${scale_max}. Return ONLY the number, nothing else.
+  - role: user
+    content: |
+      Persona Profile:
+      ${persona_context}
+
+      Question: ${question}
+      ${description}
+
+      Rate from ${scale_min} (lowest) to ${scale_max} (highest):

@@ -1,0 +1,87 @@
+# Model Registry - Fallback chain configuration
+#
+# Fallback order:
+# 1. Domain-specific override (e.g., domains.personas.orchestration)
+# 2. Domain defaults (e.g., domains.personas.generation)
+# 3. Global defaults (defaults.chat)
+#
+# Usage:
+#   from config import models
+#   model_config = models.get("personas", "orchestration")
+#   llm = build_chat_model(**model_config.params)
+
+defaults:
+  chat:
+    model: "gemini-2.5-flash"
+    temperature: 0.7
+    max_tokens: 6000
+    timeout: 60
+    retries: 3
+
+domains:
+  personas:
+    generation:
+      model: "gemini-2.5-flash"
+      temperature: 0.9  # Wysoka dla kreatywnych, zróżnicowanych person
+      max_tokens: 6000
+      timeout: 90
+      top_p: 0.95       # Dodatkowa różnorodność
+      top_k: 40
+
+    orchestration:
+      model: "gemini-2.5-pro"
+      temperature: 0.3  # Niższa dla analytical tasks
+      max_tokens: 8000  # Wystarczająco na pełny plan + briefy
+      timeout: 120      # 2 minuty dla complex reasoning
+
+    needs:
+      model: "gemini-2.5-pro"
+      temperature: 0.25  # Bardzo niska dla deterministycznego JTBD analysis
+      max_tokens: 4000
+      timeout: 120
+
+    jtbd:
+      model: "gemini-2.5-flash"
+      temperature: 0.7
+      max_tokens: 4000
+
+    segment_brief:
+      model: "gemini-2.5-pro"
+      temperature: 0.7  # Wyższa dla kreatywnego storytelling
+      max_tokens: 6000  # Długie briefe (400-800 słów)
+      timeout: 120
+
+  focus_groups:
+    discussion:
+      model: "gemini-2.5-flash"
+      temperature: 0.8  # Bardziej kreatywne dla naturalnych odpowiedzi
+      max_tokens: 2000
+      timeout: 30
+
+    summarization:
+      model: "gemini-2.5-pro"
+      temperature: 0.2  # Niższa dla analytical summaries
+      max_tokens: 6000
+      timeout: 90
+
+  surveys:
+    response:
+      model: "gemini-2.5-flash"
+      temperature: 0.7
+      max_tokens: 1000
+      timeout: 30
+
+  rag:
+    graph:
+      model: "gemini-2.5-flash"
+      temperature: 0.1  # Bardzo niska dla Cypher generation
+      max_tokens: 2000
+      timeout: 30
+
+    embedding:
+      model: "models/gemini-embedding-001"
+      # NOTE: Must include "models/" prefix for Google Generative AI
+
+    reranker:
+      model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+      # HuggingFace cross-encoder model

@@ -44,13 +44,13 @@ class GraphRAGService:
     def __init__(self) -> None:
         """Inicjalizuje komponenty Graph RAG."""
 
+        from config import models
+
         self.settings = settings
 
-        # Model konwersacyjny do generowania zapytań Cypher i odpowiedzi
-        self.llm = build_chat_model(
-            model=settings.GRAPH_MODEL,
-            temperature=0,
-        )
+        # Model config z centralnego registry
+        model_config = models.get("rag", "graph")
+        self.llm = build_chat_model(**model_config.params)
 
         # Połączenia do Neo4j
         self.graph_store = get_graph_store(logger)

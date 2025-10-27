@@ -69,15 +69,13 @@ class SegmentBriefService:
         Args:
             db: AsyncSession dla dostępu do bazy danych
         """
+        from config import models
+
         self.db = db
 
-        # LLM dla generowania briefów (Gemini 2.5 Pro dla wysokiej jakości)
-        self.llm = build_chat_model(
-            model="gemini-2.5-pro",
-            temperature=0.7,  # Wyższa dla kreatywnego storytelling
-            max_tokens=6000,  # Długie briefe (400-800 słów)
-            timeout=120,
-        )
+        # Model config z centralnego registry
+        model_config = models.get("personas", "segment_brief")
+        self.llm = build_chat_model(**model_config.params)
 
         # RAG dla kontekstu społecznego Polski
         self.rag_service = PolishSocietyRAG()
@@ -543,7 +541,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         try:
             # Gemini Flash dla szybkiego naming
             llm_flash = build_chat_model(
-                model="gemini-2.0-flash-exp",
+                model=settings.DEFAULT_MODEL,
                 temperature=0.7,
                 max_tokens=50,
                 timeout=10,
@@ -738,7 +736,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         try:
             # Gemini Flash dla szybkiego generowania
             llm_flash = build_chat_model(
-                model="gemini-2.0-flash-exp",
+                model=settings.DEFAULT_MODEL,
                 temperature=0.7,
                 max_tokens=600,  # 3-4 akapity (250-400 słów)
                 timeout=20,

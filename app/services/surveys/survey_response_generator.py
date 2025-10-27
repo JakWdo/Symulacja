@@ -25,6 +25,7 @@ from app.schemas.survey import QuestionAnalytics
 from app.db import AsyncSessionLocal
 from app.core.config import get_settings
 from app.services.shared.clients import build_chat_model
+from config import prompts, models
 
 settings = get_settings()
 
@@ -44,11 +45,12 @@ class SurveyResponseGenerator:
         """Inicjalizuj serwis z LangChain LLM"""
         self.settings = settings
 
+        # Pobierz model config z ModelRegistry
+        model_config = models.get("surveys", "response")
+
         # Inicjalizujemy model Gemini w LangChain
         self.llm = build_chat_model(
-            model=settings.DEFAULT_MODEL,
-            temperature=settings.TEMPERATURE,
-            max_tokens=1024,  # Krótsze odpowiedzi na potrzeby ankiet
+            **model_config.params
         )
 
     async def generate_responses(
@@ -270,18 +272,20 @@ Background: {persona.background_story or 'N/A'}
         self, persona_context: str, question: str, description: str, options: list[str]
     ) -> str:
         """Generuj odpowiedź na pytanie single-choice"""
+        # Load prompt from PromptRegistry
+        prompt_template = prompts.get("surveys.single_choice")
+
+        # Render with variables
+        rendered_messages = prompt_template.render(
+            persona_context=persona_context,
+            question=question,
+            description=f"Description: {description}" if description else "",
+            options="\n".join(f"- {opt}" for opt in options)
+        )
+
+        # Create LangChain prompt
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are answering a survey question as a specific persona. Choose ONE option that best matches this persona's likely response. Return ONLY the chosen option text, nothing else."),
-            ("user", f"""Persona Profile:
-{persona_context}
-
-Question: {question}
-{f'Description: {description}' if description else ''}
-
-Options:
-{chr(10).join(f'- {opt}' for opt in options)}
-
-Choose the ONE option this persona would most likely select:""")
+            (msg["role"], msg["content"]) for msg in rendered_messages
         ])
 
         chain = prompt | self.llm
@@ -301,18 +305,20 @@ Choose the ONE option this persona would most likely select:""")
         self, persona_context: str, question: str, description: str, options: list[str]
     ) -> list[str]:
         """Generuj odpowiedź na pytanie multiple-choice"""
+        # Load prompt from PromptRegistry
+        prompt_template = prompts.get("surveys.multiple_choice")
+
+        # Render with variables
+        rendered_messages = prompt_template.render(
+            persona_context=persona_context,
+            question=question,
+            description=f"Description: {description}" if description else "",
+            options="\n".join(f"- {opt}" for opt in options)
+        )
+
+        # Create LangChain prompt
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are answering a survey question as a specific persona. Choose one or MORE options that match this persona's likely response. Return ONLY a comma-separated list of chosen options, nothing else."),
-            ("user", f"""Persona Profile:
-{persona_context}
-
-Question: {question}
-{f'Description: {description}' if description else ''}
-
-Options:
-{chr(10).join(f'- {opt}' for opt in options)}
-
-Choose the options this persona would select (comma-separated):""")
+            (msg["role"], msg["content"]) for msg in rendered_messages
         ])
 
         chain = prompt | self.llm
@@ -337,15 +343,21 @@ Choose the options this persona would select (comma-separated):""")
         self, persona_context: str, question: str, description: str, scale_min: int, scale_max: int
     ) -> int:
         """Generuj odpowiedź na pytanie rating-scale"""
+        # Load prompt from PromptRegistry
+        prompt_template = prompts.get("surveys.rating_scale")
+
+        # Render with variables
+        rendered_messages = prompt_template.render(
+            persona_context=persona_context,
+            question=question,
+            description=f"Description: {description}" if description else "",
+            scale_min=str(scale_min),
+            scale_max=str(scale_max)
+        )
+
+        # Create LangChain prompt
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"You are answering a survey question as a specific persona. Provide a rating on a scale from {scale_min} to {scale_max}. Return ONLY the number, nothing else."),
-            ("user", f"""Persona Profile:
-{persona_context}
-
-Question: {question}
-{f'Description: {description}' if description else ''}
-
-Rate from {scale_min} (lowest) to {scale_max} (highest):""")
+            (msg["role"], msg["content"]) for msg in rendered_messages
         ])
 
         chain = prompt | self.llm
@@ -365,15 +377,19 @@ Rate from {scale_min} (lowest) to {scale_max} (highest):""")
         self, persona: Persona, persona_context: str, question: str, description: str
     ) -> str:
         """Generuj odpowiedź na pytanie open-text"""
+        # Load prompt from PromptRegistry
+        prompt_template = prompts.get("surveys.open_text")
+
+        # Render with variables
+        rendered_messages = prompt_template.render(
+            persona_context=persona_context,
+            question=question,
+            description=f"Description: {description}" if description else ""
+        )
+
+        # Create LangChain prompt
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are answering a survey question as a specific persona. Provide a realistic, authentic response (2-4 sentences) that reflects this persona's perspective. Be concise and natural."),
-            ("user", f"""Persona Profile:
-{persona_context}
-
-Question: {question}
-{f'Description: {description}' if description else ''}
-
-Your response:""")
+            (msg["role"], msg["content"]) for msg in rendered_messages
         ])
 
         chain = prompt | self.llm

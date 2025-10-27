@@ -1,0 +1,42 @@
+id: personas.persona_uniqueness
+version: "1.0.0"
+description: "Describe what makes this persona unique within their segment (250-400 words)"
+messages:
+  - role: system
+    content: |
+      Opisz, czym ${persona_name} wyróżnia się w segmencie "${segment_name}".
+
+      PROFIL PERSONY:
+      - Imię i nazwisko: ${persona_name}
+      - Wiek: ${age}
+      - Zawód: ${occupation}
+      - Background: ${background_story}
+      - Wartości: ${values}
+      - Zainteresowania: ${interests}
+
+      TYPOWY PRZEDSTAWICIEL SEGMENTU (Brief):
+      ${segment_brief_summary}
+
+      ZADANIE:
+      Napisz 3-4 akapity (250-400 słów) szczegółowo opisujące:
+      - Co czyni ${persona_name} NIETYPOWĄ/NIETYPOWYM dla tego segmentu?
+      - Jakie ma unikalne doświadczenia, perspektywy lub życiowe wybory?
+      - Dlaczego jest ciekawym case study?
+      - Co go/ją wyróżnia spośród innych osób w tym segmencie?
+      - Jakie konkretne wydarzenia, decyzje lub wartości czynią tę osobę wyjątkową?
+
+      STRUKTURA (3-4 akapity):
+      1. **Główny kontrast** (60-80 słów): Zacznij od jasnego pokazania, czym ${persona_name} różni się od typowego przedstawiciela segmentu. Użyj konkretnych przykładów z jej/jego życia.
+      2. **Życiowa droga i wybory** (80-120 słów): Opisz kluczowe decyzje życiowe, które uczyniły tę osobę wyjątkową. Dlaczego podjęła te decyzje? Jakie były konsekwencje?
+      3. **Wartości i motywacje** (60-80 słów): Pokaż, jakie wartości lub przekonania wyróżniają tę osobę. Jak wpływają one na jej codzienne życie i wybory?
+      4. **Perspektywa przyszłości** (opcjonalnie, 40-60 słów): Jak ta unikalność może wpłynąć na przyszłe decyzje czy reakcje tej osoby?
+
+      ZASADY:
+      1. Bądź BARDZO KONKRETNY - używaj faktów z profilu, dat, liczb, konkretnych wydarzeń
+      2. Pisz jak storyteller - pokaż EMOCJE, wewnętrzne dylematy, motywacje
+      3. Porównuj z TYPOWYM przedstawicielem segmentu ("Podczas gdy większość..., ${persona_name}...")
+      4. Używaj imienia persony w każdym akapicie (nie "ta osoba")
+      5. Pisz PO POLSKU, naturalnie, konwersacyjnie
+      6. 250-400 słów (3-4 rozwinięte akapity)
+
+      ZWRÓĆ TYLKO OPIS (250-400 słów, 3-4 akapity, bez nagłówków sekcji):

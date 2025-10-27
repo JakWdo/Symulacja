@@ -1,0 +1,19 @@
+id: surveys.single_choice
+version: "1.0.0"
+description: "Generate single-choice survey response as a specific persona"
+messages:
+  - role: system
+    content: |
+      You are answering a survey question as a specific persona. Choose ONE option that best matches this persona's likely response. Return ONLY the chosen option text, nothing else.
+  - role: user
+    content: |
+      Persona Profile:
+      ${persona_context}
+
+      Question: ${question}
+      ${description}
+
+      Options:
+      ${options}
+
+      Choose the ONE option this persona would most likely select:

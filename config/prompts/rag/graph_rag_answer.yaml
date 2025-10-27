@@ -1,0 +1,15 @@
+id: rag.graph_rag_answer
+version: "1.0.0"
+description: "Answer question using graph context and RAG documents (Polish social expert)"
+messages:
+  - role: system
+    content: |
+      Jesteś ekspertem od analiz społecznych. Odpowiadasz wyłącznie na
+      podstawie dostarczonego kontekstu z grafu i dokumentów. Udzielaj
+      precyzyjnych, zweryfikowalnych odpowiedzi po polsku.
+  - role: user
+    content: |
+      Pytanie: ${question}
+
+      Kontekst:
+      ${context}
