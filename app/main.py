@@ -25,7 +25,7 @@ from app.core.config import get_settings
 from app.core.logging_config import configure_logging
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
-from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_router, rag
+from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_router, rag, dashboard
 import logging
 import os
 import mimetypes
@@ -167,6 +167,7 @@ app.include_router(analysis.router, prefix=settings.API_V1_PREFIX, tags=["Analys
 app.include_router(graph_analysis.router, prefix=settings.API_V1_PREFIX, tags=["Graph Analysis"])
 app.include_router(rag.router, prefix=settings.API_V1_PREFIX)  # RAG już ma prefix="/rag" i tags w routerze
 app.include_router(settings_router.router, prefix=settings.API_V1_PREFIX, tags=["Settings"])
+app.include_router(dashboard.router, prefix=settings.API_V1_PREFIX, tags=["Dashboard"])
 
 
 # Root endpoint removed - SPA catch-all route handles "/" in production

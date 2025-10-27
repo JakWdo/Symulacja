@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { FigmaDashboard } from '@/components/layout/FigmaDashboard';
+import { SightDashboard } from '@/components/layout/SightDashboard';
 import { Projects } from '@/components/layout/Projects';
 import { ProjectDetail } from '@/components/layout/ProjectDetail';
 import { FocusGroups } from '@/components/layout/FocusGroups';
@@ -67,12 +68,8 @@ export default function App() {
     switch (currentView) {
       case 'dashboard':
         return (
-          <FigmaDashboard
+          <SightDashboard
             onNavigate={setCurrentView}
-            onSelectProject={(project) => {
-              setViewProject(project);
-              setCurrentView('project-detail');
-            }}
           />
         );
       case 'projects':

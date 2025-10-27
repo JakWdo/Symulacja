@@ -1,0 +1,281 @@
+"""
+Quick Actions Service - Next Best Action Engine
+
+Priorytetyzacja akcji:
+1. Fix Issues (critical blockers)
+2. Generate Personas (no personas)
+3. Start/Resume Focus Group (personas ready, no active focus)
+4. View Insights (insights ready)
+5. Start New Research (all good, suggest new project)
+"""
+
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models import FocusGroup, InsightEvidence, Project
+from app.services.dashboard.health_service import ProjectHealthService
+
+
+class QuickActionsService:
+    """
+    Serwis do rekomendacji akcji użytkownika (Next Best Action)
+
+    Analizuje stan projektów użytkownika i sugeruje najbardziej wartościowe akcje do wykonania.
+    """
+
+    def __init__(self, db: AsyncSession, health_service: ProjectHealthService):
+        """
+        Inicjalizuj serwis
+
+        Args:
+            db: Async SQLAlchemy session
+            health_service: Serwis health do oceny projektów
+        """
+        self.db = db
+        self.health_service = health_service
+
+    async def recommend_actions(
+        self, user_id: UUID, limit: int = 4
+    ) -> list[dict[str, Any]]:
+        """
+        Zwróć top N recommended actions dla użytkownika
+
+        Args:
+            user_id: UUID użytkownika
+            limit: Maksymalna liczba akcji (default 4)
+
+        Returns:
+            Lista akcji z priorytetem, title, description, context, CTA
+        """
+        actions = []
+
+        # Load user's projects
+        stmt = (
+            select(Project)
+            .where(
+                and_(
+                    Project.owner_id == user_id,
+                    Project.is_active.is_(True),
+                    Project.deleted_at.is_(None),
+                )
+            )
+            .options(
+                selectinload(Project.personas), selectinload(Project.focus_groups)
+            )
+        )
+        result = await self.db.execute(stmt)
+        projects = list(result.scalars().all())
+
+        # Priority 1: Fix Issues (blocked projects)
+        for project in projects:
+            health = await self.health_service.assess_project_health(project.id)
+            if health["health_status"] == "blocked":
+                actions.append(
+                    {
+                        "action_id": f"fix_project_{project.id}",
+                        "action_type": "fix_blocker",
+                        "priority": "high",
+                        "title": "Fix blocked project",
+                        "description": f"Project '{project.name}' has {len(health['blockers'])} critical issues.",
+                        "icon": "AlertTriangle",
+                        "context": {
+                            "project_id": str(project.id),
+                            "project_name": project.name,
+                            "blocker_count": len(health["blockers"]),
+                            "blockers": health["blockers"],
+                        },
+                        "cta_label": "Fix Issues",
+                        "cta_url": f"/projects/{project.id}",
+                    }
+                )
+
+        # Priority 2: Generate Personas (no personas yet)
+        for project in projects:
+            if not project.personas or len(project.personas) == 0:
+                actions.append(
+                    {
+                        "action_id": f"generate_personas_{project.id}",
+                        "action_type": "generate_personas",
+                        "priority": "high",
+                        "title": "Generate personas",
+                        "description": f"Project '{project.name}' needs personas. Generate {project.target_sample_size} personas (30-60s).",
+                        "icon": "Users",
+                        "context": {
+                            "project_id": str(project.id),
+                            "project_name": project.name,
+                            "target_count": project.target_sample_size,
+                        },
+                        "cta_label": "Generate Personas",
+                        "cta_url": f"/projects/{project.id}/personas/generate",
+                    }
+                )
+
+        # Priority 3: Start Focus Group (personas ready, no active focus)
+        for project in projects:
+            if project.personas and len(project.personas) > 0:
+                active_focus = [
+                    fg for fg in project.focus_groups if fg.status == "in_progress"
+                ]
+                if not active_focus:
+                    actions.append(
+                        {
+                            "action_id": f"start_focus_{project.id}",
+                            "action_type": "start_focus_group",
+                            "priority": "medium",
+                            "title": "Start focus group discussion",
+                            "description": f"Project '{project.name}' has {len(project.personas)} personas ready. Start a focus group (2-5 min).",
+                            "icon": "MessageSquare",
+                            "context": {
+                                "project_id": str(project.id),
+                                "project_name": project.name,
+                                "persona_count": len(project.personas),
+                            },
+                            "cta_label": "Start Focus Group",
+                            "cta_url": f"/projects/{project.id}/focus-groups/create",
+                        }
+                    )
+
+        # Priority 4: View Insights (insights ready, not viewed)
+        insights_stmt = (
+            select(InsightEvidence)
+            .join(Project, InsightEvidence.project_id == Project.id)
+            .where(
+                and_(
+                    Project.owner_id == user_id,
+                    InsightEvidence.viewed_at.is_(None),
+                )
+            )
+            .limit(1)
+        )
+        result = await self.db.execute(insights_stmt)
+        unviewed_insight = result.scalar_one_or_none()
+
+        if unviewed_insight:
+            project_stmt = select(Project).where(
+                Project.id == unviewed_insight.project_id
+            )
+            result = await self.db.execute(project_stmt)
+            project = result.scalar_one()
+
+            # Count total unviewed
+            unviewed_count = await self.db.scalar(
+                select(func.count(InsightEvidence.id))
+                .join(Project, InsightEvidence.project_id == Project.id)
+                .where(
+                    and_(
+                        Project.owner_id == user_id,
+                        InsightEvidence.viewed_at.is_(None),
+                    )
+                )
+            )
+            actions.append(
+                {
+                    "action_id": f"view_insights_{project.id}",
+                    "action_type": "view_insights",
+                    "priority": "medium",
+                    "title": "Review new insights",
+                    "description": f"{unviewed_count} new insights ready in '{project.name}'. Review and take action.",
+                    "icon": "Lightbulb",
+                    "context": {
+                        "project_id": str(project.id),
+                        "project_name": project.name,
+                        "insight_count": unviewed_count,
+                    },
+                    "cta_label": "View Insights",
+                    "cta_url": f"/projects/{project.id}/insights",
+                }
+            )
+
+        # Priority 5: Start New Research (no projects or all completed)
+        if len(projects) == 0:
+            actions.append(
+                {
+                    "action_id": "create_first_project",
+                    "action_type": "create_project",
+                    "priority": "high",
+                    "title": "Start your first research",
+                    "description": "Create a project, define your target audience, and generate personas.",
+                    "icon": "Plus",
+                    "context": {},
+                    "cta_label": "Create Project",
+                    "cta_url": "/projects/create",
+                }
+            )
+
+        # Sort by priority, limit
+        priority_order = {"high": 0, "medium": 1, "low": 2}
+        actions.sort(key=lambda a: priority_order[a["priority"]])
+
+        return actions[:limit]
+
+    async def execute_action(
+        self, action_id: str, user_id: UUID
+    ) -> dict[str, Any]:
+        """
+        Execute action (trigger orchestration)
+
+        Args:
+            action_id: ID akcji (format: "action_type_entity_id")
+            user_id: UUID użytkownika
+
+        Returns:
+            {
+                "status": "success" | "redirect" | "error",
+                "message": "...",
+                "redirect_url": "/projects/{id}",
+            }
+        """
+        # Parse action_id (format: "action_type_project_id")
+        parts = action_id.split("_", 2)
+        action_type = parts[0] + "_" + parts[1] if len(parts) > 2 else parts[0]
+        entity_id = parts[2] if len(parts) > 2 else None
+
+        if action_type == "fix_project":
+            # Redirect to project detail
+            return {
+                "status": "redirect",
+                "message": "Opening project to fix issues...",
+                "redirect_url": f"/projects/{entity_id}",
+            }
+
+        elif action_type == "generate_personas":
+            # Trigger persona generation
+            return {
+                "status": "redirect",
+                "message": "Opening persona generation wizard...",
+                "redirect_url": f"/projects/{entity_id}/personas/generate",
+            }
+
+        elif action_type == "start_focus":
+            # Trigger focus group builder
+            return {
+                "status": "redirect",
+                "message": "Opening focus group builder...",
+                "redirect_url": f"/projects/{entity_id}/focus-groups/create",
+            }
+
+        elif action_type == "view_insights":
+            # Redirect to insights
+            return {
+                "status": "redirect",
+                "message": "Opening insights...",
+                "redirect_url": f"/projects/{entity_id}/insights",
+            }
+
+        elif action_type == "create_project":
+            # Redirect to project creation
+            return {
+                "status": "redirect",
+                "message": "Opening project creation...",
+                "redirect_url": "/projects/create",
+            }
+
+        else:
+            return {
+                "status": "error",
+                "message": f"Unknown action type: {action_type}",
+            }

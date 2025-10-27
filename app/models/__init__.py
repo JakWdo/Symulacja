@@ -28,6 +28,14 @@ from .focus_group import FocusGroup
 from .persona_events import PersonaEvent, PersonaResponse
 from .survey import Survey, SurveyResponse
 from .rag_document import RAGDocument
+from .dashboard import (
+    DashboardMetric,
+    ProjectHealthLog,
+    InsightEvidence,
+    UsageMetric,
+    UserNotification,
+    ActionLog,
+)
 
 __all__ = [
     "User",
@@ -40,4 +48,10 @@ __all__ = [
     "Survey",
     "SurveyResponse",
     "RAGDocument",
+    "DashboardMetric",
+    "ProjectHealthLog",
+    "InsightEvidence",
+    "UsageMetric",
+    "UserNotification",
+    "ActionLog",
 ]
