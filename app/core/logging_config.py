@@ -148,10 +148,12 @@ def configure_logging(
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
 
-    # Silence noisy third-party loggers (optional)
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)  # HTTP access logs
+    # Silence noisy third-party loggers (production best practice)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)  # HTTP access logs (za dużo noise)
     logging.getLogger("httpx").setLevel(logging.WARNING)  # HTTP client logs
     logging.getLogger("httpcore").setLevel(logging.WARNING)  # HTTP core logs
+    logging.getLogger("httpcore.http11").setLevel(logging.WARNING)  # HTTP/1.1 protocol logs
+    logging.getLogger("httpcore.connection").setLevel(logging.WARNING)  # Connection pool logs
 
     # Log configuration success
     mode = "structured (JSON)" if structured else "standard (human-readable)"

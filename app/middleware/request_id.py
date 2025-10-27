@@ -81,27 +81,16 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Start timer (dla duration measurement)
         start_time = time.time()
 
-        # Log incoming request
-        logger.info(
-            "Incoming HTTP request",
-            extra={
-                "request_id": req_id,
-                "method": request.method,
-                "path": request.url.path,
-                "client_ip": request.client.host if request.client else None,
-                "user_agent": request.headers.get("User-Agent", "Unknown"),
-            },
-        )
-
-        # Process request
+        # Process request (NO request logging - za dużo noise)
+        # Request ID jest propagowany przez contextvars - dostępny dla logów aplikacji
         try:
             response = await call_next(request)
         except Exception as exc:
-            # Log unhandled exceptions (before propagating)
+            # TYLKO unhandled exceptions (critical errors)
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
                 "Unhandled exception during request processing",
-                exc_info=exc,
+                exc_info=True,
                 extra={
                     "request_id": req_id,
                     "method": request.method,
@@ -111,20 +100,8 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             )
             raise
 
-        # Calculate duration
-        duration_ms = (time.time() - start_time) * 1000
-
-        # Log completed request
-        logger.info(
-            "Request completed",
-            extra={
-                "request_id": req_id,
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": response.status_code,
-                "duration_ms": round(duration_ms, 2),
-            },
-        )
+        # NO completed request logging - za dużo noise w production
+        # Jeśli potrzeba: włącz przez VERBOSE_REQUEST_LOGGING env var
 
         # Add request_id to response headers (for client debugging)
         response.headers["X-Request-ID"] = req_id
