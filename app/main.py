@@ -22,15 +22,22 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.core.config import get_settings
+from app.core.logging_config import configure_logging
 from app.middleware.security import SecurityHeadersMiddleware
+from app.middleware.request_id import RequestIDMiddleware
 from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_router, rag
 import logging
 import os
 import mimetypes
 
-logger = logging.getLogger(__name__)
-
+# Configure structured logging BEFORE creating any loggers
 settings = get_settings()
+configure_logging(
+    structured=settings.structured_logging_enabled,
+    level=settings.LOG_LEVEL,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -133,6 +140,10 @@ else:
     # Same-origin requests NIE WYMAGAJĄ CORS middleware
     # Security benefit: Mniejszy attack surface
     logger.info("🔒 CORS disabled for production (same-origin deployment)")
+
+# Request ID Middleware - FIRST (correlation tracking dla wszystkich requestów)
+# Dodaje unikalny request_id do każdego requesta (propagowany przez contextvars)
+app.add_middleware(RequestIDMiddleware)
 
 # Security Headers Middleware
 # Dodaje OWASP-recommended headers: X-Frame-Options, CSP, X-Content-Type-Options, etc.

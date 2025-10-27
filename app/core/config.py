@@ -190,8 +190,26 @@ class Settings(BaseSettings):
     # Development: DEBUG (szczegółowe logi dla debugging)
     LOG_LEVEL: str = "DEBUG"
     # STRUCTURED_LOGGING: JSON format dla Cloud Logging (production)
+    # CRITICAL FIX: Automatycznie włącz structured logging w production
     # True w production umożliwia łatwe filtrowanie w GCP Logs Explorer
+    # Development: False (human-readable logs), Production: True (JSON)
     STRUCTURED_LOGGING: bool = False
+
+    @property
+    def structured_logging_enabled(self) -> bool:
+        """
+        Determine whether to use structured JSON logging
+
+        Auto-enable for production, manual override with STRUCTURED_LOGGING env var
+        """
+        # Explicitly set by env var - respect it
+        import os
+
+        if os.getenv("STRUCTURED_LOGGING") is not None:
+            return self.STRUCTURED_LOGGING
+
+        # Auto-enable for production
+        return self.ENVIRONMENT == "production"
 
     # === API ===
     # Prefix dla wszystkich endpointów API v1

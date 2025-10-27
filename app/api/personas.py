@@ -1131,9 +1131,15 @@ async def _generate_personas_task(
                 except Exception as commit_error:  # pragma: no cover - zabezpieczenie awaryjne
                     await db.rollback()
                     logger.error(
-                        "Nie udało się zapisać partii wygenerowanych person.",
-                        exc_info=commit_error,
-                        extra={"project_id": str(project_id), "batch_size": len(batch_payloads)},
+                        "Database commit FAILED for persona batch",
+                        exc_info=True,
+                        extra={
+                            "project_id": str(project_id),
+                            "batch_size": len(batch_payloads),
+                            "saved_count": saved_count,
+                            "target_personas": num_personas,
+                            "error_type": type(commit_error).__name__,
+                        },
                     )
                     raise
                 finally:
@@ -1163,10 +1169,17 @@ async def _generate_personas_task(
                     try:
                         idx, result = await future
                     except Exception as gen_error:  # pragma: no cover - logowanie błędów zadań
+                        from app.middleware.request_id import get_request_id
                         logger.error(
-                            "Persona generation coroutine failed.",
-                            exc_info=gen_error,
-                            extra={"project_id": str(project_id)},
+                            "Persona generation coroutine FAILED",
+                            exc_info=True,
+                            extra={
+                                "project_id": str(project_id),
+                                "request_id": get_request_id(),
+                                "num_personas": num_personas,
+                                "personas_generated_so_far": len(personas_data),
+                                "error_type": type(gen_error).__name__,
+                            },
                         )
                         continue
 
@@ -1486,7 +1499,21 @@ async def _generate_personas_task(
 
             logger.info("Persona generation task completed.", extra={"project_id": str(project_id), "count": len(personas_data)})
     except Exception as e:
-        logger.error("CRITICAL ERROR in persona generation task", exc_info=e)
+        from app.middleware.request_id import get_request_id
+        logger.error(
+            "CRITICAL ERROR in persona generation task",
+            exc_info=True,
+            extra={
+                "project_id": str(project_id),
+                "request_id": get_request_id(),
+                "num_personas": num_personas,
+                "personas_generated": len(personas_data) if 'personas_data' in locals() else 0,
+                "use_rag": use_rag,
+                "adversarial_mode": adversarial_mode,
+                "error_type": type(e).__name__,
+                "error_message": str(e)[:500],
+            },
+        )
 
 
 def _normalize_rag_citations(citations: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
