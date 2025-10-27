@@ -1,29 +1,29 @@
-# Prompts Index - Complete Catalog
+# Indeks Promptów - Kompletny Katalog
 
 Katalog wszystkich 25 promptów w systemie konfiguracji Sight. Każdy prompt zawiera ID, wersję, parametry i przykład użycia.
 
 **Ostatnia aktualizacja:** 2025-10-27
-**Łączna liczba promptów:** 25 (23 base + 2 warianty)
+**Łączna liczba promptów:** 25 (23 bazowe + 2 warianty)
 
 ---
 
 ## 📑 Spis Treści
 
-- [Focus Groups (2)](#focus-groups)
-- [Personas (7)](#personas)
+- [Grupy Fokusowe (2)](#grupy-fokusowe)
+- [Persony (7)](#persony)
 - [RAG - Retrieval Augmented Generation (2)](#rag)
-- [Surveys (4)](#surveys)
-- [System Prompts (10)](#system-prompts)
+- [Ankiety (4)](#ankiety)
+- [Prompty Systemowe (10)](#prompty-systemowe)
 
 ---
 
-## Focus Groups
+## Grupy Fokusowe
 
 ### `focus_groups.discussion_summary`
 
 **Plik:** `config/prompts/focus_groups/discussion_summary.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate comprehensive strategic summary of focus group discussion
+**Opis:** Generuje kompleksowe strategiczne podsumowanie dyskusji w grupie fokusowej
 
 **Parametry:**
 - `topic` - temat dyskusji w grupie fokusowej
@@ -41,15 +41,15 @@ from config import prompts
 
 template = prompts.get("focus_groups.discussion_summary")
 rendered = template.render(
-    topic="AI in healthcare",
+    topic="AI w służbie zdrowia",
     description="Badanie percepcji AI w służbie zdrowia",
     demo_context="8 uczestników (4K/4M), 25-45 lat",
     discussion_text="[transkrypt]",
-    recommendations_section="## 5. STRATEGIC RECOMMENDATIONS\n..."
+    recommendations_section="## 5. REKOMENDACJE STRATEGICZNE\n..."
 )
 ```
 
-**Output:** Markdown summary z 6 sekcjami (Executive Summary, Key Insights, Surprising Findings, Segment Analysis, Recommendations, Sentiment Narrative)
+**Output:** Podsumowanie w formacie Markdown z 6 sekcjami (Executive Summary, Kluczowe Wnioski, Zaskakujące Odkrycia, Analiza Segmentów, Rekomendacje, Narracja Sentymentu)
 
 ---
 
@@ -57,7 +57,7 @@ rendered = template.render(
 
 **Plik:** `config/prompts/focus_groups/persona_response.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate persona response in focus group discussion (2-4 sentences, natural, conversational)
+**Opis:** Generuje odpowiedź persony w dyskusji grupowej (2-4 zdania, naturalna, konwersacyjna)
 
 **Parametry:**
 - `full_name` - pełne imię i nazwisko persony
@@ -99,13 +99,13 @@ rendered = template.render(
 
 ---
 
-## Personas
+## Persony
 
 ### `personas.jtbd`
 
 **Plik:** `config/prompts/personas/jtbd.yaml`
 **Wersja:** 1.0.0
-**Opis:** Jobs-to-be-Done analysis for personas using JTBD methodology
+**Opis:** Analiza Jobs-to-be-Done dla person z wykorzystaniem metodologii JTBD
 
 **Parametry:**
 - `age` - wiek persony
@@ -137,7 +137,7 @@ rendered = template.render(
 )
 ```
 
-**Output:** JSON z Jobs-to-be-Done, desired outcomes, pain points (z severity, quotes, solutions)
+**Output:** JSON z Jobs-to-be-Done, pożądanymi rezultatami, bolączkami (z severity, cytatami, rozwiązaniami)
 
 ---
 
@@ -145,7 +145,7 @@ rendered = template.render(
 
 **Plik:** `config/prompts/personas/orchestration.yaml`
 **Wersja:** 1.0.0
-**Opis:** Persona allocation orchestration - deep sociological analysis with educational briefs
+**Opis:** Orkiestracja alokacji person - głęboka analiza socjologiczna z edukacyjnymi briefami
 
 **Parametry:**
 - `num_personas` - liczba person do wygenerowania
@@ -162,7 +162,7 @@ rendered = template.render(
 from config import prompts, models
 from app.services.shared.clients import build_chat_model
 
-# Model config (gemini-2.5-pro, temp=0.3)
+# Konfiguracja modelu (gemini-2.5-pro, temp=0.3)
 model_config = models.get("personas", "orchestration")
 llm = build_chat_model(**model_config.params)
 
@@ -170,13 +170,13 @@ template = prompts.get("personas.orchestration")
 rendered = template.render(
     num_personas=20,
     project_description="Badanie aplikacji fitness",
-    additional_context="Focus na młodych użytkowników",
+    additional_context="Fokus na młodych użytkowników",
     target_demographics='{"age_groups": {"18-24": 0.3, "25-34": 0.5}}',
     graph_context="[insights z Neo4j]"
 )
 ```
 
-**Output:** JSON z `total_personas`, `overall_context`, `groups[]` (każda z długim briefem 900-1200 znaków, segment_characteristics, graph_insights, allocation_reasoning)
+**Output:** JSON z `total_personas`, `overall_context`, `groups[]` (każda z długim briefem 900-1200 znaków, cechami segmentu, insightami z grafu, uzasadnieniem alokacji)
 
 ---
 
@@ -184,9 +184,9 @@ rendered = template.render(
 
 **Plik:** `config/prompts/personas/persona_generation_system.yaml`
 **Wersja:** 1.0.0
-**Opis:** System prompt dla generatora person - tworzy realistyczne syntetyczne persony dla polskiego rynku
+**Opis:** Systemowy prompt dla generatora person - tworzy realistyczne syntetyczne persony dla polskiego rynku
 
-**Parametry:** brak (system prompt)
+**Parametry:** brak (prompt systemowy)
 
 **Używany w:**
 - `PersonaGeneratorLangChain` (app/services/personas/persona_generator_langchain.py)
@@ -202,11 +202,11 @@ system_message = template.messages[0]["content"]
 from langchain_core.prompts import ChatPromptTemplate
 prompt = ChatPromptTemplate.from_messages([
     ("system", system_message),
-    ("user", "Generate persona: {demographics}")
+    ("user", "Wygeneruj personę: {demographics}")
 ])
 ```
 
-**Output:** Używany jako system prompt (brak bezpośredniego output)
+**Output:** Używany jako prompt systemowy (brak bezpośredniego outputu)
 
 ---
 
@@ -214,7 +214,7 @@ prompt = ChatPromptTemplate.from_messages([
 
 **Plik:** `config/prompts/personas/persona_uniqueness.yaml`
 **Wersja:** 1.0.0
-**Opis:** Describe what makes this persona unique within their segment (250-400 words)
+**Opis:** Opisuje co czyni tę personę wyjątkową w ramach jej segmentu (250-400 słów)
 
 **Parametry:**
 - `persona_name` - pełne imię i nazwisko
@@ -254,7 +254,7 @@ rendered = template.render(
 
 **Plik:** `config/prompts/personas/segment_brief.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate long, engaging, personal segment description (400-800 words)
+**Opis:** Generuje długi, angażujący, osobisty opis segmentu (400-800 słów)
 
 **Parametry:**
 - `segment_name` - nazwa segmentu
@@ -286,7 +286,7 @@ rendered = template.render(
 )
 ```
 
-**Output:** 400-800 słów storytelling description w 4 sekcjach (Kim są? / Kontekst zawodowy / Wartości / Wyzwania)
+**Output:** 400-800 słów opisu storytellingowego w 4 sekcjach (Kim są? / Kontekst zawodowy / Wartości / Wyzwania)
 
 ---
 
@@ -294,7 +294,7 @@ rendered = template.render(
 
 **Plik:** `config/prompts/personas/segment_context.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate social context for a segment (500-800 chars)
+**Opis:** Generuje kontekst społeczny dla segmentu (500-800 znaków)
 
 **Parametry:**
 - `segment_name` - nazwa segmentu
@@ -307,7 +307,7 @@ rendered = template.render(
 - `project_goal` - cel projektu badawczego
 
 **Używany w:**
-- `PersonaOrchestrationService` (wewnętrznie dla contextual briefs)
+- `PersonaOrchestrationService` (wewnętrznie dla kontekstowych briefów)
 
 **Przykład użycia:**
 ```python
@@ -334,7 +334,7 @@ rendered = template.render(
 
 **Plik:** `config/prompts/personas/segment_name.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate meaningful, evocative segment names (2-4 words)
+**Opis:** Generuje znaczące, evokacyjne nazwy segmentów (2-4 słowa)
 
 **Parametry:**
 - `age_range` - zakres wiekowy
@@ -372,10 +372,10 @@ rendered = template.render(
 
 **Plik:** `config/prompts/rag/cypher_generation.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate Cypher query from natural language question (Polish society analyst)
+**Opis:** Generuje zapytanie Cypher z pytania w języku naturalnym (analityk społeczeństwa polskiego)
 
 **Parametry:**
-- `graph_schema` - schema grafu Neo4j
+- `graph_schema` - schemat grafu Neo4j
 - `question` - pytanie w języku naturalnym
 
 **Używany w:**
@@ -387,12 +387,12 @@ from config import prompts
 
 template = prompts.get("rag.cypher_generation")
 rendered = template.render(
-    graph_schema="Node labels: Obserwacja, Wskaznik, Demografia...",
+    graph_schema="Etykiety węzłów: Obserwacja, Wskaznik, Demografia...",
     question="Jakie są największe wskaźniki zatrudnienia w Polsce?"
 )
 ```
 
-**Output:** Cypher query (string) do wykonania na grafie Neo4j
+**Output:** Zapytanie Cypher (string) do wykonania na grafie Neo4j
 
 **Węzły:** Obserwacja, Wskaznik, Demografia, Trend, Lokalizacja
 **Relacje:** OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W, POWIAZANY_Z
@@ -403,7 +403,7 @@ rendered = template.render(
 
 **Plik:** `config/prompts/rag/graph_rag_answer.yaml`
 **Wersja:** 1.0.0
-**Opis:** Answer question using graph context and RAG documents (Polish social expert)
+**Opis:** Odpowiada na pytanie wykorzystując kontekst z grafu i dokumentów RAG (polski ekspert społeczny)
 
 **Parametry:**
 - `question` - pytanie użytkownika
@@ -427,16 +427,16 @@ rendered = template.render(
 
 ---
 
-## Surveys
+## Ankiety
 
 ### `surveys.multiple_choice`
 
 **Plik:** `config/prompts/surveys/multiple_choice.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate multiple-choice survey response as a specific persona
+**Opis:** Generuje odpowiedź wielokrotnego wyboru w ankiecie jako konkretna persona
 
 **Parametry:**
-- `persona_context` - pełny kontekst persony (demografia, wartości, background)
+- `persona_context` - pełny kontekst persony (demografia, wartości, tło)
 - `question` - pytanie ankietowe
 - `description` - dodatkowy opis pytania (opcjonalny)
 - `options` - lista opcji odpowiedzi
@@ -457,7 +457,7 @@ rendered = template.render(
 )
 ```
 
-**Output:** Comma-separated list wybanych opcji (np. "Nike Training Club, Strava")
+**Output:** Lista wybranych opcji rozdzielona przecinkami (np. "Nike Training Club, Strava")
 
 ---
 
@@ -465,7 +465,7 @@ rendered = template.render(
 
 **Plik:** `config/prompts/surveys/open_text.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate open-text survey response as a specific persona
+**Opis:** Generuje odpowiedź tekstową w ankiecie jako konkretna persona
 
 **Parametry:**
 - `persona_context` - pełny kontekst persony
@@ -495,7 +495,7 @@ rendered = template.render(
 
 **Plik:** `config/prompts/surveys/rating_scale.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate rating scale survey response as a specific persona
+**Opis:** Generuje odpowiedź na skali ocen w ankiecie jako konkretna persona
 
 **Parametry:**
 - `persona_context` - pełny kontekst persony
@@ -529,7 +529,7 @@ rendered = template.render(
 
 **Plik:** `config/prompts/surveys/single_choice.yaml`
 **Wersja:** 1.0.0
-**Opis:** Generate single-choice survey response as a specific persona
+**Opis:** Generuje odpowiedź jednokrotnego wyboru w ankiecie jako konkretna persona
 
 **Parametry:**
 - `persona_context` - pełny kontekst persony
@@ -557,15 +557,15 @@ rendered = template.render(
 
 ---
 
-## System Prompts
+## Prompty Systemowe
 
 ### `system.conversational_tone`
 
 **Plik:** `config/prompts/system/conversational_tone.yaml`
 **Wersja:** 1.0.0
-**Opis:** Conversational style - like talking to a teammate, not reading a report
+**Opis:** Styl konwersacyjny - jak rozmowa z kolegą z zespołu, nie czytanie raportu
 
-**Parametry:** brak (modifier prompt)
+**Parametry:** brak (prompt modyfikujący)
 
 **Używany w:** Może być kombinowany z innymi promptami dla stylu konwersacyjnego
 
@@ -573,11 +573,11 @@ rendered = template.render(
 ```python
 from config import prompts
 
-# Get both prompts
+# Pobierz oba prompty
 conversational = prompts.get("system.conversational_tone")
 main_prompt = prompts.get("personas.segment_brief")
 
-# Combine system messages
+# Połącz komunikaty systemowe
 system_message = conversational.messages[0]["content"] + "\n\n" + main_prompt.messages[0]["content"]
 ```
 
@@ -589,9 +589,9 @@ system_message = conversational.messages[0]["content"] + "\n\n" + main_prompt.me
 
 **Plik:** `config/prompts/system/educational.yaml`
 **Wersja:** 1.0.0
-**Opis:** Educational approach - teach the user, don't just deliver information
+**Opis:** Podejście edukacyjne - ucz użytkownika, nie tylko dostarczaj informacji
 
-**Parametry:** brak (modifier prompt)
+**Parametry:** brak (prompt modyfikujący)
 
 **Używany w:** Kombinowany z promptami wymagającymi edukacyjnego podejścia (np. orchestration)
 
@@ -611,9 +611,9 @@ educational = prompts.get("system.educational")
 
 **Plik:** `config/prompts/system/formatting_markdown.yaml`
 **Wersja:** 1.0.0
-**Opis:** Markdown formatting instructions for better readability (English)
+**Opis:** Instrukcje formatowania Markdown dla lepszej czytelności (angielski)
 
-**Parametry:** brak (modifier prompt)
+**Parametry:** brak (prompt modyfikujący)
 
 **Używany w:** Prompty generujące długi tekst w języku angielskim
 
@@ -633,9 +633,9 @@ formatting = prompts.get("system.formatting_markdown")
 
 **Plik:** `config/prompts/system/formatting_polish_markdown.yaml`
 **Wersja:** 1.0.0
-**Opis:** Markdown formatting instructions for better readability (Polish)
+**Opis:** Instrukcje formatowania Markdown dla lepszej czytelności (polski)
 
-**Parametry:** brak (modifier prompt)
+**Parametry:** brak (prompt modyfikujący)
 
 **Używany w:** Prompty generujące długi tekst po polsku
 
@@ -655,21 +655,21 @@ formatting = prompts.get("system.formatting_polish_markdown")
 
 **Plik:** `config/prompts/system/json_output.yaml`
 **Wersja:** 1.0.0
-**Opis:** JSON output instructions - strict formatting for parseable responses
+**Opis:** Instrukcje outputu JSON - ścisłe formatowanie dla parsowalnych odpowiedzi
 
-**Parametry:** brak (modifier prompt)
+**Parametry:** brak (prompt modyfikujący)
 
-**Używany w:** Wszystkie prompty wymagające JSON output (orchestration, jtbd, etc.)
+**Używany w:** Wszystkie prompty wymagające outputu JSON (orchestration, jtbd, itp.)
 
 **Przykład użycia:**
 ```python
 from config import prompts
 
 json_instructions = prompts.get("system.json_output")
-# Kombinuj z głównym promptem dla strict JSON
+# Kombinuj z głównym promptem dla ścisłego JSON
 ```
 
-**Efekt:** Wymusza valid JSON bez markdown code blocks, text wrappers, trailing commas
+**Efekt:** Wymusza poprawny JSON bez markdown code blocks, text wrappers, trailing commas
 
 ---
 
@@ -677,13 +677,13 @@ json_instructions = prompts.get("system.json_output")
 
 **Plik:** `config/prompts/system/market_research_expert.yaml`
 **Wersja:** 1.0.0
-**Opis:** Expert system prompt for market research analysis - strategic insights for product teams
+**Opis:** Ekspert systemowy prompt dla analizy badań rynkowych - strategiczne wnioski dla zespołów produktowych
 
-**Parametry:** brak (system prompt)
+**Parametry:** brak (prompt systemowy)
 
 **Używany w:**
-- `DiscussionSummarizer` (focus group summaries)
-- Inne serwisy wymagające market research expertise
+- `DiscussionSummarizer` (podsumowania grup fokusowych)
+- Inne serwisy wymagające ekspertyzy market research
 
 **Przykład użycia:**
 ```python
@@ -693,33 +693,33 @@ expert = prompts.get("system.market_research_expert")
 system_message = expert.messages[0]["content"]
 ```
 
-**Efekt:** Analiza z perspektywy eksperta market research (actionable insights, patterns, strategic recommendations)
+**Efekt:** Analiza z perspektywy eksperta market research (actionable insights, wzorce, rekomendacje strategiczne)
 
 ---
 
-### `system.market_research_expert` (variant B)
+### `system.market_research_expert` (wariant B)
 
 **Plik:** `config/prompts/system/market_research_expert_variant_b.yaml`
 **Wersja:** 1.1.0
-**Opis:** Expert system prompt for market research - VARIANT B (more concise)
-**Variant:** b
+**Opis:** Ekspert systemowy prompt dla market research - WARIANT B (bardziej zwięzły)
+**Wariant:** b
 
-**Parametry:** brak (system prompt)
+**Parametry:** brak (prompt systemowy)
 
-**Używany w:** A/B testing promptów (bardziej zwięzła wersja eksperta)
+**Używany w:** Testy A/B promptów (bardziej zwięzła wersja eksperta)
 
 **Przykład użycia:**
 ```python
 from config import prompts
 
-# Random weighted selection
+# Losowy ważony wybór
 expert = prompts.get("system.market_research_expert")
 
-# Lub konkretny variant
+# Lub konkretny wariant
 expert_b = prompts.get("system.market_research_expert", variant="b")
 ```
 
-**Efekt:** Bardziej zwięzła wersja eksperta (focus na actionable insights, bez fluff)
+**Efekt:** Bardziej zwięzła wersja eksperta (fokus na actionable insights, bez zbędnych słów)
 
 ---
 
@@ -727,13 +727,13 @@ expert_b = prompts.get("system.market_research_expert", variant="b")
 
 **Plik:** `config/prompts/system/polish_society_expert.yaml`
 **Wersja:** 1.0.0
-**Opis:** Expert on Polish sociology and social research - grounded in real data
+**Opis:** Ekspert w dziedzinie socjologii i badań społecznych w Polsce - oparty na rzeczywistych danych
 
-**Parametry:** brak (system prompt)
+**Parametry:** brak (prompt systemowy)
 
 **Używany w:**
 - `PersonaOrchestrationService` (orchestration)
-- `SegmentBriefService` (segment briefs)
+- `SegmentBriefService` (briefe segmentów)
 - Wszystkie serwisy wymagające wiedzy o polskim społeczeństwie
 
 **Przykład użycia:**
@@ -752,11 +752,11 @@ system_message = expert.messages[0]["content"]
 
 **Plik:** `config/prompts/system/quality_control.yaml`
 **Wersja:** 1.0.0
-**Opis:** Quality control specialist for AI-generated content verification
+**Opis:** Specjalista kontroli jakości dla weryfikacji treści generowanych przez AI
 
-**Parametry:** brak (system prompt)
+**Parametry:** brak (prompt systemowy)
 
-**Używany w:** Potencjalnie do walidacji wygenerowanych person / treści (obecnie nie używany w production)
+**Używany w:** Potencjalnie do walidacji wygenerowanych person / treści (obecnie nie używany w produkcji)
 
 **Przykład użycia:**
 ```python
@@ -766,7 +766,7 @@ qc = prompts.get("system.quality_control")
 # Używane do weryfikacji wygenerowanych person
 ```
 
-**Efekt:** Weryfikuje consistency, realizm, język polski, brak stereotypów
+**Efekt:** Weryfikuje spójność, realizm, język polski, brak stereotypów
 
 ---
 
@@ -774,32 +774,32 @@ qc = prompts.get("system.quality_control")
 
 **Plik:** `config/prompts/system/storytelling.yaml`
 **Wersja:** 1.0.0
-**Opis:** Skilled storyteller who creates compelling narratives from data
+**Opis:** Utalentowany storyteller tworzący angażujące narracje z danych
 
-**Parametry:** brak (modifier prompt)
+**Parametry:** brak (prompt modyfikujący)
 
-**Używany w:** Kombinowany z segment briefs dla storytelling approach
+**Używany w:** Kombinowany z briefami segmentów dla podejścia storytellingowego
 
 **Przykład użycia:**
 ```python
 from config import prompts
 
 storytelling = prompts.get("system.storytelling")
-# Używane jako część system message dla briefs
+# Używane jako część system message dla briefów
 ```
 
-**Efekt:** Hook na początku, emotional connection, concrete examples, actionable insights na końcu
+**Efekt:** Hook na początku, emotional connection, konkretne przykłady, actionable insights na końcu
 
 ---
 
 ## 🔍 Szybkie Wyszukiwanie
 
 ### Po Kategorii
-- **Focus Groups** - discussion_summary, persona_response
-- **Personas** - jtbd, orchestration, persona_generation_system, persona_uniqueness, segment_brief, segment_context, segment_name
+- **Grupy Fokusowe** - discussion_summary, persona_response
+- **Persony** - jtbd, orchestration, persona_generation_system, persona_uniqueness, segment_brief, segment_context, segment_name
 - **RAG** - cypher_generation, graph_rag_answer
-- **Surveys** - multiple_choice, open_text, rating_scale, single_choice
-- **System** - conversational_tone, educational, formatting_markdown, formatting_polish_markdown, json_output, market_research_expert, polish_society_expert, quality_control, storytelling
+- **Ankiety** - multiple_choice, open_text, rating_scale, single_choice
+- **Systemowe** - conversational_tone, educational, formatting_markdown, formatting_polish_markdown, json_output, market_research_expert, polish_society_expert, quality_control, storytelling
 
 ### Po Serwisie
 
@@ -847,31 +847,31 @@ storytelling = prompts.get("system.storytelling")
 
 **Główna dokumentacja:**
 - `config/README.md` - Kompletny przewodnik po systemie konfiguracji
-- `config/models.yaml` - Model registry (fallback chain)
-- `config/pricing.yaml` - Model pricing dla cost tracking
+- `config/models.yaml` - Rejestr modeli (fallback chain)
+- `config/pricing.yaml` - Ceny modeli dla śledzenia kosztów
 
 **Walidacja:**
 ```bash
 # Waliduj wszystkie prompty
 python scripts/config_validate.py
 
-# Check placeholders
+# Sprawdź placeholdery
 python scripts/config_validate.py --check-placeholders
 
-# Auto-bump versions
+# Auto-bump wersji
 python scripts/config_validate.py --auto-bump
 ```
 
 **Testy:**
 ```bash
-# Test prompt registry
+# Test rejestru promptów
 pytest tests/config/test_prompt_registry.py -v
 
-# Test model registry
+# Test rejestru modeli
 pytest tests/config/test_model_registry.py -v
 ```
 
 ---
 
 **Ostatnia aktualizacja:** 2025-10-27
-**Autor:** Claude Code + Config System Team
+**Autor:** Claude Code + Zespół Systemu Konfiguracji
