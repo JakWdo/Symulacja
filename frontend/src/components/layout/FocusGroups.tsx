@@ -23,25 +23,25 @@ interface FocusGroupsProps {
 const getStatusBadge = (focusGroup: any) => {
   switch (focusGroup.status) {
     case 'completed':
-      return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">Completed</Badge>;
+      return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">Zakończony</Badge>;
     case 'running':
       return (
         <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400 flex items-center gap-1.5">
           <SpinnerLogo className="w-3.5 h-3.5" />
-          In Progress
+          W trakcie
         </Badge>
       );
     case 'failed':
       return (
         <Badge className="bg-red-100 text-red-700 dark:bg-red-400/10 dark:text-red-400">
-          Failed
+          Nieudany
         </Badge>
       );
     case 'pending':
       if ((focusGroup.persona_ids?.length || 0) === 0 || (focusGroup.questions?.length || 0) === 0) {
-        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Draft</Badge>;
+        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Szkic</Badge>;
       }
-      return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Ready to start</Badge>;
+      return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Gotowy do startu</Badge>;
     default:
       return null;
   }
@@ -85,11 +85,11 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
     mutationFn: (focusGroupId: string) => focusGroupsApi.remove(focusGroupId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['focus-groups', selectedProject?.id] });
-      toast.success('Session archived', 'Your focus group discussion has been removed from the workspace.');
+      toast.success('Sesja zarchiwizowana', 'Dyskusja grupy fokusowej została usunięta z obszaru roboczego.');
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Failed to delete focus group', message);
+      const message = error instanceof Error ? error.message : 'Nieznany błąd';
+      toast.error('Nie udało się usunąć grupy fokusowej', message);
     },
   });
 
@@ -111,9 +111,9 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Focus Groups</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Grupy fokusowe</h1>
           <p className="text-muted-foreground">
-            Conduct in-depth qualitative research with AI-powered focus group sessions
+            Przeprowadzaj dogłębne badania jakościowe z sesjami grup fokusowych opartymi na AI
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -126,7 +126,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
           >
             <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
               <SelectValue
-                placeholder="Select project"
+                placeholder="Wybierz projekt"
                 className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
               />
             </SelectTrigger>
@@ -136,7 +136,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                   <SpinnerLogo className="w-4 h-4" />
                 </div>
               ) : projects.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">No projects found</div>
+                <div className="p-2 text-sm text-muted-foreground">Nie znaleziono projektów</div>
               ) : (
                 projects.map((project) => (
                   <SelectItem
@@ -156,7 +156,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
             disabled={!selectedProject}
           >
             <Plus className="w-4 h-4 mr-2" />
-            Create Focus Group
+            Utwórz grupę fokusową
           </Button>
         </div>
       </div>
@@ -165,9 +165,9 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
         <Card className="bg-card border border-border">
           <CardContent className="py-12 text-center space-y-4">
             <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto" />
-            <h3 className="text-lg text-card-foreground">No project selected</h3>
+            <h3 className="text-lg text-card-foreground">Nie wybrano projektu</h3>
             <p className="text-sm text-muted-foreground">
-              Choose a project from the dropdown to view and manage focus groups.
+              Wybierz projekt z listy rozwijanej, aby przeglądać i zarządzać grupami fokusowymi.
             </p>
           </CardContent>
         </Card>
@@ -178,14 +178,14 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
       ) : focusGroups.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-[400px] space-y-3">
           <MessageSquare className="w-12 h-12 text-muted-foreground" />
-          <h2 className="text-lg font-medium text-foreground">No focus groups yet</h2>
-          <p className="text-sm text-muted-foreground">Create your first focus group to conduct qualitative research</p>
+          <h2 className="text-lg font-medium text-foreground">Nie znaleziono grup fokusowych</h2>
+          <p className="text-sm text-muted-foreground">Utwórz swoją pierwszą grupę fokusową, aby przeprowadzić badania jakościowe</p>
           <Button
             className="bg-[#F27405] hover:bg-[#F27405]/90 text-white mt-2"
             onClick={onCreateFocusGroup}
           >
             <Plus className="w-4 h-4 mr-2" />
-            Create Focus Group
+            Utwórz grupę fokusową
           </Button>
         </div>
       ) : (
@@ -196,7 +196,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Groups</p>
+                    <p className="text-sm text-muted-foreground">Wszystkie grupy</p>
                     <p className="text-2xl brand-orange">{focusGroups.length}</p>
                   </div>
                   <MessageSquare className="w-8 h-8 text-primary" />
@@ -208,7 +208,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Participants</p>
+                    <p className="text-sm text-muted-foreground">Wszyscy uczestnicy</p>
                     <p className="text-2xl brand-orange">
                       {focusGroups.reduce((sum, fg) => sum + (fg.persona_ids?.length || 0), 0)}
                     </p>
@@ -221,7 +221,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
 
           {/* Focus Groups List */}
           <div className="space-y-4">
-            <h2 className="text-xl text-foreground">Your Focus Groups</h2>
+            <h2 className="text-xl text-foreground">Twoje grupy fokusowe</h2>
 
             <div className="grid grid-cols-1 gap-4">
               {focusGroups.map((focusGroup) => (
@@ -240,10 +240,10 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                           {getStatusBadge(focusGroup)}
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">
-                          {focusGroup.description || 'No description'}
+                          {focusGroup.description || 'Brak opisu'}
                         </p>
                         <p className="text-xs text-muted-foreground mb-2">
-                          {focusGroup.questions?.length || 0} questions • {focusGroup.persona_ids?.length || 0} participants
+                          {focusGroup.questions?.length || 0} {(focusGroup.questions?.length || 0) === 1 ? 'pytanie' : (focusGroup.questions?.length || 0) < 5 ? 'pytania' : 'pytań'} • {focusGroup.persona_ids?.length || 0} {(focusGroup.persona_ids?.length || 0) === 1 ? 'uczestnik' : (focusGroup.persona_ids?.length || 0) < 5 ? 'uczestników' : 'uczestników'}
                         </p>
                       </div>
 
@@ -256,14 +256,14 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                         <DropdownMenuContent>
                           <DropdownMenuItem onClick={() => onSelectFocusGroup(focusGroup)}>
                             <Eye className="w-4 h-4 mr-2" />
-                            View Details
+                            Zobacz szczegóły
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDelete(focusGroup)}
                             className="text-destructive focus:text-destructive"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
+                            Usuń
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -273,7 +273,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Participants</span>
+                          <span className="text-muted-foreground">Uczestnicy</span>
                           <span className="text-card-foreground">
                             {focusGroup.persona_ids?.length || 0} / {focusGroup.target_participants || 10}
                           </span>
@@ -290,11 +290,11 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                       </div>
 
                       <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Discussion Topics</p>
+                        <p className="text-sm text-muted-foreground">Tematy dyskusji</p>
                         <div className="flex flex-wrap gap-1">
                           {focusGroup.questions?.slice(0, 2).map((question, index) => (
                             <Badge key={index} variant="outline" className="text-xs">
-                              Q{index + 1}
+                              P{index + 1}
                             </Badge>
                           ))}
                         </div>
@@ -306,14 +306,14 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                           {focusGroup.status === 'running' && <SpinnerLogo className="w-3 h-3" />}
                           <span>
                             {focusGroup.status === 'completed'
-                              ? 'Completed'
+                              ? 'Zakończony'
                               : focusGroup.status === 'running'
-                              ? `In progress (${focusGroup.persona_ids?.length || 0} participants)`
+                              ? `W trakcie (${focusGroup.persona_ids?.length || 0} ${(focusGroup.persona_ids?.length || 0) === 1 ? 'uczestnik' : 'uczestników'})`
                               : focusGroup.status === 'pending' && (focusGroup.persona_ids?.length === 0 || focusGroup.questions?.length === 0)
-                              ? 'Draft'
+                              ? 'Szkic'
                               : focusGroup.status === 'pending'
-                              ? 'Ready to start'
-                              : 'Failed'}
+                              ? 'Gotowy do startu'
+                              : 'Nieudany'}
                           </span>
                         </div>
                       </div>
@@ -327,10 +327,10 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                         className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
                       >
                         <Settings className="w-4 h-4 mr-2" />
-                        Manage Session
+                        Zarządzaj sesją
                       </Button>
                       <p className="text-xs text-muted-foreground ml-auto">
-                        Created {new Date(focusGroup.created_at).toLocaleDateString()}
+                        Utworzono {new Date(focusGroup.created_at).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -347,10 +347,10 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
       <ConfirmDialog
         open={deleteDialog.open}
         onOpenChange={(open) => setDeleteDialog({ open, focusGroup: null })}
-        title={`Remove "${deleteDialog.focusGroup?.name}"?`}
-        description={`This will permanently delete all discussion data and cannot be reversed.`}
-        confirmText="Remove Session"
-        cancelText="Keep It"
+        title={`Usunąć "${deleteDialog.focusGroup?.name}"?`}
+        description={`Spowoduje to trwałe usunięcie wszystkich danych dyskusji i nie można tego cofnąć.`}
+        confirmText="Usuń sesję"
+        cancelText="Zachowaj"
         onConfirm={confirmDelete}
       />
     </div>

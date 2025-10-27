@@ -75,10 +75,10 @@ export function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'profile'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-      toast.success('Profile updated successfully');
+      toast.success('Profil zaktualizowany pomyślnie');
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Failed to update profile');
+      toast.error(error?.response?.data?.detail || 'Nie udało się zaktualizować profilu');
     },
   });
 
@@ -91,10 +91,10 @@ export function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'profile'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-      toast.success('Avatar uploaded successfully');
+      toast.success('Awatar przesłany pomyślnie');
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Failed to upload avatar');
+      toast.error(error?.response?.data?.detail || 'Nie udało się przesłać awatara');
     },
   });
 
@@ -103,21 +103,21 @@ export function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'profile'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-      toast.success('Avatar deleted successfully');
+      toast.success('Awatar usunięty pomyślnie');
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Failed to delete avatar');
+      toast.error(error?.response?.data?.detail || 'Nie udało się usunąć awatara');
     },
   });
 
   const deleteAccountMutation = useMutation({
     mutationFn: settingsApi.deleteAccount,
     onSuccess: () => {
-      toast.info('Account deleted. Goodbye!');
+      toast.info('Konto usunięte. Do widzenia!');
       logout();
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Failed to delete account');
+      toast.error(error?.response?.data?.detail || 'Nie udało się usunąć konta');
     },
   });
 
@@ -128,13 +128,13 @@ export function Settings() {
 
     // Validate file type
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error('Invalid file type. Please upload JPG, PNG, or WEBP');
+      toast.error('Nieprawidłowy typ pliku. Prześlij JPG, PNG lub WEBP');
       return;
     }
 
     // Validate file size (2MB)
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('File too large. Maximum size is 2MB');
+      toast.error('Plik za duży. Maksymalny rozmiar to 2MB');
       return;
     }
 
@@ -159,8 +159,8 @@ export function Settings() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-semibold text-foreground mb-2">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and application preferences</p>
+        <h1 className="text-3xl font-semibold text-foreground mb-2">Ustawienia</h1>
+        <p className="text-muted-foreground">Zarządzaj swoim kontem i preferencjami aplikacji</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -170,9 +170,9 @@ export function Settings() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <User className="w-5 h-5 text-chart-2" />
-                <CardTitle className="text-card-foreground">Profile Settings</CardTitle>
+                <CardTitle className="text-card-foreground">Ustawienia profilu</CardTitle>
               </div>
-              <p className="text-muted-foreground">Update your personal information</p>
+              <p className="text-muted-foreground">Zaktualizuj swoje dane osobowe</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleProfileSubmit} className="space-y-4">
@@ -204,7 +204,7 @@ export function Settings() {
                       ) : (
                         <Upload className="w-4 h-4 mr-2" />
                       )}
-                      Change Avatar
+                      Zmień awatar
                     </Button>
                     {profile?.avatar_url && (
                       <Button
@@ -221,12 +221,12 @@ export function Settings() {
                       </Button>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">JPG, PNG or WEBP, max 2MB</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG lub WEBP, maks. 2MB</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="name">Imię i nazwisko</Label>
                     <Input
                       id="name"
                       value={profileForm.full_name}
@@ -243,7 +243,7 @@ export function Settings() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="role">Role</Label>
+                    <Label htmlFor="role">Rola</Label>
                     <Input
                       id="role"
                       value={profileForm.role}
@@ -251,7 +251,7 @@ export function Settings() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="company">Company</Label>
+                    <Label htmlFor="company">Firma</Label>
                     <Input
                       id="company"
                       value={profileForm.company}
@@ -271,7 +271,7 @@ export function Settings() {
                     {updateProfileMutation.isPending && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     )}
-                    Save Changes
+                    Zapisz zmiany
                   </Button>
                 </div>
               </form>
@@ -283,18 +283,18 @@ export function Settings() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Palette className="w-5 h-5 text-chart-1" />
-                <CardTitle className="text-card-foreground">Appearance</CardTitle>
+                <CardTitle className="text-card-foreground">Wygląd</CardTitle>
               </div>
-              <p className="text-muted-foreground">Customize the look and feel of your workspace</p>
+              <p className="text-muted-foreground">Dostosuj wygląd swojego obszaru roboczego</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="theme-mode" className="text-card-foreground">
-                    Theme
+                    Motyw
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Choose between light and dark mode
+                    Wybierz tryb jasny lub ciemny
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -313,7 +313,7 @@ export function Settings() {
                 >
                   <div className="flex flex-col items-start gap-2">
                     <div className="w-6 h-4 rounded border bg-white border-gray-300"></div>
-                    <span>Light</span>
+                    <span>Jasny</span>
                   </div>
                 </Button>
 
@@ -324,7 +324,7 @@ export function Settings() {
                 >
                   <div className="flex flex-col items-start gap-2">
                     <div className="w-6 h-4 rounded border bg-gray-800 border-gray-600"></div>
-                    <span>Dark</span>
+                    <span>Ciemny</span>
                   </div>
                 </Button>
               </div>
@@ -337,7 +337,7 @@ export function Settings() {
           {/* Account Status */}
           <Card className="bg-card border border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-card-foreground">Account Status</CardTitle>
+              <CardTitle className="text-card-foreground">Status konta</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
@@ -350,29 +350,29 @@ export function Settings() {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Projects</span>
+                <span className="text-muted-foreground">Projekty</span>
                 <span className="text-card-foreground">{stats?.projects_count || 0}</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Personas Generated</span>
+                <span className="text-muted-foreground">Wygenerowane persony</span>
                 <span className="text-card-foreground">{stats?.personas_count || 0}</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Focus Groups</span>
+                <span className="text-muted-foreground">Grupy fokusowe</span>
                 <span className="text-card-foreground">{stats?.focus_groups_count || 0}</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Surveys</span>
+                <span className="text-muted-foreground">Ankiety</span>
                 <span className="text-card-foreground">{stats?.surveys_count || 0}</span>
               </div>
 
               <Separator className="bg-border" />
 
               <Button variant="outline" className="w-full" disabled>
-                Upgrade Plan
+                Ulepsz plan
               </Button>
             </CardContent>
           </Card>
@@ -382,16 +382,16 @@ export function Settings() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-chart-4" />
-                <CardTitle className="text-card-foreground">Data & Privacy</CardTitle>
+                <CardTitle className="text-card-foreground">Dane i prywatność</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button variant="outline" className="w-full justify-start" disabled>
-                Export Data
+                Eksportuj dane
               </Button>
 
               <Button variant="outline" className="w-full justify-start" disabled>
-                Privacy Settings
+                Ustawienia prywatności
               </Button>
 
               <AlertDialog>
@@ -401,24 +401,24 @@ export function Settings() {
                     className="w-full justify-start border-destructive/50 text-destructive hover:text-destructive hover:border-destructive"
                   >
                     <AlertTriangle className="w-4 h-4 mr-2" />
-                    Delete Account
+                    Usuń konto
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogTitle>Czy na pewno chcesz to zrobić?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete your account and
-                      remove all your data from our servers, including:
+                      Ta akcja jest nieodwracalna. Spowoduje to trwałe usunięcie Twojego konta i
+                      wszystkich danych z naszych serwerów, w tym:
                       <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li>All projects and personas</li>
-                        <li>Focus group discussions and survey results</li>
-                        <li>Your profile and settings</li>
+                        <li>Wszystkie projekty i persony</li>
+                        <li>Dyskusje grup fokusowych i wyniki ankiet</li>
+                        <li>Twój profil i ustawienia</li>
                       </ul>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>Anuluj</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => deleteAccountMutation.mutate()}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -427,7 +427,7 @@ export function Settings() {
                       {deleteAccountMutation.isPending && (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       )}
-                      Delete Account
+                      Usuń konto
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -438,19 +438,19 @@ export function Settings() {
           {/* Support */}
           <Card className="bg-card border border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-card-foreground">Support</CardTitle>
+              <CardTitle className="text-card-foreground">Wsparcie</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button variant="outline" className="w-full justify-start" disabled>
-                Help Center
+                Centrum pomocy
               </Button>
 
               <Button variant="outline" className="w-full justify-start" disabled>
-                Contact Support
+                Kontakt z pomocą techniczną
               </Button>
 
               <Button variant="outline" className="w-full justify-start" disabled>
-                Feature Requests
+                Prośby o funkcje
               </Button>
             </CardContent>
           </Card>

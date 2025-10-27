@@ -36,14 +36,14 @@ function StatusBadge({ status }: { status: FocusGroup['status'] }) {
       gradient: 'from-slate-500 to-slate-600',
       bg: 'bg-slate-100',
       text: 'text-slate-700',
-      label: 'Pending',
+      label: 'Oczekujące',
     },
     running: {
       icon: SpinnerLogo,
       gradient: 'from-blue-500 to-indigo-600',
       bg: 'bg-blue-100',
       text: 'text-blue-700',
-      label: 'Running',
+      label: 'W trakcie',
       animate: true,
     },
     completed: {
@@ -51,14 +51,14 @@ function StatusBadge({ status }: { status: FocusGroup['status'] }) {
       gradient: 'from-green-500 to-emerald-600',
       bg: 'bg-green-100',
       text: 'text-green-700',
-      label: 'Completed',
+      label: 'Zakończone',
     },
     failed: {
       icon: AlertCircle,
       gradient: 'from-red-500 to-rose-600',
       bg: 'bg-red-100',
       text: 'text-red-700',
-      label: 'Failed',
+      label: 'Nieudane',
     },
   } as const;
 
@@ -97,10 +97,10 @@ function FocusGroupCard({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['focus-groups', focusGroup.project_id] });
       queryClient.invalidateQueries({ queryKey: ['focus-group', focusGroup.id] });
-      toast.info('Focus group started', `"${focusGroup.name}" is now running`);
+      toast.info('Grupa fokusowa rozpoczęta', `"${focusGroup.name}" jest teraz w trakcie realizacji`);
     },
     onError: (error: Error) => {
-      toast.error('Failed to start focus group', error.message);
+      toast.error('Nie udało się uruchomić grupy fokusowej', error.message);
     },
   });
 
@@ -110,7 +110,7 @@ function FocusGroupCard({
   const handleRun = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isLaunchReady) {
-      toast.error('Add more details', 'Need at least 2 personas and 1 question before launching.');
+      toast.error('Dodaj więcej szczegółów', 'Potrzeba co najmniej 2 person i 1 pytania przed uruchomieniem.');
       return;
     }
     runMutation.mutate();
@@ -170,11 +170,11 @@ function FocusGroupCard({
           <div className="flex flex-wrap gap-3 text-xs text-slate-500 mb-3">
             <span className="flex items-center gap-1">
               <Users className="w-3.5 h-3.5" />
-              {focusGroup.persona_ids.length} personas
+              {focusGroup.persona_ids.length} person
             </span>
             <span className="flex items-center gap-1">
               <MessageSquare className="w-3.5 h-3.5" />
-              {focusGroup.questions.length} questions
+              {focusGroup.questions.length} pytań
             </span>
             <span className="flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
@@ -186,13 +186,13 @@ function FocusGroupCard({
           {focusGroup.status === 'completed' && (
             <div className="grid grid-cols-2 gap-2">
               <div className="p-3 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
-                <div className="text-xs text-slate-500 mb-1">Avg Response</div>
+                <div className="text-xs text-slate-500 mb-1">Śr. odpowiedź</div>
                 <div className="text-sm font-bold text-slate-900">
                   {formatTime(focusGroup.avg_response_time_ms)}
                 </div>
               </div>
               <div className="p-3 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
-                <div className="text-xs text-slate-500 mb-1">Total Time</div>
+                <div className="text-xs text-slate-500 mb-1">Całkowity czas</div>
                 <div className="text-sm font-bold text-slate-900">
                   {formatTime(focusGroup.total_execution_time_ms)}
                 </div>
@@ -206,9 +206,9 @@ function FocusGroupCard({
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                 <div className="text-xs text-red-700">
-                  <div className="font-semibold mb-1">Execution Failed</div>
+                  <div className="font-semibold mb-1">Wykonanie nie powiodło się</div>
                   <div className="text-red-600">
-                    Check logs. Common: API quota, network issues, invalid personas.
+                    Sprawdź logi. Typowe przyczyny: quota API, problemy z siecią, nieprawidłowe persony.
                   </div>
                 </div>
               </div>
@@ -228,7 +228,7 @@ function FocusGroupCard({
               }}
               className="w-24"
             >
-              Edit
+              Edytuj
             </Button>
           )}
           {canRun && (
@@ -240,7 +240,7 @@ function FocusGroupCard({
               className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
               title={
                 !isLaunchReady
-                  ? 'Add at least 2 personas and 1 question before launching.'
+                  ? 'Dodaj co najmniej 2 persony i 1 pytanie przed uruchomieniem.'
                   : undefined
               }
             >
@@ -333,17 +333,17 @@ function FocusGroupForm({
 
   const handleSave = async (launch: boolean) => {
     if (!selectedProject) {
-      toast.error('Select a project first');
+      toast.error('Najpierw wybierz projekt');
       return;
     }
 
     if (!name.trim()) {
-      toast.error('Name is required');
+      toast.error('Nazwa jest wymagana');
       return;
     }
 
     if (launch && !launchReady) {
-      toast.error('Add more details', 'Need at least 2 personas and 1 question before launching.');
+      toast.error('Dodaj więcej szczegółów', 'Potrzeba co najmniej 2 person i 1 pytania przed uruchomieniem.');
       return;
     }
 
@@ -369,13 +369,13 @@ function FocusGroupForm({
 
       if (launch) {
         await focusGroupsApi.run(savedGroup.id);
-        toast.success('Focus group launched', 'Simulation running in the background.');
+        toast.success('Grupa fokusowa uruchomiona', 'Symulacja działa w tle.');
       } else {
         toast.success(
-          mode === 'create' ? 'Focus group created' : 'Changes saved',
+          mode === 'create' ? 'Grupa fokusowa utworzona' : 'Zmiany zapisane',
           mode === 'create'
-            ? 'Session configuration ready for launch.'
-            : 'Latest updates stored successfully.'
+            ? 'Konfiguracja sesji gotowa do uruchomienia.'
+            : 'Najnowsze aktualizacje zapisane pomyślnie.'
         );
       }
 
@@ -383,8 +383,8 @@ function FocusGroupForm({
       setSelectedFocusGroup(savedGroup);
       onSaved(savedGroup);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Failed to save focus group', message);
+      const message = error instanceof Error ? error.message : 'Nieznany błąd';
+      toast.error('Nie udało się zapisać grupy fokusowej', message);
     } finally {
       setIsSaving(false);
       setSavingAction(null);
@@ -412,16 +412,16 @@ function FocusGroupForm({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">
-            {mode === 'create' ? 'Create Focus Group' : 'Edit Focus Group'}
+            {mode === 'create' ? 'Utwórz grupę fokusową' : 'Edytuj grupę fokusową'}
           </h2>
           <p className="text-sm text-slate-500">
             {mode === 'create'
-              ? 'Capture a draft now and refine or launch when ready.'
-              : 'Update the configuration before launching the session.'}
+              ? 'Utwórz szkic teraz i dopracuj lub uruchom, gdy będzie gotowe.'
+              : 'Zaktualizuj konfigurację przed uruchomieniem sesji.'}
           </p>
         </div>
         <Button variant="ghost" onClick={onCancel} disabled={isSaving}>
-          Cancel
+          Anuluj
         </Button>
       </div>
 
@@ -429,34 +429,34 @@ function FocusGroupForm({
         <Card className="bg-card border border-border">
           <CardContent className="space-y-4 p-6">
             <div className="space-y-2">
-              <Label>Focus Group Name *</Label>
+              <Label>Nazwa grupy fokusowej *</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Product Feedback Session"
+                placeholder="np. Sesja opinii o produkcie"
                 maxLength={255}
               />
             </div>
             <div className="space-y-2">
-              <Label>Description</Label>
+              <Label>Opis</Label>
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                placeholder="Brief description of the focus group objectives"
+                placeholder="Krótki opis celów grupy fokusowej"
               />
             </div>
             <div className="space-y-2">
-              <Label>Project Context</Label>
+              <Label>Kontekst projektu</Label>
               <Textarea
                 value={projectContext}
                 onChange={(e) => setProjectContext(e.target.value)}
                 rows={3}
-                placeholder="Optional background context shared with participants"
+                placeholder="Opcjonalny kontekst przekazywany uczestnikom"
               />
             </div>
             <div className="space-y-2">
-              <Label>Mode</Label>
+              <Label>Tryb</Label>
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -464,7 +464,7 @@ function FocusGroupForm({
                   onClick={() => setModeValue('normal')}
                   disabled={isSaving}
                 >
-                  Cooperative
+                  Kooperacyjny
                 </Button>
                 <Button
                   type="button"
@@ -472,12 +472,12 @@ function FocusGroupForm({
                   onClick={() => setModeValue('adversarial')}
                   disabled={isSaving}
                 >
-                  Adversarial
+                  Kontrowersyjny
                 </Button>
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Target Participants</Label>
+              <Label>Docelowa liczba uczestników</Label>
               <Select
                 value={String(targetParticipants)}
                 onValueChange={(value) => setTargetParticipants(Number.parseInt(value, 10))}
@@ -489,7 +489,7 @@ function FocusGroupForm({
                 <SelectContent>
                   {[2, 4, 6, 8, 10, 12].map((option) => (
                     <SelectItem key={option} value={String(option)}>
-                      {option} participants
+                      {option} uczestników
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -501,7 +501,7 @@ function FocusGroupForm({
         <Card className="bg-card border border-border">
           <CardContent className="space-y-4 p-6">
             <div className="flex items-center justify-between">
-              <Label>Discussion Questions</Label>
+              <Label>Pytania dyskusyjne</Label>
               <Button
                 type="button"
                 variant="secondary"
@@ -509,7 +509,7 @@ function FocusGroupForm({
                 disabled={isSaving}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Question
+                Dodaj pytanie
               </Button>
             </div>
             <div className="space-y-2">
@@ -518,7 +518,7 @@ function FocusGroupForm({
                   <Input
                     value={q}
                     onChange={(e) => handleQuestionChange(index, e.target.value)}
-                    placeholder={`Question ${index + 1}`}
+                    placeholder={`Pytanie ${index + 1}`}
                     disabled={isSaving}
                   />
                   {questions.length > 1 && (
@@ -528,7 +528,7 @@ function FocusGroupForm({
                       onClick={() => handleRemoveQuestion(index)}
                       disabled={isSaving}
                     >
-                      Remove
+                      Usuń
                     </Button>
                   )}
                 </div>
@@ -542,9 +542,9 @@ function FocusGroupForm({
         <CardContent className="p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label>Select Personas</Label>
+              <Label>Wybierz persony</Label>
               <p className="text-xs text-slate-500">
-                Choose at least two personas before launching a session.
+                Wybierz co najmniej dwie persony przed uruchomieniem sesji.
               </p>
             </div>
             <div className="flex gap-2">
@@ -554,7 +554,7 @@ function FocusGroupForm({
                 onClick={() => setSelectedPersonas(availablePersonas.map((p) => p.id))}
                 disabled={isSaving || availablePersonas.length === 0}
               >
-                Select All
+                Zaznacz wszystkie
               </Button>
               <Button
                 type="button"
@@ -562,7 +562,7 @@ function FocusGroupForm({
                 onClick={() => setSelectedPersonas([])}
                 disabled={isSaving || availablePersonas.length === 0}
               >
-                Clear
+                Wyczyść
               </Button>
             </div>
           </div>
@@ -573,14 +573,14 @@ function FocusGroupForm({
             </div>
           ) : personaCount === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">
-              No personas available. Generate personas first to run a focus group.
+              Brak dostępnych person. Najpierw wygeneruj persony, aby uruchomić grupę fokusową.
             </div>
           ) : (
             <>
               <div className="space-y-1 mb-3">
                 <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>{selectedPersonas.length} selected</span>
-                  <span>{targetParticipants} target</span>
+                  <span>{selectedPersonas.length} wybrano</span>
+                  <span>{targetParticipants} cel</span>
                 </div>
                 <Progress
                   value={Math.min((selectedPersonas.length / Math.max(1, targetParticipants)) * 100, 100)}
@@ -609,7 +609,7 @@ function FocusGroupForm({
                     />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-slate-700">{persona.full_name ?? persona.persona_title ?? 'Persona'}</p>
-                      <p className="text-xs text-slate-500">{persona.occupation ?? 'Occupation not set'}</p>
+                      <p className="text-xs text-slate-500">{persona.occupation ?? 'Zawód nieokreślony'}</p>
                     </div>
                     </label>
                   );
@@ -627,7 +627,7 @@ function FocusGroupForm({
           onClick={onCancel}
           disabled={isSaving}
         >
-          Cancel
+          Anuluj
         </Button>
         <Button
           type="button"
@@ -636,7 +636,7 @@ function FocusGroupForm({
           disabled={isSaving || !name.trim()}
           isLoading={isSaving && savingAction === 'save'}
         >
-          {mode === 'create' ? 'Create Focus Group' : 'Save Changes'}
+          {mode === 'create' ? 'Utwórz grupę fokusową' : 'Zapisz zmiany'}
         </Button>
         <Button
           type="button"
@@ -645,13 +645,13 @@ function FocusGroupForm({
           disabled={isSaving || !name.trim() || personasLoading}
           isLoading={isSaving && savingAction === 'launch'}
         >
-          Launch Focus Group
+          Uruchom grupę fokusową
         </Button>
       </div>
 
       {!launchReady && (
         <p className="text-xs text-amber-600">
-          To launch, select at least two personas and include at least one question.
+          Aby uruchomić, wybierz co najmniej dwie persony i dodaj przynajmniej jedno pytanie.
         </p>
       )}
     </div>
@@ -705,7 +705,7 @@ export function FocusGroupPanel() {
     <FloatingPanel
       isOpen={activePanel === 'focus-groups'}
       onClose={() => setActivePanel(null)}
-      title={`Focus Groups${focusGroups.length ? ` (${focusGroups.length})` : ''}`}
+      title={`Grupy fokusowe${focusGroups.length ? ` (${focusGroups.length})` : ''}`}
       panelKey="focus-groups"
       size="lg"
     >
@@ -714,8 +714,8 @@ export function FocusGroupPanel() {
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-6">
             <MessageSquare className="w-10 h-10 text-slate-400" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">No Project Selected</h3>
-          <p className="text-sm text-slate-500">Select a project to view focus groups</p>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Nie wybrano projektu</h3>
+          <p className="text-sm text-slate-500">Wybierz projekt, aby zobaczyć grupy fokusowe</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -725,11 +725,11 @@ export function FocusGroupPanel() {
               className="w-full bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Create New Focus Group
+              Utwórz nową grupę fokusową
             </Button>
             {(personas?.length ?? 0) < 2 && (
               <p className="text-xs text-amber-600 mt-2">
-                Fewer than two personas available. You can create a draft now and launch once personas are ready.
+                Dostępne mniej niż dwie persony. Możesz utworzyć szkic teraz i uruchomić, gdy persony będą gotowe.
               </p>
             )}
           </div>
@@ -746,20 +746,20 @@ export function FocusGroupPanel() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <SpinnerLogo className="w-8 h-8 mb-4" />
-              <p className="text-sm text-slate-600">Loading focus groups...</p>
+              <p className="text-sm text-slate-600">Ładowanie grup fokusowych...</p>
             </div>
           ) : isError ? (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-              <p className="text-sm text-red-600">{error?.message || 'Failed to load focus groups'}</p>
+              <p className="text-sm text-red-600">{error?.message || 'Nie udało się załadować grup fokusowych'}</p>
             </div>
           ) : focusGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-100 to-accent-100 flex items-center justify-center mb-4">
                 <MessageSquare className="w-8 h-8 text-primary-600" />
               </div>
-              <p className="text-sm text-slate-500">No focus groups yet</p>
-              <p className="text-xs text-slate-400 mt-1">Create your first one above</p>
+              <p className="text-sm text-slate-500">Brak grup fokusowych</p>
+              <p className="text-xs text-slate-400 mt-1">Utwórz pierwszą powyżej</p>
             </div>
           ) : (
             <div className="space-y-4">

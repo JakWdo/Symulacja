@@ -21,29 +21,29 @@ import type { BlockerWithFix } from '@/types/dashboard';
 const HEALTH_STATUS_CONFIG = {
   on_track: {
     icon: CheckCircle,
-    label: 'On Track',
+    label: 'Na dobrej drodze',
     color: 'text-green-600',
     bgColor: 'bg-green-500/10',
   },
   at_risk: {
     icon: AlertCircle,
-    label: 'At Risk',
+    label: 'W grupie ryzyka',
     color: 'text-yellow-600',
     bgColor: 'bg-yellow-500/10',
   },
   blocked: {
     icon: XCircle,
-    label: 'Blocked',
+    label: 'Zablokowane',
     color: 'text-red-600',
     bgColor: 'bg-red-500/10',
   },
 };
 
 const SEVERITY_CONFIG = {
-  critical: { color: 'bg-red-500', label: 'Critical' },
-  high: { color: 'bg-orange-500', label: 'High' },
-  medium: { color: 'bg-yellow-500', label: 'Medium' },
-  low: { color: 'bg-blue-500', label: 'Low' },
+  critical: { color: 'bg-red-500', label: 'Krytyczne' },
+  high: { color: 'bg-orange-500', label: 'Wysokie' },
+  medium: { color: 'bg-yellow-500', label: 'Średnie' },
+  low: { color: 'bg-blue-500', label: 'Niskie' },
 };
 
 export function HealthBlockersSection() {
@@ -57,12 +57,12 @@ export function HealthBlockersSection() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Project Health</CardTitle>
+          <CardTitle>Zdrowie projektu</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Failed to load health data</AlertDescription>
+            <AlertDescription>Nie udało się załadować danych o zdrowiu</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -103,7 +103,7 @@ export function HealthBlockersSection() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Active Blockers</CardTitle>
+              <CardTitle>Aktywne blokady</CardTitle>
               <Badge variant="destructive">{data.blockers.length}</Badge>
             </div>
           </CardHeader>
@@ -124,9 +124,9 @@ export function HealthBlockersSection() {
         <Card>
           <CardContent className="py-12 text-center">
             <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
-            <p className="font-medium text-lg mb-2">All Clear!</p>
+            <p className="font-medium text-lg mb-2">Wszystko w porządku!</p>
             <p className="text-sm text-muted-foreground">
-              No active blockers. All projects are on track.
+              Brak aktywnych blokad. Wszystkie projekty na dobrej drodze.
             </p>
           </CardContent>
         </Card>
@@ -162,7 +162,7 @@ function HealthSummaryCard({
         </div>
         <div className="text-sm font-medium">{config.label}</div>
         <div className="text-xs text-muted-foreground">
-          {count} of {total} projects
+          {count} z {total} projektów
         </div>
       </CardContent>
     </Card>
@@ -201,12 +201,12 @@ function BlockerCard({ blocker }: { blocker: BlockerWithFix }) {
 
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
-                Action: {blocker.fix_action}
+                Akcja: {blocker.fix_action}
               </span>
               {blocker.fix_url && (
                 <Button size="sm" variant="outline" onClick={handleFix}>
                   <Wrench className="h-4 w-4 mr-1" />
-                  Fix
+                  Napraw
                 </Button>
               )}
             </div>

@@ -40,7 +40,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
         <div className="relative px-6 mt-8">
           <Search className="absolute left-9 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <input
-            placeholder="Search"
+            placeholder="Szukaj"
             className="w-full h-9 pl-10 pr-3 py-1 bg-sidebar-accent border border-sidebar-border rounded-[8px] text-[14px] text-muted-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <div className="absolute right-9 top-1/2 transform -translate-y-1/2 flex items-center gap-1 text-xs text-muted-foreground">
@@ -53,7 +53,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
       <SidebarContent className="bg-sidebar">
         <SidebarGroup className="px-2 py-2">
           <SidebarGroupLabel className="h-8 px-2 text-muted-foreground text-[12px] font-medium uppercase tracking-[0.3px]">
-            Main Menu
+            Menu główne
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -67,7 +67,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                   }`}
                 >
                   <LayoutDashboard className="w-4 h-4" />
-                  <span className="text-[14px]">Dashboard</span>
+                  <span className="text-[14px]">Panel</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -80,7 +80,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                   }`}
                 >
                   <FolderOpen className="w-4 h-4" />
-                  <span className="text-[14px]">Projects</span>
+                  <span className="text-[14px]">Projekty</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -93,7 +93,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                   }`}
                 >
                   <Users className="w-4 h-4" />
-                  <span className="text-[14px]">Personas</span>
+                  <span className="text-[14px]">Persony</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -106,7 +106,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                   }`}
                 >
                   <BarChart3 className="w-4 h-4" />
-                  <span className="text-[14px]">Surveys</span>
+                  <span className="text-[14px]">Ankiety</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -119,7 +119,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                   }`}
                 >
                   <MessageSquare className="w-4 h-4" />
-                  <span className="text-[14px]">Focus Groups</span>
+                  <span className="text-[14px]">Grupy fokusowe</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -139,7 +139,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
               }`}
             >
               <Settings className="w-4 h-4" />
-              <span className="text-[14px]">Settings</span>
+              <span className="text-[14px]">Ustawienia</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -152,13 +152,13 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
-            <p className="text-[14px] leading-5 text-foreground truncate">{user?.full_name || 'User'}</p>
-            <p className="text-[12px] leading-4 text-muted-foreground truncate">{user?.role || user?.email || 'Researcher'}</p>
+            <p className="text-[14px] leading-5 text-foreground truncate">{user?.full_name || 'Użytkownik'}</p>
+            <p className="text-[12px] leading-4 text-muted-foreground truncate">{user?.role || user?.email || 'Badacz'}</p>
           </div>
           <button
             onClick={logout}
             className="p-1.5 hover:bg-sidebar-accent-foreground/10 rounded transition-colors"
-            title="Logout"
+            title="Wyloguj"
           >
             <LogOut className="w-4 h-4 text-muted-foreground" />
           </button>

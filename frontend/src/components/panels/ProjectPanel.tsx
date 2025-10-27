@@ -31,7 +31,7 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert('Project name is required.');
+      alert('Nazwa projektu jest wymagana.');
       return;
     }
     // Domyślna demografia z większą różnorodnością
@@ -79,26 +79,26 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="p-4 border-t border-slate-200/50">
-      <h4 className="font-semibold text-slate-800 mb-3">Create a New Project</h4>
+      <h4 className="font-semibold text-slate-800 mb-3">Utwórz nowy projekt</h4>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Project Name"
+          placeholder="Nazwa projektu"
           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           required
         />
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Project Description (optional)"
+          placeholder="Opis projektu (opcjonalnie)"
           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           rows={3}
         />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            Cancel
+            Anuluj
           </Button>
           <Button
             type="submit"
@@ -106,7 +106,7 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
             size="sm"
             isLoading={createProjectMutation.isPending}
           >
-            Create
+            Utwórz
           </Button>
         </div>
       </form>
@@ -151,7 +151,7 @@ export function ProjectPanel() {
     <FloatingPanel
       isOpen={activePanel === 'projects'}
       onClose={() => setActivePanel(null)}
-      title="Projects"
+      title="Projekty"
       panelKey="projects"
       size="lg"
     >
@@ -164,7 +164,7 @@ export function ProjectPanel() {
             className="w-full flex items-center justify-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            <span>Create New Project</span>
+            <span>Utwórz nowy projekt</span>
           </Button>
         )}
 
@@ -175,7 +175,7 @@ export function ProjectPanel() {
           </div>
         ) : isError ? (
           <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-600">
-            {error instanceof Error ? error.message : 'Unable to load projects.'}
+            {error instanceof Error ? error.message : 'Nie udało się załadować projektów.'}
           </div>
         ) : (
           <div className="space-y-3">
@@ -216,12 +216,12 @@ export function ProjectPanel() {
                         {project.is_statistically_valid ? (
                           <>
                             <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            <span className="text-green-600">Valid</span>
+                            <span className="text-green-600">Poprawne</span>
                           </>
                         ) : (
                           <>
                             <XCircle className="w-4 h-4 text-slate-400" />
-                            <span className="text-slate-500">Pending</span>
+                            <span className="text-slate-500">Oczekujące</span>
                           </>
                         )}
                       </div>

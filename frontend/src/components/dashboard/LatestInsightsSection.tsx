@@ -25,12 +25,12 @@ const INSIGHT_TYPE_CONFIG = {
   opportunity: {
     icon: Lightbulb,
     color: 'bg-green-500/10 text-green-700 dark:text-green-400',
-    label: 'Opportunity',
+    label: 'Szansa',
   },
   risk: {
     icon: AlertCircle,
     color: 'bg-red-500/10 text-red-700 dark:text-red-400',
-    label: 'Risk',
+    label: 'Ryzyko',
   },
   trend: {
     icon: TrendingUp,
@@ -40,7 +40,7 @@ const INSIGHT_TYPE_CONFIG = {
   pattern: {
     icon: Activity,
     color: 'bg-purple-500/10 text-purple-700 dark:text-purple-400',
-    label: 'Pattern',
+    label: 'Wzorzec',
   },
 };
 
@@ -57,12 +57,12 @@ export function LatestInsightsSection() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Latest Insights</CardTitle>
+          <CardTitle>Najnowsze spostrzeżenia</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Failed to load insights</AlertDescription>
+            <AlertDescription>Nie udało się załadować spostrzeżeń</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -73,14 +73,14 @@ export function LatestInsightsSection() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Latest Insights</CardTitle>
+          <CardTitle>Najnowsze spostrzeżenia</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-12">
             <Lightbulb className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground font-medium mb-2">No insights yet</p>
+            <p className="text-muted-foreground font-medium mb-2">Brak spostrzeżeń</p>
             <p className="text-sm text-muted-foreground mb-4">
-              Insights will appear here after analyzing focus group discussions
+              Spostrzeżenia pojawią się tutaj po analizie dyskusji w grupach fokusowych
             </p>
           </div>
         </CardContent>
@@ -100,28 +100,28 @@ export function LatestInsightsSection() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Latest Insights</CardTitle>
+            <CardTitle>Najnowsze spostrzeżenia</CardTitle>
             <div className="flex gap-2">
               <Button
                 variant={filter === 'all' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('all')}
               >
-                All ({insights.length})
+                Wszystkie ({insights.length})
               </Button>
               <Button
                 variant={filter === 'unviewed' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('unviewed')}
               >
-                Unviewed ({insights.filter((i) => !i.is_viewed).length})
+                Nieprzeglądnięte ({insights.filter((i) => !i.is_viewed).length})
               </Button>
               <Button
                 variant={filter === 'high-impact' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('high-impact')}
               >
-                High Impact ({insights.filter((i) => i.impact_score >= 7).length})
+                Wysoki wpływ ({insights.filter((i) => i.impact_score >= 7).length})
               </Button>
             </div>
           </div>
@@ -137,7 +137,7 @@ export function LatestInsightsSection() {
             ))}
             {filteredInsights.length === 0 && (
               <p className="text-center text-muted-foreground py-8">
-                No insights match the selected filter
+                Brak spostrzeżeń pasujących do wybranego filtra
               </p>
             )}
           </div>
@@ -184,13 +184,13 @@ function InsightCard({
               <span className="text-xs text-muted-foreground">{insight.time_ago}</span>
               {!insight.is_viewed && (
                 <Badge variant="default" className="text-xs">
-                  New
+                  Nowe
                 </Badge>
               )}
               {insight.is_adopted && (
                 <Badge variant="outline" className="text-xs">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  Adopted
+                  Zaakceptowane
                 </Badge>
               )}
             </div>
@@ -203,19 +203,19 @@ function InsightCard({
             <div className="flex items-center justify-between">
               <div className="flex gap-4 text-xs text-muted-foreground">
                 <span>
-                  Confidence: <strong>{(insight.confidence_score * 100).toFixed(0)}%</strong>
+                  Pewność: <strong>{(insight.confidence_score * 100).toFixed(0)}%</strong>
                 </span>
                 <span>
-                  Impact: <strong>{insight.impact_score}/10</strong>
+                  Wpływ: <strong>{insight.impact_score}/10</strong>
                 </span>
                 <span>
-                  Evidence: <strong>{insight.evidence_count}</strong>
+                  Dowody: <strong>{insight.evidence_count}</strong>
                 </span>
               </div>
 
               <Button size="sm" variant="outline" onClick={onViewDetails}>
                 <Eye className="h-4 w-4 mr-1" />
-                View Details
+                Zobacz szczegóły
               </Button>
             </div>
           </div>

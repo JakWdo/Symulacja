@@ -74,9 +74,9 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
     const projectPersonas = allPersonas.filter(p => p.project_id === project.id);
     const projectFocusGroups = allFocusGroups.filter(fg => fg.project_id === project.id);
 
-    if (projectPersonas.length > 0 && projectFocusGroups.length > 0) return 'Active';
-    if (projectPersonas.length > 0) return 'In Progress';
-    return 'Planning';
+    if (projectPersonas.length > 0 && projectFocusGroups.length > 0) return 'Aktywny';
+    if (projectPersonas.length > 0) return 'W trakcie';
+    return 'Planowanie';
   };
 
   // Fetch all personas and focus groups for project cards
@@ -118,48 +118,48 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Projects</h1>
-          <p className="text-muted-foreground">Manage your market research projects</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Projekty</h1>
+          <p className="text-muted-foreground">Zarządzaj swoimi projektami badawczymi</p>
         </div>
         
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
             <Button className="bg-[#F27405] hover:bg-[#F27405]/90 text-white">
               <Plus className="w-4 h-4 mr-2" />
-              New Project
+              Nowy projekt
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-popover border border-border text-popover-foreground shadow-xl">
             <DialogHeader>
-              <DialogTitle>Create New Project</DialogTitle>
+              <DialogTitle>Utwórz nowy projekt</DialogTitle>
               <DialogDescription>
-                Create a new market research project to start collecting insights and analyzing data.
+                Utwórz nowy projekt badawczy, aby rozpocząć zbieranie wniosków i analizę danych.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">Project Name</Label>
+                <Label htmlFor="name">Nazwa projektu</Label>
                 <Input
                   id="name"
                   value={newProject.name}
                   onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
                   className="mt-1"
-                  placeholder="Enter project name"
+                  placeholder="Wprowadź nazwę projektu"
                 />
               </div>
               <div>
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Opis</Label>
                 <Textarea
                   id="description"
                   value={newProject.description}
                   onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
                   className="mt-1"
-                  placeholder="Describe your project objectives"
+                  placeholder="Opisz cele swojego projektu"
                   rows={3}
                 />
               </div>
               <div>
-                <Label htmlFor="sample_size">Target Sample Size</Label>
+                <Label htmlFor="sample_size">Docelowa wielkość próby</Label>
                 <Input
                   id="sample_size"
                   type="number"
@@ -170,19 +170,19 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowCreateDialog(false)}
                   disabled={createMutation.isPending}
                 >
-                  Cancel
+                  Anuluj
                 </Button>
-                <Button 
+                <Button
                   onClick={handleCreateProject}
                   disabled={createMutation.isPending || !newProject.name || !newProject.description}
                 >
                   {createMutation.isPending && <Logo className="w-4 h-4 mr-2" spinning />}
-                  Create Project
+                  Utwórz projekt
                 </Button>
               </div>
             </div>
@@ -194,7 +194,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
         <Input
-          placeholder="Search projects..."
+          placeholder="Szukaj projektów..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"
@@ -225,7 +225,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                   </Badge>
                 </div>
                 <p className="text-muted-foreground text-sm line-clamp-2">
-                  {project.description || 'No description'}
+                  {project.description || 'Brak opisu'}
                 </p>
               </CardHeader>
               <CardContent>
@@ -233,13 +233,13 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-chart-4" />
                     <span className="text-sm text-card-foreground">
-                      {allPersonas.filter(p => p.project_id === project.id).length} personas
+                      {allPersonas.filter(p => p.project_id === project.id).length} persony
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MessageSquare className="w-4 h-4 text-chart-1" />
                     <span className="text-sm text-card-foreground">
-                      {allFocusGroups.filter(fg => fg.project_id === project.id).length} groups
+                      {allFocusGroups.filter(fg => fg.project_id === project.id).length} grupy
                     </span>
                   </div>
                 </div>
@@ -252,7 +252,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                     </span>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Target: {project.target_sample_size}
+                    Cel: {project.target_sample_size}
                   </span>
                 </div>
               </CardContent>
@@ -262,9 +262,9 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
       ) : (
         <div className="text-center py-12">
           <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">No projects found</h3>
+          <h3 className="text-lg font-medium text-foreground mb-2">Nie znaleziono projektów</h3>
           <p className="text-muted-foreground mb-4">
-            {searchTerm ? 'No projects match your search criteria.' : 'Get started by creating your first project.'}
+            {searchTerm ? 'Żadne projekty nie spełniają kryteriów wyszukiwania.' : 'Zacznij od utworzenia swojego pierwszego projektu.'}
           </p>
           {!searchTerm && (
             <Button
@@ -272,7 +272,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
               className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Create Your First Project
+              Utwórz swój pierwszy projekt
             </Button>
           )}
         </div>
