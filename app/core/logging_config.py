@@ -155,6 +155,12 @@ def configure_logging(
     logging.getLogger("httpcore.http11").setLevel(logging.WARNING)  # HTTP/1.1 protocol logs
     logging.getLogger("httpcore.connection").setLevel(logging.WARNING)  # Connection pool logs
 
+    # Silence Neo4j driver debug logs (BARDZO verbose - routing, pooling, Cypher queries)
+    logging.getLogger("neo4j").setLevel(logging.WARNING)  # Neo4j driver root logger
+    logging.getLogger("neo4j.io").setLevel(logging.WARNING)  # Neo4j I/O operations
+    logging.getLogger("neo4j.pool").setLevel(logging.WARNING)  # Connection pooling
+    logging.getLogger("neo4j.bolt").setLevel(logging.WARNING)  # Bolt protocol
+
     # Log configuration success
     mode = "structured (JSON)" if structured else "standard (human-readable)"
     root_logger.info(f"✓ Logging configured: mode={mode}, level={level}")
