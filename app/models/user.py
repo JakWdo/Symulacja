@@ -59,7 +59,12 @@ class User(Base):
     deleted_at = Column(DateTime, nullable=True)  # Miękkie usunięcie (data dezaktywacji)
 
     # === RELATIONSHIPS ===
-    projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
+    projects = relationship(
+        "Project",
+        foreign_keys="Project.owner_id",  # Explicit FK: tylko owner_id, NIE deleted_by
+        back_populates="owner",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, name={self.full_name})>"

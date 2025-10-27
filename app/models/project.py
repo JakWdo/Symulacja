@@ -73,7 +73,11 @@ class Project(Base):
     )
 
     # Relacje (cascade="all, delete-orphan" = usunięcie projektu usuwa persony i grupy)
-    owner = relationship("User", back_populates="projects", foreign_keys=[owner_id])
+    owner = relationship(
+        "User",
+        foreign_keys=[owner_id],
+        back_populates="projects"
+    )
     personas = relationship(
         "Persona", back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
