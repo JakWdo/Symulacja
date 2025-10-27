@@ -89,7 +89,11 @@ class Project(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    deleted_by_user = relationship("User", foreign_keys=[deleted_by])
+    deleted_by_user = relationship(
+        "User",
+        foreign_keys=[deleted_by],
+        overlaps="projects",  # Prevents SQLAlchemy warnings about overlapping relationships
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Project id={self.id} name={self.name!r}>"
