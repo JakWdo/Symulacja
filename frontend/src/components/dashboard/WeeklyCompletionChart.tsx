@@ -18,7 +18,6 @@ import {
   Line,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
@@ -94,7 +93,6 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
       <CardContent className="px-6 pb-6">
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-border dark:stroke-border" />
             <XAxis
               dataKey="week"
               className="text-xs"

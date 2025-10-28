@@ -16,7 +16,6 @@ import {
   Cell,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
@@ -117,7 +116,6 @@ export function InsightAnalyticsCharts() {
         {hasTopConcepts ? (
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.top_concepts.slice(0, 5)} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border dark:stroke-border" />
               <XAxis
                 type="number"
                 tick={{ fontSize: 12 }}
