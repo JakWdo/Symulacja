@@ -339,6 +339,25 @@ class PolishSocietyRAG:
         Returns:
             Sformatowany string z strukturalną wiedzą z grafu
         """
+        import inspect
+
+        # DEFENSIVE CHECK: Validate input type
+        if inspect.iscoroutine(graph_nodes):
+            logger.error(
+                "❌ BUG: _format_graph_context received a coroutine instead of list! "
+                "This indicates a serious bug in the call chain. Cleaning up and returning empty string."
+            )
+            graph_nodes.close()
+            return ""
+
+        if not isinstance(graph_nodes, list):
+            logger.error(
+                "❌ BUG: _format_graph_context received %s instead of list! "
+                "Returning empty string to prevent crash",
+                type(graph_nodes).__name__
+            )
+            return ""
+
         if not graph_nodes:
             return ""
 
@@ -453,8 +472,27 @@ class PolishSocietyRAG:
             # Limit do 512 znaków dla cross-encoder (max_length)
 
             # Cross-encoder prediction - ASYNC offload to thread pool (CPU-bound task)
-            # Prevents blocking event loop (~1.5s vs 35s blocking)
-            scores = await asyncio.to_thread(self.reranker.predict, pairs)
+            # Prevents blocking event loop and disables noisy tqdm progress bar
+            from functools import partial
+            predict_fn = partial(
+                self.reranker.predict,
+                pairs,
+                show_progress_bar=False,
+                batch_size=16,
+                num_workers=0,
+            )
+
+            # Safety timeout: if reranking is abnormally slow, fall back to RRF
+            try:
+                scores = await asyncio.wait_for(
+                    asyncio.to_thread(predict_fn),
+                    timeout=15.0,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "⏱️ Reranker timed out after 15s – using RRF scores"
+                )
+                return candidates[:top_k]
 
             # Połącz dokumenty z nowymi scores
             reranked = list(zip([doc for doc, _ in candidates], scores))
@@ -494,6 +532,24 @@ class PolishSocietyRAG:
         Returns:
             Lista graph nodes które są powiązane z chunkiem
         """
+        import inspect
+
+        # DEFENSIVE CHECK: Validate input type
+        if inspect.iscoroutine(graph_nodes):
+            logger.error(
+                "❌ BUG: _find_related_graph_nodes received a coroutine instead of list! "
+                "Cleaning up and returning empty list."
+            )
+            graph_nodes.close()
+            return []
+
+        if not isinstance(graph_nodes, list):
+            logger.error(
+                "❌ BUG: _find_related_graph_nodes received %s instead of list!",
+                type(graph_nodes).__name__
+            )
+            return []
+
         if not graph_nodes:
             return []
 
@@ -754,19 +810,46 @@ class PolishSocietyRAG:
 
             try:
                 import asyncio
+                import inspect
+
                 # Timeout dla Graph RAG query (domyślnie 30s)
                 async def get_graph_context_with_timeout():
-                    return self.graph_rag_service.get_demographic_graph_context(
+                    # WAŻNE: get_demographic_graph_context jest async – MUSI być awaitowane
+                    result = await self.graph_rag_service.get_demographic_graph_context(
                         age_group=age_group,
                         location=location,
                         education=education,
-                        gender=gender
+                        gender=gender,
                     )
+
+                    # DEFENSIVE CHECK: Ensure result is not a coroutine
+                    if inspect.iscoroutine(result):
+                        logger.error(
+                            "❌ BUG: get_demographic_graph_context returned a coroutine instead of list! "
+                            "This should never happen - returning empty list"
+                        )
+                        # Clean up the unawaited coroutine to prevent warning
+                        result.close()
+                        return []
+
+                    return result
 
                 graph_nodes = await asyncio.wait_for(
                     get_graph_context_with_timeout(),
-                    timeout=30  # Default 30s timeout (RAG_GRAPH_TIMEOUT was removed)
+                    timeout=30,  # Default 30s timeout (RAG_GRAPH_TIMEOUT was removed)
                 )
+
+                # DEFENSIVE CHECK: Validate graph_nodes type before using
+                if not isinstance(graph_nodes, list):
+                    logger.error(
+                        "❌ BUG: graph_nodes is not a list (type: %s)! "
+                        "Resetting to empty list to prevent crash",
+                        type(graph_nodes).__name__
+                    )
+                    # If it's a coroutine, close it to prevent warning
+                    if inspect.iscoroutine(graph_nodes):
+                        graph_nodes.close()
+                    graph_nodes = []
 
                 if graph_nodes:
                     graph_context_formatted = self._format_graph_context(graph_nodes)
@@ -777,8 +860,14 @@ class PolishSocietyRAG:
                 logger.warning(
                     "Graph RAG timeout po 30s - kontynuacja bez graph context"
                 )
+                graph_nodes = []  # Explicitly reset
             except Exception as graph_exc:
-                logger.warning("Nie udało się pobrać graph context: %s", graph_exc)
+                logger.error(
+                    "Nie udało się pobrać graph context: %s - kontynuacja bez graph context",
+                    graph_exc,
+                    exc_info=True  # Full traceback for debugging
+                )
+                graph_nodes = []  # Explicitly reset
 
             # 2. HYBRID SEARCH (Vector + Keyword) - Pobierz chunki tekstowe
             if settings.RAG_USE_HYBRID_SEARCH:
