@@ -298,8 +298,7 @@ class DashboardOrchestrator:
                     if tti_median_minutes
                     else "Brak danych"
                 ),
-                "raw_value": tti_median_minutes,
-                "p90": tti_p90_minutes,
+                "raw_value": tti_median_minutes if tti_median_minutes is not None else 0.0,
                 "trend": tti_trend,
                 "tooltip": "Mediana czasu od utworzenia projektu do pierwszego spostrzeżenia",
             },
