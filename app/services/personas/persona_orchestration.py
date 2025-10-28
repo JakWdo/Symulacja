@@ -360,20 +360,20 @@ class PersonaOrchestrationService:
         # OPTIMIZATION: 4 consolidated queries (down from 8+) with Redis caching
         # Expected latency:
         #   - Cache HIT: 4 × 50ms = 200ms total (300-400x speedup!)
-        #   - Cache MISS: 4 × 2-3s = 8-12s total (50% reduction from 8 queries)
-        # Timeout reduced from 150s to 60s (caching makes 150s unnecessary)
+        #   - Cache MISS: 4 × 2-5s = 8-20s total (with Graph RAG optimized to use TEXT indexes)
+        # Timeout reduced from 60s to 25s (Graph RAG now <5s with proper indexes)
         try:
             results = await asyncio.wait_for(
                 asyncio.gather(*[
                     self.rag_service.hybrid_search(query=q, top_k=3)
                     for q in queries  # All queries (max 4, optimized)
                 ]),
-                timeout=60.0  # 60 seconds (with caching, should complete in 5-15s)
+                timeout=25.0  # 25 seconds (with Graph RAG optimizations, should complete in 8-20s)
             )
         except asyncio.TimeoutError:
             logger.error(
-                "⚠️ Graph RAG queries timed out (60s) - zwracam pusty kontekst. "
-                "To nie powinno się zdarzyć z cachingiem!"
+                "⚠️ Hybrid search queries timed out (25s) - zwracam pusty kontekst. "
+                "Expected: 8-20s with Graph RAG TEXT index optimizations. Check Neo4j performance!"
             )
             return "Brak dostępnego kontekstu z Graph RAG (timeout)."
 

@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     # Neo4j Connection Pool Settings (Cloud Run optimization)
     # Prevent connection exhaustion and improve reliability in production
     NEO4J_MAX_POOL_SIZE: int = 50  # Max connections per Cloud Run instance
-    NEO4J_CONNECTION_TIMEOUT: int = 30  # TCP connection timeout (seconds)
+    NEO4J_CONNECTION_TIMEOUT: int = 10  # TCP connection timeout (seconds) - REDUCED from 30s to fail fast
     NEO4J_MAX_RETRY_TIME: int = 30  # Max time to retry transient failures
 
     # === KLUCZE API LLM ===

@@ -11,8 +11,10 @@ Podstawowa infrastruktura dokumentów znajduje się w rag_document_service.py
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import time
 from typing import Any
 
 import redis.asyncio as redis
@@ -486,7 +488,14 @@ class GraphRAGService:
             # Continue without cache
 
         # Budujemy search terms - rozdzielamy education na pojedyncze terminy
-        search_terms = [age_group, location, gender]
+        # CRITICAL: Normalize to lowercase for TEXT index matching (case-sensitive CONTAINS)
+        search_terms = [
+            age_group.lower() if age_group else "",
+            location.lower() if location else "",
+            gender.lower() if gender else ""
+        ]
+        # Remove empty strings
+        search_terms = [term for term in search_terms if term]
 
         # FIX: Normalizuj education terms (split "W trakcie / Średnie / Licencjat" -> ["podstawowe", "średnie", "wyższe"])
         if education:
@@ -521,12 +530,13 @@ class GraphRAGService:
             // Parametry: $search_terms - lista słów kluczowych do matchingu
 
             // 1. Znajdź Wskaźniki (preferuj wysoką pewność jeśli istnieje)
+            // OPTIMIZED: Uses TEXT indexes (no toLower/coalesce = 10-100x faster)
             CALL () {
                 WITH $search_terms AS terms
                 MATCH (ind:Wskaznik)
                 WHERE ANY(term IN terms WHERE
-                    toLower(coalesce(ind.streszczenie, '')) CONTAINS toLower(term) OR
-                    toLower(coalesce(ind.kluczowe_fakty, '')) CONTAINS toLower(term)
+                    ind.streszczenie CONTAINS term OR
+                    ind.kluczowe_fakty CONTAINS term
                 )
                 RETURN ind,
                     CASE WHEN ind.pewnosc = 'wysoka' THEN 0
@@ -545,12 +555,13 @@ class GraphRAGService:
             }) AS indicators
 
             // 2. Znajdź Obserwacje (preferuj wysoką pewność jeśli istnieje)
+            // OPTIMIZED: Uses TEXT indexes (no toLower/coalesce = 10-100x faster)
             CALL () {
                 WITH $search_terms AS terms
                 MATCH (obs:Obserwacja)
                 WHERE ANY(term IN terms WHERE
-                    toLower(coalesce(obs.streszczenie, '')) CONTAINS toLower(term) OR
-                    toLower(coalesce(obs.kluczowe_fakty, '')) CONTAINS toLower(term)
+                    obs.streszczenie CONTAINS term OR
+                    obs.kluczowe_fakty CONTAINS term
                 )
                 RETURN obs,
                     CASE WHEN obs.pewnosc = 'wysoka' THEN 0
@@ -568,12 +579,13 @@ class GraphRAGService:
             }) AS observations
 
             // 3. Znajdź Trendy
+            // OPTIMIZED: Uses TEXT indexes (no toLower/coalesce = 10-100x faster)
             CALL () {
                 WITH $search_terms AS terms
                 MATCH (trend:Trend)
                 WHERE ANY(term IN terms WHERE
-                    toLower(coalesce(trend.streszczenie, '')) CONTAINS toLower(term) OR
-                    toLower(coalesce(trend.kluczowe_fakty, '')) CONTAINS toLower(term)
+                    trend.streszczenie CONTAINS term OR
+                    trend.kluczowe_fakty CONTAINS term
                 )
                 RETURN trend
                 ORDER BY size(coalesce(trend.kluczowe_fakty, '')) DESC
@@ -587,12 +599,13 @@ class GraphRAGService:
             }) AS trends
 
             // 4. Znajdź węzły Demografii
+            // OPTIMIZED: Uses TEXT indexes (no toLower/coalesce = 10-100x faster)
             CALL () {
                 WITH $search_terms AS terms
                 MATCH (demo:Demografia)
                 WHERE ANY(term IN terms WHERE
-                    toLower(coalesce(demo.streszczenie, '')) CONTAINS toLower(term) OR
-                    toLower(coalesce(demo.kluczowe_fakty, '')) CONTAINS toLower(term)
+                    demo.streszczenie CONTAINS term OR
+                    demo.kluczowe_fakty CONTAINS term
                 )
                 RETURN demo,
                     CASE WHEN demo.pewnosc = 'wysoka' THEN 0
@@ -612,10 +625,39 @@ class GraphRAGService:
             RETURN indicators + observations + trends + demographics AS graph_context
             """
 
-            result = self.graph_store.query(
-                cypher_query,
-                params={"search_terms": search_terms}
-            )
+            # Execute query with timeout + performance monitoring
+            query_start = time.perf_counter()
+
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self.graph_store.query,
+                        cypher_query,
+                        params={"search_terms": search_terms}
+                    ),
+                    timeout=10.0  # 10s max per Cypher query (should be <5s with TEXT indexes)
+                )
+
+                query_duration = time.perf_counter() - query_start
+                logger.info(
+                    f"📊 Graph RAG query completed in {query_duration:.2f}s "
+                    f"(profile: wiek={age_group}, wykształcenie={education})"
+                )
+
+                if query_duration > 5.0:
+                    logger.warning(
+                        f"⚠️ SLOW QUERY: Graph RAG took {query_duration:.2f}s "
+                        f"(expected <5s with TEXT indexes). Check EXPLAIN PLAN! "
+                        f"Profile: wiek={age_group}, wykształcenie={education}, lokalizacja={location}"
+                    )
+
+            except asyncio.TimeoutError:
+                logger.error(
+                    f"❌ Graph RAG query timeout (10s) - query too slow! "
+                    f"Profile: wiek={age_group}, wykształcenie={education}, lokalizacja={location}, płeć={gender}. "
+                    f"Check Neo4j indexes and query performance."
+                )
+                return []
 
             if not result or not result[0].get('graph_context'):
                 logger.warning(

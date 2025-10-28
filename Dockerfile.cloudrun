@@ -70,6 +70,11 @@ ENV TARGET=${TARGET}
 ENV PYTHONPATH=/app
 ENV PORT=8080
 
+# HuggingFace cache directory (explicit path for pre-warmed models)
+# CRITICAL: Must point to appuser's home for cache to work correctly
+ENV TRANSFORMERS_CACHE=/home/appuser/.cache/huggingface
+ENV HF_HOME=/home/appuser/.cache/huggingface
+
 WORKDIR /app
 
 # Install runtime dependencies
@@ -78,31 +83,41 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
+# CRITICAL: Create non-root user FIRST (before copying cache)
+# This ensures /home/appuser exists when we COPY the HuggingFace cache
+RUN useradd -m -u 1000 appuser
+
 # Copy Python packages from builder
 COPY --from=backend-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
 
 # Copy pre-warmed HuggingFace cache (CrossEncoder model for RAG reranking)
-# Eliminates 3-5s cold start when model is first accessed
-COPY --from=backend-builder /root/.cache/huggingface /home/appuser/.cache/huggingface
+# CRITICAL: --chown=appuser:appuser ensures correct ownership
+# Eliminates 2-3s cold start when model is first accessed
+COPY --chown=appuser:appuser --from=backend-builder /root/.cache/huggingface /home/appuser/.cache/huggingface
+
+# Verify cache is accessible and contains CrossEncoder model
+# This fails the build if pre-warming didn't work (better to catch here than in production)
+RUN test -d /home/appuser/.cache/huggingface && \
+    test -f /home/appuser/.cache/huggingface/models--cross-encoder--ms-marco-MiniLM-L-6-v2/snapshots/*/config.json && \
+    echo "✅ HuggingFace cache verified: CrossEncoder model present" || \
+    (echo "❌ Cache verification FAILED - model will be downloaded at runtime!" && exit 1)
 
 # Copy config folder EXPLICITLY (required for config module imports)
 # Services depend on config.loader for prompts and model configuration
-COPY config/ ./config/
+COPY --chown=appuser:appuser config/ ./config/
 
 # Copy backend code
-COPY app/ ./app/
-COPY scripts/ ./scripts/
-COPY alembic/ ./alembic/
-COPY alembic.ini ./
+COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser scripts/ ./scripts/
+COPY --chown=appuser:appuser alembic/ ./alembic/
+COPY --chown=appuser:appuser alembic.ini ./
 
 # Copy frontend dist → static/
-COPY --from=frontend-builder /app/frontend/dist ./static/
+COPY --chown=appuser:appuser --from=frontend-builder /app/frontend/dist ./static/
 
-# Create non-root user and set permissions
-RUN useradd -m -u 1000 appuser && \
-    chown -R appuser:appuser /app && \
-    chown -R appuser:appuser /home/appuser/.cache
+# Final permissions check (ensure everything is owned by appuser)
+RUN chown -R appuser:appuser /app
 
 # Expose Cloud Run port (8080)
 EXPOSE 8080
