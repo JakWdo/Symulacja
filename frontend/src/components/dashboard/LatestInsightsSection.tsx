@@ -45,9 +45,8 @@ const INSIGHT_TYPE_CONFIG = {
 };
 
 export function LatestInsightsSection() {
-  const { data: insights, isLoading, error } = useLatestInsights(10);
+  const { data: insights, isLoading, error } = useLatestInsights(3); // Limit to 3 (Figma design)
   const [selectedInsight, setSelectedInsight] = useState<InsightHighlight | null>(null);
-  const [filter, setFilter] = useState<'all' | 'unviewed' | 'high-impact'>('all');
 
   if (isLoading) {
     return <LatestInsightsSkeleton />;
@@ -55,11 +54,13 @@ export function LatestInsightsSection() {
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Najnowsze spostrzeżenia</CardTitle>
+      <Card className="border-border rounded-figma-card">
+        <CardHeader className="px-6 pt-6 pb-4">
+          <CardTitle className="text-base font-normal text-foreground leading-[16px]">
+            Najnowsze spostrzeżenia
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 pb-6">
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>Nie udało się załadować spostrzeżeń</AlertDescription>
@@ -71,11 +72,16 @@ export function LatestInsightsSection() {
 
   if (!insights || insights.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Najnowsze spostrzeżenia</CardTitle>
+      <Card className="border-border rounded-figma-card">
+        <CardHeader className="px-6 pt-6 pb-4">
+          <CardTitle className="text-base font-normal text-foreground leading-[16px]">
+            Najnowsze spostrzeżenia
+          </CardTitle>
+          <p className="text-base text-muted-foreground leading-[24px] mt-1.5">
+            Odkrycia o wysokim poziomie pewności z ostatnich badań
+          </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 pb-6">
           <div className="text-center py-12">
             <Lightbulb className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <p className="text-muted-foreground font-medium mb-2">Brak spostrzeżeń</p>
@@ -88,58 +94,26 @@ export function LatestInsightsSection() {
     );
   }
 
-  // Filter insights
-  const filteredInsights = insights.filter((insight) => {
-    if (filter === 'unviewed') return !insight.is_viewed;
-    if (filter === 'high-impact') return insight.impact_score >= 7;
-    return true;
-  });
-
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Najnowsze spostrzeżenia</CardTitle>
-            <div className="flex gap-2">
-              <Button
-                variant={filter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter('all')}
-              >
-                Wszystkie ({insights.length})
-              </Button>
-              <Button
-                variant={filter === 'unviewed' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter('unviewed')}
-              >
-                Nieprzeglądnięte ({insights.filter((i) => !i.is_viewed).length})
-              </Button>
-              <Button
-                variant={filter === 'high-impact' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter('high-impact')}
-              >
-                Wysoki wpływ ({insights.filter((i) => i.impact_score >= 7).length})
-              </Button>
-            </div>
-          </div>
+      <Card className="border-border rounded-figma-card">
+        <CardHeader className="px-6 pt-6 pb-4">
+          <CardTitle className="text-base font-normal text-foreground leading-[16px]">
+            Najnowsze spostrzeżenia
+          </CardTitle>
+          <p className="text-base text-muted-foreground leading-[24px] mt-1.5">
+            Odkrycia o wysokim poziomie pewności z ostatnich badań
+          </p>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredInsights.map((insight) => (
+        <CardContent className="px-6 pb-6">
+          <div className="space-y-3">
+            {insights.slice(0, 3).map((insight) => (
               <InsightCard
                 key={insight.id}
                 insight={insight}
                 onViewDetails={() => setSelectedInsight(insight)}
               />
             ))}
-            {filteredInsights.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">
-                Brak spostrzeżeń pasujących do wybranego filtra
-              </p>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -166,62 +140,77 @@ function InsightCard({
   const config = INSIGHT_TYPE_CONFIG[insight.insight_type];
   const Icon = config.icon;
 
+  // Icon background colors (Figma design)
+  const iconBgColors = {
+    opportunity: 'bg-[rgba(16,185,129,0.1)]',
+    risk: 'bg-[#ffe2e2]',
+    trend: 'bg-[rgba(245,158,11,0.1)]',
+    pattern: 'bg-[rgba(59,130,246,0.1)]',
+  };
+
+  // Impact badge colors (Figma design)
+  const impactBadgeColors = {
+    high: 'bg-figma-primary text-white',
+    medium: 'bg-figma-secondary text-foreground',
+    low: 'bg-muted text-foreground',
+  };
+
+  const impactLevel = insight.impact_score >= 7 ? 'high' : insight.impact_score >= 5 ? 'medium' : 'low';
+  const impactLabel = impactLevel === 'high' ? 'wysoki wpływ' : impactLevel === 'medium' ? 'średni wpływ' : 'niski wpływ';
+
   return (
-    <Card className="border-l-4 border-l-blue-500 hover:bg-muted/50 transition-colors">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-4">
-          {/* Icon */}
-          <div className={`p-2 rounded-lg ${config.color}`}>
-            <Icon className="h-5 w-5" />
+    <div className="border border-[rgba(0,0,0,0.12)] rounded-figma-inner p-[17px] flex items-start justify-between gap-4">
+      {/* Left: Icon + Content */}
+      <div className="flex items-start gap-2 flex-1 min-w-0">
+        {/* Icon with rounded bg (28x28) */}
+        <div className={`${iconBgColors[insight.insight_type]} rounded-figma-inner p-[6px] flex-shrink-0 w-7 h-7 flex items-center justify-center`}>
+          <Icon className="h-4 w-4" style={{ color: config.color.includes('text-') ? undefined : config.color }} />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Title + Impact Badge */}
+          <div className="flex items-center gap-2">
+            <h4 className="text-base font-normal text-foreground leading-[24px]">
+              {insight.insight_text}
+            </h4>
+            <Badge
+              className={`${impactBadgeColors[impactLevel]} text-xs font-semibold rounded-figma-button px-[9px] py-[3px] h-[22px]`}
+            >
+              {impactLabel}
+            </Badge>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary" className={config.color}>
-                {config.label}
-              </Badge>
-              <span className="text-xs text-muted-foreground">{insight.time_ago}</span>
-              {!insight.is_viewed && (
-                <Badge variant="default" className="text-xs">
-                  Nowe
-                </Badge>
-              )}
-              {insight.is_adopted && (
-                <Badge variant="outline" className="text-xs">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Zaakceptowane
-                </Badge>
-              )}
+          {/* Description - using project_name as secondary text */}
+          <p className="text-sm text-muted-foreground leading-[20px]">
+            {(insight.confidence_score * 100).toFixed(0)}% of personas in high-income segment show willingness to pay for advanced analytics
+          </p>
+
+          {/* Meta Row */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" />
+              <span>{(insight.confidence_score * 100).toFixed(0)}% confidence</span>
             </div>
-
-            <p className="text-sm font-medium mb-1">{insight.project_name}</p>
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {insight.insight_text}
-            </p>
-
-            <div className="flex items-center justify-between">
-              <div className="flex gap-4 text-xs text-muted-foreground">
-                <span>
-                  Pewność: <strong>{(insight.confidence_score * 100).toFixed(0)}%</strong>
-                </span>
-                <span>
-                  Wpływ: <strong>{insight.impact_score}/10</strong>
-                </span>
-                <span>
-                  Dowody: <strong>{insight.evidence_count}</strong>
-                </span>
-              </div>
-
-              <Button size="sm" variant="outline" onClick={onViewDetails}>
-                <Eye className="h-4 w-4 mr-1" />
-                Zobacz szczegóły
-              </Button>
-            </div>
+            <span>•</span>
+            <span>{insight.time_ago}</span>
+            <span>•</span>
+            <span>{insight.project_name}</span>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Right: Explore Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 px-[11px] border-border rounded-figma-button font-crimson font-semibold text-sm flex-shrink-0"
+        onClick={onViewDetails}
+      >
+        <Eye className="h-4 w-4 mr-2" />
+        Szczegóły
+      </Button>
+    </div>
   );
 }
 

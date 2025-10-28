@@ -14,9 +14,12 @@ Dokumentacja i komentarze pozostają po polsku, aby ułatwić współpracę zesp
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 from typing import Any
 
+import redis.asyncio as redis
 from langchain_core.documents import Document
 
 from app.core.config import get_settings
@@ -39,6 +42,24 @@ class PolishSocietyRAG:
 
         # Współdzielone połączenie z Neo4j Vector Store (retry logic w warstwie pomocniczej)
         self.vector_store = get_vector_store(logger)
+
+        # Redis cache dla hybrid search queries (7-day TTL - same as GraphRAGService)
+        self.redis_client = None
+        try:
+            self.redis_client = redis.from_url(
+                settings.REDIS_URL,
+                encoding="utf-8",
+                decode_responses=True,
+            )
+            logger.info("✅ PolishSocietyRAG: Redis cache enabled")
+        except Exception as exc:
+            logger.warning(
+                "⚠️ PolishSocietyRAG: Redis unavailable - cache disabled. Error: %s",
+                exc
+            )
+
+        # Cache TTL (7 days - same as GraphRAGService)
+        self.CACHE_TTL_SECONDS = 7 * 24 * 60 * 60  # 604800 seconds
 
         if self.vector_store:
             logger.info("✅ PolishSocietyRAG: Neo4j Vector Store połączony")
@@ -87,6 +108,87 @@ class PolishSocietyRAG:
 
             self._graph_rag_service = GraphRAGService()
         return self._graph_rag_service
+
+    def _get_hybrid_search_cache_key(self, query: str, top_k: int) -> str:
+        """Generate cache key for hybrid search.
+
+        Args:
+            query: Search query text
+            top_k: Number of results
+
+        Returns:
+            Cache key string (format: "hybrid_search:query_hash:topk")
+        """
+        # Hash query for shorter cache key (MD5 sufficient for caching)
+        query_normalized = query.lower().strip()
+        query_hash = hashlib.md5(query_normalized.encode()).hexdigest()[:12]
+
+        return f"hybrid_search:{query_hash}:{top_k}"
+
+    async def _get_hybrid_cache(self, cache_key: str) -> list[Document] | None:
+        """Get cached hybrid search results from Redis.
+
+        Args:
+            cache_key: Redis key
+
+        Returns:
+            Cached documents (list of Document) or None if cache miss
+        """
+        if not self.redis_client:
+            return None
+
+        try:
+            cached = await self.redis_client.get(cache_key)
+            if cached:
+                logger.info(f"✅ Hybrid search cache HIT for {cache_key}")
+                # Deserialize JSON back to Document objects
+                docs_data = json.loads(cached)
+                documents = [
+                    Document(
+                        page_content=doc_data["page_content"],
+                        metadata=doc_data.get("metadata", {})
+                    )
+                    for doc_data in docs_data
+                ]
+                return documents
+            else:
+                logger.info(f"❌ Hybrid search cache MISS for {cache_key}")
+                return None
+        except Exception as exc:
+            logger.warning(f"⚠️ Redis get failed: {exc}")
+            return None
+
+    async def _set_hybrid_cache(self, cache_key: str, documents: list[Document]) -> None:
+        """Store hybrid search results in Redis cache.
+
+        Args:
+            cache_key: Redis key
+            documents: List of Document objects
+        """
+        if not self.redis_client:
+            return
+
+        try:
+            # Serialize Document objects to JSON
+            docs_data = [
+                {
+                    "page_content": doc.page_content,
+                    "metadata": doc.metadata
+                }
+                for doc in documents
+            ]
+
+            await self.redis_client.setex(
+                cache_key,
+                self.CACHE_TTL_SECONDS,
+                json.dumps(docs_data, ensure_ascii=False)
+            )
+            logger.info(
+                f"💾 Cached hybrid search: {cache_key} "
+                f"({len(documents)} docs, TTL 7 days)"
+            )
+        except Exception as exc:
+            logger.warning(f"⚠️ Redis set failed: {exc}")
 
     async def _ensure_fulltext_index(self) -> None:
         """Tworzy indeks fulltext w Neo4j na potrzeby wyszukiwania keywordowego."""
@@ -490,6 +592,8 @@ class PolishSocietyRAG:
     ) -> list[Document]:
         """Wykonuje hybrydowe wyszukiwanie (vector + keyword + RRF fusion).
 
+        NOWOŚĆ: Redis caching (7-day TTL) - cache hit rate ~70-90% expected.
+
         Ta metoda łączy wyszukiwanie semantyczne (embeddingi) i pełnotekstowe (keywords)
         używając Reciprocal Rank Fusion do połączenia wyników.
 
@@ -505,6 +609,17 @@ class PolishSocietyRAG:
         """
         if not self.vector_store:
             raise RuntimeError("Vector store niedostępny - hybrid search niemożliwy")
+
+        # === REDIS CACHE CHECK ===
+        cache_key = self._get_hybrid_search_cache_key(query, top_k)
+        cached_documents = await self._get_hybrid_cache(cache_key)
+
+        if cached_documents:
+            logger.info(
+                f"🚀 Hybrid search cache HIT - returning {len(cached_documents)} docs "
+                f"(no vector/keyword search needed)"
+            )
+            return cached_documents
 
         logger.info("Hybrid search: query='%s...', top_k=%s", query[:50], top_k)
 
@@ -553,6 +668,11 @@ class PolishSocietyRAG:
             # Return only Documents (strip scores)
             documents = [doc for doc, score in final_results]
             logger.info("Hybrid search returned %s documents", len(documents))
+
+            # === CACHE RESULT ===
+            # Cache the result for future requests (7-day TTL)
+            await self._set_hybrid_cache(cache_key, documents)
+
             return documents
 
         except Exception as exc:

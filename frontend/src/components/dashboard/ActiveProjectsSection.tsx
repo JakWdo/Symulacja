@@ -26,7 +26,11 @@ import {
 import { useActiveProjects } from '@/hooks/dashboard/useActiveProjects';
 import type { ProjectWithHealth } from '@/types/dashboard';
 
-export function ActiveProjectsSection({ onNavigate }: { onNavigate?: (view: string) => void }) {
+interface ActiveProjectsSectionProps {
+  onNavigate?: (url: string) => void | Promise<void>;
+}
+
+export function ActiveProjectsSection({ onNavigate }: ActiveProjectsSectionProps) {
   const { data: projects, isLoading, error } = useActiveProjects();
 
   if (isLoading) {
@@ -66,7 +70,11 @@ export function ActiveProjectsSection({ onNavigate }: { onNavigate?: (view: stri
           variant="outline"
           size="sm"
           className="h-8 border-border text-foreground hover:bg-muted/50 rounded-[6px]"
-          onClick={() => onNavigate?.('projects')}
+          onClick={() => {
+            if (onNavigate) {
+              void onNavigate('/projects');
+            }
+          }}
         >
           <Eye className="w-4 h-4 mr-2" />
           Zobacz wszystkie
@@ -76,7 +84,7 @@ export function ActiveProjectsSection({ onNavigate }: { onNavigate?: (view: stri
       {/* Projects List (Cards) */}
       <div className="space-y-4">
         {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
+          <ProjectCard key={project.id} project={project} onNavigate={onNavigate} />
         ))}
       </div>
     </div>
@@ -85,7 +93,13 @@ export function ActiveProjectsSection({ onNavigate }: { onNavigate?: (view: stri
 
 // ========== PROJECT CARD (Figma Design) ==========
 
-function ProjectCard({ project }: { project: ProjectWithHealth }) {
+function ProjectCard({
+  project,
+  onNavigate,
+}: {
+  project: ProjectWithHealth;
+  onNavigate?: (url: string) => void | Promise<void>;
+}) {
   // Status badge - outline only (from Figma)
   const statusConfig = {
     running: {
@@ -151,7 +165,13 @@ function ProjectCard({ project }: { project: ProjectWithHealth }) {
           <Button
             size="sm"
             className="bg-red-500/5 dark:bg-red-500/10 border border-red-500/20 dark:border-red-500/30 text-foreground h-8 rounded-[6px]"
-            onClick={() => window.location.href = project.cta_url}
+            onClick={() => {
+              if (onNavigate) {
+                void onNavigate(project.cta_url);
+              } else {
+                window.location.href = project.cta_url;
+              }
+            }}
           >
             <AlertCircle className="w-4 h-4 mr-2" />
             Napraw problemy
@@ -162,7 +182,13 @@ function ProjectCard({ project }: { project: ProjectWithHealth }) {
           <Button
             size="sm"
             className="bg-figma-primary hover:bg-figma-primary/90 text-white h-8 rounded-[6px]"
-            onClick={() => window.location.href = project.cta_url}
+            onClick={() => {
+              if (onNavigate) {
+                void onNavigate(project.cta_url);
+              } else {
+                window.location.href = project.cta_url;
+              }
+            }}
           >
             <Play className="w-4 h-4 mr-2" />
             Wznów
@@ -173,7 +199,13 @@ function ProjectCard({ project }: { project: ProjectWithHealth }) {
           <Button
             size="sm"
             className="bg-figma-primary hover:bg-figma-primary/90 text-white h-8 rounded-[6px]"
-            onClick={() => window.location.href = project.cta_url}
+            onClick={() => {
+              if (onNavigate) {
+                void onNavigate(project.cta_url);
+              } else {
+                window.location.href = project.cta_url;
+              }
+            }}
           >
             <Download className="w-4 h-4 mr-2" />
             Eksportuj
@@ -231,7 +263,13 @@ function ProjectCard({ project }: { project: ProjectWithHealth }) {
               variant="outline"
               size="sm"
               className="h-8 w-8 p-0 border-border rounded-[6px]"
-              onClick={() => window.location.href = project.cta_url}
+              onClick={() => {
+                if (onNavigate) {
+                  void onNavigate(project.cta_url);
+                } else {
+                  window.location.href = project.cta_url;
+                }
+              }}
             >
               <Eye className="w-4 h-4" />
             </Button>

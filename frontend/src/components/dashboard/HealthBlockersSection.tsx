@@ -46,7 +46,11 @@ const SEVERITY_CONFIG = {
   low: { color: 'bg-blue-500', label: 'Niski' },
 };
 
-export function HealthBlockersSection() {
+interface HealthBlockersSectionProps {
+  onFixBlocker?: (url: string) => void | Promise<void>;
+}
+
+export function HealthBlockersSection({ onFixBlocker }: HealthBlockersSectionProps) {
   const { data, isLoading, error } = useHealthBlockers();
 
   if (isLoading) {
@@ -78,13 +82,17 @@ export function HealthBlockersSection() {
   const hasBlockers = data.blockers.length > 0;
 
   return (
-    <Card className="border-border rounded-[12px]">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Activity className="h-5 w-5 text-foreground" />
-          <CardTitle className="text-base font-normal text-foreground">Stan i blokady</CardTitle>
+    <Card className="border-border rounded-figma-card">
+      <CardHeader className="px-6 pt-6 pb-4">
+        <div className="flex items-center gap-2 mb-1.5">
+          <AlertCircle className="h-5 w-5 text-foreground" />
+          <CardTitle className="text-base font-normal text-foreground leading-[16px]">
+            Stan i blokady
+          </CardTitle>
         </div>
-        <p className="text-base text-muted-foreground">Aktywne problemy wymagające uwagi</p>
+        <p className="text-base text-muted-foreground leading-[24px]">
+          Aktywne problemy wymagające uwagi
+        </p>
       </CardHeader>
       <CardContent>
         {hasBlockers ? (
@@ -95,7 +103,7 @@ export function HealthBlockersSection() {
                 return severityOrder[a.severity] - severityOrder[b.severity];
               })
               .map((blocker, index) => (
-                <BlockerCard key={index} blocker={blocker} />
+                <BlockerCard key={index} blocker={blocker} onFixBlocker={onFixBlocker} />
               ))}
           </div>
         ) : (
@@ -146,9 +154,20 @@ function HealthSummaryCard({
   );
 }
 
-function BlockerCard({ blocker }: { blocker: BlockerWithFix }) {
+function BlockerCard({
+  blocker,
+  onFixBlocker,
+}: {
+  blocker: BlockerWithFix;
+  onFixBlocker?: (url: string) => void | Promise<void>;
+}) {
   const handleFix = () => {
-    if (blocker.fix_url) {
+    if (!blocker.fix_url) {
+      return;
+    }
+    if (onFixBlocker) {
+      void onFixBlocker(blocker.fix_url);
+    } else {
       window.location.href = blocker.fix_url;
     }
   };

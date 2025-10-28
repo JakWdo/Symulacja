@@ -4,7 +4,7 @@ Model użytkownika z pełnym wsparciem dla autentykacji i ustawień
 Ten model reprezentuje użytkownika systemu Sight.
 Zawiera dane profilowe, ustawienia notyfikacji, szyfrowany API key i relacje do projektów.
 """
-from sqlalchemy import Column, String, Boolean, DateTime, Text
+from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -51,6 +51,11 @@ class User(Base):
     is_active = Column(Boolean, default=True)  # Czy konto jest aktywne
     is_verified = Column(Boolean, default=False)  # Czy adres e-mail został zweryfikowany (funkcja przyszłościowa)
     plan = Column(String(50), default="free")  # Plany taryfowe: "free", "pro", "enterprise"
+
+    # === BUDGET SETTINGS ===
+    budget_limit = Column(Float, nullable=True)  # Custom budget limit (USD), overrides plan-based limit
+    warning_threshold = Column(Integer, default=80)  # Warning alert threshold (% of budget)
+    critical_threshold = Column(Integer, default=90)  # Critical alert threshold (% of budget)
 
     # === TIMESTAMPS ===
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -31,17 +31,23 @@ import {
   ArrowDown,
   Minus,
   HelpCircle,
+  Clock,
+  Target,
+  AlertCircle,
 } from 'lucide-react';
 import { useDashboardOverview } from '@/hooks/dashboard/useDashboardOverview';
 import { useQuickActions } from '@/hooks/dashboard/useQuickActions';
 import { useExecuteAction } from '@/hooks/dashboard/useExecuteAction';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { ActiveProjectsSection } from '@/components/dashboard/ActiveProjectsSection';
 import { WeeklyCompletionChart } from '@/components/dashboard/WeeklyCompletionChart';
 import { InsightAnalyticsCharts } from '@/components/dashboard/InsightAnalyticsCharts';
+import { InsightTypesChart } from '@/components/dashboard/InsightTypesChart';
 import { LatestInsightsSection } from '@/components/dashboard/LatestInsightsSection';
 import { HealthBlockersSection } from '@/components/dashboard/HealthBlockersSection';
 import { UsageBudgetSection } from '@/components/dashboard/UsageBudgetSection';
 import { NotificationsSection } from '@/components/dashboard/NotificationsSection';
+import { useDashboardNavigation } from '@/hooks/dashboard/useDashboardNavigation';
 import type { MetricCard as MetricCardType, QuickAction } from '@/types/dashboard';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -52,22 +58,19 @@ interface SightDashboardProps {
 export function SightDashboard({ onNavigate }: SightDashboardProps) {
   const { data: overview, isLoading: overviewLoading, error: overviewError } = useDashboardOverview();
   const { data: actions, isLoading: actionsLoading } = useQuickActions(4);
+  const navigateTo = useDashboardNavigation(onNavigate);
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-screen-2xl mx-auto p-4 md:p-6">
-      {/* Header */}
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Panel główny</h1>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Śledź postęp badań, spostrzeżenia i kolejne kroki
-        </p>
-      </div>
+      <div className="max-w-[1920px] w-full mx-auto p-4 md:p-6">
+      {/* Dashboard Header */}
+      <PageHeader
+        title="Panel główny"
+        subtitle="Śledź spostrzeżenia, akcje i postęp badań w czasie rzeczywistym"
+      />
 
-      {/* Overview Section */}
+      {/* Overview Section - 4 KPI Cards (Figma Design) */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Przegląd</h2>
-
         {overviewLoading ? (
           <OverviewSkeleton />
         ) : overviewError ? (
@@ -79,35 +82,28 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
           </Alert>
         ) : overview ? (
           <>
-            {/* 8 KPI Cards (Figma Make Design: 1 grid, 8 columns on XL) */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-              {/* Row 1: Main 4 cards */}
-              <div className="xl:col-span-2">
-                <MetricCard metric={overview.active_research} />
-              </div>
-              <div className="xl:col-span-2">
-                <MetricCard metric={overview.pending_actions} />
-              </div>
-              <div className="xl:col-span-2">
-                <MetricCard metric={overview.insights_ready} />
-              </div>
-              <div className="xl:col-span-2">
-                <MetricCard metric={overview.this_week_activity} />
-              </div>
-
-              {/* Row 2: Extensions 4 cards */}
-              <div className="xl:col-span-2">
-                <MetricCard metric={overview.time_to_insight} />
-              </div>
-              <div className="xl:col-span-2">
-                <MetricCard metric={overview.insight_adoption_rate} />
-              </div>
-              <div className="xl:col-span-2">
-                <MetricCard metric={overview.persona_coverage} />
-              </div>
-              <div className="xl:col-span-2">
-                <MetricCard metric={overview.blockers_count} />
-              </div>
+            {/* 4 KPI Cards (Figma Design Node 62:152) */}
+            <div className="grid gap-4 grid-cols-4">
+              {/* Time-to-Insight */}
+              <MetricCard
+                metric={overview.time_to_insight}
+                icon={Clock}
+              />
+              {/* Insight Adoption */}
+              <MetricCard
+                metric={overview.insight_adoption_rate}
+                icon={Target}
+              />
+              {/* Persona Coverage */}
+              <MetricCard
+                metric={overview.persona_coverage}
+                icon={Users}
+              />
+              {/* Active Blockers */}
+              <MetricCard
+                metric={overview.blockers_count}
+                icon={AlertCircle}
+              />
             </div>
           </>
         ) : null}
@@ -122,7 +118,11 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
         ) : actions && actions.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {actions.map((action) => (
-              <ActionCard key={action.action_id} action={action} onNavigate={onNavigate} />
+              <ActionCard
+                key={action.action_id}
+                action={action}
+                onNavigate={navigateTo}
+              />
             ))}
           </div>
         ) : (
@@ -136,40 +136,43 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 
       {/* Active Projects Section */}
       <div className="mb-8">
-        <ActiveProjectsSection />
+        <ActiveProjectsSection onNavigate={navigateTo} />
       </div>
 
       <Separator className="my-8" />
 
-      {/* Research Activity Charts */}
-      <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Aktywność badawcza</h2>
-        <WeeklyCompletionChart weeks={8} />
-        <InsightAnalyticsCharts />
+      {/* Row: Weekly Activity Trend + Top Insight Concepts (Figma Design) */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="col-span-2">
+          <WeeklyCompletionChart weeks={8} />
+        </div>
+        <div className="col-span-1">
+          <InsightAnalyticsCharts />
+        </div>
       </div>
 
       <Separator className="my-8" />
 
-      {/* Latest Insights Section */}
-      <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Najnowsze spostrzeżenia</h2>
-        <LatestInsightsSection />
+      {/* Row: Insight Types Pie + Latest Insights (Figma Design) */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="col-span-1">
+          <InsightTypesChart />
+        </div>
+        <div className="col-span-2">
+          <LatestInsightsSection />
+        </div>
       </div>
 
       <Separator className="my-8" />
 
-      {/* Health & Blockers Section */}
-      <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Zdrowie projektu</h2>
-        <HealthBlockersSection />
-      </div>
-
-      <Separator className="my-8" />
-
-      {/* Usage & Budget Section */}
-      <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Zużycie i budżet</h2>
-        <UsageBudgetSection />
+      {/* Row: Health & Blockers + Usage & Budget (Figma Design) */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="col-span-2">
+          <HealthBlockersSection onFixBlocker={navigateTo} />
+        </div>
+        <div className="col-span-1">
+          <UsageBudgetSection />
+        </div>
       </div>
 
       <Separator className="my-8" />
@@ -186,7 +189,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 
 // ========== COMPONENTS ==========
 
-function MetricCard({ metric }: { metric: MetricCardType }) {
+function MetricCard({ metric, icon: Icon }: { metric: MetricCardType; icon?: React.ComponentType<{ className?: string }> }) {
   const TrendIcon =
     metric.trend?.direction === 'up'
       ? ArrowUp
@@ -196,45 +199,62 @@ function MetricCard({ metric }: { metric: MetricCardType }) {
 
   const trendColor =
     metric.trend?.direction === 'up'
-      ? 'text-green-600'
+      ? 'text-figma-green'
       : metric.trend?.direction === 'down'
-      ? 'text-red-600'
+      ? 'text-figma-red'
       : 'text-gray-400';
 
+  // Dynamic trend text based on metric type
+  const getTrendText = () => {
+    if (!metric.trend) return '';
+    const isTimeMetric = metric.label.toLowerCase().includes('czas');
+    const direction = metric.trend.direction;
+
+    if (isTimeMetric) {
+      return direction === 'up' ? 'szybciej' : direction === 'down' ? 'wolniej' : '';
+    } else {
+      return direction === 'up' ? 'wyższy' : direction === 'down' ? 'niższy' : '';
+    }
+  };
+
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">{metric.label}</p>
-            <p className="text-2xl font-bold">{metric.value}</p>
-          </div>
-          {metric.tooltip && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs text-sm">{metric.tooltip}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+    <Card className="border-border rounded-figma-card">
+      <CardHeader className="pb-6 px-6 pt-6 flex flex-row items-start justify-between">
+        <div className="flex-1">
+          <CardTitle className="text-sm font-normal text-figma-muted dark:text-muted-foreground leading-[20px]">
+            {metric.label}
+          </CardTitle>
+        </div>
+        {Icon && (
+          <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        )}
+      </CardHeader>
+      <CardContent className="px-6 pb-6 pt-0">
+        <div className="space-y-2">
+          <p className="text-2xl font-normal leading-[32px] text-foreground">{metric.value}</p>
+          {metric.trend && (
+            <div className={`flex items-center text-xs ${trendColor}`}>
+              <TrendIcon className="mr-1 h-3 w-3" />
+              <span>{Math.abs(metric.trend.change_percent).toFixed(1)}%</span>
+              {getTrendText() && <span className="ml-1">{getTrendText()}</span>}
+              {metric.p90 && (
+                <span className="ml-1 text-muted-foreground">(P90: {metric.p90})</span>
+              )}
+            </div>
           )}
         </div>
-        {metric.trend && (
-          <div className={`mt-2 flex items-center text-sm ${trendColor}`}>
-            <TrendIcon className="mr-1 h-4 w-4" />
-            <span>{Math.abs(metric.trend.change_percent).toFixed(1)}%</span>
-            <span className="ml-1 text-muted-foreground">vs poprzedni tydzień</span>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
 }
 
-function ActionCard({ action, onNavigate }: { action: QuickAction; onNavigate?: (view: string) => void }) {
+function ActionCard({
+  action,
+  onNavigate,
+}: {
+  action: QuickAction;
+  onNavigate?: (url: string) => void | Promise<void>;
+}) {
   const executeAction = useExecuteAction();
 
   const priorityColors = {
@@ -253,7 +273,9 @@ function ActionCard({ action, onNavigate }: { action: QuickAction; onNavigate?: 
     try {
       const result = await executeAction.mutateAsync(action.action_id);
       if (result?.status === 'redirect' && result.redirect_url) {
-        window.location.href = result.redirect_url;
+        await onNavigate?.(result.redirect_url);
+      } else if (result?.status === 'success' && action.cta_url) {
+        await onNavigate?.(action.cta_url);
       }
     } catch (error) {
       console.error('Failed to execute dashboard action', error);
@@ -312,18 +334,11 @@ function ActionCard({ action, onNavigate }: { action: QuickAction; onNavigate?: 
 
 function OverviewSkeleton() {
   return (
-    <>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-24" />
-        ))}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-24" />
-        ))}
-      </div>
-    </>
+    <div className="grid gap-4 grid-cols-4">
+      {[...Array(4)].map((_, i) => (
+        <Skeleton key={i} className="h-[170px] rounded-figma-card" />
+      ))}
+    </div>
   );
 }
 

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Search, Users, MessageSquare, Calendar, FolderOpen } from 'lucide-react';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { projectsApi, personasApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { formatDate } from '@/lib/utils';
@@ -114,21 +115,19 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
 
   return (
     <div className="w-full h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto space-y-6 p-6">
+      <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Projekty</h1>
-          <p className="text-muted-foreground">Zarządzaj swoimi projektami badawczymi</p>
-        </div>
-        
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#F27405] hover:bg-[#F27405]/90 text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Nowy projekt
-            </Button>
-          </DialogTrigger>
+      <PageHeader
+        title="Projekty"
+        subtitle="Zarządzaj swoimi projektami badawczymi"
+        actions={
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-[#F27405] hover:bg-[#F27405]/90 text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                Nowy projekt
+              </Button>
+            </DialogTrigger>
           <DialogContent className="bg-popover border border-border text-popover-foreground shadow-xl">
             <DialogHeader>
               <DialogTitle>Utwórz nowy projekt</DialogTitle>
@@ -188,7 +187,8 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
       {/* Search */}
       <div className="relative max-w-md">

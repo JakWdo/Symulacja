@@ -9,6 +9,14 @@ export default {
     extend: {
       colors: {
         'brand-orange': '#F27405',
+        // Figma Dashboard Design Colors
+        'figma-primary': '#F27405',     // Primary orange
+        'figma-secondary': '#F29F05',   // Secondary yellow
+        'figma-green': '#28a745',       // Success/green
+        'figma-red': '#dc3545',         // Error/red
+        'figma-red-alt': '#fb2c36',     // Alternate red
+        'figma-yellow': '#ffc107',      // Warning/yellow
+        'figma-muted': '#6c757d',       // Muted foreground
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -60,10 +68,17 @@ export default {
           ring: 'hsl(var(--sidebar-ring))',
         },
       },
+      fontFamily: {
+        'crimson': ['Crimson Text', 'serif'],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        // Figma Dashboard Design Border Radius
+        'figma-card': '12px',         // Main cards
+        'figma-inner': '8px',         // Inner elements/cards
+        'figma-button': '6px',        // Buttons
       },
       animation: {
         'float': 'float 6s ease-in-out infinite',

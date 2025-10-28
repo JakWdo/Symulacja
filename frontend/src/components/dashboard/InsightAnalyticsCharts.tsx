@@ -104,23 +104,33 @@ export function InsightAnalyticsCharts() {
     : [];
 
   return (
-    <Card className="border-border rounded-[12px]">
-      <CardHeader>
-        <CardTitle className="text-base font-normal text-foreground">Najczęstsze koncepcje w spostrzeżeniach</CardTitle>
-        <p className="text-base text-muted-foreground">Najczęściej omawiane tematy</p>
+    <Card className="border-border rounded-figma-card">
+      <CardHeader className="px-6 pt-6 pb-4">
+        <CardTitle className="text-base font-normal text-foreground leading-[16px]">
+          Najczęstsze koncepcje
+        </CardTitle>
+        <p className="text-base text-muted-foreground leading-[24px] mt-1.5">
+          Najczęściej omawiane tematy
+        </p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-6 pb-6">
         {hasTopConcepts ? (
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.top_concepts.slice(0, 5)} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" className="stroke-border dark:stroke-border" />
-              <XAxis type="number" tick={{ fontSize: 12 }} />
+              <XAxis
+                type="number"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                axisLine={false}
+              />
               <YAxis
                 dataKey="concept"
                 type="category"
-                width={120}
+                width={150}
                 tick={{ fontSize: 12 }}
                 tickLine={false}
+                axisLine={false}
               />
               <Tooltip
                 contentStyle={{

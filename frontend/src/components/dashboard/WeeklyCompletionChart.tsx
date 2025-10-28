@@ -82,26 +82,17 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
   const totalInsights = data.insights.reduce((sum, val) => sum + val, 0);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Aktywność tygodniowa</CardTitle>
-        <div className="flex gap-6 mt-2 text-sm text-muted-foreground">
-          <span>
-            <span className="font-medium text-figma-primary">{totalPersonas}</span> person
-          </span>
-          <span>
-            <span className="font-medium text-figma-secondary">{totalFocusGroups}</span> grup fokusowych
-          </span>
-          <span>
-            <span className="font-medium text-amber-600">{totalSurveys}</span> ankiet
-          </span>
-          <span>
-            <span className="font-medium text-figma-green">{totalInsights}</span> spostrzeżeń
-          </span>
-        </div>
+    <Card className="border-border rounded-figma-card">
+      <CardHeader className="px-6 pt-6 pb-4">
+        <CardTitle className="text-base font-normal text-foreground leading-[16px]">
+          Trend aktywności tygodniowej
+        </CardTitle>
+        <p className="text-base text-muted-foreground leading-[24px] mt-1.5">
+          Generowanie person, grup fokusowych i spostrzeżeń
+        </p>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+      <CardContent className="px-6 pb-6">
+        <ResponsiveContainer width="100%" height={280}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border dark:stroke-border" />
             <XAxis
@@ -125,8 +116,10 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
               }}
             />
             <Legend
-              wrapperStyle={{ fontSize: '12px' }}
+              wrapperStyle={{ fontSize: '16px', paddingTop: '16px' }}
               iconType="line"
+              align="center"
+              verticalAlign="bottom"
             />
             <Line
               type="monotone"
@@ -145,15 +138,6 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
               dot={{ fill: '#F29F05', r: 4 }}
               activeDot={{ r: 6 }}
               name="Grupy fokusowe"
-            />
-            <Line
-              type="monotone"
-              dataKey="surveys"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              dot={{ fill: '#f59e0b', r: 4 }}
-              activeDot={{ r: 6 }}
-              name="Ankiety"
             />
             <Line
               type="monotone"

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select, and_, func
 
-from app.models import InsightEvidence, Project
+from app.models import DashboardMetric, InsightEvidence, Project
 from app.services.dashboard.health_service import ProjectHealthService
 from app.services.dashboard.insight_traceability_service import InsightTraceabilityService
 from app.services.dashboard.metrics_service import DashboardMetricsService
@@ -77,6 +77,9 @@ class DashboardOrchestrator:
         cached = await redis_get_json(cache_key)
         if cached is not None:
             return cached
+
+        last_state_key = f"dashboard:overview:last-state:{user_id}"
+        previous_state = await redis_get_json(last_state_key) or {}
 
         def build_trend(current_value: float | None, previous_value: float | None, *, invert: bool = False) -> dict[str, Any] | None:
             """
@@ -219,72 +222,124 @@ class DashboardOrchestrator:
             if health["health_status"] != "on_track":
                 blockers_count += 1
 
-        # Format response and store in Redis cache (30s TTL)
-        result = {
+        previous_metric_stmt = (
+            select(DashboardMetric)
+            .where(DashboardMetric.user_id == user_id)
+            .order_by(DashboardMetric.metric_date.desc())
+            .limit(1)
+        )
+        previous_metric_result = await self.db.execute(previous_metric_stmt)
+        previous_metric = previous_metric_result.scalar_one_or_none()
+
+        active_trend = build_trend(
+            float(active_projects_count or 0),
+            float(previous_state.get("active_research"))
+            if "active_research" in previous_state
+            else (float(previous_metric.active_projects_count) if previous_metric else None),
+        )
+        pending_trend = build_trend(
+            float(pending_actions_count),
+            float(previous_state.get("pending_actions")) if "pending_actions" in previous_state else None,
+        )
+        insights_trend = build_trend(
+            float(insights_ready_count or 0),
+            float(previous_state.get("insights_ready")) if "insights_ready" in previous_state else None,
+        )
+        coverage_trend = build_trend(
+            float(persona_coverage),
+            float(previous_state.get("persona_coverage"))
+            if "persona_coverage" in previous_state
+            else (
+                float(previous_metric.persona_coverage_avg)
+                if previous_metric and previous_metric.persona_coverage_avg is not None
+                else None
+            ),
+        )
+        blockers_trend = build_trend(
+            float(blockers_count),
+            float(previous_state.get("blockers_count"))
+            if "blockers_count" in previous_state
+            else (float(previous_metric.blocked_projects_count) if previous_metric else None),
+        )
+
+        overview = {
             "active_research": {
-                "label": "Active Research",
+                "label": "Aktywne badania",
                 "value": str(active_projects_count or 0),
                 "raw_value": active_projects_count or 0,
-                "trend": None,
-                "tooltip": "Number of active research projects",
+                "trend": active_trend,
+                "tooltip": "Liczba aktywnych projektów badawczych",
             },
             "pending_actions": {
-                "label": "Pending Actions",
+                "label": "Oczekujące akcje",
                 "value": str(pending_actions_count),
                 "raw_value": pending_actions_count,
-                "trend": None,
-                "tooltip": "Recommended actions to take",
+                "trend": pending_trend,
+                "tooltip": "Zalecane akcje do wykonania",
             },
             "insights_ready": {
-                "label": "Insights Ready",
+                "label": "Spostrzeżenia gotowe",
                 "value": str(insights_ready_count or 0),
                 "raw_value": insights_ready_count or 0,
-                "trend": None,
-                "tooltip": "New insights to review",
+                "trend": insights_trend,
+                "tooltip": "Nowe spostrzeżenia do przejrzenia",
             },
             "this_week_activity": {
-                "label": "This Week",
+                "label": "Ten tydzień",
                 "value": str(this_week_total),
                 "raw_value": this_week_total,
                 "trend": activity_trend,
-                "tooltip": "Total activity this week (personas + focus groups + insights)",
+                "tooltip": "Całkowita aktywność w tym tygodniu (persony + grupy fokusowe + spostrzeżenia)",
             },
             "time_to_insight": {
-                "label": "Time to Insight",
+                "label": "Czas do spostrzeżenia",
                 "value": (
                     f"{tti_median_minutes:.1f} min"
                     if tti_median_minutes
-                    else "No data"
+                    else "Brak danych"
                 ),
                 "raw_value": tti_median_minutes,
-                "p90": tti_p90_minutes,  # P90 for tooltip
+                "p90": tti_p90_minutes,
                 "trend": tti_trend,
-                "tooltip": "Median time from project creation to first insight",
+                "tooltip": "Mediana czasu od utworzenia projektu do pierwszego spostrzeżenia",
             },
             "insight_adoption_rate": {
-                "label": "Adoption Rate",
+                "label": "Wskaźnik adopcji",
                 "value": f"{adoption_overall * 100:.0f}%",
                 "raw_value": adoption_overall,
                 "trend": adoption_trend,
-                "tooltip": "Percentage of insights acted upon (viewed/shared/exported/adopted)",
+                "tooltip": "Procent spostrzeżeń, na które podjęto działania (wyświetlone/udostępnione/wyeksportowane/zaadoptowane)",
             },
             "persona_coverage": {
-                "label": "Persona Coverage",
+                "label": "Pokrycie person",
                 "value": f"{persona_coverage * 100:.0f}%",
                 "raw_value": persona_coverage,
-                "trend": None,
-                "tooltip": "Average demographic coverage across projects",
+                "trend": coverage_trend,
+                "tooltip": "Średnie pokrycie demograficzne w projektach",
             },
             "blockers_count": {
-                "label": "Projects with Issues",
+                "label": "Projekty z problemami",
                 "value": str(blockers_count),
                 "raw_value": blockers_count,
-                "trend": None,
-                "tooltip": "Projects with blockers or at risk",
+                "trend": blockers_trend,
+                "tooltip": "Projekty z problemami lub zagrożone",
             },
         }
-        await redis_set_json(cache_key, result, ttl_seconds=30)
-        return result
+
+        await redis_set_json(
+            last_state_key,
+            {
+                "active_research": float(active_projects_count or 0),
+                "pending_actions": float(pending_actions_count),
+                "insights_ready": float(insights_ready_count or 0),
+                "persona_coverage": float(persona_coverage),
+                "blockers_count": float(blockers_count),
+            },
+            ttl_seconds=86400,
+        )
+
+        await redis_set_json(cache_key, overview, ttl_seconds=30)
+        return overview
 
     async def get_active_projects(
         self, user_id: UUID
@@ -751,8 +806,12 @@ class DashboardOrchestrator:
         user_result = await self.db.execute(user_stmt)
         user = user_result.scalar_one_or_none()
 
-        # Determine budget limit based on user plan
-        if user and user.plan:
+        # Determine budget limit: user custom limit > plan-based limit > fallback
+        if user and user.budget_limit is not None:
+            # User has set custom budget limit in Settings
+            budget_limit = user.budget_limit
+        elif user and user.plan:
+            # Fallback to plan-based budget limits
             budget_map = {
                 "free": 50.0,
                 "pro": 100.0,
@@ -793,6 +852,10 @@ class DashboardOrchestrator:
             "budget_limit": budget_limit,
             "alerts": alerts,
             "history": history,
+            "alert_thresholds": {
+                "warning": user.warning_threshold if user and user.warning_threshold is not None else 80,
+                "critical": user.critical_threshold if user and user.critical_threshold is not None else 90,
+            },
         }
 
         # Store in Redis cache (60s TTL)
@@ -861,11 +924,49 @@ class DashboardOrchestrator:
             if insight_type in insight_type_counts:
                 insight_type_counts[insight_type] += 1
 
+        # Response patterns (heuristics based on evidence and sentiment)
+        keyword_patterns = {
+            "Price sensitivity": ["price", "pricing", "cost", "expensive", "cheap"],
+            "Product quality": ["quality", "durable", "reliable", "defect", "faulty"],
+            "Customer experience": ["experience", "journey", "onboarding", "support", "service"],
+            "Feature requests": ["feature", "missing", "lack", "add", "improve"],
+            "Performance issues": ["slow", "lag", "performance", "crash", "bug"],
+        }
+
+        pattern_counts: dict[str, int] = {}
+
+        def add_pattern(label: str) -> None:
+            pattern_counts[label] = pattern_counts.get(label, 0) + 1
+
+        for insight in insights:
+            add_pattern(f"{insight.insight_type.title()} signals")
+            if insight.sentiment:
+                add_pattern(f"{insight.sentiment.capitalize()} sentiment")
+
+            for evidence in insight.evidence or []:
+                text_source = ""
+                if isinstance(evidence, dict):
+                    text_source = str(evidence.get("text", ""))
+                else:
+                    text_source = str(getattr(evidence, "text", ""))
+
+                text = text_source.lower()
+                if not text:
+                    continue
+                for label, keywords in keyword_patterns.items():
+                    if any(keyword in text for keyword in keywords):
+                        add_pattern(label)
+
+        response_patterns = [
+            {"pattern": label, "count": count}
+            for label, count in sorted(pattern_counts.items(), key=lambda item: item[1], reverse=True)[:5]
+        ]
+
         result = {
             "top_concepts": top_concepts,
             "sentiment_distribution": sentiment_counts,
             "insight_types": insight_type_counts,
-            "response_patterns": [],  # TODO: Implement pattern analysis
+            "response_patterns": response_patterns,
         }
 
         # Store in Redis cache (30s TTL)

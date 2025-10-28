@@ -86,15 +86,19 @@ export function UsageBudgetSection() {
   }));
 
   return (
-    <Card className="border-border rounded-[12px]">
-      <CardHeader>
-        <div className="flex items-center gap-2">
+    <Card className="border-border rounded-figma-card">
+      <CardHeader className="px-6 pt-6 pb-4">
+        <div className="flex items-center gap-2 mb-1.5">
           <DollarSign className="h-5 w-5 text-foreground" />
-          <CardTitle className="text-base font-normal text-foreground">Zużycie i budżet</CardTitle>
+          <CardTitle className="text-base font-normal text-foreground leading-[16px]">
+            Zużycie i budżet
+          </CardTitle>
         </div>
-        <p className="text-base text-muted-foreground">Monitorowanie zużycia tokenów i kosztów</p>
+        <p className="text-base text-muted-foreground leading-[24px]">
+          Monitorowanie zużycia tokenów i kosztów
+        </p>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="px-6 pb-6 space-y-4">
         {/* Current Usage */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -103,7 +107,7 @@ export function UsageBudgetSection() {
               ${data.total_cost.toFixed(2)} / ${data.budget_limit?.toFixed(2) || '100.00'}
             </span>
           </div>
-          <div className="w-full h-[6px] bg-orange-500/20 dark:bg-orange-500/30 rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-orange-500/20 dark:bg-orange-500/30 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-300"
               style={{
@@ -113,14 +117,14 @@ export function UsageBudgetSection() {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            {(data.total_tokens / 1_000_000).toFixed(1)}M tokenów zużytych
+            {(data.total_tokens / 1_000_000).toFixed(1)} 000 000 tokenów zużytych
           </p>
         </div>
 
         {/* Separator */}
         <div className="h-px bg-border" />
 
-        {/* Forecast + Alert Threshold */}
+        {/* Forecast + Alert Threshold (Figma Design) */}
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Prognoza (koniec miesiąca)</p>
@@ -130,18 +134,15 @@ export function UsageBudgetSection() {
           </div>
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Próg alertu</p>
-            <div className="flex items-center gap-2">
-              <p className="text-lg font-semibold text-foreground">
-                {(warning * 100).toFixed(0)}% / {(critical * 100).toFixed(0)}%
-              </p>
-              <span className="text-xs text-muted-foreground">(ostrzeż. / kryt.)</span>
-            </div>
+            <p className="text-lg font-semibold text-foreground">
+              {(critical * 100).toFixed(0)}%
+            </p>
           </div>
         </div>
 
-        {/* Budget Alert */}
+        {/* Budget Alert (Figma Design) */}
         {hasAlerts && (
-          <div className="border border-border rounded-[8px] p-[17px]">
+          <div className="border border-border rounded-figma-inner p-[17px]">
             <div className="flex items-start gap-3">
               <AlertCircle className="h-4 w-4 text-foreground mt-0.5" />
               <div className="flex-1 space-y-1">

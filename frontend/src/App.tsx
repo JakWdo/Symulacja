@@ -32,7 +32,7 @@ export default function App() {
   // Initialize theme
   useTheme();
   const queryClient = useQueryClient();
-  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Use Zustand selectors to prevent unnecessary re-renders
   const selectedProject = useAppStore(state => state.selectedProject);
@@ -86,11 +86,6 @@ export default function App() {
           <ProjectDetail
             project={viewProject}
             onBack={() => setCurrentView('projects')}
-            onNavigate={setCurrentView}
-            onSelectFocusGroup={(focusGroup) => {
-              setViewFocusGroup(focusGroup);
-              setCurrentView('focus-group-detail');
-            }}
           />
         ) : (
           <div className="flex items-center justify-center h-full">

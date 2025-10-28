@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { toast } from '@/components/ui/toastStore';
 import { settingsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { getAvatarUrl, getInitials } from '@/lib/avatar';
 import {
   User,
@@ -51,11 +52,22 @@ export function Settings() {
     queryFn: settingsApi.getStats,
   });
 
+  const { data: budgetSettings } = useQuery({
+    queryKey: ['settings', 'budget'],
+    queryFn: settingsApi.getBudgetSettings,
+  });
+
   // Local state for forms
   const [profileForm, setProfileForm] = useState({
     full_name: '',
     role: '',
     company: '',
+  });
+
+  const [budgetForm, setBudgetForm] = useState({
+    budget_limit: '',
+    warning_threshold: '80',
+    critical_threshold: '90',
   });
 
   // Update forms when data loads from API
@@ -68,6 +80,16 @@ export function Settings() {
       });
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (budgetSettings) {
+      setBudgetForm({
+        budget_limit: budgetSettings.budget_limit?.toString() || '',
+        warning_threshold: budgetSettings.warning_threshold.toString(),
+        critical_threshold: budgetSettings.critical_threshold.toString(),
+      });
+    }
+  }, [budgetSettings]);
 
   // === MUTATIONS ===
   const updateProfileMutation = useMutation({
@@ -121,6 +143,18 @@ export function Settings() {
     },
   });
 
+  const updateBudgetMutation = useMutation({
+    mutationFn: settingsApi.updateBudgetSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings', 'budget'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'usage-budget'] });
+      toast.success('Ustawienia budżetu zapisane pomyślnie');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || 'Nie udało się zapisać ustawień budżetu');
+    },
+  });
+
   // === HANDLERS ===
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -146,6 +180,15 @@ export function Settings() {
     updateProfileMutation.mutate(profileForm);
   };
 
+  const handleBudgetSubmit = () => {
+    const payload = {
+      budget_limit: budgetForm.budget_limit ? parseFloat(budgetForm.budget_limit) : null,
+      warning_threshold: parseInt(budgetForm.warning_threshold),
+      critical_threshold: parseInt(budgetForm.critical_threshold),
+    };
+    updateBudgetMutation.mutate(payload);
+  };
+
 
   if (isLoadingProfile || isLoadingStats) {
     return (
@@ -156,12 +199,12 @@ export function Settings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1920px] w-full mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-semibold text-foreground mb-2">Ustawienia</h1>
-        <p className="text-muted-foreground">Zarządzaj swoim kontem i preferencjami aplikacji</p>
-      </div>
+      <PageHeader
+        title="Ustawienia"
+        subtitle="Zarządzaj swoim kontem i preferencjami aplikacji"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Settings */}
@@ -275,6 +318,92 @@ export function Settings() {
                   </Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* Budget & Limits Settings */}
+          <Card className="bg-card border border-border shadow-sm">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-chart-3" />
+                <CardTitle className="text-card-foreground">Budżet i limity</CardTitle>
+              </div>
+              <p className="text-muted-foreground">Ustaw limity zużycia tokenów i budżetu miesięcznego</p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="budget_limit">Limit budżetu miesięcznego ($)</Label>
+                  <Input
+                    id="budget_limit"
+                    type="number"
+                    min="0"
+                    step="10"
+                    placeholder="100.00"
+                    value={budgetForm.budget_limit}
+                    onChange={(e) =>
+                      setBudgetForm({ ...budgetForm, budget_limit: e.target.value })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Maksymalna kwota miesięczna na zużycie tokenów (0 = bez limitu)
+                  </p>
+                </div>
+
+                <Separator className="bg-border" />
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-card-foreground">Progi alertów</h4>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="warning_threshold">Próg ostrzeżenia (%)</Label>
+                    <Input
+                      id="warning_threshold"
+                      type="number"
+                      min="1"
+                      max="100"
+                      placeholder="80"
+                      value={budgetForm.warning_threshold}
+                      onChange={(e) =>
+                        setBudgetForm({ ...budgetForm, warning_threshold: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Wysłanie powiadomienia przy osiągnięciu tego progu
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="critical_threshold">Próg krytyczny (%)</Label>
+                    <Input
+                      id="critical_threshold"
+                      type="number"
+                      min="1"
+                      max="100"
+                      placeholder="90"
+                      value={budgetForm.critical_threshold}
+                      onChange={(e) =>
+                        setBudgetForm({ ...budgetForm, critical_threshold: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Wysłanie krytycznego powiadomienia przy osiągnięciu tego progu
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    className="bg-brand-orange hover:bg-brand-orange/90 text-white"
+                    onClick={handleBudgetSubmit}
+                    disabled={updateBudgetMutation.isPending}
+                  >
+                    {updateBudgetMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Zapisz limity
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

@@ -11,9 +11,11 @@ Podstawowa infrastruktura dokumentów znajduje się w rag_document_service.py
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
+import redis.asyncio as redis
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -55,6 +57,24 @@ class GraphRAGService:
         # Połączenia do Neo4j
         self.graph_store = get_graph_store(logger)
         self.vector_store = get_vector_store(logger)
+
+        # Redis cache dla Graph RAG queries (7-day TTL - same as SegmentBriefService)
+        self.redis_client = None
+        try:
+            self.redis_client = redis.from_url(
+                settings.REDIS_URL,
+                encoding="utf-8",
+                decode_responses=True,
+            )
+            logger.info("✅ GraphRAGService: Redis cache enabled")
+        except Exception as exc:
+            logger.warning(
+                "⚠️ GraphRAGService: Redis unavailable - cache disabled. Error: %s",
+                exc
+            )
+
+        # Cache TTL (7 days - same as SegmentBriefService)
+        self.CACHE_TTL_SECONDS = 7 * 24 * 60 * 60  # 604800 seconds
 
     @staticmethod
     def enrich_graph_nodes(
@@ -168,6 +188,74 @@ class GraphRAGService:
         metadata: dict[str, Any]
     ) -> list[Any]:
         return GraphRAGService.enrich_graph_nodes(graph_documents, doc_id, metadata)
+
+    def _get_cache_key(self, age_group: str, location: str, education: str, gender: str) -> str:
+        """Generate Redis cache key for demographic graph context.
+
+        Args:
+            age_group: Grupa wiekowa (np. "25-34")
+            location: Lokalizacja (np. "Warszawa")
+            education: Poziom wykształcenia (może być concatenated: "W trakcie / Średnie / Licencjat")
+            gender: Płeć (np. "kobieta")
+
+        Returns:
+            Cache key string (format: "graph_context:age:edu:loc:gender")
+        """
+        # Normalize inputs for consistent caching (lowercase, trim, replace spaces with dashes)
+        age = age_group.lower().replace(" ", "-") if age_group else "any"
+        loc = location.lower().replace(" ", "-") if location else "any"
+        # Education może być concatenated - używamy full string jako cache key
+        edu = education.lower().replace(" ", "-").replace("/", "-") if education else "any"
+        gen = gender.lower().replace(" ", "-") if gender else "any"
+
+        return f"graph_context:{age}:{edu}:{loc}:{gen}"
+
+    async def _get_from_cache(self, cache_key: str) -> list[dict[str, Any]] | None:
+        """Get cached graph context from Redis.
+
+        Args:
+            cache_key: Redis key
+
+        Returns:
+            Cached graph context (list of dicts) or None if cache miss
+        """
+        if not self.redis_client:
+            return None
+
+        try:
+            cached = await self.redis_client.get(cache_key)
+            if cached:
+                logger.info(f"✅ Graph RAG cache HIT for {cache_key}")
+                return json.loads(cached)
+            else:
+                logger.info(f"❌ Graph RAG cache MISS for {cache_key}")
+                return None
+        except Exception as exc:
+            logger.warning(f"⚠️ Redis get failed: {exc}")
+            return None
+
+    async def _set_cache(self, cache_key: str, data: list[dict[str, Any]]) -> None:
+        """Store graph context in Redis cache.
+
+        Args:
+            cache_key: Redis key
+            data: Graph context data (list of dicts)
+        """
+        if not self.redis_client:
+            return
+
+        try:
+            await self.redis_client.setex(
+                cache_key,
+                self.CACHE_TTL_SECONDS,
+                json.dumps(data, ensure_ascii=False)
+            )
+            logger.info(
+                f"💾 Cached graph context: {cache_key} "
+                f"({len(data)} nodes, TTL 7 days)"
+            )
+        except Exception as exc:
+            logger.warning(f"⚠️ Redis set failed: {exc}")
 
     def _generate_cypher_query(self, question: str) -> GraphRAGQuery:
         """Używa LLM do przełożenia pytania użytkownika na zapytanie Cypher."""
@@ -349,6 +437,8 @@ class GraphRAGService:
     ) -> list[dict[str, Any]]:
         """Pobiera strukturalny kontekst z grafu wiedzy dla profilu demograficznego.
 
+        NOWOŚĆ: Redis caching (7-day TTL) - cache hit rate ~70-90% expected.
+
         Wykonuje zapytania Cypher na grafie aby znaleźć:
         1. Indicators (wskaźniki) - z magnitude, confidence_level
         2. Observations (obserwacje) - z key_facts
@@ -379,6 +469,42 @@ class GraphRAGService:
         if not self.graph_store:
             logger.warning("Graph store nie jest dostępny - zwracam pusty kontekst grafowy")
             return []
+
+        # === REDIS CACHE CHECK ===
+        # Try async cache (if running in async context)
+        cache_key = self._get_cache_key(age_group, location, education, gender)
+
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+            # We're in async context - use async cache
+            cached_result = loop.create_task(self._get_from_cache(cache_key))
+            cached_data = loop.run_until_complete(cached_result)
+
+            if cached_data:
+                logger.info(
+                    f"🚀 Graph RAG cache HIT - returning {len(cached_data)} nodes "
+                    f"(no Neo4j query needed)"
+                )
+                return cached_data
+        except RuntimeError:
+            # Not in async context - try sync approach with new event loop
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    cached_data = loop.run_until_complete(self._get_from_cache(cache_key))
+                    if cached_data:
+                        logger.info(
+                            f"🚀 Graph RAG cache HIT - returning {len(cached_data)} nodes "
+                            f"(no Neo4j query needed)"
+                        )
+                        return cached_data
+                finally:
+                    loop.close()
+            except Exception as cache_exc:
+                logger.debug(f"Cache check failed (sync context): {cache_exc}")
+                # Continue without cache
 
         # Budujemy search terms - rozdzielamy education na pojedyncze terminy
         search_terms = [age_group, location, gender]
@@ -523,6 +649,24 @@ class GraphRAGService:
                 len([n for n in graph_context if n.get('type') == 'Trend']),
                 len([n for n in graph_context if n.get('type') == 'Demografia'])
             )
+
+            # === CACHE RESULT ===
+            # Try to cache the result for future requests (7-day TTL)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._set_cache(cache_key, graph_context))
+            except RuntimeError:
+                # Not in async context - use new event loop
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(self._set_cache(cache_key, graph_context))
+                    finally:
+                        loop.close()
+                except Exception as cache_exc:
+                    logger.debug(f"Cache set failed (sync context): {cache_exc}")
+                    # Continue anyway - caching is best-effort
 
             return graph_context
 

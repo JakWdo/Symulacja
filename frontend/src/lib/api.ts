@@ -69,6 +69,18 @@ export interface AccountStats {
   surveys_count: number;
 }
 
+export interface BudgetSettings {
+  budget_limit: number | null;
+  warning_threshold: number;
+  critical_threshold: number;
+}
+
+export interface BudgetSettingsUpdate {
+  budget_limit?: number | null;
+  warning_threshold?: number;
+  critical_threshold?: number;
+}
+
 export interface CreateProjectPayload {
   name: string;
   description?: string | null;
@@ -555,6 +567,16 @@ export const settingsApi = {
 
   getStats: async (): Promise<AccountStats> => {
     const { data } = await api.get<AccountStats>('/settings/stats');
+    return data;
+  },
+
+  getBudgetSettings: async (): Promise<BudgetSettings> => {
+    const { data } = await api.get<BudgetSettings>('/settings/budget');
+    return data;
+  },
+
+  updateBudgetSettings: async (payload: BudgetSettingsUpdate): Promise<BudgetSettings> => {
+    const { data } = await api.put<BudgetSettings>('/settings/budget', payload);
     return data;
   },
 

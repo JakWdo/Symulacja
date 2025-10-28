@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DashboardMetric, InsightEvidence, Project
@@ -218,7 +218,7 @@ class DashboardMetricsService:
         query = (
             select(
                 func.avg(
-                    func.case(
+                    case(
                         (Project.is_statistically_valid, 1.0),
                         else_=0.0,
                     )

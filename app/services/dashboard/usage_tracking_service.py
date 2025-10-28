@@ -384,4 +384,8 @@ class UsageTrackingService:
         breakdown["total"]["tokens"] = total_tokens
         breakdown["total"]["cost"] = total_cost
 
+        # Also include flattened totals to match API schema/TS types
+        breakdown["total_tokens"] = total_tokens
+        breakdown["total_cost"] = total_cost
+
         return breakdown

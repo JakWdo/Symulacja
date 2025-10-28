@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { MoreVertical, Plus, Users, MessageSquare, Eye, Settings, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { focusGroupsApi, projectsApi } from '@/lib/api';
 import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { toast } from '@/components/ui/toastStore';
@@ -107,59 +108,57 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
 
   return (
     <div className="w-full h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto space-y-6 p-6">
+      <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Grupy fokusowe</h1>
-          <p className="text-muted-foreground">
-            Przeprowadzaj dogłębne badania jakościowe z sesjami grup fokusowych opartymi na AI
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select
-            value={selectedProject?.id || ''}
-            onValueChange={(value) => {
-              const project = projects.find((p) => p.id === value);
-              if (project) setSelectedProject(project);
-            }}
-          >
-            <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
-              <SelectValue
-                placeholder="Wybierz projekt"
-                className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
-              />
-            </SelectTrigger>
-            <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
-              {projectsLoading ? (
-                <div className="flex items-center justify-center p-2">
-                  <SpinnerLogo className="w-4 h-4" />
-                </div>
-              ) : projects.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">Nie znaleziono projektów</div>
-              ) : (
-                projects.map((project) => (
-                  <SelectItem
-                    key={project.id}
-                    value={project.id}
-                    className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
-                  >
-                    {project.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <Button
-            onClick={onCreateFocusGroup}
-            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-            disabled={!selectedProject}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Utwórz grupę fokusową
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Grupy fokusowe"
+        subtitle="Przeprowadzaj dogłębne badania jakościowe z sesjami grup fokusowych opartymi na AI"
+        actions={
+          <>
+            <Select
+              value={selectedProject?.id || ''}
+              onValueChange={(value) => {
+                const project = projects.find((p) => p.id === value);
+                if (project) setSelectedProject(project);
+              }}
+            >
+              <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
+                <SelectValue
+                  placeholder="Wybierz projekt"
+                  className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                />
+              </SelectTrigger>
+              <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
+                {projectsLoading ? (
+                  <div className="flex items-center justify-center p-2">
+                    <SpinnerLogo className="w-4 h-4" />
+                  </div>
+                ) : projects.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">Nie znaleziono projektów</div>
+                ) : (
+                  projects.map((project) => (
+                    <SelectItem
+                      key={project.id}
+                      value={project.id}
+                      className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                    >
+                      {project.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={onCreateFocusGroup}
+              className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+              disabled={!selectedProject}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Utwórz grupę fokusową
+            </Button>
+          </>
+        }
+      />
 
       {!selectedProject ? (
         <Card className="bg-card border border-border">

@@ -27,6 +27,8 @@ from app.models.user import User
 from app.schemas.settings import (
     AccountStatsResponse,
     AvatarUploadResponse,
+    BudgetSettingsResponse,
+    BudgetSettingsUpdateRequest,
     MessageResponse,
     ProfileResponse,
     ProfileUpdateRequest,
@@ -143,6 +145,59 @@ async def update_profile(
             created_at=current_user.created_at.isoformat(),
             last_login_at=current_user.last_login_at.isoformat() if current_user.last_login_at else None,
         )
+    )
+
+
+# === BUDGET SETTINGS ENDPOINTS ===
+@router.get("/budget", response_model=BudgetSettingsResponse)
+async def get_budget_settings(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Pobierz ustawienia budżetu zalogowanego użytkownika
+
+    Returns:
+        Ustawienia budżetu (limit, warning/critical thresholds)
+    """
+    return BudgetSettingsResponse(
+        budget_limit=current_user.budget_limit,
+        warning_threshold=current_user.warning_threshold or 80,
+        critical_threshold=current_user.critical_threshold or 90,
+    )
+
+
+@router.put("/budget", response_model=BudgetSettingsResponse)
+async def update_budget_settings(
+    request: BudgetSettingsUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Zaktualizuj ustawienia budżetu użytkownika
+
+    Args:
+        request: Dane do aktualizacji (budget_limit, warning_threshold, critical_threshold)
+
+    Returns:
+        Zaktualizowane ustawienia budżetu
+    """
+    # Aktualizuj tylko podane pola
+    if request.budget_limit is not None:
+        current_user.budget_limit = request.budget_limit
+    if request.warning_threshold is not None:
+        current_user.warning_threshold = request.warning_threshold
+    if request.critical_threshold is not None:
+        current_user.critical_threshold = request.critical_threshold
+
+    current_user.updated_at = datetime.utcnow()
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    return BudgetSettingsResponse(
+        budget_limit=current_user.budget_limit,
+        warning_threshold=current_user.warning_threshold or 80,
+        critical_threshold=current_user.critical_threshold or 90,
     )
 
 

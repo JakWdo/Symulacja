@@ -79,8 +79,8 @@ class QuickActionsService:
                         "action_id": f"fix_project_{project.id}",
                         "action_type": "fix_blocker",
                         "priority": "high",
-                        "title": "Fix blocked project",
-                        "description": f"Project '{project.name}' has {len(health['blockers'])} critical issues.",
+                        "title": "Napraw zablokowany projekt",
+                        "description": f"Projekt '{project.name}' ma {len(health['blockers'])} krytycznych problemów.",
                         "icon": "AlertTriangle",
                         "context": {
                             "project_id": str(project.id),
@@ -88,7 +88,7 @@ class QuickActionsService:
                             "blocker_count": len(health["blockers"]),
                             "blockers": health["blockers"],
                         },
-                        "cta_label": "Fix Issues",
+                        "cta_label": "Napraw problemy",
                         "cta_url": f"/projects/{project.id}",
                     }
                 )
@@ -101,15 +101,15 @@ class QuickActionsService:
                         "action_id": f"generate_personas_{project.id}",
                         "action_type": "generate_personas",
                         "priority": "high",
-                        "title": "Generate personas",
-                        "description": f"Project '{project.name}' needs personas. Generate {project.target_sample_size} personas (30-60s).",
+                        "title": "Wygeneruj persony",
+                        "description": f"Projekt '{project.name}' potrzebuje person. Wygeneruj {project.target_sample_size} person (30-60s).",
                         "icon": "Users",
                         "context": {
                             "project_id": str(project.id),
                             "project_name": project.name,
                             "target_count": project.target_sample_size,
                         },
-                        "cta_label": "Generate Personas",
+                        "cta_label": "Wygeneruj persony",
                         "cta_url": f"/projects/{project.id}/personas/generate",
                     }
                 )
@@ -126,15 +126,15 @@ class QuickActionsService:
                             "action_id": f"start_focus_{project.id}",
                             "action_type": "start_focus_group",
                             "priority": "medium",
-                            "title": "Start focus group discussion",
-                            "description": f"Project '{project.name}' has {len(project.personas)} personas ready. Start a focus group (2-5 min).",
+                            "title": "Rozpocznij dyskusję grupy fokusowej",
+                            "description": f"Projekt '{project.name}' ma {len(project.personas)} gotowych person. Rozpocznij grupę fokusową (2-5 min).",
                             "icon": "MessageSquare",
                             "context": {
                                 "project_id": str(project.id),
                                 "project_name": project.name,
                                 "persona_count": len(project.personas),
                             },
-                            "cta_label": "Start Focus Group",
+                            "cta_label": "Rozpocznij grupę fokusową",
                             "cta_url": f"/projects/{project.id}/focus-groups/create",
                         }
                     )
@@ -177,15 +177,15 @@ class QuickActionsService:
                     "action_id": f"view_insights_{project.id}",
                     "action_type": "view_insights",
                     "priority": "medium",
-                    "title": "Review new insights",
-                    "description": f"{unviewed_count} new insights ready in '{project.name}'. Review and take action.",
+                    "title": "Przejrzyj nowe spostrzeżenia",
+                    "description": f"{unviewed_count} nowych spostrzeżeń gotowych w '{project.name}'. Przejrzyj i podejmij działanie.",
                     "icon": "Lightbulb",
                     "context": {
                         "project_id": str(project.id),
                         "project_name": project.name,
                         "insight_count": unviewed_count,
                     },
-                    "cta_label": "View Insights",
+                    "cta_label": "Zobacz spostrzeżenia",
                     "cta_url": f"/projects/{project.id}/insights",
                 }
             )
@@ -197,11 +197,11 @@ class QuickActionsService:
                     "action_id": "create_first_project",
                     "action_type": "create_project",
                     "priority": "high",
-                    "title": "Start your first research",
-                    "description": "Create a project, define your target audience, and generate personas.",
+                    "title": "Rozpocznij swoje pierwsze badanie",
+                    "description": "Utwórz projekt, zdefiniuj grupę docelową i wygeneruj persony.",
                     "icon": "Plus",
                     "context": {},
-                    "cta_label": "Create Project",
+                    "cta_label": "Utwórz projekt",
                     "cta_url": "/projects/create",
                 }
             )

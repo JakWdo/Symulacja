@@ -23,6 +23,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { PersonaDetailsDrawer } from '@/components/personas/PersonaDetailsDrawer';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { projectsApi, personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
@@ -512,69 +513,65 @@ export function Personas() {
 
   return (
     <div className="w-full h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto space-y-6 p-6">
+      <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Persony</h1>
-          <p className="text-muted-foreground">
-            Zarządzaj personami wygenerowanymi przez AI dla swoich projektów badawczych
-          </p>
-        </div>
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            className="border-border text-card-foreground"
-            onClick={() => setActivePanel('rag')}
-          >
-            <Database className="w-4 h-4 mr-2" />
-            Dokumenty RAG
-          </Button>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select
-            value={selectedProject?.id || ''}
-            onValueChange={(value) => {
-              const project = projects.find(p => p.id === value);
-              if (project) setGlobalProject(project);
-            }}
-          >
-            <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors">
-              <SelectValue
-                placeholder="Wybierz projekt"
-                className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
-              />
-            </SelectTrigger>
-            <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
-              {projectsLoading ? (
-                <div className="flex items-center justify-center p-2">
-                  <SpinnerLogo className="w-4 h-4" />
-                </div>
-              ) : projects.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">Nie znaleziono projektów</div>
-              ) : (
-                projects.map((project) => (
-                  <SelectItem
-                    key={project.id}
-                    value={project.id}
-                    className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
-                  >
-                    {project.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <Button
-            onClick={() => setShowPersonaWizard(true)}
-            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Generuj persony
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Persony"
+        subtitle="Zarządzaj personami wygenerowanymi przez AI dla swoich projektów badawczych"
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-border text-card-foreground"
+              onClick={() => setActivePanel('rag')}
+            >
+              <Database className="w-4 h-4 mr-2" />
+              Dokumenty RAG
+            </Button>
+            <Select
+              value={selectedProject?.id || ''}
+              onValueChange={(value) => {
+                const project = projects.find(p => p.id === value);
+                if (project) setGlobalProject(project);
+              }}
+            >
+              <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors">
+                <SelectValue
+                  placeholder="Wybierz projekt"
+                  className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                />
+              </SelectTrigger>
+              <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
+                {projectsLoading ? (
+                  <div className="flex items-center justify-center p-2">
+                    <SpinnerLogo className="w-4 h-4" />
+                  </div>
+                ) : projects.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">Nie znaleziono projektów</div>
+                ) : (
+                  projects.map((project) => (
+                    <SelectItem
+                      key={project.id}
+                      value={project.id}
+                      className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                    >
+                      {project.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={() => setShowPersonaWizard(true)}
+              className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Generuj persony
+            </Button>
+          </>
+        }
+      />
 
       {showProgressBar && (
         <div className="rounded-lg border border-border bg-card/80 p-4 space-y-2 shadow-sm">

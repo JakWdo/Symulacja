@@ -97,6 +97,36 @@ class AvatarUploadResponse(BaseModel):
     avatar_url: str
 
 
+# === BUDGET SETTINGS SCHEMAS ===
+class BudgetSettingsUpdateRequest(BaseModel):
+    """Request do aktualizacji ustawień budżetu"""
+    budget_limit: float | None = None
+    warning_threshold: int | None = None
+    critical_threshold: int | None = None
+
+    @validator('budget_limit')
+    def validate_budget_limit(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('Budget limit must be greater than 0')
+        return v
+
+    @validator('warning_threshold', 'critical_threshold')
+    def validate_threshold(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError('Threshold must be between 0 and 100')
+        return v
+
+
+class BudgetSettingsResponse(BaseModel):
+    """Ustawienia budżetu użytkownika"""
+    budget_limit: float | None
+    warning_threshold: int
+    critical_threshold: int
+
+    class Config:
+        from_attributes = True
+
+
 # === GENERAL RESPONSES ===
 class MessageResponse(BaseModel):
     """Ogólna odpowiedź z wiadomością"""
