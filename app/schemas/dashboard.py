@@ -134,6 +134,7 @@ class WeeklyCompletionData(BaseModel):
     weeks: list[str]  # ["2025-W01", "2025-W02", ...]
     personas: list[int]
     focus_groups: list[int]
+    surveys: list[int]
     insights: list[int]
 
 
@@ -247,6 +248,23 @@ class UsageBudgetResponse(BaseModel):
     budget_limit: float | None
     alerts: list[BudgetAlert]
     history: list[UsageHistory]
+
+
+class UsageCategoryBreakdown(BaseModel):
+    """Breakdown usage dla jednej kategorii"""
+    tokens: int
+    cost: float
+    percentage: float  # 0-100
+
+
+class UsageBreakdownResponse(BaseModel):
+    """Breakdown usage po kategoriach operacji"""
+    persona_generation: UsageCategoryBreakdown
+    focus_group: UsageCategoryBreakdown
+    rag_query: UsageCategoryBreakdown
+    other: UsageCategoryBreakdown
+    total_tokens: int
+    total_cost: float
 
 
 # ============= NOTIFICATIONS =============

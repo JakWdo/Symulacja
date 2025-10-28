@@ -37,6 +37,7 @@ from app.schemas.dashboard import (
     ProjectWithHealth,
     QuickAction,
     UsageBudgetResponse,
+    UsageBreakdownResponse,
     WeeklyCompletionData,
 )
 from app.services.dashboard import (
@@ -186,6 +187,15 @@ async def get_usage_budget(
 ):
     """Pobierz token usage, costs, forecast, alerts"""
     return await orchestrator.get_usage_budget(current_user.id)
+
+
+@router.get("/dashboard/usage-breakdown", response_model=UsageBreakdownResponse)
+async def get_usage_breakdown(
+    current_user: User = Depends(get_current_user),
+    orchestrator: DashboardOrchestrator = Depends(get_dashboard_orchestrator),
+):
+    """Pobierz breakdown usage po kategoriach (persona gen, focus groups, RAG, other)"""
+    return await orchestrator.usage_service.calculate_breakdown_by_operation_type(current_user.id)
 
 
 @router.get("/dashboard/notifications", response_model=list[Notification])

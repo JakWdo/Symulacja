@@ -461,12 +461,13 @@ class DashboardOrchestrator:
             return cached
 
         # Import models
-        from app.models import FocusGroup, Persona
+        from app.models import FocusGroup, Persona, Survey
 
         now = datetime.utcnow()
         weeks_data = []
         personas_data = []
         focus_groups_data = []
+        surveys_data = []
         insights_data = []
 
         for i in range(weeks - 1, -1, -1):
@@ -492,6 +493,12 @@ class DashboardOrchestrator:
                 FocusGroup.completed_at >= week_start,
                 FocusGroup.completed_at < week_end,
             ]
+            surveys_filters = [
+                Project.owner_id == user_id,
+                Survey.status == "completed",
+                Survey.completed_at >= week_start,
+                Survey.completed_at < week_end,
+            ]
             insights_filters = [
                 Project.owner_id == user_id,
                 InsightEvidence.created_at >= week_start,
@@ -502,6 +509,7 @@ class DashboardOrchestrator:
             if project_id:
                 personas_filters.append(Persona.project_id == project_id)
                 focus_groups_filters.append(FocusGroup.project_id == project_id)
+                surveys_filters.append(Survey.project_id == project_id)
                 insights_filters.append(InsightEvidence.project_id == project_id)
 
             # Count personas
@@ -520,6 +528,14 @@ class DashboardOrchestrator:
             )
             focus_groups_data.append(focus_groups_count or 0)
 
+            # Count surveys
+            surveys_count = await self.db.scalar(
+                select(func.count(Survey.id))
+                .join(Project, Survey.project_id == Project.id)
+                .where(and_(*surveys_filters))
+            )
+            surveys_data.append(surveys_count or 0)
+
             # Count insights
             insights_count = await self.db.scalar(
                 select(func.count(InsightEvidence.id))
@@ -532,6 +548,7 @@ class DashboardOrchestrator:
             "weeks": weeks_data,
             "personas": personas_data,
             "focus_groups": focus_groups_data,
+            "surveys": surveys_data,
             "insights": insights_data,
         }
 
