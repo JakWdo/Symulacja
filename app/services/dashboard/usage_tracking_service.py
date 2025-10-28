@@ -16,12 +16,27 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import UsageMetric
-from config.loader import ConfigLoader
 
-# Load model pricing from centralized config
-_config_loader = ConfigLoader()
-_pricing_config = _config_loader.load_yaml("pricing.yaml")
-MODEL_PRICING = _pricing_config["models"]
+# Model pricing (USD per 1M tokens)
+# Source: config/pricing.yaml (inlined to avoid import issues in Docker)
+MODEL_PRICING = {
+    "gemini-2.5-flash": {
+        "input_price_per_million": 0.10,
+        "output_price_per_million": 0.40,
+    },
+    "gemini-2.5-pro": {
+        "input_price_per_million": 2.00,
+        "output_price_per_million": 8.00,
+    },
+    "gemini-1.5-flash": {
+        "input_price_per_million": 0.075,
+        "output_price_per_million": 0.30,
+    },
+    "gemini-1.5-pro": {
+        "input_price_per_million": 1.25,
+        "output_price_per_million": 5.00,
+    },
+}
 
 
 class UsageTrackingService:
