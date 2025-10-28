@@ -12,6 +12,8 @@ Użycie w endpointach:
         return {"user_id": current_user.id}
 """
 from uuid import UUID
+import logging
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +28,7 @@ from app.db.session import get_db
 
 # Mechanizm HTTPBearer — wymagaj nagłówka "Authorization: Bearer <token>"
 security = HTTPBearer()
+logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
@@ -63,6 +66,7 @@ async def get_current_user(
     # Dekoduj i zwaliduj JWT token
     payload = decode_access_token(token)
     if payload is None:
+        logger.warning("Authentication failed: Invalid or expired JWT token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
@@ -72,6 +76,7 @@ async def get_current_user(
     # Wyciągnij user_id z payload (zapisany jako "sub" podczas create_access_token)
     user_id: str = payload.get("sub")
     if user_id is None:
+        logger.warning("Authentication failed: Token payload missing 'sub' field")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token payload invalid",
@@ -88,6 +93,10 @@ async def get_current_user(
     user = result.scalar_one_or_none()
 
     if user is None:
+        logger.warning(
+            f"Authentication failed: User not found",
+            extra={"user_id": user_id}
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
@@ -96,11 +105,16 @@ async def get_current_user(
 
     # Sprawdź czy konto jest aktywne
     if not user.is_active:
+        logger.warning(
+            f"Authorization failed: User account disabled",
+            extra={"user_id": str(user.id), "email": user.email}
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled"
         )
 
+    logger.debug(f"User authenticated successfully", extra={"user_id": str(user.id)})
     return user
 
 
@@ -286,6 +300,14 @@ async def get_focus_group_for_user(
     """
     Pobierz grupę fokusową należącą do projektu użytkownika lub zwróć 404.
     """
+    logger.debug(
+        f"Checking focus group access",
+        extra={
+            "focus_group_id": str(focus_group_id),
+            "user_id": str(current_user.id),
+        }
+    )
+
     result = await db.execute(
         select(FocusGroup)
         .join(Project, FocusGroup.project_id == Project.id)
@@ -298,7 +320,24 @@ async def get_focus_group_for_user(
     focus_group = result.scalar_one_or_none()
 
     if not focus_group:
+        logger.warning(
+            f"Focus group not found or access denied",
+            extra={
+                "focus_group_id": str(focus_group_id),
+                "user_id": str(current_user.id),
+                "reason": "Either focus group doesn't exist, user doesn't own the project, or project is inactive"
+            }
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Focus group not found")
+
+    logger.debug(
+        f"Focus group access granted",
+        extra={
+            "focus_group_id": str(focus_group_id),
+            "user_id": str(current_user.id),
+            "project_id": str(focus_group.project_id),
+        }
+    )
 
     return focus_group
 

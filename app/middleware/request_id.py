@@ -81,8 +81,20 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Start timer (dla duration measurement)
         start_time = time.time()
 
-        # Process request (NO request logging - za dużo noise)
-        # Request ID jest propagowany przez contextvars - dostępny dla logów aplikacji
+        # Log request start (DEBUG level - only visible when DEBUG=True)
+        logger.debug(
+            f"Request started: {request.method} {request.url.path}",
+            extra={
+                "request_id": req_id,
+                "method": request.method,
+                "path": request.url.path,
+                "query_params": str(request.url.query) if request.url.query else None,
+                "client_host": request.client.host if request.client else None,
+                "user_agent": request.headers.get("user-agent", "N/A")[:100],
+            },
+        )
+
+        # Process request
         try:
             response = await call_next(request)
         except Exception as exc:
@@ -100,8 +112,47 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             )
             raise
 
-        # NO completed request logging - za dużo noise w production
-        # Jeśli potrzeba: włącz przez VERBOSE_REQUEST_LOGGING env var
+        # Calculate request duration
+        duration_ms = (time.time() - start_time) * 1000
+
+        # Smart response logging: log all errors (>=400), skip successful requests in production
+        status_code = response.status_code
+        if status_code >= 500:
+            # Server errors - ERROR level
+            logger.error(
+                f"Request failed: {request.method} {request.url.path} -> {status_code}",
+                extra={
+                    "request_id": req_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                    "duration_ms": round(duration_ms, 2),
+                },
+            )
+        elif status_code >= 400:
+            # Client errors - WARNING level
+            logger.warning(
+                f"Request error: {request.method} {request.url.path} -> {status_code}",
+                extra={
+                    "request_id": req_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                    "duration_ms": round(duration_ms, 2),
+                },
+            )
+        else:
+            # Successful requests - DEBUG level (only when DEBUG=True)
+            logger.debug(
+                f"Request completed: {request.method} {request.url.path} -> {status_code}",
+                extra={
+                    "request_id": req_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                    "duration_ms": round(duration_ms, 2),
+                },
+            )
 
         # Add request_id to response headers (for client debugging)
         response.headers["X-Request-ID"] = req_id

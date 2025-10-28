@@ -53,8 +53,30 @@ async def generate_ai_summary(
     - Strategic recommendations
     - Sentiment narrative
     """
+    logger.info(
+        f"AI Summary generation requested",
+        extra={
+            "focus_group_id": str(focus_group_id),
+            "user_id": str(current_user.id),
+            "use_pro_model": use_pro_model,
+            "include_recommendations": include_recommendations,
+        }
+    )
+
     try:
-        await _get_focus_group(db, focus_group_id, current_user)
+        # Verify access to focus group
+        logger.debug(f"Verifying access to focus group {focus_group_id}")
+        focus_group = await _get_focus_group(db, focus_group_id, current_user)
+
+        logger.info(
+            f"Focus group verified, starting AI summary generation",
+            extra={
+                "focus_group_id": str(focus_group_id),
+                "focus_group_status": focus_group.status if hasattr(focus_group, 'status') else 'N/A',
+                "model": "Gemini 2.5 Pro" if use_pro_model else "Gemini 2.5 Flash",
+            }
+        )
+
         summarizer = DiscussionSummarizerService(use_pro_model=use_pro_model)
 
         summary = await summarizer.generate_discussion_summary(
@@ -66,14 +88,40 @@ async def generate_ai_summary(
 
         await db.commit()
 
+        logger.info(
+            f"AI Summary generated successfully",
+            extra={
+                "focus_group_id": str(focus_group_id),
+                "user_id": str(current_user.id),
+                "summary_keys": list(summary.keys()) if summary else [],
+            }
+        )
+
         return summary
 
     except ValueError as e:
         await db.rollback()
+        logger.warning(
+            f"Focus group not found or access denied",
+            extra={
+                "focus_group_id": str(focus_group_id),
+                "user_id": str(current_user.id),
+                "error": str(e),
+            }
+        )
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         await db.rollback()
-        logger.exception("Failed to generate AI summary", exc_info=e)
+        logger.error(
+            f"Failed to generate AI summary",
+            extra={
+                "focus_group_id": str(focus_group_id),
+                "user_id": str(current_user.id),
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+            },
+            exc_info=True
+        )
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate AI summary: {str(e)}"
@@ -91,13 +139,37 @@ async def get_ai_summary(
 
     Returns the most recently generated AI summary cached on the focus group.
     """
+    logger.info(
+        f"Retrieving cached AI summary",
+        extra={
+            "focus_group_id": str(focus_group_id),
+            "user_id": str(current_user.id),
+        }
+    )
+
     focus_group = await _get_focus_group(db, focus_group_id, current_user)
 
     if not focus_group.ai_summary:
+        logger.warning(
+            f"AI summary not found (not generated yet)",
+            extra={
+                "focus_group_id": str(focus_group_id),
+                "user_id": str(current_user.id),
+            }
+        )
         raise HTTPException(
             status_code=404,
             detail="AI summary not found. Generate it first using POST /focus-groups/{id}/ai-summary"
         )
+
+    logger.info(
+        f"AI summary retrieved successfully",
+        extra={
+            "focus_group_id": str(focus_group_id),
+            "user_id": str(current_user.id),
+            "summary_keys": list(focus_group.ai_summary.keys()) if isinstance(focus_group.ai_summary, dict) else [],
+        }
+    )
 
     return focus_group.ai_summary
 
