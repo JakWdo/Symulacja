@@ -983,6 +983,8 @@ async def _generate_personas_task(
             persona_group_mapping = {}
 
             if orchestration_enabled:
+                # Instancja orchestration service
+                orchestration_service = PersonaOrchestrationService()
                 logger.info("🎯 Creating orchestration plan with Gemini 2.5 Pro...")
                 try:
                     # Pobierz dodatkowy opis grupy docelowej jeśli istnieje

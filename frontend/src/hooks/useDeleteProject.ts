@@ -29,16 +29,18 @@ export function useDeleteProject() {
     },
     onSuccess: (data) => {
       // Invalidate projects list cache
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'], refetchType: 'all' });
 
       // Remove specific project from cache
       queryClient.removeQueries({
         queryKey: ['projects', data.project_id]
       });
 
-      // Also invalidate personas and focus groups for this project
-      queryClient.invalidateQueries({ queryKey: ['personas'] });
-      queryClient.invalidateQueries({ queryKey: ['focusGroups'] });
+      // Aggressively invalidate personas and focus groups cache
+      // Use refetchType: 'all' to force refetch of ALL queries (including inactive)
+      // This ensures dashboard charts update immediately after delete
+      queryClient.invalidateQueries({ queryKey: ['personas'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['focusGroups'], refetchType: 'all' });
 
       toast.success('Projekt usunięty', data.message, {
         duration: 30000, // 30 seconds to show undo button

@@ -428,7 +428,7 @@ class GraphRAGService:
 
         return normalized if normalized else [education.lower()]
 
-    def get_demographic_graph_context(
+    async def get_demographic_graph_context(
         self,
         age_group: str,
         location: str,
@@ -471,40 +471,19 @@ class GraphRAGService:
             return []
 
         # === REDIS CACHE CHECK ===
-        # Try async cache (if running in async context)
         cache_key = self._get_cache_key(age_group, location, education, gender)
 
-        import asyncio
         try:
-            loop = asyncio.get_running_loop()
-            # We're in async context - use async cache
-            cached_result = loop.create_task(self._get_from_cache(cache_key))
-            cached_data = loop.run_until_complete(cached_result)
-
+            cached_data = await self._get_from_cache(cache_key)
             if cached_data:
                 logger.info(
                     f"🚀 Graph RAG cache HIT - returning {len(cached_data)} nodes "
                     f"(no Neo4j query needed)"
                 )
                 return cached_data
-        except RuntimeError:
-            # Not in async context - try sync approach with new event loop
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    cached_data = loop.run_until_complete(self._get_from_cache(cache_key))
-                    if cached_data:
-                        logger.info(
-                            f"🚀 Graph RAG cache HIT - returning {len(cached_data)} nodes "
-                            f"(no Neo4j query needed)"
-                        )
-                        return cached_data
-                finally:
-                    loop.close()
-            except Exception as cache_exc:
-                logger.debug(f"Cache check failed (sync context): {cache_exc}")
-                # Continue without cache
+        except Exception as cache_exc:
+            logger.debug(f"Cache check failed: {cache_exc}")
+            # Continue without cache
 
         # Budujemy search terms - rozdzielamy education na pojedyncze terminy
         search_terms = [age_group, location, gender]
@@ -538,11 +517,11 @@ class GraphRAGService:
             #   - Better query plan optimization by Neo4j
             # Schema: streszczenie, skala, pewnosc, okres_czasu, kluczowe_fakty (POLSKIE)
             cypher_query = """
-            // === OPTIMIZED WITH CALL SUBQUERIES ===
+            // === OPTIMIZED WITH CALL SUBQUERIES (Neo4j 5.x+ syntax) ===
             // Parametry: $search_terms - lista słów kluczowych do matchingu
 
             // 1. Znajdź Wskaźniki (preferuj wysoką pewność jeśli istnieje)
-            CALL {
+            CALL () {
                 WITH $search_terms AS terms
                 MATCH (ind:Wskaznik)
                 WHERE ANY(term IN terms WHERE
@@ -566,7 +545,7 @@ class GraphRAGService:
             }) AS indicators
 
             // 2. Znajdź Obserwacje (preferuj wysoką pewność jeśli istnieje)
-            CALL {
+            CALL () {
                 WITH $search_terms AS terms
                 MATCH (obs:Obserwacja)
                 WHERE ANY(term IN terms WHERE
@@ -589,7 +568,7 @@ class GraphRAGService:
             }) AS observations
 
             // 3. Znajdź Trendy
-            CALL {
+            CALL () {
                 WITH $search_terms AS terms
                 MATCH (trend:Trend)
                 WHERE ANY(term IN terms WHERE
@@ -608,7 +587,7 @@ class GraphRAGService:
             }) AS trends
 
             // 4. Znajdź węzły Demografii
-            CALL {
+            CALL () {
                 WITH $search_terms AS terms
                 MATCH (demo:Demografia)
                 WHERE ANY(term IN terms WHERE
@@ -661,22 +640,12 @@ class GraphRAGService:
             )
 
             # === CACHE RESULT ===
-            # Try to cache the result for future requests (7-day TTL)
+            # Cache the result for future requests (7-day TTL)
             try:
-                loop = asyncio.get_running_loop()
-                loop.create_task(self._set_cache(cache_key, graph_context))
-            except RuntimeError:
-                # Not in async context - use new event loop
-                try:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        loop.run_until_complete(self._set_cache(cache_key, graph_context))
-                    finally:
-                        loop.close()
-                except Exception as cache_exc:
-                    logger.debug(f"Cache set failed (sync context): {cache_exc}")
-                    # Continue anyway - caching is best-effort
+                await self._set_cache(cache_key, graph_context)
+            except Exception as cache_exc:
+                logger.debug(f"Cache set failed: {cache_exc}")
+                # Continue anyway - caching is best-effort
 
             return graph_context
 
