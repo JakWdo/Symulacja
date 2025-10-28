@@ -58,15 +58,15 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
       <div className="max-w-screen-2xl mx-auto p-4 md:p-6">
       {/* Header */}
       <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Panel główny</h1>
         <p className="text-sm md:text-base text-muted-foreground">
-          Track your research progress, insights, and next actions
+          Śledź postęp badań, spostrzeżenia i kolejne kroki
         </p>
       </div>
 
       {/* Overview Section */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Overview</h2>
+        <h2 className="text-xl font-semibold">Przegląd</h2>
 
         {overviewLoading ? (
           <OverviewSkeleton />
@@ -74,7 +74,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Failed to load dashboard overview. Please try again.
+              Nie udało się załadować przeglądu. Spróbuj ponownie.
             </AlertDescription>
           </Alert>
         ) : overview ? (
@@ -115,7 +115,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 
       {/* Quick Actions Section */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Quick Actions</h2>
+        <h2 className="text-xl font-semibold">Szybkie akcje</h2>
 
         {actionsLoading ? (
           <QuickActionsSkeleton />
@@ -128,7 +128,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
         ) : (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              No pending actions. Great job! 🎉
+              Brak oczekujących akcji. Świetna robota! 🎉
             </CardContent>
           </Card>
         )}
@@ -143,7 +143,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 
       {/* Research Activity Charts */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Research Activity</h2>
+        <h2 className="text-xl font-semibold">Aktywność badawcza</h2>
         <WeeklyCompletionChart weeks={8} />
         <InsightAnalyticsCharts />
       </div>
@@ -152,7 +152,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 
       {/* Latest Insights Section */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Latest Insights</h2>
+        <h2 className="text-xl font-semibold">Najnowsze spostrzeżenia</h2>
         <LatestInsightsSection />
       </div>
 
@@ -160,7 +160,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 
       {/* Health & Blockers Section */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Project Health</h2>
+        <h2 className="text-xl font-semibold">Zdrowie projektu</h2>
         <HealthBlockersSection />
       </div>
 
@@ -168,7 +168,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 
       {/* Usage & Budget Section */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Usage & Budget</h2>
+        <h2 className="text-xl font-semibold">Zużycie i budżet</h2>
         <UsageBudgetSection />
       </div>
 
@@ -176,7 +176,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 
       {/* Notifications Section */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Notifications</h2>
+        <h2 className="text-xl font-semibold">Powiadomienia</h2>
         <NotificationsSection />
       </div>
       </div>
@@ -226,7 +226,7 @@ function MetricCard({ metric }: { metric: MetricCardType }) {
           <div className={`mt-2 flex items-center text-sm ${trendColor}`}>
             <TrendIcon className="mr-1 h-4 w-4" />
             <span>{Math.abs(metric.trend.change_percent).toFixed(1)}%</span>
-            <span className="ml-1 text-muted-foreground">vs last week</span>
+            <span className="ml-1 text-muted-foreground">vs poprzedni tydzień</span>
           </div>
         )}
       </CardContent>
@@ -275,6 +275,12 @@ function ActionCard({ action, onNavigate }: { action: QuickAction; onNavigate?: 
     return <Icon className="h-5 w-5" />;
   };
 
+  const priorityLabels = {
+    high: 'Wysoki',
+    medium: 'Średni',
+    low: 'Niski',
+  };
+
   return (
     <Card className={`border-l-4 ${priorityColors[action.priority]}`}>
       <CardHeader>
@@ -284,7 +290,7 @@ function ActionCard({ action, onNavigate }: { action: QuickAction; onNavigate?: 
             <CardTitle className="text-base">{action.title}</CardTitle>
           </div>
           <Badge className={priorityBadgeColors[action.priority]} variant="secondary">
-            {action.priority}
+            {priorityLabels[action.priority]}
           </Badge>
         </div>
       </CardHeader>
@@ -295,7 +301,7 @@ function ActionCard({ action, onNavigate }: { action: QuickAction; onNavigate?: 
           disabled={executeAction.isPending}
           className="w-full"
         >
-          {executeAction.isPending ? 'Executing...' : action.cta_label}
+          {executeAction.isPending ? 'Wykonywanie...' : action.cta_label}
         </Button>
       </CardContent>
     </Card>

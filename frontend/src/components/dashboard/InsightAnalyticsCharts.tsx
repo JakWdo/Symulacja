@@ -23,16 +23,16 @@ import {
 } from 'recharts';
 
 const SENTIMENT_COLORS = {
-  positive: '#10b981',
-  negative: '#ef4444',
+  positive: '#28a745',
+  negative: '#dc3545',
   neutral: '#6b7280',
   mixed: '#f59e0b',
 };
 
 const INSIGHT_TYPE_COLORS = {
-  opportunity: '#10b981', // green
-  risk: '#ef4444', // red
-  trend: '#f59e0b', // amber
+  opportunity: '#28a745', // Figma green
+  risk: '#dc3545', // Figma red
+  trend: '#f59e0b', // Figma yellow/amber
   pattern: '#3b82f6', // blue
 };
 
@@ -48,23 +48,23 @@ export function InsightAnalyticsCharts() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Top Concepts</CardTitle>
+            <CardTitle>Najczęstsze koncepcje</CardTitle>
           </CardHeader>
           <CardContent>
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>Failed to load concept data</AlertDescription>
+              <AlertDescription>Nie udało się załadować danych o koncepcjach</AlertDescription>
             </Alert>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Sentiment Distribution</CardTitle>
+            <CardTitle>Rozkład sentymentu</CardTitle>
           </CardHeader>
           <CardContent>
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>Failed to load sentiment data</AlertDescription>
+              <AlertDescription>Nie udało się załadować danych o sentymencie</AlertDescription>
             </Alert>
           </CardContent>
         </Card>
@@ -104,151 +104,44 @@ export function InsightAnalyticsCharts() {
     : [];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {/* Top Concepts Bar Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Concepts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {hasTopConcepts ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.top_concepts.slice(0, 10)} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis type="number" tick={{ fontSize: 12 }} />
-                <YAxis
-                  dataKey="concept"
-                  type="category"
-                  width={100}
-                  tick={{ fontSize: 11 }}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                  }}
-                />
-                <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[300px]">
-              <p className="text-center text-muted-foreground">
-                No concept data available yet
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Sentiment & Insight Types - Tabs */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Insight Analytics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="sentiment" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="sentiment">Sentiment</TabsTrigger>
-              <TabsTrigger value="types">Types</TabsTrigger>
-            </TabsList>
-
-            {/* Sentiment Distribution Tab */}
-            <TabsContent value="sentiment">
-              {hasSentimentData ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={sentimentData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={(entry) => `${entry.name}: ${entry.value}`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {sentimentData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={SENTIMENT_COLORS[entry.originalName]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                      }}
-                    />
-                    <Legend
-                      wrapperStyle={{ fontSize: '12px' }}
-                      iconType="circle"
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-[300px]">
-                  <p className="text-center text-muted-foreground">
-                    No sentiment data available yet
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Insight Types Tab */}
-            <TabsContent value="types">
-              {hasInsightTypesData ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={insightTypesData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={(entry) => `${entry.name}: ${entry.value}`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {insightTypesData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={INSIGHT_TYPE_COLORS[entry.originalName]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                      }}
-                    />
-                    <Legend
-                      wrapperStyle={{ fontSize: '12px' }}
-                      iconType="circle"
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-[300px]">
-                  <p className="text-center text-muted-foreground">
-                    No insight types data available yet
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+    <Card className="border-border rounded-[12px]">
+      <CardHeader>
+        <CardTitle className="text-base font-normal text-foreground">Najczęstsze koncepcje w spostrzeżeniach</CardTitle>
+        <p className="text-base text-muted-foreground">Najczęściej omawiane tematy</p>
+      </CardHeader>
+      <CardContent>
+        {hasTopConcepts ? (
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={data.top_concepts.slice(0, 5)} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border dark:stroke-border" />
+              <XAxis type="number" tick={{ fontSize: 12 }} />
+              <YAxis
+                dataKey="concept"
+                type="category"
+                width={120}
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--background))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                }}
+              />
+              <Bar dataKey="count" fill="#F27405" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-[280px]">
+            <p className="text-center text-muted-foreground">
+              Brak jeszcze danych o koncepcjach
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

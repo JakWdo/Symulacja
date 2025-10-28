@@ -111,37 +111,16 @@ export function NotificationsSection() {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
-    <Card>
+    <Card className="border-border rounded-[12px]">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle>Powiadomienia</CardTitle>
-            {unreadCount > 0 && (
-              <Badge variant="destructive" className="rounded-full">
-                {unreadCount}
-              </Badge>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant={filter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilter('all')}
-            >
-              Wszystkie ({notifications.length})
-            </Button>
-            <Button
-              variant={filter === 'unread' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilter('unread')}
-            >
-              Nieprzeczytane ({unreadCount})
-            </Button>
-          </div>
+        <div className="flex items-center gap-2">
+          <Bell className="h-5 w-5 text-foreground" />
+          <CardTitle className="text-base font-normal text-foreground">Powiadomienia i zadania</CardTitle>
         </div>
+        <p className="text-base text-muted-foreground">Ważne alerty i zadania do wykonania</p>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
+        <div className="space-y-2">
           {notifications.map((notification) => (
             <NotificationCard
               key={notification.id}
@@ -165,90 +144,52 @@ function NotificationCard({
   onMarkRead: (id: string) => void;
   onMarkDone: (id: string) => void;
 }) {
-  const config = PRIORITY_CONFIG[notification.priority];
-  const Icon = config.icon;
+  // Figma design: border-2 + background colors
+  const cardStyles =
+    notification.priority === 'high'
+      ? 'border-2 border-orange-500/20 dark:border-orange-500/30 bg-orange-500/5 dark:bg-orange-500/10'
+      : 'border-2 border-border bg-card';
 
-  const handleAction = () => {
-    if (notification.action_url) {
-      window.location.href = notification.action_url;
-    }
-  };
+  const iconBg =
+    notification.priority === 'high'
+      ? 'bg-red-500/10 dark:bg-red-500/20'
+      : 'bg-muted/50';
 
   return (
-    <Card
-      className={`border-l-4 ${
-        notification.priority === 'high'
-          ? 'border-l-red-500'
-          : notification.priority === 'medium'
-          ? 'border-l-yellow-500'
-          : 'border-l-blue-500'
-      } ${!notification.is_read ? 'bg-muted/30' : ''}`}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          {/* Icon */}
-          <div className={`p-2 rounded-lg ${config.bgColor} flex-shrink-0`}>
-            <Icon className={`h-4 w-4 ${config.color}`} />
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              {!notification.is_read && (
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-              )}
-              <Badge variant="secondary" className={config.badgeClass}>
-                {notification.priority}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {notification.time_ago}
-              </span>
-              {notification.is_done && (
-                <Badge variant="outline" className="text-xs">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Zakończone
-                </Badge>
-              )}
-            </div>
-
-            <p className="text-sm font-medium mb-1">{notification.title}</p>
-            <p className="text-sm text-muted-foreground mb-3">
-              {notification.message}
-            </p>
-
-            <div className="flex items-center gap-2">
-              {notification.action_label && notification.action_url && (
-                <Button size="sm" variant="outline" onClick={handleAction}>
-                  {notification.action_label}
-                </Button>
-              )}
-
-              {!notification.is_read && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onMarkRead(notification.id)}
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Oznacz jako przeczytane
-                </Button>
-              )}
-
-              {!notification.is_done && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onMarkDone(notification.id)}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Odrzuć
-                </Button>
-              )}
-            </div>
-          </div>
+    <div className={`${cardStyles} rounded-[8px] p-[13px] flex items-start justify-between gap-4`}>
+      {/* Left: Icon + Content */}
+      <div className="flex items-start gap-2 flex-1 min-w-0">
+        {/* Icon in colored background (24x24px) */}
+        <div className={`${iconBg} rounded-[8px] p-[6px] flex-shrink-0`}>
+          <AlertCircle className="h-3 w-3 text-foreground" />
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 space-y-1">
+          <h4 className="text-sm font-normal text-foreground leading-tight">
+            {notification.title}
+          </h4>
+          <p className="text-sm text-muted-foreground leading-tight">
+            {notification.message}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {notification.time_ago}
+          </p>
+        </div>
+      </div>
+
+      {/* Right: Mark Done Button */}
+      {!notification.is_done && (
+        <Button
+          onClick={() => onMarkDone(notification.id)}
+          size="sm"
+          variant="outline"
+          className="border-border h-8 px-3 flex-shrink-0 rounded-[6px]"
+        >
+          Oznacz jako wykonane
+        </Button>
+      )}
+    </div>
   );
 }
 

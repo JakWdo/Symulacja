@@ -1,9 +1,10 @@
 /**
  * Weekly Completion Chart - Line chart showing research activity over time
  *
- * Shows 3 metrics:
+ * Shows 4 metrics (Figma design):
  * - Personas generated
  * - Focus groups completed
+ * - Surveys completed
  * - Insights extracted
  */
 
@@ -38,12 +39,12 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Weekly Activity</CardTitle>
+          <CardTitle>Aktywność tygodniowa</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Failed to load weekly activity data</AlertDescription>
+            <AlertDescription>Nie udało się załadować danych o aktywności tygodniowej</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -54,11 +55,11 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Weekly Activity</CardTitle>
+          <CardTitle>Aktywność tygodniowa</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-center text-muted-foreground py-8">
-            No activity data available yet
+            Brak jeszcze danych o aktywności
           </p>
         </CardContent>
       </Card>
@@ -70,34 +71,39 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
     week,
     personas: data.personas[index],
     focusGroups: data.focus_groups[index],
+    surveys: data.surveys[index],
     insights: data.insights[index],
   }));
 
   // Calculate totals
   const totalPersonas = data.personas.reduce((sum, val) => sum + val, 0);
   const totalFocusGroups = data.focus_groups.reduce((sum, val) => sum + val, 0);
+  const totalSurveys = data.surveys.reduce((sum, val) => sum + val, 0);
   const totalInsights = data.insights.reduce((sum, val) => sum + val, 0);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Weekly Activity</CardTitle>
+        <CardTitle>Aktywność tygodniowa</CardTitle>
         <div className="flex gap-6 mt-2 text-sm text-muted-foreground">
           <span>
-            <span className="font-medium text-blue-600">{totalPersonas}</span> personas
+            <span className="font-medium text-figma-primary">{totalPersonas}</span> person
           </span>
           <span>
-            <span className="font-medium text-green-600">{totalFocusGroups}</span> focus groups
+            <span className="font-medium text-figma-secondary">{totalFocusGroups}</span> grup fokusowych
           </span>
           <span>
-            <span className="font-medium text-purple-600">{totalInsights}</span> insights
+            <span className="font-medium text-amber-600">{totalSurveys}</span> ankiet
+          </span>
+          <span>
+            <span className="font-medium text-figma-green">{totalInsights}</span> spostrzeżeń
           </span>
         </div>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border dark:stroke-border" />
             <XAxis
               dataKey="week"
               className="text-xs"
@@ -125,29 +131,38 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
             <Line
               type="monotone"
               dataKey="personas"
-              stroke="#3b82f6"
+              stroke="#F27405"
               strokeWidth={2}
-              dot={{ fill: '#3b82f6', r: 4 }}
+              dot={{ fill: '#F27405', r: 4 }}
               activeDot={{ r: 6 }}
-              name="Personas"
+              name="Persony"
             />
             <Line
               type="monotone"
               dataKey="focusGroups"
-              stroke="#10b981"
+              stroke="#F29F05"
               strokeWidth={2}
-              dot={{ fill: '#10b981', r: 4 }}
+              dot={{ fill: '#F29F05', r: 4 }}
               activeDot={{ r: 6 }}
-              name="Focus Groups"
+              name="Grupy fokusowe"
+            />
+            <Line
+              type="monotone"
+              dataKey="surveys"
+              stroke="#f59e0b"
+              strokeWidth={2}
+              dot={{ fill: '#f59e0b', r: 4 }}
+              activeDot={{ r: 6 }}
+              name="Ankiety"
             />
             <Line
               type="monotone"
               dataKey="insights"
-              stroke="#8b5cf6"
+              stroke="#28a745"
               strokeWidth={2}
-              dot={{ fill: '#8b5cf6', r: 4 }}
+              dot={{ fill: '#28a745', r: 4 }}
               activeDot={{ r: 6 }}
-              name="Insights"
+              name="Spostrzeżenia"
             />
           </LineChart>
         </ResponsiveContainer>

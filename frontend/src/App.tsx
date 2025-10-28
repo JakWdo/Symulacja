@@ -186,8 +186,10 @@ export default function App() {
         );
       case 'settings':
         return (
-          <div className="h-full overflow-y-auto p-6">
-            <Settings />
+          <div className="h-full overflow-y-auto">
+            <div className="mx-auto p-4 sm:p-6 lg:p-8">
+              <Settings />
+            </div>
           </div>
         );
       default:
@@ -211,7 +213,7 @@ export default function App() {
       <SidebarProvider className="h-full">
         <div className="flex w-full h-full min-h-0">
           <AppSidebar currentView={currentView} onNavigate={setCurrentView} />
-          <main className="flex flex-1 min-h-0 bg-[rgba(232,233,236,0.3)] overflow-hidden">
+          <main className="flex flex-1 min-h-0 bg-[rgba(232,233,236,0.3)] overflow-y-auto">
             <div className="flex-1 min-h-0 h-full">
               {renderContent()}
             </div>

@@ -21,29 +21,29 @@ import type { BlockerWithFix } from '@/types/dashboard';
 const HEALTH_STATUS_CONFIG = {
   on_track: {
     icon: CheckCircle,
-    label: 'Na dobrej drodze',
+    label: 'Na bieżąco',
     color: 'text-green-600',
     bgColor: 'bg-green-500/10',
   },
   at_risk: {
     icon: AlertCircle,
-    label: 'W grupie ryzyka',
+    label: 'Zagrożony',
     color: 'text-yellow-600',
     bgColor: 'bg-yellow-500/10',
   },
   blocked: {
     icon: XCircle,
-    label: 'Zablokowane',
+    label: 'Zablokowany',
     color: 'text-red-600',
     bgColor: 'bg-red-500/10',
   },
 };
 
 const SEVERITY_CONFIG = {
-  critical: { color: 'bg-red-500', label: 'Krytyczne' },
-  high: { color: 'bg-orange-500', label: 'Wysokie' },
-  medium: { color: 'bg-yellow-500', label: 'Średnie' },
-  low: { color: 'bg-blue-500', label: 'Niskie' },
+  critical: { color: 'bg-red-500', label: 'Krytyczny' },
+  high: { color: 'bg-orange-500', label: 'Wysoki' },
+  medium: { color: 'bg-yellow-500', label: 'Średni' },
+  low: { color: 'bg-blue-500', label: 'Niski' },
 };
 
 export function HealthBlockersSection() {
@@ -57,12 +57,12 @@ export function HealthBlockersSection() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Zdrowie projektu</CardTitle>
+          <CardTitle>Stan projektu</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Nie udało się załadować danych o zdrowiu</AlertDescription>
+            <AlertDescription>Nie udało się załadować danych o stanie</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -78,60 +78,37 @@ export function HealthBlockersSection() {
   const hasBlockers = data.blockers.length > 0;
 
   return (
-    <div className="space-y-4">
-      {/* Health Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <HealthSummaryCard
-          status="on_track"
-          count={data.summary.on_track}
-          total={totalProjects}
-        />
-        <HealthSummaryCard
-          status="at_risk"
-          count={data.summary.at_risk}
-          total={totalProjects}
-        />
-        <HealthSummaryCard
-          status="blocked"
-          count={data.summary.blocked}
-          total={totalProjects}
-        />
-      </div>
-
-      {/* Blockers List */}
-      {hasBlockers ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Aktywne blokady</CardTitle>
-              <Badge variant="destructive">{data.blockers.length}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {data.blockers
-                .sort((a, b) => {
-                  const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-                  return severityOrder[a.severity] - severityOrder[b.severity];
-                })
-                .map((blocker, index) => (
-                  <BlockerCard key={index} blocker={blocker} />
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
+    <Card className="border-border rounded-[12px]">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Activity className="h-5 w-5 text-foreground" />
+          <CardTitle className="text-base font-normal text-foreground">Stan i blokady</CardTitle>
+        </div>
+        <p className="text-base text-muted-foreground">Aktywne problemy wymagające uwagi</p>
+      </CardHeader>
+      <CardContent>
+        {hasBlockers ? (
+          <div className="space-y-3">
+            {data.blockers
+              .sort((a, b) => {
+                const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+                return severityOrder[a.severity] - severityOrder[b.severity];
+              })
+              .map((blocker, index) => (
+                <BlockerCard key={index} blocker={blocker} />
+              ))}
+          </div>
+        ) : (
+          <div className="py-12 text-center">
+            <CheckCircle className="h-12 w-12 mx-auto text-figma-green mb-4" />
             <p className="font-medium text-lg mb-2">Wszystko w porządku!</p>
-            <p className="text-sm text-muted-foreground">
-              Brak aktywnych blokad. Wszystkie projekty na dobrej drodze.
+            <p className="text-sm text-figma-muted">
+              Brak aktywnych blokad. Wszystkie projekty na bieżąco.
             </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -162,7 +139,7 @@ function HealthSummaryCard({
         </div>
         <div className="text-sm font-medium">{config.label}</div>
         <div className="text-xs text-muted-foreground">
-          {count} z {total} projektów
+          {count} of {total} projects
         </div>
       </CardContent>
     </Card>
@@ -170,8 +147,6 @@ function HealthSummaryCard({
 }
 
 function BlockerCard({ blocker }: { blocker: BlockerWithFix }) {
-  const severityConfig = SEVERITY_CONFIG[blocker.severity];
-
   const handleFix = () => {
     if (blocker.fix_url) {
       window.location.href = blocker.fix_url;
@@ -179,41 +154,36 @@ function BlockerCard({ blocker }: { blocker: BlockerWithFix }) {
   };
 
   return (
-    <Card className="border-l-4 border-l-red-500">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-4">
-          {/* Severity Indicator */}
-          <div className="flex-shrink-0">
-            <div className={`w-2 h-2 rounded-full ${severityConfig.color} mt-2`} />
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="destructive" className="text-xs">
-                {severityConfig.label}
-              </Badge>
-              <span className="text-xs text-muted-foreground">{blocker.type}</span>
-            </div>
-
-            <p className="text-sm font-medium mb-1">{blocker.project_name}</p>
-            <p className="text-sm text-muted-foreground mb-3">{blocker.message}</p>
-
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                Akcja: {blocker.fix_action}
-              </span>
-              {blocker.fix_url && (
-                <Button size="sm" variant="outline" onClick={handleFix}>
-                  <Wrench className="h-4 w-4 mr-1" />
-                  Napraw
-                </Button>
-              )}
-            </div>
-          </div>
+    <div className="border border-red-500/20 dark:border-red-500/30 bg-red-500/5 dark:bg-red-500/10 rounded-[8px] p-[13px] flex items-start justify-between gap-4">
+      {/* Left: Icon + Content */}
+      <div className="flex items-start gap-3 flex-1 min-w-0">
+        {/* Alert Icon */}
+        <div className="flex-shrink-0">
+          <AlertTriangle className="h-4 w-4 text-figma-red" />
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 space-y-1">
+          <h4 className="text-sm font-normal text-foreground leading-tight">
+            {blocker.project_name}
+          </h4>
+          <p className="text-sm text-muted-foreground leading-tight">
+            {blocker.message}
+          </p>
+        </div>
+      </div>
+
+      {/* Right: Fix Button */}
+      {blocker.fix_url && (
+        <Button
+          onClick={handleFix}
+          size="sm"
+          className="bg-figma-red hover:bg-figma-red/90 text-white h-8 px-3 flex-shrink-0 rounded-[6px]"
+        >
+          Napraw
+        </Button>
+      )}
+    </div>
   );
 }
 
