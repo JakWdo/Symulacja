@@ -24,7 +24,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { PersonaDetailsDrawer } from '@/components/personas/PersonaDetailsDrawer';
-import { DeletePersonaDialog } from '@/components/DeletePersonaDialog';
+import { DeletePersonaDialog } from '@/components/personas/DeletePersonaDialog';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { projectsApi, personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
