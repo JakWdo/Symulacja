@@ -292,7 +292,7 @@ class DashboardMetricsService:
                 and_(
                     Project.owner_id == user_id,
                     FocusGroup.status == "completed",
-                    FocusGroup.updated_at >= this_week_start,
+                    FocusGroup.completed_at >= this_week_start,
                 )
             )
         )
@@ -328,8 +328,8 @@ class DashboardMetricsService:
                 and_(
                     Project.owner_id == user_id,
                     FocusGroup.status == "completed",
-                    FocusGroup.updated_at >= last_week_start,
-                    FocusGroup.updated_at < last_week_end,
+                    FocusGroup.completed_at >= last_week_start,
+                    FocusGroup.completed_at < last_week_end,
                 )
             )
         )

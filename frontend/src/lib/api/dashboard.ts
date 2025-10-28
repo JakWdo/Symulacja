@@ -16,6 +16,7 @@ import type {
   InsightDetail,
   HealthBlockersResponse,
   UsageBudgetResponse,
+  UsageBreakdownResponse,
   Notification,
 } from '@/types/dashboard';
 
@@ -111,6 +112,11 @@ export const dashboardApi = {
   // Usage & Budget
   getUsageBudget: async (): Promise<UsageBudgetResponse> => {
     const { data } = await api.get<UsageBudgetResponse>('/dashboard/usage');
+    return data;
+  },
+
+  getUsageBreakdown: async (): Promise<UsageBreakdownResponse> => {
+    const { data } = await api.get<UsageBreakdownResponse>('/dashboard/usage-breakdown');
     return data;
   },
 

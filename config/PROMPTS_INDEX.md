@@ -874,4 +874,3 @@ pytest tests/config/test_model_registry.py -v
 ---
 
 **Ostatnia aktualizacja:** 2025-10-27
-**Autor:** Claude Code + Zespół Systemu Konfiguracji

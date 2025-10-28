@@ -11,7 +11,7 @@ export interface TrendData {
 export interface MetricCard {
   label: string;
   value: string; // formatted (e.g., "2.5 min")
-  raw_value: number | string;
+  raw_value: number | string | null;
   p90?: number; // P90 value (for TTI metric)
   trend?: TrendData;
   tooltip?: string;
@@ -73,6 +73,7 @@ export interface ProgressStages {
 export interface ProjectWithHealth {
   id: string;
   name: string;
+  research_type: string;
   status: 'running' | 'paused' | 'completed' | 'blocked';
   health: HealthStatus;
   progress: ProgressStages;
@@ -87,6 +88,7 @@ export interface WeeklyCompletionData {
   weeks: string[]; // ["2025-W01", ...]
   personas: number[];
   focus_groups: number[];
+  surveys: number[];
   insights: number[];
 }
 
@@ -188,6 +190,10 @@ export interface UsageBudgetResponse {
   total_cost: number;
   forecast_month_end: number;
   budget_limit?: number;
+  alert_thresholds?: {
+    warning: number;
+    critical: number;
+  };
   alerts: BudgetAlert[];
   history: UsageHistory[];
 }
@@ -204,4 +210,19 @@ export interface Notification {
   action_label?: string;
   action_url?: string;
   created_at: string;
+}
+
+export interface UsageCategoryBreakdown {
+  tokens: number;
+  cost: number;
+  percentage: number; // 0-100
+}
+
+export interface UsageBreakdownResponse {
+  persona_generation: UsageCategoryBreakdown;
+  focus_group: UsageCategoryBreakdown;
+  rag_query: UsageCategoryBreakdown;
+  other: UsageCategoryBreakdown;
+  total_tokens: number;
+  total_cost: number;
 }
