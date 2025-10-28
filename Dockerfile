@@ -52,6 +52,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# Kopiuj folder config/ EXPLICITLY (fix dla ModuleNotFoundError: No module named 'config')
+# Musi być PRZED COPY . . żeby mieć pewność że jest skopiowany
+COPY config/ /app/config/
+
 # Kopiuj kod aplikacji
 # Dzięki .dockerignore, nie skopiujemy __pycache__, venv, node_modules, etc.
 COPY . .
