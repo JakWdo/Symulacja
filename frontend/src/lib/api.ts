@@ -400,6 +400,14 @@ export const analysisApi = {
     );
     return data;
   },
+  getFocusGroupResponses: async (
+    focusGroupId: string
+  ): Promise<{ focus_group_id: string; total_responses: number; questions: any[] }> => {
+    const { data } = await api.get(
+      `/focus-groups/${focusGroupId}/responses`
+    );
+    return data;
+  },
   getMetricExplanations: async (
     focusGroupId: string
   ): Promise<MetricExplanationsResponse> => {

@@ -19,7 +19,7 @@ from uuid import UUID
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -77,6 +77,33 @@ async def generate_ai_summary(
             }
         )
 
+        # Validate that responses exist before expensive LLM call
+        response_count = await db.scalar(
+            select(func.count(PersonaResponse.id))
+            .where(PersonaResponse.focus_group_id == focus_group_id)
+        )
+
+        if response_count == 0:
+            logger.warning(
+                f"Cannot generate summary: no responses found",
+                extra={
+                    "focus_group_id": str(focus_group_id),
+                    "user_id": str(current_user.id),
+                }
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot generate AI summary: No responses found. Please complete the focus group discussion first."
+            )
+
+        logger.info(
+            f"Response validation passed: {response_count} responses found",
+            extra={
+                "focus_group_id": str(focus_group_id),
+                "response_count": response_count,
+            }
+        )
+
         summarizer = DiscussionSummarizerService(use_pro_model=use_pro_model)
 
         summary = await summarizer.generate_discussion_summary(
@@ -100,23 +127,27 @@ async def generate_ai_summary(
         return summary
 
     except ValueError as e:
+        # Extract user_id BEFORE rollback to avoid SQLAlchemy lazy loading error
+        user_id = str(current_user.id)
         await db.rollback()
         logger.warning(
             f"Focus group not found or access denied",
             extra={
                 "focus_group_id": str(focus_group_id),
-                "user_id": str(current_user.id),
+                "user_id": user_id,
                 "error": str(e),
             }
         )
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        # Extract user_id BEFORE rollback to avoid SQLAlchemy lazy loading error
+        user_id = str(current_user.id)
         await db.rollback()
         logger.error(
             f"Failed to generate AI summary",
             extra={
                 "focus_group_id": str(focus_group_id),
-                "user_id": str(current_user.id),
+                "user_id": user_id,
                 "error_type": type(e).__name__,
                 "error_message": str(e),
             },

@@ -37,6 +37,9 @@ interface AISummaryPanelProps {
   useProModel?: boolean;
 }
 
+const MAX_POLL_ATTEMPTS = 60; // 60 * 5 seconds = 5 minutes max
+const POLL_INTERVAL_MS = 5000;
+
 export function AISummaryPanel({
   focusGroupId,
   focusGroupName,
@@ -51,6 +54,7 @@ export function AISummaryPanel({
   );
   const sessionTitle = focusGroupName || 'wybranej sesji';
   const [hasTriggered, setHasTriggered] = useState(false);
+  const [pollCount, setPollCount] = useState(0);
   const queryClient = useQueryClient();
   const persistentGenerating = useAISummaryStore(
     (state) => state.generatingStatuses[focusGroupId] ?? false
@@ -58,6 +62,21 @@ export function AISummaryPanel({
   const setPersistentGenerating = useAISummaryStore(
     (state) => state.setGeneratingStatus
   );
+
+  // Check if responses exist before allowing generation
+  const { data: responsesData } = useQuery({
+    queryKey: ['focus-group-responses', focusGroupId],
+    queryFn: async () => {
+      try {
+        return await analysisApi.getFocusGroupResponses(focusGroupId);
+      } catch (err) {
+        return { total_responses: 0, questions: [] };
+      }
+    },
+    staleTime: 1000 * 30, // Cache for 30 seconds
+  });
+
+  const hasResponses = (responsesData?.total_responses ?? 0) > 0;
 
   const {
     data: summary,
@@ -69,17 +88,22 @@ export function AISummaryPanel({
     queryKey: ['ai-summary', focusGroupId],
     queryFn: async () => {
       try {
+        // Increment poll count on each fetch attempt when polling
+        if (persistentGenerating) {
+          setPollCount((prev) => prev + 1);
+        }
         return await analysisApi.getAISummary(focusGroupId);
       } catch (err) {
         if (axios.isAxiosError(err) && err.response?.status === 404) {
+          // 404 is expected while summary is being generated
           return null;
         }
         throw err;
       }
     },
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes
-    refetchInterval: persistentGenerating ? 5000 : false,
-    refetchIntervalInBackground: persistentGenerating,
+    refetchInterval: persistentGenerating && pollCount < MAX_POLL_ATTEMPTS ? POLL_INTERVAL_MS : false,
+    refetchIntervalInBackground: persistentGenerating && pollCount < MAX_POLL_ATTEMPTS,
   });
 
   const generateMutation = useMutation({
@@ -98,6 +122,7 @@ export function AISummaryPanel({
   const handleGenerate = useCallback(async () => {
     try {
       onGenerateStart?.();
+      setPollCount(0); // Reset poll counter for new generation
       setPersistentGenerating(focusGroupId, true);
       const result = await generateMutation.mutateAsync();
       await queryClient.invalidateQueries({ queryKey: ['ai-summary', focusGroupId] });
@@ -111,6 +136,7 @@ export function AISummaryPanel({
         : 'Failed to generate summary';
       toast.error('Błąd generowania', message);
       setPersistentGenerating(focusGroupId, false);
+      setPollCount(0); // Reset poll counter on error
     } finally {
       onGenerateComplete?.();
     }
@@ -131,23 +157,40 @@ export function AISummaryPanel({
     }
   }, [triggerGenerate, hasTriggered, summary, showLoading, isGenerating, handleGenerate]);
 
+  // Stop polling when summary is successfully fetched
   useEffect(() => {
     if (summary) {
       setPersistentGenerating(focusGroupId, false);
+      setPollCount(0); // Reset poll counter on success
     }
   }, [summary, focusGroupId, setPersistentGenerating]);
 
+  // Stop polling on error
   useEffect(() => {
     if (error) {
       setPersistentGenerating(focusGroupId, false);
+      setPollCount(0); // Reset poll counter on error
     }
   }, [error, focusGroupId, setPersistentGenerating]);
 
+  // Handle timeout: stop polling after MAX_POLL_ATTEMPTS
   useEffect(() => {
-    if (persistentGenerating && !isFetching && !isLoading && !summary) {
+    if (persistentGenerating && pollCount >= MAX_POLL_ATTEMPTS) {
+      setPersistentGenerating(focusGroupId, false);
+      setPollCount(0);
+      toast.error(
+        'Timeout generowania podsumowania',
+        'Generowanie podsumowania trwało zbyt długo. Spróbuj ponownie.'
+      );
+    }
+  }, [persistentGenerating, pollCount, focusGroupId, setPersistentGenerating]);
+
+  // Manual refetch for older polling behavior compatibility
+  useEffect(() => {
+    if (persistentGenerating && !isFetching && !isLoading && !summary && pollCount < MAX_POLL_ATTEMPTS) {
       refetch();
     }
-  }, [persistentGenerating, isFetching, isLoading, summary, refetch]);
+  }, [persistentGenerating, isFetching, isLoading, summary, refetch, pollCount]);
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
@@ -214,15 +257,22 @@ export function AISummaryPanel({
           </p>
 
           {!hideGenerateButton && (
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating || persistentGenerating}
-              className="gap-2"
-              size="lg"
-            >
-              <Sparkles className="w-5 h-5" />
-              Generate AI Summary
-            </Button>
+            <>
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating || persistentGenerating || !hasResponses}
+                className="gap-2"
+                size="lg"
+              >
+                <Sparkles className="w-5 h-5" />
+                {hasResponses ? 'Generate AI Summary' : 'Waiting for responses...'}
+              </Button>
+              {!hasResponses && (
+                <p className="text-sm text-slate-500 mt-2">
+                  Complete the focus group discussion first before generating AI summary.
+                </p>
+              )}
+            </>
           )}
 
           <div className="mt-6 grid grid-cols-3 gap-4 text-sm">
