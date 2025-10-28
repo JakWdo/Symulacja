@@ -9,6 +9,7 @@ Indeks dokumentacji technicznej dla deweloperów.
 | [../README.md](../README.md) | User-facing docs, quick start, features | ~800 linii |
 | [../CLAUDE.md](../CLAUDE.md) | **Instrukcje dla Claude Code** (architecture, patterns, checklist) | ~390 linii |
 | [../PLAN.md](../PLAN.md) | **Strategic Roadmap** (27 aktywnych zadań + 9 completed) | ~350 linii |
+| [../BIZNES.md](../BIZNES.md) | **Business Analysis** (model biznesowy, ROI, GTM strategy, monetyzacja) | ~1200 linii |
 | [INFRASTRUCTURE.md](INFRASTRUCTURE.md) | **Docker, CI/CD, Cloud Run** (narracyjny styl, all-in-one) | ~700 linii |
 | [TESTING.md](TESTING.md) | Test suite (380 testów), fixtures, performance | ~110 linii |
 | [RAG.md](RAG.md) | System RAG: Hybrid Search + GraphRAG | ~123 linie |
@@ -34,6 +35,7 @@ Indeks dokumentacji technicznej dla deweloperów.
 - **RAG System:** [RAG.md](RAG.md)
 - **AI/ML:** [AI_ML.md](AI_ML.md)
 - **Roadmap:** [../PLAN.md](../PLAN.md)
+- **Business Analysis:** [../BIZNES.md](../BIZNES.md)
 
 ---
 
@@ -44,6 +46,7 @@ sight/
 ├── README.md              # User-facing documentation
 ├── CLAUDE.md              # Claude Code instructions (architecture, patterns)
 ├── PLAN.md                # Roadmap & task tracking (używany przez Claude)
+├── BIZNES.md              # Business analysis (model biznesowy, ROI, GTM)
 │
 ├── docs/                  # Technical documentation
 │   ├── README.md         # Ten plik - indeks dokumentacji
