@@ -34,8 +34,8 @@ from app.schemas.rag import (
     RAGQueryResponse,
 )
 from app.services.rag.rag_document_service import RAGDocumentService
-from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
 from app.services.rag.rag_graph_service import GraphRAGService
+from app.services.shared import get_polish_society_rag
 
 settings = get_settings()
 router = APIRouter(prefix="/rag", tags=["RAG Knowledge Base"])
@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
 _rag_document_service: RAGDocumentService | None = None
-_polish_society_rag: PolishSocietyRAG | None = None
 _graph_rag_service: GraphRAGService | None = None
 
 
@@ -56,13 +55,7 @@ def get_rag_document_service() -> RAGDocumentService:
     return _rag_document_service
 
 
-def get_polish_society_rag() -> PolishSocietyRAG:
-    """Zwraca singleton odpowiedzialny za hybrydowe wyszukiwanie."""
-
-    global _polish_society_rag
-    if _polish_society_rag is None:
-        _polish_society_rag = PolishSocietyRAG()
-    return _polish_society_rag
+# get_polish_society_rag() - MOVED to app/services/shared/rag_provider.py (singleton)
 
 
 def get_graph_rag_service() -> GraphRAGService:

@@ -41,15 +41,8 @@ from app.services.dashboard.usage_logging import (
 
 settings = get_settings()
 
-# Import RAG service (opcjonalny - tylko jeśli RAG włączony)
-try:
-    if settings.RAG_ENABLED:
-        from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
-        _rag_service_available = True
-    else:
-        _rag_service_available = False
-except ImportError:
-    _rag_service_available = False
+# Import RAG service singleton
+_rag_service_available = settings.RAG_ENABLED
 
 
 @dataclass
@@ -109,12 +102,13 @@ class PersonaGeneratorLangChain:
             | self.json_parser
         )
 
-        # Inicjalizuj RAG service (opcjonalnie - tylko jeśli włączony)
+        # Inicjalizuj RAG service (singleton - opcjonalnie, tylko jeśli włączony)
         self.rag_service = None
         if _rag_service_available and settings.RAG_ENABLED:
             try:
-                self.rag_service = PolishSocietyRAG()
-                logger.info("RAG service initialized successfully in PersonaGenerator")
+                from app.services.shared import get_polish_society_rag
+                self.rag_service = get_polish_society_rag()
+                logger.info("RAG service initialized successfully in PersonaGenerator (singleton)")
             except Exception as e:
                 logger.warning(f"RAG service unavailable: {e}")
 

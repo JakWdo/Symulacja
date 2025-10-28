@@ -143,14 +143,16 @@ class Settings(BaseSettings):
     # Reranking: włącz cross-encoder dla precyzyjniejszego scoringu query-document pairs
     RAG_USE_RERANKING: bool = True
     # Liczba candidatów dla reranking (przed finalnym top_k)
-    # Cross-encoder jest wolniejszy, więc rerankujemy więcej niż potrzebujemy i bierzemy top
-    # OPTIMIZATION: Zmniejszono 25→15→10 (60% mniej compute vs original)
-    # Cloud Run CPU: 10 candidates × 100-150ms = 1.0-1.5s (vs 2.3s dla 15)
+    # OPTIMIZATION (2025-10-28): Adaptive tuning dla production Cloud Run
+    # - 10 candidates = 1.0-1.5s @ 1 CPU (Cloud Run default)
+    # - 5 candidates = ~500ms @ 1 CPU (low-latency mode)
+    # - async offload (asyncio.to_thread) = non-blocking, parallel requests OK
     RAG_RERANK_CANDIDATES: int = 10
     # Cross-encoder model dla reranking
     # FIX: Poprzedni model "mmarco-mMiniLMv2-L6-v1" nie istniał na HuggingFace
-    # CURRENT: ms-marco-MiniLM-L-6-v2 - English, 6 layers, SZYBKI (~100-150ms dla 15 docs)
+    # CURRENT: ms-marco-MiniLM-L-6-v2 - English, 6 layers, SZYBKI (~100-150ms per doc)
     # ALTERNATIVE: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1" (multilingual, wolniejszy)
+    # PRODUCTION NOTE: Model pre-warmed in Dockerfile (eliminates 3-5s cold start)
     RAG_RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     # === GraphRAG NODE PROPERTIES ===

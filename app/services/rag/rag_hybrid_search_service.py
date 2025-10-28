@@ -421,7 +421,7 @@ class PolishSocietyRAG:
 
         return "\n".join(sections)
 
-    def _rerank_with_cross_encoder(
+    async def _rerank_with_cross_encoder(
         self,
         query: str,
         candidates: list[tuple[Document, float]],
@@ -445,12 +445,16 @@ class PolishSocietyRAG:
             return candidates[:top_k]
 
         try:
+            import time
+            rerank_start = time.perf_counter()
+
             # Przygotuj pary (query, document) dla cross-encoder
             pairs = [(query, doc.page_content[:512]) for doc, _ in candidates]
             # Limit do 512 znaków dla cross-encoder (max_length)
 
-            # Cross-encoder prediction (sync, ale szybkie ~100-200ms dla 20 docs)
-            scores = self.reranker.predict(pairs)
+            # Cross-encoder prediction - ASYNC offload to thread pool (CPU-bound task)
+            # Prevents blocking event loop (~1.5s vs 35s blocking)
+            scores = await asyncio.to_thread(self.reranker.predict, pairs)
 
             # Połącz dokumenty z nowymi scores
             reranked = list(zip([doc for doc, _ in candidates], scores))
@@ -458,16 +462,18 @@ class PolishSocietyRAG:
             # Sortuj po cross-encoder score (descending)
             reranked.sort(key=lambda x: x[1], reverse=True)
 
+            rerank_duration = time.perf_counter() - rerank_start
             logger.info(
-                "Reranking completed: %s candidates → top %s results",
+                "✅ Reranking completed: %s candidates → top %s results (%.2fs)",
                 len(candidates),
-                top_k
+                top_k,
+                rerank_duration
             )
 
             return reranked[:top_k]
 
         except Exception as exc:
-            logger.error("Reranking failed: %s - fallback to RRF ranking", exc)
+            logger.error("❌ Reranking failed: %s - fallback to RRF ranking", exc)
             return candidates[:top_k]
 
     def _find_related_graph_nodes(
@@ -624,40 +630,59 @@ class PolishSocietyRAG:
         logger.info("Hybrid search: query='%s...', top_k=%s", query[:50], top_k)
 
         try:
+            import time
+            search_start = time.perf_counter()
+
             # HYBRID SEARCH (Vector + Keyword)
             if settings.RAG_USE_HYBRID_SEARCH:
                 # Zwiększamy k aby mieć więcej candidates dla reranking
                 candidates_k = settings.RAG_RERANK_CANDIDATES if settings.RAG_USE_RERANKING else top_k * 2
 
-                # Vector search
+                # Vector search (timing)
+                vector_start = time.perf_counter()
                 vector_results = await self.vector_store.asimilarity_search_with_score(
                     query,
                     k=candidates_k,
                 )
+                vector_duration = time.perf_counter() - vector_start
 
-                # Keyword search
+                # Keyword search (timing)
+                keyword_start = time.perf_counter()
                 keyword_results = await self._keyword_search(
                     query,
                     k=candidates_k,
                 )
+                keyword_duration = time.perf_counter() - keyword_start
 
-                # RRF fusion
+                # RRF fusion (timing)
+                rrf_start = time.perf_counter()
                 fused_results = self._rrf_fusion(
                     vector_results,
                     keyword_results,
                     k=settings.RAG_RRF_K,
                 )
+                rrf_duration = time.perf_counter() - rrf_start
 
                 # Optional reranking
                 if settings.RAG_USE_RERANKING and self.reranker:
                     logger.info("Applying cross-encoder reranking")
-                    final_results = self._rerank_with_cross_encoder(
+                    final_results = await self._rerank_with_cross_encoder(
                         query=query,
                         candidates=fused_results[:settings.RAG_RERANK_CANDIDATES],
                         top_k=top_k
                     )
                 else:
                     final_results = fused_results[:top_k]
+
+                # Performance metrics logging
+                total_duration = time.perf_counter() - search_start
+                logger.info(
+                    "🔍 Hybrid search performance: vector=%.2fs | keyword=%.2fs | RRF=%.2fs | total=%.2fs",
+                    vector_duration,
+                    keyword_duration,
+                    rrf_duration,
+                    total_duration
+                )
             else:
                 # Vector-only search
                 final_results = await self.vector_store.asimilarity_search_with_score(
@@ -777,7 +802,7 @@ class PolishSocietyRAG:
                 # 2b. RERANKING (opcjonalne) - Precyzyjny re-scoring z cross-encoder
                 if settings.RAG_USE_RERANKING and self.reranker:
                     logger.info("Applying cross-encoder reranking on top %s candidates", len(fused_results))
-                    final_results = self._rerank_with_cross_encoder(
+                    final_results = await self._rerank_with_cross_encoder(
                         query=query,
                         candidates=fused_results[:settings.RAG_RERANK_CANDIDATES],
                         top_k=settings.RAG_TOP_K

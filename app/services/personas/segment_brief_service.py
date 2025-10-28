@@ -39,8 +39,7 @@ from app.schemas.segment_brief import (
     SegmentBriefRequest,
     SegmentBriefResponse,
 )
-from app.services.shared.clients import build_chat_model
-from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.shared import build_chat_model, get_polish_society_rag
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -77,8 +76,8 @@ class SegmentBriefService:
         model_config = models.get("personas", "segment_brief")
         self.llm = build_chat_model(**model_config.params)
 
-        # RAG dla kontekstu społecznego Polski
-        self.rag_service = PolishSocietyRAG()
+        # RAG dla kontekstu społecznego Polski (singleton)
+        self.rag_service = get_polish_society_rag()
 
         # Redis dla cache (używamy tego samego co w innych miejscach)
         self.redis_client = None

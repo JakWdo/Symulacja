@@ -20,8 +20,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
-from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
-from app.services.shared.clients import build_chat_model
+from app.services.shared import build_chat_model, get_polish_society_rag
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -145,8 +144,8 @@ class PersonaOrchestrationService:
         model_config = models.get("personas", "orchestration")
         self.llm = build_chat_model(**model_config.params)
 
-        # RAG service dla hybrid search kontekstu
-        self.rag_service = PolishSocietyRAG()
+        # RAG service dla hybrid search kontekstu (singleton)
+        self.rag_service = get_polish_society_rag()
 
         logger.info(
             "PersonaOrchestrationService zainicjalizowany (%s)",
