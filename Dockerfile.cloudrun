@@ -75,6 +75,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=backend-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
 
+# Copy config folder EXPLICITLY (required for config module imports)
+# Services depend on config.loader for prompts and model configuration
+COPY config/ ./config/
+
 # Copy backend code
 COPY app/ ./app/
 COPY scripts/ ./scripts/

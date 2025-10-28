@@ -25,7 +25,6 @@ from app.schemas.survey import QuestionAnalytics
 from app.db import AsyncSessionLocal
 from app.core.config import get_settings
 from app.services.shared.clients import build_chat_model
-from config import prompts, models
 
 settings = get_settings()
 
@@ -43,10 +42,15 @@ class SurveyResponseGenerator:
 
     def __init__(self):
         """Inicjalizuj serwis z LangChain LLM"""
+        # Lazy import to prevent crashes if config folder is missing during app startup
+        from config import prompts, models
+
         self.settings = settings
+        self.prompts = prompts
+        self.models = models
 
         # Pobierz model config z ModelRegistry
-        model_config = models.get("surveys", "response")
+        model_config = self.models.get("surveys", "response")
 
         # Inicjalizujemy model Gemini w LangChain
         self.llm = build_chat_model(
@@ -273,7 +277,7 @@ Background: {persona.background_story or 'N/A'}
     ) -> str:
         """Generuj odpowiedź na pytanie single-choice"""
         # Load prompt from PromptRegistry
-        prompt_template = prompts.get("surveys.single_choice")
+        prompt_template = self.prompts.get("surveys.single_choice")
 
         # Render with variables
         rendered_messages = prompt_template.render(
@@ -306,7 +310,7 @@ Background: {persona.background_story or 'N/A'}
     ) -> list[str]:
         """Generuj odpowiedź na pytanie multiple-choice"""
         # Load prompt from PromptRegistry
-        prompt_template = prompts.get("surveys.multiple_choice")
+        prompt_template = self.prompts.get("surveys.multiple_choice")
 
         # Render with variables
         rendered_messages = prompt_template.render(
@@ -344,7 +348,7 @@ Background: {persona.background_story or 'N/A'}
     ) -> int:
         """Generuj odpowiedź na pytanie rating-scale"""
         # Load prompt from PromptRegistry
-        prompt_template = prompts.get("surveys.rating_scale")
+        prompt_template = self.prompts.get("surveys.rating_scale")
 
         # Render with variables
         rendered_messages = prompt_template.render(
@@ -378,7 +382,7 @@ Background: {persona.background_story or 'N/A'}
     ) -> str:
         """Generuj odpowiedź na pytanie open-text"""
         # Load prompt from PromptRegistry
-        prompt_template = prompts.get("surveys.open_text")
+        prompt_template = self.prompts.get("surveys.open_text")
 
         # Render with variables
         rendered_messages = prompt_template.render(
