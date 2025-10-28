@@ -83,6 +83,9 @@ tenacity
 aiofiles
 Pillow
 
+# Scheduled Jobs
+apscheduler==3.10.4
+
 # Development
 pytest
 pytest-asyncio

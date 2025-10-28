@@ -326,5 +326,53 @@ class PersonaAuditEntry(BaseModel):
         from_attributes = True
 
 
+class PersonaBulkDeleteRequest(BaseModel):
+    """
+    Request dla POST /personas/bulk-delete
+
+    Bulk delete wielu person jednocześnie:
+    - persona_ids: Lista UUID person do usunięcia
+    - reason: Wspólny powód usunięcia
+    - reason_detail: Opcjonalne szczegóły
+
+    Example:
+        >>> bulk_req = PersonaBulkDeleteRequest(
+        ...     persona_ids=[UUID(...), UUID(...)],
+        ...     reason="test_data",
+        ...     reason_detail="Cleanup test personas"
+        ... )
+    """
+
+    persona_ids: list[UUID] = Field(..., min_length=1, max_length=100, description="Lista UUID person do usunięcia (max 100)")
+    reason: Literal["duplicate", "outdated", "test_data", "other"] = Field(
+        ..., description="Wspólny powód usunięcia dla wszystkich"
+    )
+    reason_detail: str | None = Field(
+        None,
+        max_length=500,
+        description="Szczegóły powodu (wymagane jeśli reason='other')"
+    )
+
+
+class PersonaBulkDeleteResponse(BaseModel):
+    """
+    Response dla bulk delete person
+
+    Zwraca statystyki wykonanej operacji:
+    - deleted_count: Liczba pomyślnie usuniętych person
+    - failed_count: Liczba person których nie udało się usunąć
+    - failed_ids: Lista UUID person które nie zostały usunięte
+    - undo_available_until: Deadline dla undo (7 dni)
+    - message: Komunikat
+    """
+
+    deleted_count: int
+    failed_count: int = 0
+    failed_ids: list[UUID] = []
+    undo_available_until: datetime
+    permanent_deletion_scheduled_at: datetime
+    message: str
+
+
 # Rebuild PersonaDetailsResponse AFTER all forward references are defined
 PersonaDetailsResponse.model_rebuild()

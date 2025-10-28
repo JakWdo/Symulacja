@@ -14,7 +14,7 @@ Kluczowe endpointy:
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Request, status, HTTPException, Response
+from fastapi import FastAPI, Request, status, HTTPException, Response, Depends
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -22,11 +22,15 @@ from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.logging_config import configure_logging
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
 from app.api import projects, personas, focus_groups, analysis, surveys, graph_analysis, auth, settings as settings_router, rag, dashboard
+from app.db import get_db
+from app.services.maintenance.cleanup_service import CleanupService
 import logging
 import os
 import mimetypes
@@ -41,10 +45,15 @@ configure_logging(
 
 logger = logging.getLogger(__name__)
 
+# Global scheduler instance
+scheduler = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager - inicjalizacja/cleanup zasobów przy starcie/stopie aplikacji."""
+    global scheduler
+
     # Startup
     print("🚀 LIFESPAN: Inicjalizacja aplikacji...")
     logger.info("🚀 LIFESPAN: Inicjalizacja aplikacji...")
@@ -56,6 +65,73 @@ async def lifespan(app: FastAPI):
     # - Niepotrzebnych wywołań API gdy RAG nie jest używany
     logger.info("✓ LIFESPAN: RAG services skonfigurowane (lazy initialization)")
 
+    # Initialize APScheduler for background jobs
+    try:
+        scheduler = AsyncIOScheduler(timezone='UTC')
+
+        # Schedule cleanup job (daily at 2 AM UTC)
+        async def run_cleanup_job():
+            """
+            Scheduled cleanup job - uruchamiany codziennie o 2:00 AM UTC.
+
+            Usuwa (hard delete) soft-deleted entities starsze niż 7 dni:
+            - Projects (CASCADE usuwa personas, focus_groups, surveys)
+            - Personas (orphaned)
+            - Focus Groups (orphaned)
+            - Surveys (orphaned)
+            """
+            logger.info("⏰ Cleanup job started (scheduled)")
+
+            try:
+                # Get DB session from dependency
+                async for db in get_db():
+                    try:
+                        service = CleanupService(retention_days=7)
+                        stats = await service.cleanup_old_deleted_entities(db)
+
+                        logger.info(
+                            f"✅ Cleanup job completed successfully: {stats['total_deleted']} entities deleted",
+                            extra={
+                                "job": "cleanup_deleted_entities",
+                                "stats": stats,
+                                "retention_days": 7,
+                            }
+                        )
+                    finally:
+                        # DB session cleanup handled by get_db() context manager
+                        pass
+                    break  # Exit after first (and only) iteration
+
+            except Exception as exc:
+                logger.error(
+                    f"❌ Cleanup job failed: {exc}",
+                    extra={
+                        "job": "cleanup_deleted_entities",
+                        "error": str(exc),
+                    },
+                    exc_info=True,
+                )
+
+        scheduler.add_job(
+            run_cleanup_job,
+            trigger='cron',
+            hour=2,
+            minute=0,
+            timezone='UTC',
+            id='cleanup_deleted_entities',
+            name='Cleanup Old Deleted Entities',
+            replace_existing=True,
+            max_instances=1,  # Prevent overlapping executions
+        )
+
+        scheduler.start()
+        logger.info("✓ LIFESPAN: APScheduler started - cleanup job scheduled daily at 2:00 AM UTC")
+
+    except Exception as exc:
+        logger.error(f"❌ LIFESPAN: Failed to start APScheduler: {exc}", exc_info=True)
+        # Don't fail startup if scheduler fails - app can run without it
+        scheduler = None
+
     print("✓ LIFESPAN: Aplikacja gotowa do obsługi żądań")
     logger.info("✓ LIFESPAN: Aplikacja gotowa do obsługi żądań")
 
@@ -64,6 +140,14 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("👋 LIFESPAN: Zamykanie aplikacji...")
     logger.info("👋 LIFESPAN: Zamykanie aplikacji...")
+
+    # Shutdown scheduler gracefully
+    if scheduler:
+        try:
+            scheduler.shutdown(wait=True)
+            logger.info("✓ LIFESPAN: APScheduler stopped gracefully")
+        except Exception as exc:
+            logger.error(f"❌ LIFESPAN: Error stopping scheduler: {exc}", exc_info=True)
 
 # Walidacja krytycznych ustawień w produkcji
 if settings.ENVIRONMENT == "production":
@@ -203,6 +287,66 @@ async def health_check():
         "environment": settings.ENVIRONMENT,
         "rag_services": rag_status
     }
+
+
+@app.post("/admin/cleanup", tags=["Admin"])
+async def manual_cleanup(db: AsyncSession = Depends(get_db)):
+    """
+    Manual cleanup trigger endpoint - dla testowania i emergency cleanup.
+
+    Usuwa (hard delete) wszystkie soft-deleted entities starsze niż 7 dni.
+    Ten process jest **nieodwracalny**.
+
+    Returns:
+        dict: Statystyki usuniętych entities
+            {
+                "status": "success",
+                "stats": {
+                    "projects_deleted": 5,
+                    "personas_deleted": 45,
+                    "focus_groups_deleted": 12,
+                    "surveys_deleted": 3,
+                    "total_deleted": 65
+                },
+                "cutoff_date": "2025-10-21T14:30:00",
+                "retention_days": 7
+            }
+
+    Security:
+        - TODO: Add authentication/authorization (admin only)
+        - W produkcji dodaj rate limiting lub całkowicie wyłącz endpoint
+    """
+    logger.info("🔧 Manual cleanup triggered via /admin/cleanup endpoint")
+
+    try:
+        service = CleanupService(retention_days=7)
+        stats = await service.cleanup_old_deleted_entities(db)
+
+        from datetime import datetime, timedelta
+        cutoff_date = datetime.utcnow() - timedelta(days=7)
+
+        logger.info(
+            f"✅ Manual cleanup completed: {stats['total_deleted']} entities deleted",
+            extra={
+                "trigger": "manual",
+                "stats": stats,
+                "retention_days": 7,
+            }
+        )
+
+        return {
+            "status": "success",
+            "stats": stats,
+            "cutoff_date": cutoff_date.isoformat(),
+            "retention_days": 7,
+        }
+
+    except Exception as exc:
+        logger.error(f"❌ Manual cleanup failed: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Cleanup job failed: {str(exc)}"
+        )
 
 
 @app.get("/startup")

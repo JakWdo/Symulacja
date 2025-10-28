@@ -8,7 +8,7 @@ import uuid
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSON
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 from app.db.base import Base
 
 
@@ -54,8 +54,14 @@ class Survey(Base):
     total_execution_time_ms = Column(Integer, nullable=True)
     avg_response_time_ms = Column(Integer, nullable=True)
 
-    # Miękkie usunięcie
-    is_active = Column(Boolean, default=True, nullable=False)
+    # Miękkie usunięcie (soft delete)
+    is_active = Column(Boolean, default=True, nullable=False, server_default=text("true"))
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Relacje
     project = relationship("Project", back_populates="surveys")

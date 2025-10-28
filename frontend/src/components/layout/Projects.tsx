@@ -7,13 +7,20 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Users, MessageSquare, Calendar, FolderOpen } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Plus, Search, Users, MessageSquare, Calendar, FolderOpen, MoreVertical, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { projectsApi, personasApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { formatDate } from '@/lib/utils';
 import type { Project } from '@/types';
 import { Logo } from '@/components/ui/logo';
+import { DeleteProjectDialog } from '@/components/projects/DeleteProjectDialog';
 
 interface ProjectsProps {
   onSelectProject?: (project: Project) => void;
@@ -22,12 +29,14 @@ interface ProjectsProps {
 export function Projects({ onSelectProject }: ProjectsProps = {}) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [newProject, setNewProject] = useState({
     name: '',
     description: '',
     target_sample_size: 20,
   });
-  
+
   const { setSelectedProject } = useAppStore();
   const queryClient = useQueryClient();
 
@@ -207,28 +216,76 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
           {filteredProjects.map((project: Project) => (
             <Card
               key={project.id}
-              className="bg-card border border-border hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer group shadow-md"
-              onClick={() => {
-                setSelectedProject(project);
-                if (onSelectProject) {
-                  onSelectProject(project);
-                }
-              }}
+              className="bg-card border border-border hover:border-primary/50 hover:shadow-lg transition-all group shadow-md"
             >
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-card-foreground group-hover:text-primary transition-colors">
-                    {project.name}
-                  </CardTitle>
-                  <Badge className={getStatusColor(project)}>
-                    {getStatusLabel(project)}
-                  </Badge>
+                  <div
+                    className="flex-1 cursor-pointer"
+                    onClick={() => {
+                      setSelectedProject(project);
+                      if (onSelectProject) {
+                        onSelectProject(project);
+                      }
+                    }}
+                  >
+                    <CardTitle className="text-card-foreground group-hover:text-primary transition-colors">
+                      {project.name}
+                    </CardTitle>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={getStatusColor(project)}>
+                      {getStatusLabel(project)}
+                    </Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Otwórz menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectToDelete(project);
+                            setShowDeleteDialog(true);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Usuń projekt
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-                <p className="text-muted-foreground text-sm line-clamp-2">
+                <p
+                  className="text-muted-foreground text-sm line-clamp-2 cursor-pointer"
+                  onClick={() => {
+                    setSelectedProject(project);
+                    if (onSelectProject) {
+                      onSelectProject(project);
+                    }
+                  }}
+                >
                   {project.description || 'Brak opisu'}
                 </p>
               </CardHeader>
-              <CardContent>
+              <CardContent
+                className="cursor-pointer"
+                onClick={() => {
+                  setSelectedProject(project);
+                  if (onSelectProject) {
+                    onSelectProject(project);
+                  }
+                }}
+              >
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-chart-4" />
@@ -243,7 +300,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -277,6 +334,16 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
           )}
         </div>
       )}
+
+      {/* Delete Project Dialog */}
+      <DeleteProjectDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        project={projectToDelete}
+        onSuccess={() => {
+          setProjectToDelete(null);
+        }}
+      />
       </div>
     </div>
   );

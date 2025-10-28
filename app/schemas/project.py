@@ -158,3 +158,62 @@ class ProjectUndoDeleteResponse(BaseModel):
     restored_at: datetime
     restored_by: UUID
     message: str
+
+
+class ProjectDeleteImpactResponse(BaseModel):
+    """
+    Schema odpowiedzi pokazującej wpływ usunięcia projektu (cascade delete impact)
+
+    Zwraca liczbę entities które zostaną usunięte wraz z projektem:
+    - project_id: UUID projektu
+    - personas_count: Liczba person powiązanych z projektem
+    - focus_groups_count: Liczba grup fokusowych
+    - surveys_count: Liczba ankiet
+    - total_responses_count: Suma wszystkich odpowiedzi (focus group responses + survey responses)
+    - warning: Komunikat ostrzegawczy dla użytkownika
+    """
+    project_id: UUID
+    personas_count: int
+    focus_groups_count: int
+    surveys_count: int
+    total_responses_count: int
+    warning: str
+
+
+class ProjectBulkDeleteRequest(BaseModel):
+    """
+    Request dla POST /projects/bulk-delete
+
+    Bulk delete wielu projektów jednocześnie:
+    - project_ids: Lista UUID projektów do usunięcia
+    - reason: Wspólny powód usunięcia
+
+    Example:
+        >>> bulk_req = ProjectBulkDeleteRequest(
+        ...     project_ids=[UUID(...), UUID(...)],
+        ...     reason="test_data"
+        ... )
+    """
+    project_ids: list[UUID] = Field(..., min_length=1, max_length=50, description="Lista UUID projektów do usunięcia (max 50)")
+    reason: str = Field(..., min_length=1, max_length=500, description="Powód usunięcia")
+
+
+class ProjectBulkDeleteResponse(BaseModel):
+    """
+    Response dla bulk delete projektów
+
+    Zwraca statystyki wykonanej operacji:
+    - deleted_count: Liczba pomyślnie usuniętych projektów
+    - failed_count: Liczba projektów których nie udało się usunąć
+    - failed_ids: Lista UUID projektów które nie zostały usunięte
+    - cascade_deleted: Suma usuniętych entities (personas, focus_groups, surveys)
+    - undo_available_until: Deadline dla undo (7 dni)
+    - message: Komunikat
+    """
+    deleted_count: int
+    failed_count: int = 0
+    failed_ids: list[UUID] = []
+    cascade_deleted: dict[str, int]  # {"personas": 45, "focus_groups": 12, "surveys": 3}
+    undo_available_until: datetime
+    permanent_deletion_scheduled_at: datetime
+    message: str

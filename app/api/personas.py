@@ -52,6 +52,8 @@ from app.schemas.persona_details import (
     PersonaDeleteResponse,
     PersonaUndoDeleteResponse,
     PersonasSummaryResponse,
+    PersonaBulkDeleteRequest,
+    PersonaBulkDeleteResponse,
 )
 from app.services.personas import (
     PersonaGeneratorLangChain,
@@ -1775,8 +1777,8 @@ async def delete_persona(
         )
 
     deleted_at = datetime.utcnow()
-    undo_deadline = deleted_at + timedelta(seconds=30)
-    permanent_delete_at = deleted_at + timedelta(days=90)
+    undo_deadline = deleted_at + timedelta(days=7)
+    permanent_delete_at = deleted_at + timedelta(days=7)
 
     # Miękkie usunięcie rekordu
     persona.is_active = False
@@ -1806,7 +1808,7 @@ async def delete_persona(
         deleted_by=current_user.id,
         undo_available_until=undo_deadline,
         permanent_deletion_scheduled_at=permanent_delete_at,
-        message="Persona deleted successfully. You can undo this action within 30 seconds.",
+        message="Persona deleted successfully. You can undo this action within 7 days.",
     )
 
 
@@ -1816,7 +1818,7 @@ async def undo_delete_persona(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Przywróć personę jeśli okno undo (30s) nie wygasło."""
+    """Przywróć personę jeśli okno undo (7 dni) nie wygasło."""
     persona = await get_persona_for_user(
         persona_id,
         current_user,
@@ -1827,12 +1829,12 @@ async def undo_delete_persona(
     if persona.deleted_at is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona is not deleted")
 
-    undo_deadline = persona.deleted_at + timedelta(seconds=30)
+    undo_deadline = persona.deleted_at + timedelta(days=7)
     now = datetime.utcnow()
     if now > undo_deadline:
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
-            detail="Undo window expired. Persona can be restored from Archived view.",
+            detail="Restore window expired (7 days passed). Persona will be permanently deleted.",
             headers={
                 "X-Undo-Deadline": undo_deadline.isoformat(),
                 "X-Deleted-At": persona.deleted_at.isoformat(),
@@ -1861,6 +1863,107 @@ async def undo_delete_persona(
         restored_at=now,
         restored_by=current_user.id,
         message="Persona restored successfully",
+    )
+
+
+@router.post("/personas/bulk-delete", response_model=PersonaBulkDeleteResponse)
+async def bulk_delete_personas(
+    bulk_request: PersonaBulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Usuń wiele person jednocześnie (bulk soft delete z audit logging)
+
+    Args:
+        bulk_request: PersonaBulkDeleteRequest z listą persona_ids i powodem
+        db: DB session
+        current_user: Authenticated user
+
+    Returns:
+        PersonaBulkDeleteResponse ze statystykami (deleted_count, failed_count, failed_ids)
+
+    Flow:
+        1. Loop przez wszystkie persona_ids
+        2. Dla każdej persony: weryfikuj ownership, soft delete, log w audit
+        3. Zbieraj statystyki (successes vs failures)
+        4. Zwróć response z undo_available_until (7 dni)
+
+    RBAC:
+        - MVP: Wszyscy zalogowani użytkownicy mogą usuwać własne persony
+        - Production: Tylko Admin może usuwać (TODO: add RBAC check)
+
+    Audit:
+        - Loguje delete action dla każdej persony z reason w persona_audit_log
+    """
+    deleted_at = datetime.utcnow()
+    undo_deadline = deleted_at + timedelta(days=7)
+
+    deleted_count = 0
+    failed_count = 0
+    failed_ids: list[UUID] = []
+
+    audit_service = PersonaAuditService()
+
+    # Loop przez wszystkie persona_ids
+    for persona_id in bulk_request.persona_ids:
+        try:
+            # Pobierz personę i weryfikuj ownership
+            persona = await get_persona_for_user(persona_id, current_user, db)
+
+            # Sprawdź czy już usunięta
+            if persona.deleted_at is not None:
+                failed_count += 1
+                failed_ids.append(persona_id)
+                continue
+
+            # Soft delete
+            persona.is_active = False
+            persona.deleted_at = deleted_at
+            persona.deleted_by = current_user.id
+
+            # Log delete action (audit trail)
+            await audit_service.log_action(
+                persona_id=persona_id,
+                user_id=current_user.id,
+                action="delete",
+                details={
+                    "reason": bulk_request.reason,
+                    "reason_detail": bulk_request.reason_detail,
+                    "bulk_operation": True,
+                },
+                db=db,
+            )
+
+            deleted_count += 1
+
+        except HTTPException:
+            # Persona nie znaleziona lub brak dostępu
+            failed_count += 1
+            failed_ids.append(persona_id)
+        except Exception as e:
+            # Niespodziewany błąd
+            logger.error(f"Error deleting persona {persona_id}: {str(e)}")
+            failed_count += 1
+            failed_ids.append(persona_id)
+
+    # Commit wszystkich zmian naraz
+    await db.commit()
+
+    # Przygotuj komunikat
+    if deleted_count == len(bulk_request.persona_ids):
+        message = f"Successfully deleted {deleted_count} persona(s). You can undo this action within 7 days."
+    elif deleted_count > 0:
+        message = f"Deleted {deleted_count} persona(s), {failed_count} failed. Check failed_ids for details."
+    else:
+        message = f"Failed to delete all personas. Check failed_ids for details."
+
+    return PersonaBulkDeleteResponse(
+        deleted_count=deleted_count,
+        failed_count=failed_count,
+        failed_ids=failed_ids,
+        undo_available_until=undo_deadline,
+        message=message,
     )
 
 
@@ -2094,3 +2197,67 @@ async def get_persona_details(
             status_code=500,
             detail="Failed to fetch persona details. Please try again later.",
         )
+
+
+@router.get("/personas/archived", response_model=list[PersonaResponse])
+async def get_archived_personas(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Pobierz listę usuniętych person (archiwum) z ostatnich 7 dni
+
+    Zwraca persony które zostały soft-deleted i nadal mogą być przywrócone
+    (restore window: 7 dni od deleted_at).
+
+    Args:
+        db: DB session
+        current_user: Authenticated user
+
+    Returns:
+        List[PersonaResponse]: Lista usuniętych person (ordered by deleted_at DESC)
+
+    Query:
+        - is_active = False
+        - deleted_at IS NOT NULL
+        - deleted_at > now() - 7 days (restore window)
+        - User ma dostęp poprzez project ownership
+
+    RBAC:
+        - Użytkownik widzi tylko persony z własnych projektów
+    """
+    # Calculate restore window cutoff (7 days ago)
+    restore_window_start = datetime.utcnow() - timedelta(days=7)
+
+    # Query: pobierz usunięte persony z ostatnich 7 dni
+    result = await db.execute(
+        select(Persona)
+        .join(Project, Persona.project_id == Project.id)
+        .where(
+            Persona.is_active.is_(False),
+            Persona.deleted_at.isnot(None),
+            Persona.deleted_at > restore_window_start,
+            Project.owner_id == current_user.id,
+        )
+        .order_by(Persona.deleted_at.desc())
+    )
+    personas = result.scalars().all()
+
+    # Convert to PersonaResponse
+    return [
+        PersonaResponse(
+            id=persona.id,
+            project_id=persona.project_id,
+            full_name=persona.full_name,
+            persona_title=persona.persona_title,
+            headline=persona.headline,
+            age=persona.age,
+            gender=persona.gender,
+            location=persona.location,
+            education_level=persona.education_level,
+            income_bracket=persona.income_bracket,
+            occupation=persona.occupation,
+            created_at=persona.created_at,
+        )
+        for persona in personas
+    ]

@@ -833,3 +833,44 @@ export interface PersonaExportResponse {
   sections: string[];
   content: Record<string, any>;
 }
+
+// === PROJECT DELETE TYPES ===
+
+export interface ProjectDeleteResponse {
+  project_id: string;
+  name: string;
+  status: 'deleted';
+  deleted_at: string;
+  deleted_by: string;
+  undo_available_until: string;
+  permanent_deletion_scheduled_at?: string | null;
+  message: string;
+  cascaded_entities: {
+    personas_count: number;
+    focus_groups_count: number;
+    surveys_count: number;
+  };
+}
+
+export interface ProjectUndoDeleteResponse {
+  project_id: string;
+  name: string;
+  status: 'active';
+  restored_at: string;
+  restored_by: string;
+  message: string;
+  restored_entities: {
+    personas_count: number;
+    focus_groups_count: number;
+    surveys_count: number;
+  };
+}
+
+export interface ProjectDeleteImpact {
+  project_id: string;
+  personas_count: number;
+  focus_groups_count: number;
+  surveys_count: number;
+  total_responses_count: number;
+  warning: string;
+}

@@ -19,10 +19,12 @@ import {
   ChevronRight,
   Filter,
   Database,
+  Trash2,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { PersonaDetailsDrawer } from '@/components/personas/PersonaDetailsDrawer';
+import { DeletePersonaDialog } from '@/components/DeletePersonaDialog';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { projectsApi, personasApi } from '@/lib/api';
 import type { GeneratePersonasPayload } from '@/lib/api';
@@ -290,6 +292,10 @@ export function Personas() {
   const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
   const [ageRange, setAgeRange] = useState<[number, number]>([18, 65]);
   const [selectedOccupations, setSelectedOccupations] = useState<string[]>([]);
+
+  // Delete dialog state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [personaToDelete, setPersonaToDelete] = useState<DisplayPersona | null>(null);
 
   // Fetch all projects
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
@@ -904,6 +910,17 @@ export function Personas() {
                               <Eye className="w-4 h-4 mr-2" />
                               Szczegóły persony
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPersonaToDelete(currentPersona);
+                                setShowDeleteDialog(true);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Usuń personę
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -990,6 +1007,18 @@ export function Personas() {
         open={showPersonaWizard}
         onOpenChange={setShowPersonaWizard}
         onGenerate={handleGeneratePersonas}
+      />
+
+      {/* Delete Persona Dialog */}
+      <DeletePersonaDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        personaId={personaToDelete?.id || ''}
+        personaName={personaToDelete?.name || ''}
+        onSuccess={() => {
+          setShowDeleteDialog(false);
+          setPersonaToDelete(null);
+        }}
       />
       </div>
     </div>

@@ -26,6 +26,9 @@ import type {
   PersonaReasoning,
   PersonaDeleteResponse,
   PersonaUndoDeleteResponse,
+  ProjectDeleteResponse,
+  ProjectUndoDeleteResponse,
+  ProjectDeleteImpact,
 } from '@/types';
 
 // === AUTH TYPES ===
@@ -176,6 +179,27 @@ export const projectsApi = {
   },
   remove: async (projectId: string): Promise<void> => {
     await api.delete(`/projects/${projectId}`);
+  },
+  delete: async (
+    projectId: string,
+    reason: string,
+    reasonDetail?: string,
+  ): Promise<ProjectDeleteResponse> => {
+    const { data } = await api.delete<ProjectDeleteResponse>(`/projects/${projectId}`, {
+      data: {
+        reason,
+        reason_detail: reasonDetail,
+      },
+    });
+    return data;
+  },
+  undoDelete: async (projectId: string): Promise<ProjectUndoDeleteResponse> => {
+    const { data } = await api.post<ProjectUndoDeleteResponse>(`/projects/${projectId}/undo-delete`);
+    return data;
+  },
+  getDeleteImpact: async (projectId: string): Promise<ProjectDeleteImpact> => {
+    const { data } = await api.get<ProjectDeleteImpact>(`/projects/${projectId}/delete-impact`);
+    return data;
   },
 };
 

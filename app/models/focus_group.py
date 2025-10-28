@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Float,
@@ -80,6 +81,15 @@ class FocusGroup(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Soft delete
+    is_active = Column(Boolean, default=True, nullable=False, server_default=text("true"))
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Bufor przechowujący ostatnie podsumowanie AI
     ai_summary = Column(JSON, nullable=True)
