@@ -75,6 +75,10 @@ from app.core.demographics.international_constants import (
     DEFAULT_GENDERS,
     DEFAULT_OCCUPATIONS,
 )
+from app.core.config import get_settings
+
+# Get settings instance
+settings = get_settings()
 
 # Alias dla kompatybilności
 PreferredPersonaGenerator = PersonaGeneratorLangChain
