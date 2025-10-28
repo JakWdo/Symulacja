@@ -89,7 +89,18 @@ def get_vector_store(logger: logging.Logger) -> Neo4jVector | None:
 
 
 def get_graph_store(logger: logging.Logger) -> Neo4jGraph | None:
-    """Zwraca (cache'owaną) instancję Neo4jGraph z retry logic."""
+    """Zwraca (cache'owaną) instancję Neo4jGraph z retry logic + connection pooling.
+
+    Connection pooling configuration optimized for Cloud Run deployment:
+    - max_connection_pool_size: 50 connections per instance
+    - connection_acquisition_timeout: 60s wait for available connection
+    - max_transaction_retry_time: 30s retry transient failures
+    - connection_timeout: 30s TCP connection timeout
+    - keep_alive: True to prevent connection drops
+
+    These settings prevent connection exhaustion and improve reliability
+    in production environments with high concurrency.
+    """
     global _GRAPH_STORE
     if _GRAPH_STORE is None:
         _GRAPH_STORE = _connect_with_retry(
@@ -97,6 +108,14 @@ def get_graph_store(logger: logging.Logger) -> Neo4jGraph | None:
                 url=settings.NEO4J_URI,
                 username=settings.NEO4J_USER,
                 password=settings.NEO4J_PASSWORD,
+                # Connection pooling configuration (Cloud Run optimization)
+                driver_config={
+                    "max_connection_pool_size": getattr(settings, 'NEO4J_MAX_POOL_SIZE', 50),
+                    "connection_acquisition_timeout": getattr(settings, 'NEO4J_CONNECTION_TIMEOUT', 60),
+                    "max_transaction_retry_time": getattr(settings, 'NEO4J_MAX_RETRY_TIME', 30),
+                    "connection_timeout": getattr(settings, 'NEO4J_CONNECTION_TIMEOUT', 30),
+                    "keep_alive": True,  # Prevent connection drops (Cloud Run)
+                },
             ),
             logger,
             "Neo4j Graph Store",

@@ -187,7 +187,64 @@ def init_neo4j_indexes():
 
             print()
 
-            # 3. Summary
+            # 3. TEXT INDEXES for Graph RAG (streszczenie, kluczowe_fakty)
+            print("-" * 80)
+            print("3. TEXT INDEXES (Graph RAG performance optimization)")
+            print("-" * 80)
+            print("Creating TEXT indexes for CONTAINS queries on graph nodes...")
+            print()
+
+            # TEXT indexes dla przyspieszenia CONTAINS queries w Cypher
+            # Neo4j 5.x+ wspiera TEXT INDEX dla string properties
+            text_indexes = [
+                # Wskaznik nodes
+                ("wskaznik_streszczenie_text", "Wskaznik", "streszczenie"),
+                ("wskaznik_fakty_text", "Wskaznik", "kluczowe_fakty"),
+                # Obserwacja nodes
+                ("obserwacja_streszczenie_text", "Obserwacja", "streszczenie"),
+                ("obserwacja_fakty_text", "Obserwacja", "kluczowe_fakty"),
+                # Trend nodes
+                ("trend_streszczenie_text", "Trend", "streszczenie"),
+                ("trend_fakty_text", "Trend", "kluczowe_fakty"),
+                # Demografia nodes
+                ("demografia_streszczenie_text", "Demografia", "streszczenie"),
+                ("demografia_fakty_text", "Demografia", "kluczowe_fakty"),
+            ]
+
+            created_count = 0
+            skipped_count = 0
+
+            for index_name, node_label, property_name in text_indexes:
+                try:
+                    # Check if index exists
+                    result = session.run("SHOW INDEXES")
+                    existing_indexes = [record["name"] for record in result]
+
+                    if index_name in existing_indexes:
+                        print(f"   ℹ️  TEXT index '{index_name}' already exists (SKIP)")
+                        skipped_count += 1
+                    else:
+                        # Create TEXT index
+                        # Neo4j 5.x+ syntax
+                        session.run(f"""
+                            CREATE TEXT INDEX {index_name} IF NOT EXISTS
+                            FOR (n:{node_label})
+                            ON (n.{property_name})
+                        """)
+                        print(f"   ✅ Created TEXT index '{index_name}' on {node_label}.{property_name}")
+                        created_count += 1
+
+                except Exception as e:
+                    print(f"   ⚠️  ERROR creating TEXT index '{index_name}': {e}")
+                    # Continue with other indexes (non-fatal)
+
+            print()
+            print(f"TEXT indexes: {created_count} created, {skipped_count} skipped")
+            print("These indexes speed up CONTAINS queries in get_demographic_graph_context()")
+
+            print()
+
+            # 4. Summary
             print("=" * 80)
             print("SUMMARY")
             print("=" * 80)

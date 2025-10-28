@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     NEO4J_USER: str = "neo4j"
     NEO4J_PASSWORD: str = "password"
 
+    # Neo4j Connection Pool Settings (Cloud Run optimization)
+    # Prevent connection exhaustion and improve reliability in production
+    NEO4J_MAX_POOL_SIZE: int = 50  # Max connections per Cloud Run instance
+    NEO4J_CONNECTION_TIMEOUT: int = 30  # TCP connection timeout (seconds)
+    NEO4J_MAX_RETRY_TIME: int = 30  # Max time to retry transient failures
+
     # === KLUCZE API LLM ===
     # Klucze do modeli językowych (jeden musi być ustawiony)
     OPENAI_API_KEY: str | None = None
@@ -156,6 +162,22 @@ class Settings(BaseSettings):
     RAG_EXTRACT_KEY_FACTS: bool = True
     # Ekstrakcja confidence dla relacji
     RAG_RELATIONSHIP_CONFIDENCE: bool = True
+
+    # === ORCHESTRATION SERVICE (Persona Generation) ===
+    # Feature flag: Enable persona orchestration with Gemini 2.5 Pro
+    # Benefits:
+    #   - Długie briefe (900-1200 chars) dla każdego demographic group
+    #   - Graph RAG insights (3-5 insights per group)
+    #   - Segment characteristics (4-6 kluczowych cech)
+    #   - Allocation reasoning (dlaczego tyle person w grupie)
+    # Trade-off: ~10-20s latency z cachingiem (vs 2-5s basic generation)
+    # Rollback: Ustaw na False aby wrócić do basic generation (bez detailed reasoning)
+    ORCHESTRATION_ENABLED: bool = True
+
+    # Orchestration timeout (seconds)
+    # With Redis caching + optimized queries: should complete in 10-20s
+    # Without caching (cold start): may take up to 60s
+    ORCHESTRATION_TIMEOUT: int = 90  # Safety margin for Cloud Run
 
     # === EMBEDDINGS (Google Gemini) ===
     # Model do generowania embeddingów tekstowych
