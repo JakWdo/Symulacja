@@ -22,7 +22,7 @@ export function ActiveProjectsSection() {
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>Failed to load active projects</AlertDescription>
+        <AlertDescription>Nie udało się załadować aktywnych projektów</AlertDescription>
       </Alert>
     );
   }
@@ -31,11 +31,11 @@ export function ActiveProjectsSection() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Active Research Projects</CardTitle>
+          <CardTitle>Aktywne projekty</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-center text-muted-foreground py-8">
-            No active projects. Create your first project to get started!
+            Brak aktywnych projektów. Stwórz swój pierwszy projekt, aby rozpocząć!
           </p>
         </CardContent>
       </Card>
@@ -44,7 +44,7 @@ export function ActiveProjectsSection() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Active Research Projects</h2>
+      <h2 className="text-xl font-semibold">Aktywne projekty</h2>
       <div className="grid gap-4">
         {projects.map((project) => (
           <ProjectCard key={project.id} project={project} />
@@ -96,15 +96,15 @@ function ProjectCard({ project }: { project: ProjectWithHealth }) {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <div className={`w-2 h-2 rounded-full ${healthColors[project.health.status]}`} />
-                Health: {project.health.score}/100
+                Zdrowie: {project.health.score}/100
               </span>
               <span>•</span>
-              <span>{project.insights_count} insights</span>
+              <span>{project.insights_count} spostrzeżenia</span>
               {project.new_insights_count > 0 && (
                 <>
                   <span>•</span>
                   <span className="text-blue-600 font-medium">
-                    {project.new_insights_count} new
+                    {project.new_insights_count} nowe
                   </span>
                 </>
               )}
@@ -116,7 +116,7 @@ function ProjectCard({ project }: { project: ProjectWithHealth }) {
         {/* Progress Bar */}
         <div className="space-y-2 mb-4">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Progress</span>
+            <span>Postęp</span>
             <span>{progressPercentage.toFixed(0)}%</span>
           </div>
           <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -126,10 +126,10 @@ function ProjectCard({ project }: { project: ProjectWithHealth }) {
             />
           </div>
           <div className="flex gap-2 text-xs">
-            <StageIndicator label="Demographics" completed={project.progress.demographics} />
-            <StageIndicator label="Personas" completed={project.progress.personas} />
-            <StageIndicator label="Focus" completed={project.progress.focus} />
-            <StageIndicator label="Analysis" completed={project.progress.analysis} />
+            <StageIndicator label="Demografia" completed={project.progress.demographics} />
+            <StageIndicator label="Persony" completed={project.progress.personas} />
+            <StageIndicator label="Dyskusja" completed={project.progress.focus} />
+            <StageIndicator label="Analiza" completed={project.progress.analysis} />
           </div>
         </div>
 
@@ -143,7 +143,7 @@ function ProjectCard({ project }: { project: ProjectWithHealth }) {
 
         {/* Last Activity */}
         <p className="text-xs text-muted-foreground text-center mt-2">
-          Last activity: {new Date(project.last_activity).toLocaleDateString()}
+          Ostatnia aktywność: {new Date(project.last_activity).toLocaleDateString()}
         </p>
       </CardContent>
     </Card>

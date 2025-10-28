@@ -59,12 +59,12 @@ export function NotificationsSection() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Notifications</CardTitle>
+          <CardTitle>Powiadomienia</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Failed to load notifications</AlertDescription>
+            <AlertDescription>Nie udało się załadować powiadomień</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -76,21 +76,21 @@ export function NotificationsSection() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Notifications</CardTitle>
+            <CardTitle>Powiadomienia</CardTitle>
             <div className="flex gap-2">
               <Button
                 variant={filter === 'all' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('all')}
               >
-                All
+                Wszystkie
               </Button>
               <Button
                 variant={filter === 'unread' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('unread')}
               >
-                Unread
+                Nieprzeczytane
               </Button>
             </div>
           </div>
@@ -98,9 +98,9 @@ export function NotificationsSection() {
         <CardContent>
           <div className="text-center py-12">
             <Bell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="font-medium text-lg mb-2">All caught up!</p>
+            <p className="font-medium text-lg mb-2">Wszystko przeczytane!</p>
             <p className="text-sm text-muted-foreground">
-              No {filter === 'unread' ? 'unread' : ''} notifications
+              Brak {filter === 'unread' ? 'nieprzeczytanych' : ''} powiadomień
             </p>
           </div>
         </CardContent>
@@ -115,7 +115,7 @@ export function NotificationsSection() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle>Notifications</CardTitle>
+            <CardTitle>Powiadomienia</CardTitle>
             {unreadCount > 0 && (
               <Badge variant="destructive" className="rounded-full">
                 {unreadCount}
@@ -128,14 +128,14 @@ export function NotificationsSection() {
               size="sm"
               onClick={() => setFilter('all')}
             >
-              All ({notifications.length})
+              Wszystkie ({notifications.length})
             </Button>
             <Button
               variant={filter === 'unread' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('unread')}
             >
-              Unread ({unreadCount})
+              Nieprzeczytane ({unreadCount})
             </Button>
           </div>
         </div>
@@ -206,7 +206,7 @@ function NotificationCard({
               {notification.is_done && (
                 <Badge variant="outline" className="text-xs">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  Done
+                  Zakończone
                 </Badge>
               )}
             </div>
@@ -230,7 +230,7 @@ function NotificationCard({
                   onClick={() => onMarkRead(notification.id)}
                 >
                   <Check className="h-4 w-4 mr-1" />
-                  Mark Read
+                  Oznacz jako przeczytane
                 </Button>
               )}
 
@@ -241,7 +241,7 @@ function NotificationCard({
                   onClick={() => onMarkDone(notification.id)}
                 >
                   <X className="h-4 w-4 mr-1" />
-                  Dismiss
+                  Odrzuć
                 </Button>
               )}
             </div>

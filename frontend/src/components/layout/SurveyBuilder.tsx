@@ -24,27 +24,27 @@ interface SurveyBuilderProps {
 const questionTypes = [
   {
     id: 'single-choice' as const,
-    label: 'Single Choice',
+    label: 'Jednokrotny wybór',
     icon: RadioButton,
-    description: 'Radio buttons - one answer only'
+    description: 'Przyciski opcji - tylko jedna odpowiedź'
   },
   {
     id: 'multiple-choice' as const,
-    label: 'Multiple Choice',
+    label: 'Wielokrotny wybór',
     icon: CheckSquare,
-    description: 'Checkboxes - multiple answers allowed'
+    description: 'Pola wyboru - wiele odpowiedzi dozwolone'
   },
   {
     id: 'rating-scale' as const,
-    label: 'Rating Scale',
+    label: 'Skala ocen',
     icon: BarChart3,
-    description: '1-5 or 1-10 point scale'
+    description: 'Skala 1-5 lub 1-10 punktów'
   },
   {
     id: 'open-text' as const,
-    label: 'Open Text',
+    label: 'Tekst otwarty',
     icon: FileText,
-    description: 'Free text response'
+    description: 'Odpowiedź tekstowa'
   }
 ];
 
@@ -69,12 +69,12 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
     },
     onSuccess: (createdSurvey) => {
       queryClient.invalidateQueries({ queryKey: ['surveys', selectedProject?.id] });
-      toast.success('Survey created', `${createdSurvey.title} · ${selectedProject?.name || 'Unknown project'}`);
+      toast.success('Ankieta utworzona', `${createdSurvey.title} · ${selectedProject?.name || 'Nieznany projekt'}`);
       onSave();
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Failed to create survey', `${surveyTitle || 'New survey'} · ${selectedProject?.name || 'Unknown project'} • ${message}`);
+      const message = error instanceof Error ? error.message : 'Nieznany błąd';
+      toast.error('Nie udało się utworzyć ankiety', `${surveyTitle || 'Nowa ankieta'} · ${selectedProject?.name || 'Nieznany projekt'} • ${message}`);
     },
   });
 
@@ -153,7 +153,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
   if (!selectedProject) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Please select a project first</p>
+        <p className="text-muted-foreground">Najpierw wybierz projekt</p>
       </div>
     );
   }
@@ -166,11 +166,11 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={onBack}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
+            Wróć
           </Button>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-foreground">Survey Builder</h1>
-            <p className="text-muted-foreground">Create a new synthetic survey</p>
+            <h1 className="text-3xl font-bold text-foreground">Kreator ankiet</h1>
+            <p className="text-muted-foreground">Utwórz nową syntetyczną ankietę</p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -179,7 +179,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="w-4 h-4 mr-2" />
-              {createMutation.isPending ? 'Creating...' : 'Create Survey'}
+              {createMutation.isPending ? 'Tworzenie...' : 'Utwórz ankietę'}
             </Button>
           </div>
         </div>
@@ -191,7 +191,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
               <CardHeader>
                 <CardTitle className="text-card-foreground flex items-center gap-2">
                   <Settings className="w-5 h-5" />
-                  Question Types
+                  Typy pytań
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -239,8 +239,8 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
                 </Droppable>
                 <Separator className="my-4" />
                 <div className="space-y-2 text-xs text-muted-foreground">
-                  <p>💡 Drag question types to the survey area</p>
-                  <p>🔄 Reorder questions by dragging</p>
+                  <p>💡 Przeciągnij typy pytań do obszaru ankiety</p>
+                  <p>🔄 Zmień kolejność pytań przeciągając</p>
                 </div>
               </CardContent>
             </Card>
@@ -251,30 +251,30 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
             {/* Survey Configuration */}
             <Card className="bg-card border border-border">
               <CardHeader>
-                <CardTitle className="text-card-foreground">Survey Configuration</CardTitle>
+                <CardTitle className="text-card-foreground">Konfiguracja ankiety</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Survey Title *</Label>
+                  <Label htmlFor="title">Tytuł ankiety *</Label>
                   <Input
                     id="title"
                     value={surveyTitle}
                     onChange={(e) => setSurveyTitle(e.target.value)}
-                    placeholder="e.g., Product Feature Preferences"
+                    placeholder="np. Preferencje funkcji produktu"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">Opis</Label>
                   <Textarea
                     id="description"
                     value={surveyDescription}
                     onChange={(e) => setSurveyDescription(e.target.value)}
-                    placeholder="Brief description of what this survey aims to discover"
+                    placeholder="Krótki opis tego, co ankieta ma odkryć"
                     rows={2}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="targetResponses">Target Responses</Label>
+                  <Label htmlFor="targetResponses">Docelowa liczba odpowiedzi</Label>
                   <Select value={targetResponses} onValueChange={setTargetResponses}>
                     <SelectTrigger className="w-40">
                       <SelectValue />
@@ -287,7 +287,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Number of AI-generated responses based on project personas
+                    Liczba odpowiedzi wygenerowanych przez AI na podstawie person projektu
                   </p>
                 </div>
               </CardContent>
@@ -297,9 +297,9 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
             <Card className="bg-card border border-border">
               <CardHeader>
                 <CardTitle className="text-card-foreground flex items-center justify-between">
-                  Survey Questions
+                  Pytania ankiety
                   <Badge variant="outline">
-                    {questions.length} question{questions.length !== 1 ? 's' : ''}
+                    {questions.length} {questions.length === 1 ? 'pytanie' : questions.length < 5 ? 'pytania' : 'pytań'}
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -315,7 +315,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
                     >
                       {questions.length === 0 ? (
                         <div className="text-center py-12">
-                          <p className="text-muted-foreground">Drag question types here to start building your survey</p>
+                          <p className="text-muted-foreground">Przeciągnij typy pytań tutaj, aby rozpocząć tworzenie ankiety</p>
                         </div>
                       ) : (
                         questions.map((question, index) => {
@@ -338,7 +338,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
                                         <Input
                                           value={question.title}
                                           onChange={(e) => updateQuestion(question.id, { title: e.target.value })}
-                                          placeholder="Enter your question"
+                                          placeholder="Wpisz swoje pytanie"
                                           className="flex-1"
                                         />
                                         <Button
@@ -364,7 +364,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
                                               <Input
                                                 value={option}
                                                 onChange={(e) => updateOption(question.id, optionIndex, e.target.value)}
-                                                placeholder={`Option ${optionIndex + 1}`}
+                                                placeholder={`Opcja ${optionIndex + 1}`}
                                                 className="flex-1 h-8"
                                               />
                                               {question.options && question.options.length > 2 && (
@@ -386,7 +386,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
                                             className="ml-6"
                                           >
                                             <Plus className="w-3 h-3 mr-1" />
-                                            Add Option
+                                            Dodaj opcję
                                           </Button>
                                         </div>
                                       )}
@@ -403,7 +403,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
                                             />
                                           </div>
                                           <div className="flex items-center gap-2">
-                                            <Label className="text-xs">Max:</Label>
+                                            <Label className="text-xs">Maks:</Label>
                                             <Input
                                               type="number"
                                               value={question.scaleMax}
@@ -419,7 +419,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
                                           checked={question.required}
                                           onCheckedChange={(checked) => updateQuestion(question.id, { required: checked })}
                                         />
-                                        <Label className="text-sm text-muted-foreground">Required question</Label>
+                                        <Label className="text-sm text-muted-foreground">Pytanie wymagane</Label>
                                       </div>
                                     </div>
                                   </div>

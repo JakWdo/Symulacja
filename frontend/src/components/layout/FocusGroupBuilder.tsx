@@ -98,11 +98,11 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Focus Groups
+          Wróć do grup fokusowych
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl brand-orange">Focus Group Builder</h1>
-          <p className="text-muted-foreground">Set up a new focus group session</p>
+          <h1 className="text-3xl brand-orange">Kreator grup fokusowych</h1>
+          <p className="text-muted-foreground">Skonfiguruj nową sesję grupy fokusowej</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -115,7 +115,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
             ) : (
               <Check className="w-4 h-4 mr-2" />
             )}
-            Create Focus Group
+            Utwórz grupę fokusową
           </Button>
         </div>
       </div>
@@ -126,35 +126,35 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           {/* Basic Information */}
           <Card className="bg-card border border-border">
             <CardHeader>
-              <CardTitle className="text-card-foreground">Basic Information</CardTitle>
+              <CardTitle className="text-card-foreground">Podstawowe informacje</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Focus Group Title</Label>
+                <Label htmlFor="title">Tytuł grupy fokusowej</Label>
                 <Input
                   id="title"
                   value={focusGroupTitle}
                   onChange={(e) => setFocusGroupTitle(e.target.value)}
-                  placeholder="e.g., Mobile App Usability Testing"
+                  placeholder="np. Testy użyteczności aplikacji mobilnej"
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Opis</Label>
                 <Textarea
                   id="description"
                   value={focusGroupDescription}
                   onChange={(e) => setFocusGroupDescription(e.target.value)}
-                  placeholder="Brief description of the focus group objectives and scope"
+                  placeholder="Krótki opis celów i zakresu grupy fokusowej"
                   rows={3}
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="project">Associated Project</Label>
+                <Label htmlFor="project">Powiązany projekt</Label>
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a project" />
+                    <SelectValue placeholder="Wybierz projekt" />
                   </SelectTrigger>
                 <SelectContent>
                   {projectsLoading ? (
@@ -177,21 +177,21 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           {/* Session Configuration */}
           <Card className="bg-card border border-border">
             <CardHeader>
-              <CardTitle className="text-card-foreground">Session Configuration</CardTitle>
+              <CardTitle className="text-card-foreground">Konfiguracja sesji</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="participants">Target Participants</Label>
+                <Label htmlFor="participants">Docelowa liczba uczestników</Label>
                 <Select value={participantCount} onValueChange={setParticipantCount}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="4">4 participants</SelectItem>
-                    <SelectItem value="6">6 participants</SelectItem>
-                    <SelectItem value="8">8 participants</SelectItem>
-                    <SelectItem value="10">10 participants</SelectItem>
-                    <SelectItem value="12">12 participants</SelectItem>
+                    <SelectItem value="4">4 uczestników</SelectItem>
+                    <SelectItem value="6">6 uczestników</SelectItem>
+                    <SelectItem value="8">8 uczestników</SelectItem>
+                    <SelectItem value="10">10 uczestników</SelectItem>
+                    <SelectItem value="12">12 uczestników</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -202,9 +202,9 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           <Card className="bg-card border border-border">
             <CardHeader>
               <CardTitle className="text-card-foreground flex items-center justify-between">
-                Discussion Topics
+                Tematy dyskusji
                 <Badge variant="outline">
-                  {discussionTopics.filter(topic => topic.trim() !== '').length} topic{discussionTopics.filter(topic => topic.trim() !== '').length !== 1 ? 's' : ''}
+                  {discussionTopics.filter(topic => topic.trim() !== '').length} {discussionTopics.filter(topic => topic.trim() !== '').length === 1 ? 'temat' : discussionTopics.filter(topic => topic.trim() !== '').length < 5 ? 'tematy' : 'tematów'}
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -215,7 +215,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                     <Input
                       value={topic}
                       onChange={(e) => updateDiscussionTopic(index, e.target.value)}
-                      placeholder={`Discussion topic ${index + 1}`}
+                      placeholder={`Temat dyskusji ${index + 1}`}
                     />
                   </div>
                   {discussionTopics.length > 1 && (
@@ -237,7 +237,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                 className="text-primary hover:text-primary"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Topic
+                Dodaj temat
               </Button>
             </CardContent>
           </Card>
@@ -246,9 +246,9 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           <Card className="bg-card border border-border">
             <CardHeader>
               <CardTitle className="text-card-foreground flex items-center justify-between">
-                Key Research Questions
+                Kluczowe pytania badawcze
                 <Badge variant="outline">
-                  {researchQuestions.filter(q => q.trim() !== '').length} question{researchQuestions.filter(q => q.trim() !== '').length !== 1 ? 's' : ''}
+                  {researchQuestions.filter(q => q.trim() !== '').length} {researchQuestions.filter(q => q.trim() !== '').length === 1 ? 'pytanie' : researchQuestions.filter(q => q.trim() !== '').length < 5 ? 'pytania' : 'pytań'}
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -259,7 +259,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                     <Textarea
                       value={question}
                       onChange={(e) => updateResearchQuestion(index, e.target.value)}
-                      placeholder={`Research question ${index + 1}`}
+                      placeholder={`Pytanie badawcze ${index + 1}`}
                       rows={2}
                     />
                   </div>
@@ -282,7 +282,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                 className="text-primary hover:text-primary"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Question
+                Dodaj pytanie
               </Button>
             </CardContent>
           </Card>
@@ -294,7 +294,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
             <CardHeader>
               <CardTitle className="text-card-foreground flex items-center gap-2">
                 <Settings className="w-5 h-5" />
-                Configuration Summary
+                Podsumowanie konfiguracji
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -302,17 +302,17 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                   <Users className="w-5 h-5 brand-orange" />
                   <div>
-                    <p className="text-sm text-card-foreground">Participants</p>
-                    <p className="text-xs text-muted-foreground">{participantCount} people</p>
+                    <p className="text-sm text-card-foreground">Uczestnicy</p>
+                    <p className="text-xs text-muted-foreground">{participantCount} {parseInt(participantCount) === 1 ? 'osoba' : parseInt(participantCount) < 5 ? 'osoby' : 'osób'}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                   <MessageSquare className="w-5 h-5 brand-orange" />
                   <div>
-                    <p className="text-sm text-card-foreground">Topics</p>
+                    <p className="text-sm text-card-foreground">Tematy</p>
                     <p className="text-xs text-muted-foreground">
-                      {discussionTopics.filter(topic => topic.trim() !== '').length} discussion areas
+                      {discussionTopics.filter(topic => topic.trim() !== '').length} {discussionTopics.filter(topic => topic.trim() !== '').length === 1 ? 'obszar dyskusji' : 'obszarów dyskusji'}
                     </p>
                   </div>
                 </div>
@@ -321,9 +321,9 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
               <Separator />
 
               <div className="space-y-2 text-xs text-muted-foreground">
-                <p>AI personas will be automatically generated based on your project demographics</p>
-                <p>The AI moderator will guide the discussion and ask follow-up questions</p>
-                <p>Results will be analyzed for themes, sentiment, and key insights</p>
+                <p>Persony AI zostaną automatycznie wygenerowane na podstawie demografii Twojego projektu</p>
+                <p>Moderator AI poprowadzi dyskusję i zada pytania uzupełniające</p>
+                <p>Wyniki zostaną przeanalizowane pod kątem tematów, sentymentu i kluczowych wniosków</p>
               </div>
             </CardContent>
           </Card>

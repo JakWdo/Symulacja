@@ -224,10 +224,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">
-            Dashboard
+            Panel
           </h1>
           <p className="text-muted-foreground">
-            Overview of your market research activities across all projects
+            Przegląd Twoich działań badawczych we wszystkich projektach
           </p>
         </div>
         <div className="flex gap-2">
@@ -236,7 +236,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             onClick={() => onNavigate?.('projects')}
           >
             <Plus className="w-4 h-4 mr-2" />
-            New Project
+            Nowy projekt
           </Button>
         </div>
       </div>
@@ -246,14 +246,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">
-              Active Projects
+              Aktywne projekty
             </CardTitle>
             <FolderOpen className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl brand-orange">{projects.length}</div>
             <p className="text-xs text-muted-foreground">
-              Total projects
+              Wszystkie projekty
             </p>
           </CardContent>
         </Card>
@@ -261,14 +261,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">
-              Total Personas
+              Wszystkie persony
             </CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl brand-orange">{allPersonas.length}</div>
             <p className="text-xs text-muted-foreground">
-              AI-generated personas
+              Persony wygenerowane przez AI
             </p>
           </CardContent>
         </Card>
@@ -276,14 +276,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">
-              Running Surveys
+              Aktywne ankiety
             </CardTitle>
             <BarChart3 className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl brand-orange">0</div>
             <p className="text-xs text-muted-foreground">
-              Active surveys
+              Bieżące ankiety
             </p>
           </CardContent>
         </Card>
@@ -291,14 +291,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">
-              Focus Groups
+              Grupy fokusowe
             </CardTitle>
             <MessageSquare className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl brand-orange">{allFocusGroups.length}</div>
             <p className="text-xs text-muted-foreground">
-              Completed discussions
+              Zakończone dyskusje
             </p>
           </CardContent>
         </Card>
@@ -311,10 +311,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <Card className="bg-card border border-border">
             <CardHeader>
               <CardTitle className="text-2xl font-bold text-foreground">
-                Research Activity
+                Aktywność badawcza
               </CardTitle>
               <p className="text-muted-foreground">
-                Monthly breakdown of personas, surveys, and focus groups
+                Miesięczny podział person, ankiet i grup fokusowych
               </p>
             </CardHeader>
             <CardContent>
@@ -327,10 +327,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-foreground">
-              Project Distribution
+              Rozkład projektów
             </CardTitle>
             <p className="text-muted-foreground">
-              Resource allocation by project
+              Alokacja zasobów według projektu
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -357,10 +357,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <CardHeader className="flex items-center justify-between">
           <div>
             <CardTitle className="text-2xl font-bold text-foreground">
-              Recent Projects
+              Ostatnie projekty
             </CardTitle>
             <p className="text-muted-foreground">
-              Your latest research projects with detailed insights
+              Twoje najnowsze projekty badawcze ze szczegółowymi informacjami
             </p>
           </div>
           <Button
@@ -370,7 +370,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             onClick={() => onNavigate?.('projects')}
           >
             <Eye className="w-4 h-4 mr-2" />
-            View All
+            Zobacz wszystkie
           </Button>
         </CardHeader>
         <CardContent>
@@ -401,14 +401,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                       }}
                     >
                       <Eye className="w-3 h-3 mr-1" />
-                      View
+                      Zobacz
                     </Button>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">
-                        Personas
+                        Persony
                       </p>
                       <p className="text-lg text-card-foreground">
                         {project.personas}
@@ -416,7 +416,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">
-                        Surveys
+                        Ankiety
                       </p>
                       <p className="text-lg text-card-foreground">
                         {project.surveys}
@@ -424,7 +424,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">
-                        Focus Groups
+                        Grupy fokusowe
                       </p>
                       <p className="text-lg text-card-foreground">
                         {project.focusGroups}
@@ -437,16 +437,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           ) : (
             <div className="text-center py-12">
               <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No projects yet</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">Nie masz jeszcze projektów</h3>
               <p className="text-muted-foreground mb-4">
-                Get started by creating your first project
+                Zacznij od utworzenia swojego pierwszego projektu
               </p>
               <Button
                 onClick={() => onNavigate?.('projects')}
                 className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Create Your First Project
+                Utwórz swój pierwszy projekt
               </Button>
             </div>
           )}

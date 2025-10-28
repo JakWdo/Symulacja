@@ -57,12 +57,12 @@ export function Login() {
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold text-foreground">
-              {isRegisterMode ? 'Create Account' : 'Welcome Back'}
+              {isRegisterMode ? 'Utwórz konto' : 'Witaj ponownie'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
               {isRegisterMode
-                ? 'Start your market research journey'
-                : 'Sign in to continue to your dashboard'
+                ? 'Rozpocznij swoją podróż w badaniach rynku'
+                : 'Zaloguj się, aby przejść do panelu'
               }
             </CardDescription>
           </div>
@@ -73,11 +73,11 @@ export function Login() {
             {isRegisterMode && (
               <>
                 <div>
-                  <Label htmlFor="full_name">Full Name</Label>
+                  <Label htmlFor="full_name">Pełne imię i nazwisko</Label>
                   <Input
                     id="full_name"
                     type="text"
-                    placeholder="John Doe"
+                    placeholder="Jan Kowalski"
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     required={isRegisterMode}
@@ -87,22 +87,22 @@ export function Login() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="company">Company</Label>
+                    <Label htmlFor="company">Firma</Label>
                     <Input
                       id="company"
                       type="text"
-                      placeholder="Acme Inc"
+                      placeholder="Przykładowa Sp. z o.o."
                       value={formData.company}
                       onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                       className="mt-1"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="role">Role</Label>
+                    <Label htmlFor="role">Stanowisko</Label>
                     <Input
                       id="role"
                       type="text"
-                      placeholder="Researcher"
+                      placeholder="Badacz"
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                       className="mt-1"
@@ -119,7 +119,7 @@ export function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="twoj@email.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
@@ -129,7 +129,7 @@ export function Login() {
             </div>
 
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Hasło</Label>
               <div className="relative mt-1">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -151,7 +151,7 @@ export function Login() {
               </div>
               {isRegisterMode && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Min 8 characters, must contain letters and numbers
+                  Min. 8 znaków, musi zawierać litery i cyfry
                 </p>
               )}
             </div>
@@ -164,11 +164,11 @@ export function Login() {
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <Logo spinning transparent className="w-4 h-4" />
-                  <span>{isRegisterMode ? 'Creating account...' : 'Signing in...'}</span>
+                  <span>{isRegisterMode ? 'Tworzenie konta...' : 'Logowanie...'}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span>{isRegisterMode ? 'Create Account' : 'Sign In'}</span>
+                  <span>{isRegisterMode ? 'Utwórz konto' : 'Zaloguj się'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </div>
               )}
@@ -181,8 +181,8 @@ export function Login() {
                 className="text-brand-orange hover:underline"
               >
                 {isRegisterMode
-                  ? 'Already have an account? Sign in'
-                  : "Don't have an account? Sign up"
+                  ? 'Masz już konto? Zaloguj się'
+                  : 'Nie masz konta? Zarejestruj się'
                 }
               </button>
             </div>
@@ -192,7 +192,7 @@ export function Login() {
 
       {/* Footer */}
       <div className="absolute bottom-4 text-center text-sm text-muted-foreground">
-        <p>© 2025 sight. All rights reserved.</p>
+        <p>© 2025 sight. Wszelkie prawa zastrzeżone.</p>
       </div>
     </div>
   );

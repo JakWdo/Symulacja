@@ -270,7 +270,7 @@ export function Personas() {
   const setGlobalProject = useAppStore(state => state.setSelectedProject);
   const setActivePanel = useAppStore(state => state.setActivePanel);
 
-  const projectLabel = selectedProject?.name || 'Unknown project';
+  const projectLabel = selectedProject?.name || 'Nieznany projekt';
   const [selectedPersonaForDetails, setSelectedPersonaForDetails] = useState<string | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
   const [currentPersonaIndex, setCurrentPersonaIndex] = useState(0);
@@ -516,9 +516,9 @@ export function Personas() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Personas</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Persony</h1>
           <p className="text-muted-foreground">
-            Manage AI-generated and custom personas for your research projects
+            Zarządzaj personami wygenerowanymi przez AI dla swoich projektów badawczych
           </p>
         </div>
         <div className="flex flex-col md:flex-row md:items-center gap-3">
@@ -542,7 +542,7 @@ export function Personas() {
           >
             <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors">
               <SelectValue
-                placeholder="Select project"
+                placeholder="Wybierz projekt"
                 className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
               />
             </SelectTrigger>
@@ -552,7 +552,7 @@ export function Personas() {
                   <SpinnerLogo className="w-4 h-4" />
                 </div>
               ) : projects.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">No projects found</div>
+                <div className="p-2 text-sm text-muted-foreground">Nie znaleziono projektów</div>
               ) : (
                 projects.map((project) => (
                   <SelectItem
@@ -571,7 +571,7 @@ export function Personas() {
             className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Generate Personas
+            Generuj persony
           </Button>
         </div>
       </div>
@@ -580,7 +580,7 @@ export function Personas() {
         <div className="rounded-lg border border-border bg-card/80 p-4 space-y-2 shadow-sm">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <SpinnerLogo className="w-4 h-4" />
-            <span className="font-medium text-card-foreground">Generating personas...</span>
+            <span className="font-medium text-card-foreground">Generowanie person...</span>
           </div>
           <Progress value={Math.min(generationProgress, 100)} />
         </div>
@@ -592,7 +592,7 @@ export function Personas() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Personas</p>
+                <p className="text-sm text-muted-foreground">Wszystkie persony</p>
                 <p className="text-2xl brand-orange">{filteredPersonas.length}</p>
               </div>
               <Users className="w-8 h-8 text-primary" />
@@ -604,7 +604,7 @@ export function Personas() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Age Range</p>
+                <p className="text-sm text-muted-foreground">Przedział wieku</p>
                 <p className="text-2xl brand-orange">
                   {filteredPersonas.length > 0 ? `${Math.min(...filteredPersonas.map(p => p.age))} - ${Math.max(...filteredPersonas.map(p => p.age))}` : 'N/A'}
                 </p>
@@ -618,7 +618,7 @@ export function Personas() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Top Interest</p>
+                <p className="text-sm text-muted-foreground">Główne zainteresowanie</p>
                 <p className="text-2xl brand-orange">
                   {sortedInterests[0]?.[0] || 'N/A'}
                 </p>
@@ -633,7 +633,7 @@ export function Personas() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-card border border-border">
           <CardHeader>
-            <CardTitle className="text-foreground">Age Distribution</CardTitle>
+            <CardTitle className="text-foreground">Rozkład wieku</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {Object.entries(ageGroups).map(([ageGroup, count]) => (
@@ -650,14 +650,14 @@ export function Personas() {
 
         <Card className="bg-card border border-border">
           <CardHeader>
-            <CardTitle className="text-foreground">Top Interests</CardTitle>
+            <CardTitle className="text-foreground">Główne zainteresowania</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {sortedInterests.map(([interest, count]) => (
               <div key={interest} className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{interest}</span>
-                  <span className="text-card-foreground">{count} personas</span>
+                  <span className="text-card-foreground">{count} person</span>
                 </div>
                 <Progress value={(count / filteredPersonas.length) * 100} className="h-2" />
               </div>
@@ -854,7 +854,7 @@ export function Personas() {
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
                       <span className="text-sm text-muted-foreground">
-                        {currentPersonaIndex + 1} of {filteredPersonas.length}
+                        {currentPersonaIndex + 1} z {filteredPersonas.length}
                       </span>
                       <Button
                         variant="outline"
