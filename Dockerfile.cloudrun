@@ -51,12 +51,30 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install gunicorn (not in requirements.txt for local dev)
 RUN pip install --no-cache-dir gunicorn
 
+# Set HuggingFace cache directory for pre-warming
+# CRITICAL: Must be set before model download to ensure correct cache location
+ENV TRANSFORMERS_CACHE=/root/.cache/huggingface
+ENV HF_HOME=/root/.cache/huggingface
+
 # Pre-warm HuggingFace models (RAG reranking) - eliminates cold start overhead
 # Downloads cross-encoder model to /root/.cache/huggingface (~90MB)
 # Saves 3-5s on first request in production
 RUN python -c "from sentence_transformers import CrossEncoder; \
-    CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', max_length=512)" && \
+    model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', max_length=512); \
+    print(f'✅ CrossEncoder model loaded successfully')" && \
+    echo "📦 Inspecting HuggingFace cache contents:" && \
+    ls -lah /root/.cache/huggingface/ && \
+    du -sh /root/.cache/huggingface/ && \
     echo "✅ HuggingFace CrossEncoder model pre-warmed successfully"
+
+# Verify model files are present in cache BEFORE copying to runtime stage
+# Fails fast if pre-warming didn't work (better to catch here than later)
+RUN test -d /root/.cache/huggingface/models--cross-encoder--ms-marco-MiniLM-L-6-v2 && \
+    test -f /root/.cache/huggingface/models--cross-encoder--ms-marco-MiniLM-L-6-v2/snapshots/*/config.json && \
+    echo "✅ Backend-builder verification: CrossEncoder model files confirmed" || \
+    (echo "❌ FAILED in backend-builder: Model files missing after pre-warming!" && \
+     echo "   Cache directory may exist but model download failed." && \
+     echo "   Check network connectivity and HuggingFace API status." && exit 1)
 
 # ==============================================================================
 # STAGE 3: Runtime (Backend + Frontend Static)
