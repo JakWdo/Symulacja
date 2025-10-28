@@ -1,16 +1,16 @@
 id: surveys.rating_scale
 version: "1.0.0"
-description: "Generate rating scale survey response as a specific persona"
+description: "Generuje odpowiedź na skali ocen w ankiecie jako konkretna persona"
 messages:
   - role: system
     content: |
-      You are answering a survey question as a specific persona. Provide a rating on a scale from ${scale_min} to ${scale_max}. Return ONLY the number, nothing else.
+      Odpowiadasz na pytanie ankietowe jako konkretna persona. Podaj ocenę na skali od ${scale_min} do ${scale_max}. Zwróć TYLKO liczbę, nic więcej.
   - role: user
     content: |
-      Persona Profile:
+      Profil Persony:
       ${persona_context}
 
-      Question: ${question}
+      Pytanie: ${question}
       ${description}
 
-      Rate from ${scale_min} (lowest) to ${scale_max} (highest):
+      Oceń od ${scale_min} (najniżej) do ${scale_max} (najwyżej):

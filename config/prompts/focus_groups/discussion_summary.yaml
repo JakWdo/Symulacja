@@ -1,74 +1,74 @@
 id: focus_groups.discussion_summary
 version: "1.0.0"
-description: "Generate comprehensive strategic summary of focus group discussion"
+description: "Generuje kompleksowe strategiczne podsumowanie dyskusji w grupie fokusowej"
 messages:
   - role: system
     content: |
-      You are a world-class market research analyst specializing in qualitative research synthesis.
-      Your role is to analyze focus group discussions and generate strategic insights for product teams.
+      Jesteś światowej klasy analitykiem badań rynkowych specjalizującym się w syntezie badań jakościowych.
+      Twoją rolą jest analiza dyskusji w grupach fokusowych i generowanie strategicznych wniosków dla zespołów produktowych.
 
-      IMPORTANT GUIDELINES:
-      - Be concise yet comprehensive
-      - Focus on actionable insights, not just description
-      - Identify patterns, contradictions, and surprising findings
-      - Consider demographic differences in opinions
-      - Provide strategic recommendations grounded in data
-      - Use professional, business-oriented language
-      - Avoid generic statements - be specific and evidence-based
+      WAŻNE WYTYCZNE:
+      - Bądź zwięzły, ale kompleksowy
+      - Skup się na actionable insights, nie tylko opisie
+      - Identyfikuj wzorce, sprzeczności i zaskakujące odkrycia
+      - Uwzględniaj różnice demograficzne w opiniach
+      - Dostarczaj strategiczne rekomendacje oparte na danych
+      - Używaj profesjonalnego, biznesowego języka
+      - Unikaj ogólników - bądź konkretny i oparty na dowodach
   - role: user
     content: |
-      Analyze this focus group discussion and generate a comprehensive strategic summary.
+      Przeanalizuj tę dyskusję w grupie fokusowej i wygeneruj kompleksowe strategiczne podsumowanie.
 
-      **FOCUS GROUP TOPIC:** ${topic}
-      **DESCRIPTION:** ${description}
+      **TEMAT GRUPY FOKUSOWEJ:** ${topic}
+      **OPIS:** ${description}
 
       ${demo_context}
 
-      **DISCUSSION TRANSCRIPT:**
+      **TRANSKRYPT DYSKUSJI:**
       ${discussion_text}
 
       ---
 
-      Please provide a detailed analysis in the following structure:
+      Proszę dostarcz szczegółową analizę w następującej strukturze:
 
-      ## 1. EXECUTIVE SUMMARY (90-120 words)
-      Synthesize the core findings into a high-level overview that answers:
-      - What was the overall reception to the concept/topic?
-      - What are the most critical takeaways?
-      - What is the strategic implication?
+      ## 1. STRESZCZENIE EXECUTIVE (90-120 słów)
+      Zsyntetyzuj kluczowe odkrycia w wysokopoziomowy przegląd który odpowiada na:
+      - Jaki był ogólny odbiór koncepcji/tematu?
+      - Jakie są najbardziej krytyczne wnioski?
+      - Jaka jest implikacja strategiczna?
 
-      ## 2. KEY INSIGHTS (3-5 bullet points, ≤25 words each)
-      Surface the most important patterns and themes from the discussion.
-      Structure every bullet as: **Insight label**: implication grounded in evidence.
-      Use proper markdown bold syntax: **text** (two asterisks on both sides).
-      Prioritize by business impact.
+      ## 2. KLUCZOWE WNIOSKI (3-5 punktów, ≤25 słów każdy)
+      Wydobądź najważniejsze wzorce i motywy z dyskusji.
+      Strukturuj każdy punkt jako: **Etykieta wniosku**: implikacja oparta na dowodach.
+      Używaj właściwej składni markdown bold: **tekst** (dwie gwiazdki z obu stron).
+      Priorytetyzuj według wpływu biznesowego.
 
-      ## 3. SURPRISING FINDINGS (1-2 bullet points, ≤20 words each)
-      Highlight unexpected or counterintuitive discoveries that challenge assumptions.
-      These could be:
-      - Contradictions between what participants say vs. underlying sentiment
-      - Minority opinions that reveal edge cases
-      - Demographic differences that weren't anticipated
+      ## 3. ZASKAKUJĄCE ODKRYCIA (1-2 punkty, ≤20 słów każdy)
+      Podkreśl nieoczekiwane lub kontrintuicyjne odkrycia które kwestionują założenia.
+      Mogą to być:
+      - Sprzeczności między tym co uczestnicy mówią vs. ukryty sentyment
+      - Opinie mniejszości które ujawniają przypadki brzegowe
+      - Różnice demograficzne których nie przewidziano
 
-      ## 4. SEGMENT ANALYSIS
-      Break down how different demographic segments (age, gender, occupation) responded differently.
-      Structure as:
-      **Segment name**: Key differentiator with quote/evidence (≤25 words)
-      Use proper markdown bold syntax: **text** (two asterisks on both sides).
+      ## 4. ANALIZA SEGMENTÓW
+      Rozłóż jak różne segmenty demograficzne (wiek, płeć, zawód) odpowiadały inaczej.
+      Strukturuj jako:
+      **Nazwa segmentu**: Kluczowy wyróżnik z cytatem/dowodem (≤25 słów)
+      Używaj właściwej składni markdown bold: **tekst** (dwie gwiazdki z obu stron).
 
       ${recommendations_section}
 
-      ## 6. SENTIMENT NARRATIVE (40-60 words)
-      Describe the emotional journey of the discussion:
-      - How did sentiment evolve across questions?
-      - Were there polarizing topics?
-      - What drove positive vs. negative reactions?
+      ## 6. NARRACJA SENTYMENTU (40-60 słów)
+      Opisz emocjonalną podróż dyskusji:
+      - Jak sentyment ewoluował poprzez pytania?
+      - Czy były tematy polaryzujące?
+      - Co napędzało pozytywne vs. negatywne reakcje?
 
       ---
 
-      **IMPORTANT:**
-      - Use specific quotes and data points as evidence
-      - Avoid generic marketing jargon
-      - Be honest about weaknesses or concerns raised
-      - Consider both explicit feedback and implicit patterns
-      - Format using Markdown for readability (## headings, **bold** emphasis)
+      **WAŻNE:**
+      - Używaj konkretnych cytatów i punktów danych jako dowodów
+      - Unikaj ogólnego żargonu marketingowego
+      - Bądź szczery o słabościach lub obawach podniesionych
+      - Rozważ zarówno jawny feedback jak i ukryte wzorce
+      - Formatuj używając Markdown dla czytelności (## nagłówki, **bold** wyróżnienia)

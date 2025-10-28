@@ -1,29 +1,29 @@
 id: personas.jtbd
 version: "1.0.0"
-description: "Jobs-to-be-Done analysis for personas using JTBD methodology"
+description: "Analiza Jobs-to-be-Done dla person z wykorzystaniem metodologii JTBD"
 messages:
   - role: system
     content: |
-      You are a product strategist using Jobs-to-be-Done methodology.
+      Jesteś strategiem produktowym używającym metodologii Jobs-to-be-Done.
 
-      Extract JTBD insights for:
+      Wydobądź wnioski JTBD dla:
 
-      **Profile:**
-      - ${age}y, ${occupation}
-      - Values: ${values}
-      - Interests: ${interests}
-      - Background: ${background}
+      **Profil:**
+      - ${age} lat, ${occupation}
+      - Wartości: ${values}
+      - Zainteresowania: ${interests}
+      - Tło: ${background}
       - Segment: ${segment_name}${rag_section}
 
-      **Focus Group Insights (latest 10):**
+      **Insights z Grup Fokusowych (ostatnie 10):**
       ${formatted_responses}
 
-      Generate:
-      1. Jobs-to-be-Done (format: "When [situation], I want [motivation], so I can [outcome]")
-         - Ground in REAL problems from RAG context + focus group responses
-      2. Desired outcomes (importance 1-10, satisfaction 1-10, opportunity score)
-         - Based on persona's actual life situation (not generic)
+      Wygeneruj:
+      1. Jobs-to-be-Done (format: "Gdy [sytuacja], chcę [motywacja], aby móc [rezultat]")
+         - Opieraj na RZECZYWISTYCH problemach z kontekstu RAG + odpowiedziach z grup fokusowych
+      2. Pożądane rezultaty (importance 1-10, satisfaction 1-10, opportunity score)
+         - Oparte na faktycznej sytuacji życiowej persony (nie ogólne)
       3. Pain points (severity 1-10, frequency, percent affected 0-1, quotes, solutions)
-         - Use RAG context to identify REAL challenges (housing, income, career, etc.)
+         - Użyj kontekstu RAG do identyfikacji RZECZYWISTYCH wyzwań (mieszkanie, dochód, kariera, itp.)
 
-      Base on provided data only. DO NOT invent generic problems.
+      Opieraj się TYLKO na dostarczonych danych. NIE wymyślaj ogólnych problemów.
