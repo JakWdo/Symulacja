@@ -95,11 +95,12 @@ class DiscussionSummarizerService:
 
         self.str_parser = StrOutputParser()
 
-        # System prompt z centralnego registry
-        summary_prompt_template = prompts.get("focus_groups.discussion_summary")
+        # System prompt z centralnego registry (bez zmiennych, renderuje się od razu)
+        summary_prompt_template = prompts.get("focus_groups.discussion_summary_system")
         rendered_messages = summary_prompt_template.render()
 
         # Budujemy wzorzec promptu dla podsumowania
+        # User message będzie przekazany dynamicznie przez _create_summary_prompt()
         self.summary_prompt = ChatPromptTemplate.from_messages([
             (msg["role"], msg["content"]) for msg in rendered_messages
         ] + [("user", "{prompt}")])

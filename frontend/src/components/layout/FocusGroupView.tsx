@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,13 @@ import { motion } from 'framer-motion';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import { useAppStore } from '@/store/appStore';
+
+// Lazy load Analysis View
+const FocusGroupAnalysisView = lazy(() =>
+  import('@/components/focus-group/analysis/FocusGroupAnalysisView').then((module) => ({
+    default: module.FocusGroupAnalysisView,
+  }))
+);
 
 interface FocusGroupViewProps {
   focusGroup: FocusGroup;
@@ -494,15 +501,15 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
         <TabsList className="bg-muted border border-border shadow-sm">
           <TabsTrigger value="setup" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
             <SettingsIcon className="w-4 h-4 mr-2" />
-            Configuration
+            Konfiguracja
           </TabsTrigger>
           <TabsTrigger value="discussion" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
             <MessageSquare className="w-4 h-4 mr-2" />
-            Discussion
+            Dyskusja
           </TabsTrigger>
           <TabsTrigger value="results" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
             <BarChart3 className="w-4 h-4 mr-2" />
-            Results & Analysis
+            Wyniki i Analiza
           </TabsTrigger>
         </TabsList>
 
@@ -797,15 +804,15 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
           </Card>
         </TabsContent>
 
-        {/* Results Tab */}
+        {/* Results Tab - NEW: Using FocusGroupAnalysisView */}
         <TabsContent value="results" className="space-y-6">
           {focusGroup.status === 'pending' && !isRunning && (
             <Card className="bg-card border border-border shadow-sm">
               <CardContent className="text-center py-12">
                 <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">No Results Yet</h3>
+                <h3 className="text-lg font-medium text-foreground mb-2">Brak wyników</h3>
                 <p className="text-muted-foreground">
-                  Run the discussion simulation first to generate analysis and insights.
+                  Uruchom najpierw dyskusję, aby wygenerować analizę i wnioski
                 </p>
               </CardContent>
             </Card>
@@ -816,18 +823,18 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               <CardContent className="py-12 flex flex-col items-center gap-4 text-center">
                 <Logo className="w-8 h-8" spinning />
                 <div className="space-y-1">
-                  <h3 className="text-lg font-medium text-card-foreground">Discussion in progress</h3>
+                  <h3 className="text-lg font-medium text-card-foreground">Dyskusja w toku</h3>
                   <p className="text-sm text-muted-foreground max-w-md">
-                    We will surface responses and insights here automatically once the run completes.
+                    Odpowiedzi i wnioski pojawią się tutaj automatycznie po zakończeniu symulacji
                   </p>
                 </div>
                 <div className="w-full max-w-sm space-y-2">
                   <Progress value={discussionProgress} className="w-full" />
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{discussionProgress}% complete</span>
+                    <span>{discussionProgress}% ukończono</span>
                     {totalExpectedResponses > 0 ? (
                       <span>
-                        {responsesCount}/{totalExpectedResponses} responses
+                        {responsesCount}/{totalExpectedResponses} odpowiedzi
                       </span>
                     ) : null}
                   </div>
@@ -840,215 +847,31 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
             <Card className="bg-card border border-border shadow-sm">
               <CardContent className="py-12 text-center space-y-3">
                 <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
-                <h3 className="text-lg font-medium text-destructive">Run failed</h3>
+                <h3 className="text-lg font-medium text-destructive">Uruchomienie nie powiodło się</h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  We could not finish this simulation. Check the activity log or try launching the focus group again.
+                  Nie udało się ukończyć tej symulacji. Sprawdź dziennik aktywności lub spróbuj uruchomić ponownie.
                 </p>
               </CardContent>
             </Card>
           )}
 
           {discussionComplete && (
-            <>
-              {/* AI Summary Card */}
-              {insightsLoading ? (
+            <Suspense
+              fallback={
                 <Card className="bg-card border border-border shadow-sm">
                   <CardContent className="py-12 flex flex-col items-center justify-center">
                     <Logo className="w-8 h-8 mb-4" spinning />
-                    <p className="text-muted-foreground">Generating AI insights...</p>
-                    <p className="text-sm text-muted-foreground mt-2">This may take 30-60 seconds</p>
+                    <p className="text-muted-foreground">Ładowanie analizy...</p>
                   </CardContent>
                 </Card>
-              ) : insights ? (
-                <Card className="bg-card border border-border shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-card-foreground flex items-center gap-2">
-                      <Logo className="w-5 h-5" transparent />
-                      AI Summary
-                    </CardTitle>
-                    <p className="text-muted-foreground">Key insights generated by AI analysis</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {/* Executive Summary */}
-                      {insights.executive_summary && (
-                        <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
-                          <h4 className="font-semibold text-card-foreground">Executive Summary</h4>
-                          <div className="prose prose-sm max-w-none text-muted-foreground">
-                            <ReactMarkdown>{insights.executive_summary}</ReactMarkdown>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Key Insights */}
-                        {insights.key_insights && insights.key_insights.length > 0 && (
-                          <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
-                            <h4 className="font-semibold text-card-foreground">Key Insights</h4>
-                            <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
-                              {insights.key_insights.map((insight, idx) => (
-                                <li key={idx}>
-                                  <ReactMarkdown
-                                    components={{
-                                      p: ({ children }) => <span className="leading-relaxed">{children}</span>,
-                                    }}
-                                  >
-                                    {insight}
-                                  </ReactMarkdown>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Surprising Findings */}
-                        {insights.surprising_findings && insights.surprising_findings.length > 0 && (
-                          <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
-                            <h4 className="font-semibold text-card-foreground">Surprising Findings</h4>
-                            <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
-                              {insights.surprising_findings.map((finding, idx) => (
-                                <li key={idx}>
-                                  <ReactMarkdown
-                                    components={{
-                                      p: ({ children }) => <span className="leading-relaxed">{children}</span>,
-                                    }}
-                                  >
-                                    {finding}
-                                  </ReactMarkdown>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Recommendations */}
-                        {insights.recommendations && insights.recommendations.length > 0 && (
-                          <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
-                            <h4 className="font-semibold text-card-foreground">Strategic Recommendations</h4>
-                            <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
-                              {insights.recommendations.map((rec, idx) => (
-                                <li key={idx}>
-                                  <ReactMarkdown
-                                    components={{
-                                      p: ({ children }) => <span className="leading-relaxed">{children}</span>,
-                                    }}
-                                  >
-                                    {rec}
-                                  </ReactMarkdown>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Sentiment Narrative */}
-                        {insights.sentiment_narrative && (
-                          <div className="bg-muted border border-border rounded-lg p-4 space-y-2">
-                            <h4 className="font-semibold text-card-foreground">Sentiment Narrative</h4>
-                            <div className="prose prose-sm max-w-none text-muted-foreground">
-                              <ReactMarkdown>{insights.sentiment_narrative}</ReactMarkdown>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Segment Analysis */}
-                      {insights.segment_analysis && Object.keys(insights.segment_analysis).length > 0 && (
-                        <div className="bg-muted border border-border rounded-lg p-4 space-y-3">
-                          <h4 className="font-semibold text-card-foreground">Segment Analysis</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {Object.entries(insights.segment_analysis).map(([segment, analysis], idx) => (
-                              <div key={idx} className="space-y-1">
-                                <h5 className="font-medium text-card-foreground text-sm">{segment}</h5>
-                                <div className="text-sm text-muted-foreground">
-                                  <ReactMarkdown
-                                    components={{
-                                      p: ({ children }) => <span className="leading-relaxed">{children}</span>,
-                                    }}
-                                  >
-                                    {analysis}
-                                  </ReactMarkdown>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="bg-card border border-border shadow-sm">
-                  <CardContent className="py-12 text-center">
-                    <Brain className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No insights available. Generate AI summary first.</p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Raw Responses */}
-              {responsesPending ? (
-                <Card className="bg-card border border-border shadow-sm">
-                  <CardContent className="py-12 flex flex-col items-center justify-center">
-                    <Logo className="w-12 h-12 mb-4" spinning />
-                    <p className="text-sm text-muted-foreground">Loading responses...</p>
-                  </CardContent>
-                </Card>
-              ) : responses && responses.questions.length > 0 ? (
-                <Card className="bg-card border border-border shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-card-foreground">Raw Responses</CardTitle>
-                    <p className="text-muted-foreground">Detailed responses from each participant</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {responses.questions.map((q, qIdx) => (
-                        <div key={qIdx} className="space-y-4">
-                          {/* Question Header */}
-                          <div className="flex items-center gap-3">
-                            <div className="bg-muted border border-border rounded px-3 py-1">
-                              <span className="text-sm font-semibold text-card-foreground">Q{qIdx + 1}</span>
-                            </div>
-                            <h4 className="text-card-foreground font-semibold">{q.question}</h4>
-                          </div>
-
-                          {/* Responses */}
-                          <div className="ml-12 space-y-3">
-                            {q.responses.map((r, rIdx) => {
-                              const persona = personas.find(p => p.id === r.persona_id);
-                              const initials = persona?.full_name?.split(' ').map(n => n[0]).join('') || 'P';
-
-                              return (
-                                <div key={`${r.persona_id}-${rIdx}`} className="bg-muted border border-border rounded-lg p-4 space-y-2">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 bg-gradient-to-br from-[#F27405] to-[#F29F05] rounded-full flex items-center justify-center shrink-0">
-                                      <span className="text-white text-xs font-semibold">{initials}</span>
-                                    </div>
-                                    <div>
-                                      <p className="text-card-foreground font-medium text-sm">{persona?.full_name || `Persona ${rIdx + 1}`}</p>
-                                    </div>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground leading-relaxed ml-11">
-                                    {r.response || <span className="italic">No response recorded</span>}
-                                  </p>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="bg-card border border-border">
-                  <CardContent className="text-center py-12">
-                    <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-sm text-muted-foreground">No responses available</p>
-                  </CardContent>
-                </Card>
-              )}
-            </>
+              }
+            >
+              <FocusGroupAnalysisView
+                focusGroupId={focusGroup.id}
+                personas={personas}
+                defaultTab="ai-summary"
+              />
+            </Suspense>
           )}
         </TabsContent>
       </Tabs>
