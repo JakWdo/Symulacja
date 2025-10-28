@@ -15,6 +15,7 @@ Kluczowe endpointy:
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request, status, HTTPException, Response
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -29,6 +30,7 @@ from app.api import projects, personas, focus_groups, analysis, surveys, graph_a
 import logging
 import os
 import mimetypes
+import traceback
 
 # Configure structured logging BEFORE creating any loggers
 settings = get_settings()
@@ -287,6 +289,111 @@ async def startup_probe():
 
 
 # Globalny handler wyjątków - łapie wszystkie nieobsłużone błędy
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Obsłuż błędy walidacji REQUEST (422 Unprocessable Entity)
+
+    Loguje pełne szczegóły błędów walidacji dla debugowania w GCP Logs.
+    """
+    errors = exc.errors()
+    error_details = []
+    for error in errors:
+        error_details.append({
+            "loc": error.get("loc"),
+            "msg": error.get("msg"),
+            "type": error.get("type"),
+            "input": error.get("input"),
+        })
+
+    logger.error(
+        f"Request validation error: {request.method} {request.url.path}",
+        extra={
+            "request_method": request.method,
+            "request_url": str(request.url),
+            "request_path": request.url.path,
+            "validation_errors": error_details,
+            "error_count": len(errors),
+            "body": exc.body if hasattr(exc, 'body') else None,
+        },
+        exc_info=False,
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "detail": "Validation error",
+            "errors": error_details,
+        },
+    )
+
+
+@app.exception_handler(ResponseValidationError)
+async def response_validation_exception_handler(request: Request, exc: ResponseValidationError):
+    """
+    Obsłuż błędy walidacji RESPONSE (500 Internal Server Error)
+
+    To jest KRYTYCZNY błąd - znaczy że endpoint zwrócił response niezgodny ze schematem.
+    Loguje pełne szczegóły dla debugowania.
+    """
+    errors = exc.errors()
+    error_details = []
+    for error in errors:
+        error_details.append({
+            "loc": error.get("loc"),
+            "msg": error.get("msg"),
+            "type": error.get("type"),
+        })
+
+    logger.critical(
+        f"RESPONSE VALIDATION ERROR: {request.method} {request.url.path} - Schema mismatch!",
+        extra={
+            "request_method": request.method,
+            "request_url": str(request.url),
+            "request_path": request.url.path,
+            "validation_errors": error_details,
+            "error_count": len(errors),
+            "response_body": str(exc.body)[:500] if hasattr(exc, 'body') else None,  # First 500 chars
+        },
+        exc_info=True,
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "Internal server error - Response validation failed",
+            "errors": error_details if settings.DEBUG else None,
+        },
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """
+    Obsłuż HTTPException (4xx, 5xx) z detailed logging
+
+    Loguje szczegóły HTTP errors (404, 401, 403, etc.) dla debugowania.
+    """
+    logger.warning(
+        f"HTTP {exc.status_code}: {request.method} {request.url.path} - {exc.detail}",
+        extra={
+            "request_method": request.method,
+            "request_url": str(request.url),
+            "request_path": request.url.path,
+            "status_code": exc.status_code,
+            "detail": exc.detail,
+            "headers": dict(exc.headers) if exc.headers else None,
+        },
+        exc_info=False,
+    )
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """
@@ -302,7 +409,20 @@ async def global_exception_handler(request: Request, exc: Exception):
     Returns:
         JSONResponse z kodem 500 i bezpiecznym komunikatem błędu
     """
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    tb = traceback.format_exc()
+    logger.error(
+        f"Unhandled exception: {request.method} {request.url.path} - {exc}",
+        extra={
+            "request_method": request.method,
+            "request_url": str(request.url),
+            "request_path": request.url.path,
+            "exception_type": type(exc).__name__,
+            "exception_message": str(exc),
+            "traceback": tb,
+        },
+        exc_info=True,
+    )
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
