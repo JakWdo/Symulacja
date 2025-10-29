@@ -24,6 +24,11 @@ class PersonaGenerationAdvancedOptions(BaseModel):
 
     Pozwala precyzyjnie kontrolować demografię i psychografię generowanych person:
 
+    AI Wizard (kafle):
+    - target_audience_description: Dodatkowy opis grupy docelowej (np. 'Osoby z Gdańska zainteresowane ekologią')
+    - focus_area: Obszar zainteresowań/branża ('tech', 'healthcare', 'finance', 'retail', etc.)
+    - demographic_preset: Preset demograficzny ('gen_z', 'millennials', 'gen_x', 'boomers', etc.)
+
     Demograficzne:
     - age_focus: Preferowany zakres wiekowy ('balanced', 'young_adults', 'experienced_leaders')
     - gender_balance: Rozkład płci ('balanced', 'female_skew', 'male_skew')
@@ -50,6 +55,22 @@ class PersonaGenerationAdvancedOptions(BaseModel):
     - personality_skew: Przesunięcie cech Big Five (0.0-1.0)
       Przykład: {'extraversion': 0.7} - więcej ekstrawertycznych person
     """
+    # === AI WIZARD FIELDS (kafle) ===
+    target_audience_description: str | None = Field(
+        None,
+        max_length=500,
+        description="Dodatkowy opis grupy docelowej (np. 'Osoby z Gdańska zainteresowane ekologią')"
+    )
+    focus_area: str | None = Field(
+        None,
+        description="Obszar zainteresowań/branża (tech, healthcare, finance, education, retail, etc.)"
+    )
+    demographic_preset: str | None = Field(
+        None,
+        description="Preset demograficzny (gen_z, millennials, gen_x, boomers, urban_professionals, etc.)"
+    )
+
+    # === DEMOGRAPHIC FIELDS ===
     age_focus: Literal['balanced', 'young_adults', 'experienced_leaders'] | None = None
     gender_balance: Literal['balanced', 'female_skew', 'male_skew'] | None = None
     urbanicity: Literal['any', 'urban', 'suburban', 'rural'] | None = None

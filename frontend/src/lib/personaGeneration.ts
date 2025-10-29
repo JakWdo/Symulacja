@@ -15,14 +15,29 @@ export function transformWizardConfigToPayload(
     advancedOptions.target_audience_description = config.targetAudience.trim();
   }
 
-  // Dodaj focus area jako kontekst
+  // Dodaj focus area jako kontekst (z normalizacją ID dla backend compatibility)
   if (config.focusArea) {
-    advancedOptions.focus_area = config.focusArea;
+    // Mapuj frontend ID → backend ID
+    const focusAreaMapping: Record<string, string> = {
+      'technology': 'tech',
+      'healthcare': 'healthcare',
+      'finance': 'finance',
+      'education': 'education',
+      'retail': 'retail',
+      'manufacturing': 'manufacturing',
+      'services': 'services',
+      'entertainment': 'entertainment',
+      'lifestyle': 'lifestyle',
+      'shopping': 'shopping',
+      'general': 'general',
+    };
+    advancedOptions.focus_area = focusAreaMapping[config.focusArea] || config.focusArea;
   }
 
-  // Dodaj demographic preset jako hint
+  // Dodaj demographic preset jako hint (z normalizacją myślników → underscores)
   if (config.demographicPreset) {
-    advancedOptions.demographic_preset = config.demographicPreset;
+    // Backend oczekuje snake_case (gen_z, nie gen-z)
+    advancedOptions.demographic_preset = config.demographicPreset.replace(/-/g, '_');
   }
 
   // Usuń puste opcje

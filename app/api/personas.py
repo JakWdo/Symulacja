@@ -728,6 +728,316 @@ def _coerce_distribution(raw: dict[str, Any] | None) -> dict[str, float] | None:
     return _normalize_weights(cleaned) if cleaned else None
 
 
+def _apply_demographic_preset(
+    distribution: DemographicDistribution,
+    preset: str | None
+) -> DemographicDistribution:
+    """Nadpisuje rozkłady demograficzne na podstawie demographic preset.
+
+    Presets są mapowane na realistyczne rozkłady demograficzne dla Polski:
+    - gen_z: 18-27 lat, duże miasta uniwersyteckie, niższe dochody
+    - millennials: 28-43 lata, duże miasta, średnie/wysokie dochody
+    - gen_x: 44-59 lat, stabilność, średnie miasta
+    - boomers: 60+ lat, małe miasta, wysokie dochody
+    - urban_professionals: Duże miasta, wyższe wykształcenie, wysokie dochody
+    - suburban_families: Przedmieścia, średnie dochody
+    - rural_communities: Małe miejscowości, niższe dochody
+
+    Args:
+        distribution: Bazowy rozkład demograficzny
+        preset: Preset demograficzny (gen_z, millennials, etc.)
+
+    Returns:
+        DemographicDistribution z nadpisanymi rozkładami dla preset
+    """
+    if not preset:
+        return distribution
+
+    # Normalizuj preset ID (obsługa myślników i wielkości liter)
+    preset = preset.replace('-', '_').lower()
+
+    if preset == "gen_z":
+        # Gen Z (18-27): Digitalni natywni, duże miasta, studia/pierwsze prace
+        distribution.age_groups = {"18-24": 0.6, "25-34": 0.4}
+        distribution.locations = {
+            "Warszawa": 0.25,
+            "Kraków": 0.15,
+            "Wrocław": 0.15,
+            "Gdańsk": 0.10,
+            "Poznań": 0.10,
+            "Łódź": 0.08,
+            "Katowice": 0.07,
+            "Trójmiasto": 0.05,
+            "Lublin": 0.05,
+        }
+        distribution.education_levels = {
+            "Wyższe licencjackie": 0.35,
+            "W trakcie studiów": 0.25,
+            "Wyższe magisterskie": 0.20,
+            "Średnie": 0.20,
+        }
+        distribution.income_brackets = {
+            "< 3 000 zł": 0.30,
+            "3 000 - 5 000 zł": 0.40,
+            "5 000 - 7 500 zł": 0.20,
+            "7 500 - 10 000 zł": 0.08,
+            "> 10 000 zł": 0.02,
+        }
+        logger.info("🎯 Applied preset: gen_z (18-27, duże miasta, entry-level)")
+
+    elif preset == "millennials":
+        # Millennials (28-43): Established professionals, rodziny, kariera
+        distribution.age_groups = {"25-34": 0.50, "35-44": 0.50}
+        distribution.locations = {
+            "Warszawa": 0.30,
+            "Kraków": 0.15,
+            "Wrocław": 0.15,
+            "Poznań": 0.10,
+            "Gdańsk": 0.08,
+            "Trójmiasto": 0.07,
+            "Katowice": 0.07,
+            "Łódź": 0.05,
+            "Szczecin": 0.03,
+        }
+        distribution.education_levels = {
+            "Wyższe magisterskie": 0.50,
+            "Wyższe licencjackie": 0.30,
+            "Policealne": 0.10,
+            "Średnie": 0.10,
+        }
+        distribution.income_brackets = {
+            "5 000 - 7 500 zł": 0.25,
+            "7 500 - 10 000 zł": 0.30,
+            "10 000 - 15 000 zł": 0.25,
+            "> 15 000 zł": 0.15,
+            "3 000 - 5 000 zł": 0.05,
+        }
+        logger.info("🎯 Applied preset: millennials (28-43, profesjonaliści)")
+
+    elif preset == "gen_x":
+        # Gen X (44-59): Doświadczeni liderzy, stabilność, średnie miasta
+        distribution.age_groups = {"45-54": 0.60, "55-64": 0.40}
+        distribution.locations = {
+            "Warszawa": 0.20,
+            "Kraków": 0.12,
+            "Wrocław": 0.10,
+            "Poznań": 0.10,
+            "Gdańsk": 0.08,
+            "Katowice": 0.08,
+            "Łódź": 0.08,
+            "Lublin": 0.06,
+            "Szczecin": 0.06,
+            "Inne miasta": 0.12,
+        }
+        distribution.education_levels = {
+            "Wyższe magisterskie": 0.40,
+            "Wyższe licencjackie": 0.25,
+            "Średnie": 0.20,
+            "Policealne": 0.10,
+            "Podstawowe": 0.05,
+        }
+        distribution.income_brackets = {
+            "7 500 - 10 000 zł": 0.30,
+            "10 000 - 15 000 zł": 0.30,
+            "> 15 000 zł": 0.25,
+            "5 000 - 7 500 zł": 0.15,
+        }
+        logger.info("🎯 Applied preset: gen_x (44-59, doświadczeni liderzy)")
+
+    elif preset == "boomers":
+        # Baby Boomers (60+): Emeryci, tradycyjne wartości, małe miasta
+        distribution.age_groups = {"55-64": 0.40, "65+": 0.60}
+        distribution.locations = {
+            "Warszawa": 0.15,
+            "Kraków": 0.10,
+            "Wrocław": 0.08,
+            "Poznań": 0.08,
+            "Łódź": 0.08,
+            "Gdańsk": 0.08,
+            "Katowice": 0.08,
+            "Inne miasta": 0.20,
+            "Małe miasta": 0.15,
+        }
+        distribution.education_levels = {
+            "Średnie": 0.35,
+            "Wyższe magisterskie": 0.25,
+            "Wyższe licencjackie": 0.15,
+            "Zawodowe": 0.15,
+            "Podstawowe": 0.10,
+        }
+        distribution.income_brackets = {
+            "3 000 - 5 000 zł": 0.35,
+            "5 000 - 7 500 zł": 0.30,
+            "7 500 - 10 000 zł": 0.15,
+            "> 10 000 zł": 0.10,
+            "< 3 000 zł": 0.10,
+        }
+        logger.info("🎯 Applied preset: boomers (60+, tradycyjne wartości)")
+
+    elif preset == "urban_professionals":
+        # Urban Professionals: Duże miasta, wysokie wykształcenie, wysokie dochody
+        distribution.age_groups = {"25-34": 0.40, "35-44": 0.40, "45-54": 0.20}
+        distribution.locations = {
+            "Warszawa": 0.40,
+            "Kraków": 0.18,
+            "Wrocław": 0.15,
+            "Poznań": 0.12,
+            "Gdańsk": 0.10,
+            "Trójmiasto": 0.05,
+        }
+        distribution.education_levels = {
+            "Wyższe magisterskie": 0.60,
+            "Wyższe licencjackie": 0.30,
+            "MBA/Doktorat": 0.10,
+        }
+        distribution.income_brackets = {
+            "10 000 - 15 000 zł": 0.30,
+            "> 15 000 zł": 0.35,
+            "7 500 - 10 000 zł": 0.25,
+            "5 000 - 7 500 zł": 0.10,
+        }
+        logger.info("🎯 Applied preset: urban_professionals (duże miasta, wysokie dochody)")
+
+    elif preset == "suburban_families":
+        # Suburban Families: Przedmieścia, rodziny, średnie dochody
+        distribution.age_groups = {"25-34": 0.30, "35-44": 0.50, "45-54": 0.20}
+        distribution.locations = {
+            "Warszawa - przedmieścia": 0.25,
+            "Kraków - przedmieścia": 0.15,
+            "Wrocław - przedmieścia": 0.12,
+            "Poznań - przedmieścia": 0.10,
+            "Gdańsk - przedmieścia": 0.10,
+            "Trójmiasto - przedmieścia": 0.08,
+            "Katowice - przedmieścia": 0.08,
+            "Inne przedmieścia": 0.12,
+        }
+        distribution.education_levels = {
+            "Wyższe licencjackie": 0.35,
+            "Wyższe magisterskie": 0.30,
+            "Średnie": 0.20,
+            "Policealne": 0.15,
+        }
+        distribution.income_brackets = {
+            "5 000 - 7 500 zł": 0.30,
+            "7 500 - 10 000 zł": 0.35,
+            "10 000 - 15 000 zł": 0.20,
+            "3 000 - 5 000 zł": 0.10,
+            "> 15 000 zł": 0.05,
+        }
+        logger.info("🎯 Applied preset: suburban_families (przedmieścia, rodziny)")
+
+    elif preset == "rural_communities":
+        # Rural Communities: Małe miejscowości, lokalne społeczności
+        distribution.age_groups = {"25-34": 0.20, "35-44": 0.25, "45-54": 0.30, "55-64": 0.15, "65+": 0.10}
+        distribution.locations = {
+            "Małe miasta < 20k": 0.40,
+            "Wsie": 0.30,
+            "Miasta 20k-50k": 0.30,
+        }
+        distribution.education_levels = {
+            "Średnie": 0.40,
+            "Zawodowe": 0.25,
+            "Wyższe licencjackie": 0.20,
+            "Podstawowe": 0.10,
+            "Wyższe magisterskie": 0.05,
+        }
+        distribution.income_brackets = {
+            "3 000 - 5 000 zł": 0.40,
+            "< 3 000 zł": 0.25,
+            "5 000 - 7 500 zł": 0.25,
+            "7 500 - 10 000 zł": 0.08,
+            "> 10 000 zł": 0.02,
+        }
+        logger.info("🎯 Applied preset: rural_communities (małe miejscowości)")
+
+    else:
+        logger.warning(f"⚠️  Unknown demographic preset: {preset} - skipping override")
+
+    return distribution
+
+
+def _extract_polish_cities_from_description(description: str | None) -> list[str]:
+    """Wyciąga polskie miasta z opisu grupy docelowej używając regex + fleksja.
+
+    Obsługuje odmianę nazw miast w polskim języku:
+    - "Gdańsk", "Gdańsku", "Gdańskiem", "z Gdańska"
+    - "Warszawa", "Warszawie", "Warszawy", "z Warszawy"
+
+    Args:
+        description: Opis grupy docelowej (np. "Osoby z Gdańska zainteresowane ekologią")
+
+    Returns:
+        Lista wykrytych polskich miast (max 5)
+    """
+    if not description:
+        return []
+
+    cities = []
+    normalized_desc = _normalize_text(description)  # Istniejąca funkcja (usuwa diakrytyki)
+
+    # POLISH_LOCATIONS to dict z nazwami miast - używamy keys()
+    for city_name in POLISH_LOCATIONS.keys():
+        # Normalizuj nazwę miasta (usuń diakrytyki dla matching)
+        normalized_city = _normalize_text(city_name)
+
+        # Sprawdź czy miasto występuje w opisie (z obsługą fleksji)
+        # Wzorce: "Gdańsk", "Gdańsku", "Gdańskiem", "z Gdańska", "Gdańska"
+        # Regex: słowo + opcjonalnie 0-3 litery na końcu (fleksja)
+        pattern = rf"\b{re.escape(normalized_city)}[a-z]{{0,3}}\b"
+        if re.search(pattern, normalized_desc, re.IGNORECASE):
+            cities.append(city_name)
+            logger.debug(f"📍 Extracted city from description: {city_name}")
+
+    # Limit do 5 miast (unikaj przepełnienia gdy opis zawiera wiele nazw)
+    result = cities[:5]
+
+    if result:
+        logger.info(f"📍 Extracted {len(result)} cities from description: {result}")
+
+    return result
+
+
+def _map_focus_area_to_industries(focus_area: str | None) -> list[str] | None:
+    """Konwertuje focus area na listę branż dla generatora person.
+
+    Mapowanie focus areas na konkretne branże pomaga generatorowi
+    tworzyć persony z odpowiednimi zawodami.
+
+    Args:
+        focus_area: Obszar zainteresowań (tech, healthcare, finance, etc.)
+
+    Returns:
+        Lista branż lub None jeśli focus area nie jest rozpoznany/nie ma mappingu
+    """
+    if not focus_area:
+        return None
+
+    # Normalizuj focus area (lowercase)
+    focus_area = focus_area.lower()
+
+    # Mapowanie focus areas → industries
+    focus_to_industries = {
+        "tech": ["technology", "software development", "IT services", "fintech", "SaaS"],
+        "healthcare": ["healthcare", "pharmaceuticals", "medical devices", "biotechnology", "health services"],
+        "finance": ["banking", "financial services", "fintech", "insurance", "investment management", "accounting"],
+        "education": ["education", "e-learning", "training & development", "educational technology", "academic research"],
+        "retail": ["retail", "e-commerce", "consumer goods", "fashion", "FMCG"],
+        "manufacturing": ["manufacturing", "industrial production", "logistics", "supply chain", "automotive"],
+        "services": ["consulting", "professional services", "business services", "legal services", "HR services"],
+        "entertainment": ["media & entertainment", "creative industries", "arts & culture", "gaming", "streaming"],
+        "lifestyle": ["health & wellness", "fitness", "beauty", "travel & leisure", "hospitality"],
+        "shopping": ["retail", "e-commerce", "consumer services", "marketplaces"],
+        "general": None,  # Nie filtruj branż dla general
+    }
+
+    industries = focus_to_industries.get(focus_area)
+
+    if industries:
+        logger.info(f"🏢 Mapped focus_area='{focus_area}' → industries={industries}")
+
+    return industries
+
+
 def _age_group_bounds(label: str) -> tuple[int, int | None]:
     if '-' in label:
         start, end = label.split('-', maxsplit=1)
@@ -992,6 +1302,41 @@ async def _generate_personas_task(
                 income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), POLISH_INCOME_BRACKETS),
                 locations=_normalize_distribution(target_demographics.get("location", {}), POLISH_LOCATIONS),
             )
+
+            # === ADVANCED OPTIONS PROCESSING (AI Wizard kafle) ===
+            # Extract fields from advanced_options (now properly defined in Pydantic schema)
+            target_audience_desc = None
+            focus_area = None
+            demographic_preset = None
+
+            if advanced_options:
+                target_audience_desc = advanced_options.get("target_audience_description")
+                focus_area = advanced_options.get("focus_area")
+                demographic_preset = advanced_options.get("demographic_preset")
+
+            # PHASE 2.1: Apply demographic preset (modifies distribution)
+            if demographic_preset:
+                logger.info(f"📊 Applying demographic preset: {demographic_preset}")
+                distribution = _apply_demographic_preset(distribution, demographic_preset)
+
+            # PHASE 2.2: Extract cities from target_audience_description
+            if target_audience_desc:
+                extracted_cities = _extract_polish_cities_from_description(target_audience_desc)
+                if extracted_cities:
+                    # Override location distribution with extracted cities (equal weights)
+                    city_weights = {city: 1.0 / len(extracted_cities) for city in extracted_cities}
+                    distribution.locations = _normalize_weights(city_weights)
+                    logger.info(f"📍 Overrode locations with extracted cities: {extracted_cities}")
+
+            # PHASE 2.3: Map focus_area to industries (if not already specified)
+            if focus_area and not (advanced_options and advanced_options.get("industries")):
+                industries = _map_focus_area_to_industries(focus_area)
+                if industries:
+                    # Add industries to advanced_options for generator
+                    if not advanced_options:
+                        advanced_options = {}
+                    advanced_options["industries"] = industries
+                    logger.info(f"🏢 Auto-set industries from focus_area: {industries}")
 
             # === ORCHESTRATION STEP (GEMINI 2.5 PRO) ===
             # RE-ENABLED with optimizations:

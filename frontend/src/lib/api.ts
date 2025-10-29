@@ -101,23 +101,37 @@ export interface CreateFocusGroupPayload {
 }
 
 export interface PersonaAdvancedOptions {
+  // AI Wizard fields (kafle)
+  target_audience_description?: string;
+  focus_area?: string;
+  demographic_preset?: string;
+
+  // Demographic fields
   age_focus?: 'balanced' | 'young_adults' | 'experienced_leaders';
   gender_balance?: 'balanced' | 'female_skew' | 'male_skew';
   urbanicity?: 'any' | 'urban' | 'suburban' | 'rural';
   target_cities?: string[];
   target_countries?: string[];
+
+  // Professional fields
   industries?: string[];
   required_values?: string[];
   excluded_values?: string[];
   required_interests?: string[];
   excluded_interests?: string[];
+
+  // Age constraints
   age_min?: number;
   age_max?: number;
+
+  // Custom distributions
   custom_age_groups?: Record<string, number>;
   gender_weights?: Record<string, number>;
   location_weights?: Record<string, number>;
   education_weights?: Record<string, number>;
   income_weights?: Record<string, number>;
+
+  // Psychological
   personality_skew?: Record<string, number>;
 }
 
