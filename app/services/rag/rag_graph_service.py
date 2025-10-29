@@ -528,15 +528,17 @@ class GraphRAGService:
             cypher_query = """
             // === OPTIMIZED WITH CALL SUBQUERIES (Neo4j 5.x+ syntax) ===
             // Parametry: $search_terms - lista słów kluczowych do matchingu
+            // UWAGA: Case-insensitive matching (toLower) - TEXT indexes nie działają,
+            //        ale poprawia recall dla polskich odmian (Warszawa/warszawie/warszawy)
 
             // 1. Znajdź Wskaźniki (preferuj wysoką pewność jeśli istnieje)
-            // OPTIMIZED: Uses TEXT indexes (no toLower/coalesce = 10-100x faster)
+            // ZMIANA: Case-insensitive CONTAINS dla lepszego recall (cost: 2-5x slower)
             CALL () {
                 WITH $search_terms AS terms
                 MATCH (ind:Wskaznik)
                 WHERE ANY(term IN terms WHERE
-                    ind.streszczenie CONTAINS term OR
-                    ind.kluczowe_fakty CONTAINS term
+                    toLower(coalesce(ind.streszczenie, '')) CONTAINS toLower(term) OR
+                    toLower(coalesce(ind.kluczowe_fakty, '')) CONTAINS toLower(term)
                 )
                 RETURN ind,
                     CASE WHEN ind.pewnosc = 'wysoka' THEN 0
@@ -555,13 +557,13 @@ class GraphRAGService:
             }) AS indicators
 
             // 2. Znajdź Obserwacje (preferuj wysoką pewność jeśli istnieje)
-            // OPTIMIZED: Uses TEXT indexes (no toLower/coalesce = 10-100x faster)
+            // ZMIANA: Case-insensitive CONTAINS dla lepszego recall (cost: 2-5x slower)
             CALL () {
                 WITH $search_terms AS terms
                 MATCH (obs:Obserwacja)
                 WHERE ANY(term IN terms WHERE
-                    obs.streszczenie CONTAINS term OR
-                    obs.kluczowe_fakty CONTAINS term
+                    toLower(coalesce(obs.streszczenie, '')) CONTAINS toLower(term) OR
+                    toLower(coalesce(obs.kluczowe_fakty, '')) CONTAINS toLower(term)
                 )
                 RETURN obs,
                     CASE WHEN obs.pewnosc = 'wysoka' THEN 0
@@ -579,13 +581,13 @@ class GraphRAGService:
             }) AS observations
 
             // 3. Znajdź Trendy
-            // OPTIMIZED: Uses TEXT indexes (no toLower/coalesce = 10-100x faster)
+            // ZMIANA: Case-insensitive CONTAINS dla lepszego recall (cost: 2-5x slower)
             CALL () {
                 WITH $search_terms AS terms
                 MATCH (trend:Trend)
                 WHERE ANY(term IN terms WHERE
-                    trend.streszczenie CONTAINS term OR
-                    trend.kluczowe_fakty CONTAINS term
+                    toLower(coalesce(trend.streszczenie, '')) CONTAINS toLower(term) OR
+                    toLower(coalesce(trend.kluczowe_fakty, '')) CONTAINS toLower(term)
                 )
                 RETURN trend
                 ORDER BY size(coalesce(trend.kluczowe_fakty, '')) DESC
@@ -599,13 +601,13 @@ class GraphRAGService:
             }) AS trends
 
             // 4. Znajdź węzły Demografii
-            // OPTIMIZED: Uses TEXT indexes (no toLower/coalesce = 10-100x faster)
+            // ZMIANA: Case-insensitive CONTAINS dla lepszego recall (cost: 2-5x slower)
             CALL () {
                 WITH $search_terms AS terms
                 MATCH (demo:Demografia)
                 WHERE ANY(term IN terms WHERE
-                    demo.streszczenie CONTAINS term OR
-                    demo.kluczowe_fakty CONTAINS term
+                    toLower(coalesce(demo.streszczenie, '')) CONTAINS toLower(term) OR
+                    toLower(coalesce(demo.kluczowe_fakty, '')) CONTAINS toLower(term)
                 )
                 RETURN demo,
                     CASE WHEN demo.pewnosc = 'wysoka' THEN 0

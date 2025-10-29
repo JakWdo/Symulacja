@@ -190,6 +190,45 @@ class PolishSocietyRAG:
         except Exception as exc:
             logger.warning(f"⚠️ Redis set failed: {exc}")
 
+    def _sanitize_lucene_query(self, query: str) -> str:
+        """Sanityzuje query dla Lucene fulltext search - escape znaków specjalnych.
+
+        Lucene special characters wymagające escapowania: / ( ) [ ] { } \ " ' + - * ? : ~
+        Używamy whitelist approach - escapujemy tylko znane problematyczne znaki.
+
+        Args:
+            query: Oryginalny query string
+
+        Returns:
+            Sanitized query bezpieczny dla Lucene parser
+        """
+        # Lista znaków specjalnych Lucene wymagających escapowania
+        # Źródło: https://lucene.apache.org/core/8_0_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html
+        lucene_special_chars = [
+            '/', '(', ')', '[', ']', '{', '}',
+            '\\', '"', "'", '+', '-', '*', '?', ':', '~', '^'
+        ]
+
+        sanitized = query
+        for char in lucene_special_chars:
+            # Escape each special char with backslash
+            # Double backslash for Python string literal
+            sanitized = sanitized.replace(char, f'\\{char}')
+
+        # Dodatkowo: usuń wielokrotne spacje (cleanup)
+        import re
+        sanitized = re.sub(r'\s+', ' ', sanitized).strip()
+
+        # Log jeśli query został zmieniony (debugging)
+        if sanitized != query:
+            logger.debug(
+                "Lucene query sanitized: '%s' → '%s'",
+                query[:100],
+                sanitized[:100]
+            )
+
+        return sanitized
+
     async def _ensure_fulltext_index(self) -> None:
         """Tworzy indeks fulltext w Neo4j na potrzeby wyszukiwania keywordowego."""
 
@@ -220,7 +259,10 @@ class PolishSocietyRAG:
             logger.warning("Nie udało się utworzyć indeksu fulltext: %s", exc)
 
     async def _keyword_search(self, query: str, k: int = 5) -> list[tuple[Document, float]]:
-        """Wykonuje wyszukiwanie pełnotekstowe w Neo4j i zwraca dokumenty LangChain."""
+        """Wykonuje wyszukiwanie pełnotekstowe w Neo4j i zwraca dokumenty LangChain.
+
+        NOWOŚĆ: Sanityzacja query (escape znaków Lucene) przed fulltext search.
+        """
 
         if not self.vector_store:
             return []
@@ -229,6 +271,9 @@ class PolishSocietyRAG:
         if settings.RAG_USE_HYBRID_SEARCH and not self._fulltext_index_initialized:
             await self._ensure_fulltext_index()
             self._fulltext_index_initialized = True
+
+        # SANITYZACJA: Escape znaków specjalnych Lucene przed wysłaniem query
+        sanitized_query = self._sanitize_lucene_query(query)
 
         try:
             driver = self.vector_store._driver
@@ -272,7 +317,7 @@ class PolishSocietyRAG:
                         ORDER BY score DESC
                         LIMIT $limit
                         """,
-                        search_query=query,
+                        search_query=sanitized_query,
                         limit=k,
                     )
 
@@ -326,8 +371,34 @@ class PolishSocietyRAG:
             documents_with_scores = await asyncio.to_thread(search)
             logger.info("Keyword search zwróciło %s wyników", len(documents_with_scores))
             return documents_with_scores
-        except Exception as exc:  # pragma: no cover - fallback do vector search
-            logger.warning("Keyword search nie powiodło się, używam fallbacku: %s", exc)
+        except Exception as exc:
+            # Rozróżniamy różne typy błędów dla lepszego debugowania
+            error_type = type(exc).__name__
+
+            # Lucene query syntax errors (np. nieescapowane znaki specjalne)
+            if "CypherSyntaxError" in error_type or "TokenMgrError" in str(exc):
+                logger.error(
+                    "❌ Lucene query syntax error (prawdopodobnie znaki specjalne): %s. "
+                    "Query: '%s'. Falling back to vector-only search.",
+                    exc,
+                    query[:100]
+                )
+            # Index nie istnieje lub inne błędy konfiguracji
+            elif "index" in str(exc).lower() or "fulltext" in str(exc).lower():
+                logger.warning(
+                    "⚠️ Fulltext index niedostępny lub niepoprawnie skonfigurowany: %s. "
+                    "Falling back to vector-only search.",
+                    exc
+                )
+            # Inne błędy
+            else:
+                logger.warning(
+                    "⚠️ Keyword search failed (%s): %s. Falling back to vector-only search.",
+                    error_type,
+                    exc
+                )
+
+            # Zawsze zwracamy pustą listę (graceful degradation do vector-only)
             return []
 
     def _format_graph_context(self, graph_nodes: list[dict[str, Any]]) -> str:

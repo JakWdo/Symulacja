@@ -500,8 +500,37 @@ def _build_segment_metadata(
     brief: str | None,
     allocation_reasoning: str | None,
     group_index: int,
+    segment_characteristics: list[str] | None = None,
 ) -> dict[str, str | None]:
-    segment_name = _compose_segment_name(demographics, group_index)
+    """Buduje metadata segmentu z chwytliwą nazwą (jeśli dostępna).
+
+    Priorytet nazw:
+    1. segment_characteristics[0] - chwytliwa nazwa z orchestration (np. "Młodzi Prekariusze")
+    2. _compose_segment_name() - generyczna nazwa (fallback)
+
+    Args:
+        demographics: Cechy demograficzne
+        brief: Brief segmentu
+        allocation_reasoning: Reasoning alokacji
+        group_index: Indeks grupy
+        segment_characteristics: Kluczowe cechy segmentu z orchestration (opcjonalne)
+
+    Returns:
+        Dict z segment_name, segment_id, segment_description, segment_social_context
+    """
+    # PRIORYTET 1: Użyj pierwszej charakterystyki jako chwytliwej nazwy (jeśli istnieje i wygląda jak nazwa)
+    catchy_segment_name = None
+    if segment_characteristics and len(segment_characteristics) > 0:
+        first_char = segment_characteristics[0].strip()
+        # Validate: krótka nazwa (2-6 słów, <60 znaków), nie pełne zdanie
+        word_count = len(first_char.split())
+        if 2 <= word_count <= 6 and len(first_char) < 60 and not first_char.endswith('.'):
+            catchy_segment_name = first_char
+            logger.info(f"✨ Using catchy segment name from orchestration: '{catchy_segment_name}'")
+
+    # FALLBACK: Generyczna nazwa
+    segment_name = catchy_segment_name or _compose_segment_name(demographics, group_index)
+
     slug = _slugify_segment(segment_name)
     if not slug:
         slug = f"segment-{group_index + 1}"
@@ -987,17 +1016,64 @@ async def _generate_personas_task(
                 orchestration_service = PersonaOrchestrationService()
                 logger.info("🎯 Creating orchestration plan with Gemini 2.5 Pro...")
                 try:
-                    # Pobierz dodatkowy opis grupy docelowej jeśli istnieje
+                    # Pobierz advanced options (target_audience, focus_area, demographic_preset)
                     target_audience_desc = None
-                    if advanced_options and "target_audience_description" in advanced_options:
-                        target_audience_desc = advanced_options["target_audience_description"]
-    
+                    focus_area = None
+                    demographic_preset = None
+
+                    if advanced_options:
+                        target_audience_desc = advanced_options.get("target_audience_description")
+                        focus_area = advanced_options.get("focus_area")
+                        demographic_preset = advanced_options.get("demographic_preset")
+
+                    # Komponuj additional_context z wszystkich dostępnych pól
+                    additional_context_parts = []
+
+                    if target_audience_desc:
+                        additional_context_parts.append(f"Grupa docelowa: {target_audience_desc}")
+
+                    if focus_area:
+                        # Mapuj focus_area na ludzki opis
+                        focus_area_labels = {
+                            "tech": "Branża technologiczna (IT, software, hardware)",
+                            "healthcare": "Branża zdrowotna (medycyna, opieka zdrowotna, farmacja)",
+                            "finance": "Branża finansowa (bankowość, fintech, inwestycje)",
+                            "education": "Branża edukacyjna (nauczanie, szkolenia, e-learning)",
+                            "retail": "Branża detaliczna (handel, e-commerce, FMCG)",
+                            "manufacturing": "Branża produkcyjna (przemysł, logistyka)",
+                            "services": "Branża usługowa (consulting, usługi B2B/B2C)",
+                            "other": "Inna branża"
+                        }
+                        focus_label = focus_area_labels.get(focus_area, focus_area)
+                        additional_context_parts.append(f"Obszar zainteresowań: {focus_label}")
+
+                    if demographic_preset:
+                        # Mapuj demographic_preset na rozkłady demograficzne (hints dla orchestration)
+                        preset_labels = {
+                            "gen_z": "Generacja Z (18-27 lat) - digitalni natywni, wartości: autentyczność, różnorodność, ekologia",
+                            "millennials": "Millennialsi (28-43 lata) - work-life balance, kariera, technologia, przedsiębiorczość",
+                            "gen_x": "Generacja X (44-59 lat) - stabilność, rodzina, doświadczenie zawodowe",
+                            "boomers": "Baby Boomers (60+ lat) - tradycyjne wartości, bezpieczeństwo, dziedzictwo",
+                            "urban_professionals": "Profesjonaliści miejscy - duże miasta, wyższe wykształcenie, kariera korporacyjna",
+                            "suburban_families": "Rodziny podmiejskie - przedmieścia, średnie dochody, stabilność",
+                            "rural_communities": "Społeczności wiejskie - mniejsze miejscowości, lokalne społeczności"
+                        }
+                        preset_label = preset_labels.get(demographic_preset, demographic_preset)
+                        additional_context_parts.append(f"Preset demograficzny: {preset_label}")
+
+                    additional_context = "\n".join(additional_context_parts) if additional_context_parts else None
+
+                    if additional_context:
+                        logger.info(
+                            f"📋 Additional context for orchestration:\n{additional_context}"
+                        )
+
                     # Tworzymy plan alokacji (długie briefe dla każdej grupy)
                     allocation_plan = await orchestration_service.create_persona_allocation_plan(
                         target_demographics=target_demographics,
                         num_personas=num_personas,
                         project_description=project.description,
-                        additional_context=target_audience_desc,
+                        additional_context=additional_context,
                     )
     
                     logger.info(
@@ -1020,6 +1096,7 @@ async def _generate_personas_task(
                             group.brief,
                             group.allocation_reasoning,
                             group_index,
+                            group.segment_characteristics,  # Pass catchy name from orchestration
                         )
                         group_metadata.append(segment_metadata)
                         group_count = group.count
@@ -1063,6 +1140,7 @@ async def _generate_personas_task(
                                 last_group.brief,
                                 last_group.allocation_reasoning,
                                 len(allocation_plan.groups) - 1,
+                                last_group.segment_characteristics,  # Pass catchy name from orchestration
                             )
                         for i in range(persona_index, num_personas):
                             persona_group_mapping[i] = {

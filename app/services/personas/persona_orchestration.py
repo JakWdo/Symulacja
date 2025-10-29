@@ -473,6 +473,19 @@ pokazywany użytkownikom w interfejsie. Dlatego MUSISZ:
 **Dodatkowy kontekst od użytkownika:**
 {additional_context or "Brak dodatkowego kontekstu"}
 
+WAŻNE: Jeśli użytkownik podał "Obszar zainteresowań" lub "Preset demograficzny" w kontekście
+powyżej, MUSISZ to uwzględnić w:
+  - Typowych zawodach dla każdej grupy (priorytetuj branżę z focus area)
+  - Zainteresowaniach i hobby (dostosuj do branży i wieku)
+  - Wartościach i aspiracjach (np. tech = innowacyjność, healthcare = helping others)
+  - Wyzwaniach życiowych (specyficzne dla branży i preset demograficzny)
+
+Przykład: Jeśli "Obszar zainteresowań: Branża technologiczna", to:
+  ✅ Zawody: Software Developer, Product Manager, UX Designer, Data Analyst
+  ✅ Zainteresowania: Open source, tech meetupy, podcasts, nowe gadżety
+  ✅ Wartości: Innowacyjność, ciągły rozwój, work-life balance, remote work
+  ✅ Wyzwania: Szybkie tempo zmian w tech, rynek konkurencyjny, burnout
+
 **Rozkład demograficzny docelowy:**
 ```json
 {json.dumps(target_demographics, indent=2, ensure_ascii=False)}
