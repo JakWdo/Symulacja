@@ -406,12 +406,12 @@ class DashboardOrchestrator:
             # Get health
             health = await self.health_service.assess_project_health(project.id)
 
-            # Progress stages
+            # Progress stages (filter soft-deleted)
             has_demographics = bool(project.target_demographics)
-            has_personas = bool(project.personas and len(project.personas) > 0)
-            has_focus = bool(
-                project.focus_groups and len(project.focus_groups) > 0
-            )
+            active_personas = [p for p in project.personas if p.deleted_at is None]
+            active_focus_groups = [fg for fg in project.focus_groups if fg.deleted_at is None]
+            has_personas = bool(active_personas and len(active_personas) > 0)
+            has_focus = bool(active_focus_groups and len(active_focus_groups) > 0)
 
             # Get insights counts from pre-fetched maps (N+1 optimization)
             insights_count = insights_counts_map.get(project.id, 0)
@@ -427,12 +427,12 @@ class DashboardOrchestrator:
             else:
                 current_stage = "analysis"
 
-            # Determine status
+            # Determine status (use active_focus_groups filtered above)
             if health["health_status"] == "blocked":
                 status = "blocked"
-            elif any(fg.status == "in_progress" for fg in project.focus_groups):
+            elif any(fg.status == "in_progress" for fg in active_focus_groups):
                 status = "running"
-            elif all(fg.status == "completed" for fg in project.focus_groups):
+            elif active_focus_groups and all(fg.status == "completed" for fg in active_focus_groups):
                 status = "completed"
             else:
                 status = "paused"
@@ -538,23 +538,30 @@ class DashboardOrchestrator:
             # Base filters
             personas_filters = [
                 Project.owner_id == user_id,
+                Project.deleted_at.is_(None),
+                Persona.deleted_at.is_(None),
                 Persona.created_at >= week_start,
                 Persona.created_at < week_end,
             ]
             focus_groups_filters = [
                 Project.owner_id == user_id,
+                Project.deleted_at.is_(None),
+                FocusGroup.deleted_at.is_(None),
                 FocusGroup.status == "completed",
                 FocusGroup.completed_at >= week_start,
                 FocusGroup.completed_at < week_end,
             ]
             surveys_filters = [
                 Project.owner_id == user_id,
+                Project.deleted_at.is_(None),
+                Survey.deleted_at.is_(None),
                 Survey.status == "completed",
                 Survey.completed_at >= week_start,
                 Survey.completed_at < week_end,
             ]
             insights_filters = [
                 Project.owner_id == user_id,
+                Project.deleted_at.is_(None),
                 InsightEvidence.created_at >= week_start,
                 InsightEvidence.created_at < week_end,
             ]
@@ -622,7 +629,12 @@ class DashboardOrchestrator:
         stmt = (
             select(InsightEvidence)
             .join(Project, InsightEvidence.project_id == Project.id)
-            .where(Project.owner_id == user_id)
+            .where(
+                and_(
+                    Project.owner_id == user_id,
+                    Project.deleted_at.is_(None),
+                )
+            )
             .order_by(InsightEvidence.created_at.desc())
             .limit(limit)
         )
@@ -884,7 +896,10 @@ class DashboardOrchestrator:
             return cached
 
         # Get all insights for user (with optional project filter)
-        filters = [Project.owner_id == user_id]
+        filters = [
+            Project.owner_id == user_id,
+            Project.deleted_at.is_(None),
+        ]
         if project_id:
             filters.append(InsightEvidence.project_id == project_id)
 

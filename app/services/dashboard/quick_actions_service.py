@@ -114,38 +114,14 @@ class QuickActionsService:
                     }
                 )
 
-        # Priority 3: Start Focus Group (personas ready, no active focus)
-        for project in projects:
-            if project.personas and len(project.personas) > 0:
-                active_focus = [
-                    fg for fg in project.focus_groups if fg.status == "in_progress"
-                ]
-                if not active_focus:
-                    actions.append(
-                        {
-                            "action_id": f"start_focus_{project.id}",
-                            "action_type": "start_focus_group",
-                            "priority": "medium",
-                            "title": "Rozpocznij dyskusję grupy fokusowej",
-                            "description": f"Projekt '{project.name}' ma {len(project.personas)} gotowych person. Rozpocznij grupę fokusową (2-5 min).",
-                            "icon": "MessageSquare",
-                            "context": {
-                                "project_id": str(project.id),
-                                "project_name": project.name,
-                                "persona_count": len(project.personas),
-                            },
-                            "cta_label": "Rozpocznij grupę fokusową",
-                            "cta_url": f"/projects/{project.id}/focus-groups/create",
-                        }
-                    )
-
-        # Priority 4: View Insights (insights ready, not viewed)
+        # Priority 3: View Insights (insights ready, not viewed) - HIGH PRIORITY
         insights_stmt = (
             select(InsightEvidence)
             .join(Project, InsightEvidence.project_id == Project.id)
             .where(
                 and_(
                     Project.owner_id == user_id,
+                    Project.deleted_at.is_(None),
                     InsightEvidence.viewed_at.is_(None),
                 )
             )
@@ -153,6 +129,9 @@ class QuickActionsService:
         )
         result = await self.db.execute(insights_stmt)
         unviewed_insight = result.scalar_one_or_none()
+
+        # Check if there are unviewed insights (used to suppress "Start Focus Group")
+        has_unviewed_insights = unviewed_insight is not None
 
         if unviewed_insight:
             project_stmt = select(Project).where(
@@ -168,6 +147,7 @@ class QuickActionsService:
                 .where(
                     and_(
                         Project.owner_id == user_id,
+                        Project.deleted_at.is_(None),
                         InsightEvidence.viewed_at.is_(None),
                     )
                 )
@@ -176,7 +156,7 @@ class QuickActionsService:
                 {
                     "action_id": f"view_insights_{project.id}",
                     "action_type": "view_insights",
-                    "priority": "medium",
+                    "priority": "high",  # Changed from "medium" to "high"
                     "title": "Przejrzyj nowe spostrzeżenia",
                     "description": f"{unviewed_count} nowych spostrzeżeń gotowych w '{project.name}'. Przejrzyj i podejmij działanie.",
                     "icon": "Lightbulb",
@@ -189,6 +169,59 @@ class QuickActionsService:
                     "cta_url": f"/projects/{project.id}/insights",
                 }
             )
+
+        # Priority 4: Start Focus Group (personas ready, no active focus, no unviewed insights)
+        # Don't suggest starting a new FG if there are unviewed insights or recently completed FG
+        for project in projects:
+            if project.personas and len(project.personas) > 0:
+                # Filter soft-deleted personas
+                active_personas = [p for p in project.personas if p.deleted_at is None]
+                active_focus_groups = [fg for fg in project.focus_groups if fg.deleted_at is None]
+
+                if not active_personas:
+                    continue
+
+                # Check if there's an active (in_progress) focus group
+                active_focus = [
+                    fg for fg in active_focus_groups if fg.status == "in_progress"
+                ]
+
+                if active_focus:
+                    continue  # Already has active focus group
+
+                # Check if FG was recently completed (within 24h)
+                recently_completed = False
+                if active_focus_groups:
+                    from datetime import datetime, timedelta
+                    now = datetime.utcnow()
+                    for fg in active_focus_groups:
+                        if fg.status == "completed" and fg.completed_at:
+                            time_since_completion = now - fg.completed_at
+                            if time_since_completion < timedelta(hours=24):
+                                recently_completed = True
+                                break
+
+                # Don't suggest if:
+                # 1. There are unviewed insights (user should review first)
+                # 2. FG was completed in last 24h (give time to review)
+                if not has_unviewed_insights and not recently_completed:
+                    actions.append(
+                        {
+                            "action_id": f"start_focus_{project.id}",
+                            "action_type": "start_focus_group",
+                            "priority": "medium",
+                            "title": "Rozpocznij dyskusję grupy fokusowej",
+                            "description": f"Projekt '{project.name}' ma {len(active_personas)} gotowych person. Rozpocznij grupę fokusową (2-5 min).",
+                            "icon": "MessageSquare",
+                            "context": {
+                                "project_id": str(project.id),
+                                "project_name": project.name,
+                                "persona_count": len(active_personas),
+                            },
+                            "cta_label": "Rozpocznij grupę fokusową",
+                            "cta_url": f"/projects/{project.id}/focus-groups/create",
+                        }
+                    )
 
         # Priority 5: Start New Research (no projects or all completed)
         if len(projects) == 0:

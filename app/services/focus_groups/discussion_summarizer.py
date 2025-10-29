@@ -10,6 +10,7 @@ Obsługuje dwa modele:
 - Gemini 2.5 Pro: bardziej szczegółowa analiza
 """
 
+import logging
 import re
 from datetime import datetime
 from typing import Any
@@ -22,10 +23,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models import FocusGroup, PersonaResponse, Persona
+from app.models import FocusGroup, PersonaResponse, Persona, Project
 from app.services.shared.clients import build_chat_model
+from app.services.dashboard.insight_traceability_service import InsightTraceabilityService
+from app.services.dashboard.usage_logging import log_usage_from_metadata, UsageLogContext
+from app.services.dashboard.cache_invalidation import invalidate_dashboard_cache
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 # Słowa kluczowe do analizy sentymentu
 _POSITIVE_WORDS = {
@@ -134,7 +139,7 @@ class DiscussionSummarizerService:
                 "metadata": Dict[str, Any]
             }
         """
-        # Pobieramy grupę fokusową
+        # Pobieramy grupę fokusową wraz z projektem (dla user_id)
         result = await db.execute(
             select(FocusGroup).where(FocusGroup.id == focus_group_id)
         )
@@ -145,6 +150,13 @@ class DiscussionSummarizerService:
 
         if focus_group.status != "completed":
             raise ValueError("Focus group must be completed to generate summary")
+
+        # Fetch project to get owner_id (for token usage logging)
+        project_result = await db.execute(
+            select(Project).where(Project.id == focus_group.project_id)
+        )
+        project = project_result.scalar_one_or_none()
+        user_id = project.owner_id if project else None
 
         # Pobieramy wszystkie odpowiedzi
         result = await db.execute(
@@ -174,7 +186,35 @@ class DiscussionSummarizerService:
             discussion_data, include_recommendations
         )
 
-        ai_response = await self.chain.ainvoke({"prompt": prompt_text})
+        # Call LLM via prompt (returns AIMessage with metadata)
+        prompt_messages = await self.summary_prompt.ainvoke({"prompt": prompt_text})
+        ai_message = await self.llm.ainvoke(prompt_messages)
+
+        # Extract string content from AIMessage
+        ai_response = self.str_parser.invoke(ai_message)
+
+        # Log token usage for monitoring and budget tracking
+        if user_id:
+            try:
+                # Extract usage metadata from AIMessage response_metadata
+                usage_metadata = getattr(ai_message, 'response_metadata', {}).get('usage_metadata')
+                if not usage_metadata:
+                    # Fallback: check if metadata is at top level
+                    usage_metadata = getattr(ai_message, 'response_metadata', {})
+
+                await log_usage_from_metadata(
+                    UsageLogContext(
+                        user_id=user_id,
+                        project_id=focus_group.project_id,
+                        operation_type="focus_group_summary",
+                        operation_id=focus_group.id,
+                        model_name=self.llm.model,
+                    ),
+                    usage_metadata,
+                )
+            except Exception as e:
+                # Don't fail summary generation if usage logging fails
+                print(f"Warning: Failed to log token usage: {e}")
 
         # Przetwarzamy odpowiedź modelu do struktury słownika
         parsed_summary = self._parse_ai_response(ai_response)
@@ -192,6 +232,22 @@ class DiscussionSummarizerService:
 
         # Przypisujemy podsumowanie do obiektu grupy (commit wykona wywołujący)
         focus_group.ai_summary = parsed_summary
+
+        # Persist insights to InsightEvidence table
+        created_insights = await self._store_insights_from_summary(
+            db=db,
+            focus_group=focus_group,
+            parsed_summary=parsed_summary,
+            prompt_text=prompt_text,
+        )
+
+        # Invalidate dashboard cache if insights were created
+        if created_insights and user_id:
+            try:
+                await invalidate_dashboard_cache(user_id)
+                logger.debug(f"Dashboard cache invalidated after creating {len(created_insights)} insights")
+            except Exception as e:
+                logger.warning(f"Failed to invalidate dashboard cache: {e}")
 
         return parsed_summary
 
@@ -493,3 +549,198 @@ Describe the emotional journey of the discussion:
                 elif current_segment and stripped:
                     segments[current_segment] += " " + stripped
             sections[section_name] = segments
+
+    async def _store_insights_from_summary(
+        self,
+        db: AsyncSession,
+        focus_group: FocusGroup,
+        parsed_summary: dict[str, Any],
+        prompt_text: str,
+    ) -> list:
+        """
+        Extract and persist InsightEvidence records from AI summary
+
+        Converts 3-7 key insights from the summary into InsightEvidence records
+        with provenance tracking (model, prompt, sources).
+
+        Args:
+            db: Database session
+            focus_group: FocusGroup instance
+            parsed_summary: Parsed AI summary dict
+            prompt_text: Original prompt used for generation
+
+        Returns:
+            List of created InsightEvidence instances
+        """
+        traceability_service = InsightTraceabilityService(db)
+
+        key_insights = parsed_summary.get("key_insights", [])
+        if not key_insights:
+            return []
+
+        created_insights = []
+
+        # Extract concepts from executive summary and sentiment narrative
+        concepts = self._extract_concepts(
+            parsed_summary.get("executive_summary", "")
+            + " "
+            + parsed_summary.get("sentiment_narrative", "")
+        )
+
+        # Determine overall sentiment
+        overall_sentiment = self._determine_sentiment(
+            parsed_summary.get("sentiment_narrative", "")
+        )
+
+        for idx, insight_text in enumerate(key_insights[:7]):  # Max 7 insights
+            # Determine insight type from text
+            insight_type = self._classify_insight_type(insight_text)
+
+            # Calculate confidence and impact scores (heuristic)
+            confidence_score = self._calculate_confidence(insight_text)
+            impact_score = self._calculate_impact(insight_text, idx)
+
+            # Extract evidence (use surprising findings or recommendations as supporting evidence)
+            evidence = self._build_evidence(parsed_summary, insight_text)
+
+            # Build sources reference
+            sources = [
+                {
+                    "type": "focus_group_discussion",
+                    "focus_group_id": str(focus_group.id),
+                    "focus_group_name": focus_group.name,
+                }
+            ]
+
+            # Store insight
+            try:
+                insight_record = await traceability_service.store_insight_evidence(
+                    project_id=focus_group.project_id,
+                    insight_text=insight_text,
+                    insight_type=insight_type,
+                    confidence_score=confidence_score,
+                    impact_score=impact_score,
+                    evidence=evidence,
+                    concepts=concepts[:10],  # Max 10 concepts
+                    sentiment=overall_sentiment,
+                    model_version=self.llm.model,
+                    prompt=prompt_text,
+                    sources=sources,
+                    focus_group_id=focus_group.id,
+                )
+                created_insights.append(insight_record)
+            except Exception as e:
+                # Log error but don't fail the entire summary generation
+                print(f"Warning: Failed to store insight {idx}: {e}")
+                continue
+
+        return created_insights
+
+    def _extract_concepts(self, text: str) -> list[str]:
+        """Extract key concepts from text (simple keyword extraction)"""
+        # Remove common words and extract potential concepts
+        stopwords = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by", "is", "are", "was", "were"}
+        words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
+        concepts = [w for w in words if w not in stopwords]
+        # Return unique concepts, sorted by frequency
+        from collections import Counter
+        concept_counts = Counter(concepts)
+        return [concept for concept, count in concept_counts.most_common(10)]
+
+    def _determine_sentiment(self, sentiment_narrative: str) -> str:
+        """Determine overall sentiment from narrative"""
+        if not sentiment_narrative:
+            return "neutral"
+
+        score = _simple_sentiment_score(sentiment_narrative)
+        if score > 0.2:
+            return "positive"
+        elif score < -0.2:
+            return "negative"
+        elif "mixed" in sentiment_narrative.lower() or "polarizing" in sentiment_narrative.lower():
+            return "mixed"
+        else:
+            return "neutral"
+
+    def _classify_insight_type(self, insight_text: str) -> str:
+        """Classify insight type based on keywords"""
+        insight_lower = insight_text.lower()
+
+        # Keyword patterns for classification
+        if any(word in insight_lower for word in ["opportunity", "potential", "growth", "advantage"]):
+            return "opportunity"
+        elif any(word in insight_lower for word in ["risk", "concern", "problem", "issue", "challenge"]):
+            return "risk"
+        elif any(word in insight_lower for word in ["trend", "pattern", "increasing", "decreasing", "shift"]):
+            return "trend"
+        elif any(word in insight_lower for word in ["consistent", "common", "across", "all", "majority"]):
+            return "pattern"
+        else:
+            return "pattern"  # Default
+
+    def _calculate_confidence(self, insight_text: str) -> float:
+        """Calculate confidence score based on language strength (0-1)"""
+        insight_lower = insight_text.lower()
+
+        # Strong confidence indicators
+        strong_words = ["all", "every", "consistently", "clearly", "definitely", "strongly"]
+        # Weak confidence indicators
+        weak_words = ["some", "may", "might", "possibly", "potentially", "could"]
+
+        strong_count = sum(1 for word in strong_words if word in insight_lower)
+        weak_count = sum(1 for word in weak_words if word in insight_lower)
+
+        # Base confidence: 0.7
+        base_confidence = 0.7
+        confidence = base_confidence + (strong_count * 0.1) - (weak_count * 0.1)
+
+        return max(0.5, min(1.0, confidence))  # Clamp between 0.5 and 1.0
+
+    def _calculate_impact(self, insight_text: str, position: int) -> int:
+        """Calculate impact score based on insight importance (1-10)"""
+        # First insights are typically more important
+        position_score = max(10 - position * 2, 3)  # 10, 8, 6, 4, 3...
+
+        # High-impact keywords
+        high_impact_words = ["critical", "major", "significant", "key", "essential", "crucial"]
+        impact_multiplier = 1.0
+
+        insight_lower = insight_text.lower()
+        if any(word in insight_lower for word in high_impact_words):
+            impact_multiplier = 1.2
+
+        impact = int(position_score * impact_multiplier)
+        return max(1, min(10, impact))  # Clamp between 1 and 10
+
+    def _build_evidence(self, parsed_summary: dict[str, Any], insight_text: str) -> list[dict]:
+        """Build evidence list from summary components"""
+        evidence = []
+
+        # Add executive summary as context
+        if parsed_summary.get("executive_summary"):
+            evidence.append({
+                "type": "summary",
+                "text": parsed_summary["executive_summary"][:300],  # Truncate
+                "source": "executive_summary",
+            })
+
+        # Add surprising findings as supporting evidence
+        for finding in parsed_summary.get("surprising_findings", [])[:2]:
+            evidence.append({
+                "type": "supporting_finding",
+                "text": finding,
+                "source": "surprising_findings",
+            })
+
+        # Add segment analysis if relevant
+        segment_analysis = parsed_summary.get("segment_analysis", {})
+        if segment_analysis:
+            # Take first 2 segments
+            for segment_name, analysis in list(segment_analysis.items())[:2]:
+                evidence.append({
+                    "type": "segment_insight",
+                    "text": f"{segment_name}: {analysis}",
+                    "source": "segment_analysis",
+                })
+
+        return evidence[:5]  # Max 5 evidence items

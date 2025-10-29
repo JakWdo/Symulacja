@@ -76,6 +76,7 @@ from app.core.demographics.international_constants import (
     DEFAULT_OCCUPATIONS,
 )
 from app.core.config import get_settings
+from app.services.dashboard.cache_invalidation import invalidate_project_cache
 
 # Get settings instance
 settings = get_settings()
@@ -2229,6 +2230,9 @@ async def delete_persona(
 
     await db.commit()
 
+    # Invalidate dashboard cache
+    await invalidate_project_cache(current_user.id, persona.project_id)
+
     return PersonaDeleteResponse(
         persona_id=persona_id,
         full_name=persona.full_name,
@@ -2284,6 +2288,9 @@ async def undo_delete_persona(
     )
 
     await db.commit()
+
+    # Invalidate dashboard cache
+    await invalidate_project_cache(current_user.id, persona.project_id)
 
     return PersonaUndoDeleteResponse(
         persona_id=persona_id,
@@ -2378,6 +2385,11 @@ async def bulk_delete_personas(
 
     # Commit wszystkich zmian naraz
     await db.commit()
+
+    # Invalidate dashboard cache if any personas were deleted
+    if deleted_count > 0:
+        from app.services.dashboard.cache_invalidation import invalidate_dashboard_cache
+        await invalidate_dashboard_cache(current_user.id)
 
     # Przygotuj komunikat
     if deleted_count == len(bulk_request.persona_ids):

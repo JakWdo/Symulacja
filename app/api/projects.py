@@ -28,6 +28,7 @@ from app.schemas.project import (
     ProjectBulkDeleteRequest,
     ProjectBulkDeleteResponse,
 )
+from app.services.dashboard.cache_invalidation import invalidate_dashboard_cache
 
 router = APIRouter()
 
@@ -360,6 +361,9 @@ async def delete_project(
 
     await db.commit()
 
+    # Invalidate dashboard cache
+    await invalidate_dashboard_cache(current_user.id)
+
     return ProjectDeleteResponse(
         project_id=project_id,
         name=project.name,
@@ -467,6 +471,9 @@ async def undo_delete_project(
     )
 
     await db.commit()
+
+    # Invalidate dashboard cache
+    await invalidate_dashboard_cache(current_user.id)
 
     return ProjectUndoDeleteResponse(
         project_id=project_id,
@@ -599,6 +606,10 @@ async def bulk_delete_projects(
 
     # Commit wszystkich zmian naraz
     await db.commit()
+
+    # Invalidate dashboard cache if any projects were deleted
+    if deleted_count > 0:
+        await invalidate_dashboard_cache(current_user.id)
 
     # Przygotuj komunikat
     if deleted_count == len(bulk_request.project_ids):

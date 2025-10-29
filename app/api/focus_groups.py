@@ -31,6 +31,7 @@ from app.schemas.focus_group import (
     FocusGroupResultResponse,
 )
 from app.services.focus_groups import FocusGroupServiceLangChain as FocusGroupService
+from app.services.dashboard.cache_invalidation import invalidate_dashboard_cache
 
 router = APIRouter()
 
@@ -235,5 +236,8 @@ async def delete_focus_group(
 
     await db.delete(focus_group)
     await db.commit()
+
+    # Invalidate dashboard cache
+    await invalidate_dashboard_cache(current_user.id)
 
     return None

@@ -129,8 +129,12 @@ class ProjectHealthService:
         if not project:
             return blockers
 
+        # Filter soft-deleted entities
+        active_personas = [p for p in project.personas if p.deleted_at is None]
+        active_focus_groups = [fg for fg in project.focus_groups if fg.deleted_at is None]
+
         # Blocker 1: No personas (CRITICAL)
-        if not project.personas or len(project.personas) == 0:
+        if not active_personas or len(active_personas) == 0:
             blockers.append(
                 {
                     "type": "no_personas",
@@ -152,8 +156,8 @@ class ProjectHealthService:
             )
 
         # Blocker 3: No focus groups (MEDIUM) - tylko jeśli ma persony
-        if project.personas and len(project.personas) > 0:
-            if not project.focus_groups or len(project.focus_groups) == 0:
+        if active_personas and len(active_personas) > 0:
+            if not active_focus_groups or len(active_focus_groups) == 0:
                 blockers.append(
                     {
                         "type": "no_focus_groups",
@@ -164,10 +168,15 @@ class ProjectHealthService:
                 )
 
         # Blocker 4: Incomplete/idle focus groups (MEDIUM)
-        for fg in project.focus_groups:
+        for fg in active_focus_groups:
             if fg.status == "in_progress":
-                # Check if idle >48h
-                last_activity = fg.updated_at or fg.created_at
+                # Check if idle >48h (use max of all activity timestamps)
+                last_activity = max(
+                    fg.created_at,
+                    fg.started_at or fg.created_at,
+                    fg.completed_at or fg.created_at,
+                    fg.updated_at or fg.created_at,
+                )
                 idle_hours = (datetime.utcnow() - last_activity).total_seconds() / 3600
                 if idle_hours > 48:
                     blockers.append(
@@ -181,8 +190,8 @@ class ProjectHealthService:
                     )
 
         # Blocker 5: No insights (MEDIUM) - tylko jeśli ma completed focus groups
-        if project.focus_groups:
-            completed_fg = [fg for fg in project.focus_groups if fg.status == "completed"]
+        if active_focus_groups:
+            completed_fg = [fg for fg in active_focus_groups if fg.status == "completed"]
             if completed_fg:
                 insights_count = await self.db.scalar(
                     select(func.count(InsightEvidence.id)).where(

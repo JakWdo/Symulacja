@@ -280,6 +280,8 @@ class DashboardMetricsService:
             .where(
                 and_(
                     Project.owner_id == user_id,
+                    Project.deleted_at.is_(None),
+                    Persona.deleted_at.is_(None),
                     Persona.created_at >= this_week_start,
                 )
             )
@@ -291,6 +293,8 @@ class DashboardMetricsService:
             .where(
                 and_(
                     Project.owner_id == user_id,
+                    Project.deleted_at.is_(None),
+                    FocusGroup.deleted_at.is_(None),
                     FocusGroup.status == "completed",
                     FocusGroup.completed_at >= this_week_start,
                 )
@@ -303,6 +307,7 @@ class DashboardMetricsService:
             .where(
                 and_(
                     Project.owner_id == user_id,
+                    Project.deleted_at.is_(None),
                     InsightEvidence.created_at >= this_week_start,
                 )
             )
@@ -315,6 +320,8 @@ class DashboardMetricsService:
             .where(
                 and_(
                     Project.owner_id == user_id,
+                    Project.deleted_at.is_(None),
+                    Persona.deleted_at.is_(None),
                     Persona.created_at >= last_week_start,
                     Persona.created_at < last_week_end,
                 )
@@ -327,6 +334,8 @@ class DashboardMetricsService:
             .where(
                 and_(
                     Project.owner_id == user_id,
+                    Project.deleted_at.is_(None),
+                    FocusGroup.deleted_at.is_(None),
                     FocusGroup.status == "completed",
                     FocusGroup.completed_at >= last_week_start,
                     FocusGroup.completed_at < last_week_end,
@@ -340,6 +349,7 @@ class DashboardMetricsService:
             .where(
                 and_(
                     Project.owner_id == user_id,
+                    Project.deleted_at.is_(None),
                     InsightEvidence.created_at >= last_week_start,
                     InsightEvidence.created_at < last_week_end,
                 )

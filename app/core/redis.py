@@ -314,3 +314,62 @@ async def redis_delete(key: str) -> bool:
         # Unexpected error - log z backtrace
         logger.error(f"Unexpected error in redis_delete for key '{key}': {exc}", exc_info=exc)
         return False
+
+
+async def redis_delete_pattern(pattern: str) -> int:
+    """Delete all keys matching a pattern using SCAN (safe for production).
+
+    Uses SCAN cursor to avoid blocking Redis with KEYS command.
+    Graceful degradation - cache delete failures don't break the application.
+
+    Args:
+        pattern: Redis key pattern (e.g., "dashboard:weekly:user123:*")
+
+    Returns:
+        Number of keys deleted, or 0 on failure
+    """
+    try:
+        client = await get_redis_client()
+        settings = get_settings()
+
+        deleted_count = 0
+        cursor = 0
+
+        # Use SCAN instead of KEYS (production-safe)
+        while True:
+            cursor, keys = await _retry_with_backoff(
+                client.scan,
+                cursor=cursor,
+                match=pattern,
+                count=100,  # Scan 100 keys per iteration
+                max_retries=settings.REDIS_MAX_RETRIES,
+                backoff=settings.REDIS_RETRY_BACKOFF,
+            )
+
+            if keys:
+                # Delete keys in batch
+                await _retry_with_backoff(
+                    client.delete,
+                    *keys,
+                    max_retries=settings.REDIS_MAX_RETRIES,
+                    backoff=settings.REDIS_RETRY_BACKOFF,
+                )
+                deleted_count += len(keys)
+
+            # SCAN cursor = 0 means iteration complete
+            if cursor == 0:
+                break
+
+        if deleted_count > 0:
+            logger.debug(f"Deleted {deleted_count} keys matching pattern '{pattern}'")
+
+        return deleted_count
+
+    except (ConnectionError, TimeoutError, RedisError) as exc:
+        logger.warning(f"Redis DELETE_PATTERN failed for pattern '{pattern}': {exc}")
+        return 0  # Silent failure - cache invalidation is not critical
+
+    except Exception as exc:
+        # Unexpected error - log z backtrace
+        logger.error(f"Unexpected error in redis_delete_pattern for pattern '{pattern}': {exc}", exc_info=exc)
+        return 0

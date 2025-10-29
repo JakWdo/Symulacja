@@ -40,6 +40,7 @@ def _extract_usage_counts(usage_meta: dict[str, Any]) -> tuple[int | None, int |
     candidates = [
         "input_token_count",
         "prompt_token_count",
+        "promptTokenCount",  # Gemini camelCase
         "inputTokens",
         "promptTokens",
         "prompt_tokens",
@@ -47,6 +48,7 @@ def _extract_usage_counts(usage_meta: dict[str, Any]) -> tuple[int | None, int |
     output_candidates = [
         "output_token_count",
         "candidates_token_count",
+        "candidatesTokenCount",  # Gemini camelCase
         "outputTokens",
         "completionTokens",
         "completion_tokens",
