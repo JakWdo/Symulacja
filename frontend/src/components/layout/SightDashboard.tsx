@@ -27,15 +27,7 @@ import {
   Rocket,
   PlayCircle,
   Plus,
-  ArrowUp,
-  ArrowDown,
-  Minus,
-  HelpCircle,
-  Clock,
-  Target,
-  AlertCircle,
 } from 'lucide-react';
-import { useDashboardOverview } from '@/hooks/dashboard/useDashboardOverview';
 import { useQuickActions } from '@/hooks/dashboard/useQuickActions';
 import { useExecuteAction } from '@/hooks/dashboard/useExecuteAction';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -48,15 +40,13 @@ import { HealthBlockersSection } from '@/components/dashboard/HealthBlockersSect
 import { UsageBudgetSection } from '@/components/dashboard/UsageBudgetSection';
 import { NotificationsSection } from '@/components/dashboard/NotificationsSection';
 import { useDashboardNavigation } from '@/hooks/dashboard/useDashboardNavigation';
-import type { MetricCard as MetricCardType, QuickAction } from '@/types/dashboard';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { QuickAction } from '@/types/dashboard';
 
 interface SightDashboardProps {
   onNavigate?: (view: string) => void;
 }
 
 export function SightDashboard({ onNavigate }: SightDashboardProps) {
-  const { data: overview, isLoading: overviewLoading, error: overviewError } = useDashboardOverview();
   const { data: actions, isLoading: actionsLoading } = useQuickActions(4);
   const navigateTo = useDashboardNavigation(onNavigate);
 
@@ -66,48 +56,8 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
       {/* Dashboard Header */}
       <PageHeader
         title="Panel główny"
-        subtitle="Śledź spostrzeżenia, akcje i postęp badań w czasie rzeczywistym"
+        subtitle="Przegląd Twoich projektów i działań badawczych"
       />
-
-      {/* Overview Section - 4 KPI Cards (Figma Design) */}
-      <div className="space-y-6 mb-8">
-        {overviewLoading ? (
-          <OverviewSkeleton />
-        ) : overviewError ? (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Nie udało się załadować przeglądu. Spróbuj ponownie.
-            </AlertDescription>
-          </Alert>
-        ) : overview ? (
-          <>
-            {/* 4 KPI Cards (Figma Design Node 62:152) */}
-            <div className="grid gap-4 grid-cols-4">
-              {/* Time-to-Insight */}
-              <MetricCard
-                metric={overview.time_to_insight}
-                icon={Clock}
-              />
-              {/* Insight Adoption */}
-              <MetricCard
-                metric={overview.insight_adoption_rate}
-                icon={Target}
-              />
-              {/* Persona Coverage */}
-              <MetricCard
-                metric={overview.persona_coverage}
-                icon={Users}
-              />
-              {/* Active Blockers */}
-              <MetricCard
-                metric={overview.blockers_count}
-                icon={AlertCircle}
-              />
-            </div>
-          </>
-        ) : null}
-      </div>
 
       {/* Quick Actions Section */}
       <div className="space-y-6 mb-8">
@@ -188,65 +138,6 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 }
 
 // ========== COMPONENTS ==========
-
-function MetricCard({ metric, icon: Icon }: { metric: MetricCardType; icon?: React.ComponentType<{ className?: string }> }) {
-  const TrendIcon =
-    metric.trend?.direction === 'up'
-      ? ArrowUp
-      : metric.trend?.direction === 'down'
-      ? ArrowDown
-      : Minus;
-
-  const trendColor =
-    metric.trend?.direction === 'up'
-      ? 'text-figma-green'
-      : metric.trend?.direction === 'down'
-      ? 'text-figma-red'
-      : 'text-gray-400';
-
-  // Dynamic trend text based on metric type
-  const getTrendText = () => {
-    if (!metric.trend) return '';
-    const isTimeMetric = metric.label.toLowerCase().includes('czas');
-    const direction = metric.trend.direction;
-
-    if (isTimeMetric) {
-      return direction === 'up' ? 'szybciej' : direction === 'down' ? 'wolniej' : '';
-    } else {
-      return direction === 'up' ? 'wyższy' : direction === 'down' ? 'niższy' : '';
-    }
-  };
-
-  return (
-    <Card className="border-border rounded-figma-card">
-      <CardHeader className="pb-6 px-6 pt-6 flex flex-row items-start justify-between">
-        <div className="flex-1">
-          <CardTitle className="text-sm font-normal text-figma-muted dark:text-muted-foreground leading-[20px]">
-            {metric.label}
-          </CardTitle>
-        </div>
-        {Icon && (
-          <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        )}
-      </CardHeader>
-      <CardContent className="px-6 pb-6 pt-0">
-        <div className="space-y-2">
-          <p className="text-2xl font-normal leading-[32px] text-foreground">{metric.value}</p>
-          {metric.trend && (
-            <div className={`flex items-center text-xs ${trendColor}`}>
-              <TrendIcon className="mr-1 h-3 w-3" />
-              <span>{Math.abs(metric.trend.change_percent).toFixed(1)}%</span>
-              {getTrendText() && <span className="ml-1">{getTrendText()}</span>}
-              {metric.p90 && (
-                <span className="ml-1 text-muted-foreground">(P90: {metric.p90})</span>
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 function ActionCard({
   action,
@@ -331,16 +222,6 @@ function ActionCard({
 }
 
 // ========== SKELETONS ==========
-
-function OverviewSkeleton() {
-  return (
-    <div className="grid gap-4 grid-cols-4">
-      {[...Array(4)].map((_, i) => (
-        <Skeleton key={i} className="h-[170px] rounded-figma-card" />
-      ))}
-    </div>
-  );
-}
 
 function QuickActionsSkeleton() {
   return (
