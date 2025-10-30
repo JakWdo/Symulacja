@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,8 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
   });
 
   const { setSelectedProject } = useAppStore();
+  const shouldOpenProjectCreation = useAppStore((state) => state.shouldOpenProjectCreation);
+  const clearProjectCreationTrigger = useAppStore((state) => state.clearProjectCreationTrigger);
   const queryClient = useQueryClient();
 
   // Fetch projects
@@ -56,6 +58,14 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
       setSelectedProject(newProject);
     },
   });
+
+  // Handle project creation trigger from dashboard Quick Actions
+  useEffect(() => {
+    if (shouldOpenProjectCreation) {
+      setShowCreateDialog(true);
+      clearProjectCreationTrigger();
+    }
+  }, [shouldOpenProjectCreation, clearProjectCreationTrigger]);
 
   const filteredProjects = projects.filter((project: Project) =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

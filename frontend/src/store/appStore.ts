@@ -28,6 +28,7 @@ interface AppState {
   error: string | null;
   panelPositions: Record<PanelKey, Position>;
   triggerPositions: Record<PanelKey, Position>;
+  shouldOpenProjectCreation: boolean;
 
   // Graph View State
   hoveredNode: string | null;
@@ -59,6 +60,8 @@ interface AppState {
   setGraphAskStatus: (status: GraphAskState['status'], error?: string | null) => void;
   setGraphAskFocusGroup: (focusGroupId: string | null) => void;
   resetGraphAsk: (focusGroupId?: string | null) => void;
+  triggerProjectCreation: () => void;
+  clearProjectCreationTrigger: () => void;
 }
 
 interface GraphAskState {
@@ -89,6 +92,7 @@ export const useAppStore = create<AppState>((set) => ({
   activePanel: null,
   isLoading: false,
   error: null,
+  shouldOpenProjectCreation: false,
   hoveredNode: null,
   selectedNodes: [],
   graphLayout: '3d',
@@ -193,4 +197,6 @@ export const useAppStore = create<AppState>((set) => ({
         error: null,
       },
     })),
+  triggerProjectCreation: () => set({ shouldOpenProjectCreation: true }),
+  clearProjectCreationTrigger: () => set({ shouldOpenProjectCreation: false }),
 }));

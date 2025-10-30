@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 export function useDashboardNavigation(onNavigate?: (view: string) => void) {
   const setSelectedProject = useAppStore((state) => state.setSelectedProject);
   const setActivePanel = useAppStore((state) => state.setActivePanel);
+  const triggerProjectCreation = useAppStore((state) => state.triggerProjectCreation);
 
   return useCallback(
     async (url: string | undefined | null) => {
@@ -51,6 +52,7 @@ export function useDashboardNavigation(onNavigate?: (view: string) => void) {
 
       if (possibleProjectId === 'create') {
         setActivePanel('projects');
+        triggerProjectCreation();
         onNavigate?.('projects');
         return;
       }
@@ -84,6 +86,6 @@ export function useDashboardNavigation(onNavigate?: (view: string) => void) {
         onNavigate?.('projects');
       }
     },
-    [onNavigate, setSelectedProject, setActivePanel]
+    [onNavigate, setSelectedProject, setActivePanel, triggerProjectCreation]
   );
 }
