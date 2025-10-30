@@ -16,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertTriangle,
@@ -154,12 +153,6 @@ function ActionCard({
     low: 'border-blue-500 bg-blue-50 dark:bg-blue-950',
   };
 
-  const priorityBadgeColors = {
-    high: 'bg-red-500 text-white',
-    medium: 'bg-yellow-500 text-white',
-    low: 'bg-blue-500 text-white',
-  };
-
   const handleExecute = async () => {
     try {
       const result = await executeAction.mutateAsync(action.action_id);
@@ -188,23 +181,12 @@ function ActionCard({
     return <Icon className="h-5 w-5" />;
   };
 
-  const priorityLabels = {
-    high: 'Wysoki',
-    medium: 'Średni',
-    low: 'Niski',
-  };
-
   return (
     <Card className={`border-l-4 ${priorityColors[action.priority]}`}>
       <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            {getIcon(action.icon)}
-            <CardTitle className="text-base">{action.title}</CardTitle>
-          </div>
-          <Badge className={priorityBadgeColors[action.priority]} variant="secondary">
-            {priorityLabels[action.priority]}
-          </Badge>
+        <div className="flex items-center gap-2">
+          {getIcon(action.icon)}
+          <CardTitle className="text-base">{action.title}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
