@@ -59,6 +59,7 @@ numpy
 pandas
 scikit-learn
 scipy
+nltk  # Polish NLP support for stopwords and tokenization
 
 # Statistical Testing
 statsmodels

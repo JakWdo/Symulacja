@@ -18,13 +18,15 @@ import {
 const INSIGHT_TYPE_COLORS = {
   opportunity: '#28a745', // green
   risk: '#dc3545',        // red
-  trend: '#f29f05',       // yellow
+  trend: '#f29f05',       // yellow/orange
+  pattern: '#3b82f6',     // blue
 };
 
 const INSIGHT_TYPE_LABELS = {
   opportunity: 'Szanse',
   risk: 'Ryzyka',
   trend: 'Trendy',
+  pattern: 'Wzorce',
 };
 
 export function InsightTypesChart() {

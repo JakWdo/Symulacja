@@ -14,8 +14,10 @@ import logging
 import re
 from datetime import datetime
 from typing import Any
+from collections import Counter
 
 import numpy as np
+from sklearn.feature_extraction.text import CountVectorizer
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -46,6 +48,131 @@ _NEGATIVE_WORDS = {
 
 _BULLET_PREFIX_RE = re.compile(r"^[-*•\d\.\)\s]+")
 _SEGMENT_LINE_RE = re.compile(r"\*\*(.+?)\*\*\s*[:\-–]\s*(.+)")
+
+# Polish NLP Support - Stopwords
+# ==============================
+# Try to load NLTK stopwords, fallback to hardcoded list if not available
+try:
+    import nltk
+    from nltk.corpus import stopwords
+    _NLTK_AVAILABLE = True
+    try:
+        _POLISH_STOPWORDS_NLTK = set(stopwords.words('polish'))
+        _ENGLISH_STOPWORDS_NLTK = set(stopwords.words('english'))
+    except LookupError:
+        # NLTK data not downloaded yet
+        logger.warning("NLTK stopwords data not found. Run: python scripts/download_nltk_data.py")
+        _NLTK_AVAILABLE = False
+        _POLISH_STOPWORDS_NLTK = set()
+        _ENGLISH_STOPWORDS_NLTK = set()
+except ImportError:
+    _NLTK_AVAILABLE = False
+    _POLISH_STOPWORDS_NLTK = set()
+    _ENGLISH_STOPWORDS_NLTK = set()
+
+# Comprehensive Polish stopwords (custom + NLTK)
+_POLISH_STOPWORDS_CUSTOM = {
+    # Pronouns
+    "ja", "ty", "on", "ona", "ono", "my", "wy", "oni", "one",
+    "mnie", "cię", "go", "ją", "nas", "was", "ich", "sobie", "się",
+    "moja", "mój", "moje", "twoja", "twój", "twoje", "jego", "jej",
+    # Prepositions
+    "w", "z", "do", "od", "na", "po", "o", "u", "przy", "przez",
+    "za", "dla", "nad", "pod", "przed", "między", "bez",
+    # Conjunctions
+    "i", "a", "ale", "oraz", "czy", "że", "jeśli", "gdyby", "bo",
+    "więc", "zatem", "jednak", "ponieważ", "dlatego",
+    # Verbs (common forms)
+    "jest", "są", "był", "była", "było", "byli", "były", "być",
+    "mieć", "ma", "mają", "miał", "miała", "miało", "mieli", "miały",
+    "może", "mogą", "mógł", "mogła", "mogło", "mogli", "mogły",
+    "chce", "chcą", "chciał", "chciała", "chciało", "chcieli", "chciały",
+    "wie", "wiedzą", "wiedział", "wiedziała", "wiedziało", "wiedzieli", "wiedziały",
+    # Articles & particles
+    "ten", "ta", "to", "te", "ci", "tego", "tej", "tych",
+    "jeden", "jedna", "jedno", "jedni", "jedne",
+    "żaden", "żadna", "żadne", "żadni", "żadne",
+    "każdy", "każda", "każde", "wszyscy", "wszystkie",
+    "który", "która", "które", "którzy", "których",
+    "jaki", "jaka", "jakie", "jacy", "jakich",
+    "taki", "taka", "takie", "tacy", "takich",
+    "ile", "ilu", "gdzie", "kiedy", "jak", "dlaczego", "czemu",
+    # Adverbs
+    "tu", "tutaj", "tam", "tu", "teraz", "wtedy", "zawsze", "nigdy",
+    "często", "rzadko", "czasami", "bardzo", "mało", "dużo", "zbyt",
+    "bardziej", "mniej", "najbardziej", "najmniej", "też", "także", "również",
+    # Common verbs (infinitive)
+    "robić", "zrobić", "mówić", "powiedzieć", "iść", "pójść",
+    # Numbers
+    "jeden", "dwa", "trzy", "cztery", "pięć", "sześć", "siedem", "osiem", "dziewięć", "dziesięć",
+    # Common words that appear in concepts but are not meaningful
+    "brak", "czas", "czasu", "czasów", "razy", "rok", "roku", "lat",
+    "sposób", "sposób", "sposobu", "sposobów", "rzecz", "rzeczy",
+    "część", "części", "miejsce", "miejsca", "dane", "danych",
+    "np", "itp", "itd", "tzn", "tj", "tzw",
+}
+
+# English stopwords (basic set + common words)
+_ENGLISH_STOPWORDS_CUSTOM = {
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+    "of", "with", "by", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "should",
+    "could", "may", "might", "can", "this", "that", "these", "those",
+    "it", "its", "he", "she", "they", "them", "their", "his", "her",
+    "from", "as", "not", "all", "any", "some", "such", "no", "yes",
+    "more", "most", "less", "very", "so", "just", "than", "too",
+    "there", "here", "when", "where", "why", "how", "what", "which",
+}
+
+# Combine all stopwords
+_ALL_STOPWORDS = (
+    _POLISH_STOPWORDS_CUSTOM
+    | _ENGLISH_STOPWORDS_CUSTOM
+    | _POLISH_STOPWORDS_NLTK
+    | _ENGLISH_STOPWORDS_NLTK
+)
+
+# Polish suffix patterns for pseudo-lemmatization
+_POLISH_SUFFIXES = [
+    # Genitive plural
+    "ów", "ami", "ach",
+    # Adjective endings
+    "ego", "ymi", "ymi", "owej", "owych",
+    # Common verb endings
+    "ać", "ić", "yć", "eć",
+    # Common noun endings
+    "ami", "ach", "iej",
+]
+
+
+def _normalize_polish_word(word: str) -> str:
+    """
+    Pseudo-lematyzacja dla polskich słów.
+
+    Usuwa najczęstsze końcówki fleksyjne, aby zredukować warianty tego samego słowa.
+    UWAGA: To bardzo prosta heurystyka, nie zastępuje prawdziwej lematyzacji.
+
+    Args:
+        word: Słowo do normalizacji
+
+    Returns:
+        Znormalizowane słowo
+    """
+    word = word.lower()
+
+    # Skip very short words
+    if len(word) <= 3:
+        return word
+
+    # Try removing common suffixes
+    for suffix in _POLISH_SUFFIXES:
+        if word.endswith(suffix) and len(word) > len(suffix) + 2:
+            # Keep at least 3 characters after removing suffix
+            normalized = word[:-len(suffix)]
+            if len(normalized) >= 3:
+                return normalized
+
+    return word
 
 
 def _simple_sentiment_score(text: str) -> float:
@@ -637,15 +764,117 @@ Describe the emotional journey of the discussion:
         return created_insights
 
     def _extract_concepts(self, text: str) -> list[str]:
-        """Extract key concepts from text (simple keyword extraction)"""
-        # Remove common words and extract potential concepts
-        stopwords = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by", "is", "are", "was", "were"}
-        words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
-        concepts = [w for w in words if w not in stopwords]
-        # Return unique concepts, sorted by frequency
-        from collections import Counter
-        concept_counts = Counter(concepts)
-        return [concept for concept, count in concept_counts.most_common(10)]
+        """
+        Ekstrakcja kluczowych koncepcji z tekstu z wsparciem dla języka polskiego.
+
+        Wykorzystuje:
+        - Polskie i angielskie stopwords (NLTK + custom)
+        - Regex z polskimi znakami (ą, ć, ę, ł, ń, ó, ś, ź, ż)
+        - Pseudo-lematyzację (usuwanie końcówek fleksyjnych)
+        - N-gramy (bigramy i trigramy) z sklearn CountVectorizer
+        - Preferencję dla fraz wielowyrazowych nad pojedynczymi słowami
+
+        Args:
+            text: Tekst do analizy
+
+        Returns:
+            Lista top 15 koncepcji, posortowanych według częstości
+        """
+        if not text or len(text.strip()) < 10:
+            return []
+
+        text_lower = text.lower()
+
+        # Step 1: Extract unigrams with Polish character support
+        # Regex: 3+ characters, Polish diacritics, hyphens for compound words
+        unigram_pattern = r'\b[a-ząćęłńóśźż-]{3,}\b'
+        words = re.findall(unigram_pattern, text_lower, flags=re.UNICODE)
+
+        # Filter stopwords and normalize
+        normalized_words = []
+        for word in words:
+            # Skip stopwords
+            if word in _ALL_STOPWORDS:
+                continue
+            # Skip pure numbers or very short words
+            if word.isdigit() or len(word) < 3:
+                continue
+            # Normalize (pseudo-lemmatization)
+            normalized = _normalize_polish_word(word)
+            if normalized not in _ALL_STOPWORDS:
+                normalized_words.append(normalized)
+
+        # Count unigrams
+        unigram_counts = Counter(normalized_words)
+
+        # Step 2: Extract n-grams (bigrams and trigrams) using sklearn
+        # This catches multi-word concepts like "customer experience", "product quality"
+        ngram_concepts = []
+        try:
+            # Create vectorizer with n-gram support
+            vectorizer = CountVectorizer(
+                ngram_range=(2, 3),  # Bigrams and trigrams
+                min_df=1,  # Minimum document frequency
+                max_df=0.9,  # Maximum document frequency (filter very common)
+                stop_words=list(_ALL_STOPWORDS),
+                token_pattern=r'\b[a-ząćęłńóśźż-]{3,}\b',  # Polish characters
+                lowercase=True,
+            )
+
+            # Fit and transform text (treat as single document)
+            X = vectorizer.fit_transform([text_lower])
+
+            # Get n-grams with their counts
+            feature_names = vectorizer.get_feature_names_out()
+            counts = X.toarray()[0]
+
+            # Filter n-grams: only those with ≥2 occurrences
+            for ngram, count in zip(feature_names, counts):
+                if count >= 2:
+                    ngram_concepts.append((ngram, count))
+
+            # Sort by frequency
+            ngram_concepts.sort(key=lambda x: x[1], reverse=True)
+
+        except Exception as e:
+            # If sklearn extraction fails, continue with unigrams only
+            logger.warning(f"N-gram extraction failed: {e}")
+            ngram_concepts = []
+
+        # Step 3: Combine and prioritize n-grams
+        # Strategy: Prefer n-grams (multi-word concepts) over single words
+        final_concepts = []
+
+        # Add top n-grams first (up to 10)
+        for ngram, count in ngram_concepts[:10]:
+            final_concepts.append(ngram)
+
+        # Add top unigrams to fill remaining slots
+        # Skip unigrams that are already part of extracted n-grams
+        ngram_words = set()
+        for ngram, _ in ngram_concepts:
+            ngram_words.update(ngram.split())
+
+        for word, count in unigram_counts.most_common(30):
+            # Skip if already in final concepts
+            if word in final_concepts:
+                continue
+            # Skip if word is part of an n-gram we already included
+            if word in ngram_words:
+                continue
+            # Add if we have slots remaining
+            if len(final_concepts) < 15:
+                final_concepts.append(word)
+            else:
+                break
+
+        # If we don't have enough concepts, add more unigrams
+        if len(final_concepts) < 10:
+            for word, count in unigram_counts.most_common(15):
+                if word not in final_concepts and len(final_concepts) < 15:
+                    final_concepts.append(word)
+
+        return final_concepts[:15]  # Return top 15
 
     def _determine_sentiment(self, sentiment_narrative: str) -> str:
         """Determine overall sentiment from narrative"""
@@ -663,20 +892,106 @@ Describe the emotional journey of the discussion:
             return "neutral"
 
     def _classify_insight_type(self, insight_text: str) -> str:
-        """Classify insight type based on keywords"""
+        """
+        Klasyfikacja typu spostrzeżenia (insight) na podstawie słów kluczowych.
+
+        Obsługiwane typy:
+        - opportunity: szanse, potencjał wzrostu, przewagi
+        - risk: ryzyka, zagrożenia, problemy
+        - trend: trendy, zmiany w czasie, przesunięcia
+        - pattern: wzorce, powtarzające się zachowania
+
+        Wspiera język polski i angielski.
+
+        Args:
+            insight_text: Tekst spostrzeżenia do klasyfikacji
+
+        Returns:
+            Typ spostrzeżenia: "opportunity", "risk", "trend", lub "pattern"
+        """
         insight_lower = insight_text.lower()
 
-        # Keyword patterns for classification
-        if any(word in insight_lower for word in ["opportunity", "potential", "growth", "advantage"]):
+        # Keyword patterns for classification (PL + EN)
+        # Priority order: opportunity > risk > trend > pattern
+        # This ensures specific types are detected before generic "pattern"
+
+        # 1. OPPORTUNITY - szanse, potencjał, wzrost, przewagi
+        opportunity_keywords = [
+            # Polish
+            "szansa", "szanse", "potencjał", "wzrost", "przewaga", "okazja",
+            "możliwość", "korzyść", "zaleta", "zysk", "rozwój", "ekspansja",
+            "innowacja", "ulepszenie",
+            # English
+            "opportunity", "potential", "growth", "advantage", "benefit",
+            "gain", "upside", "improvement", "innovation",
+        ]
+
+        # 2. RISK - ryzyko, zagrożenia, problemy, wyzwania
+        risk_keywords = [
+            # Polish
+            "ryzyko", "zagrożenie", "obawa", "problem", "wyzwanie",
+            "bariera", "trudność", "niebezpieczeństwo", "słabość", "ograniczenie",
+            "kryzys", "utrata", "odpływ", "negatywny wpływ",
+            # English
+            "risk", "threat", "concern", "problem", "issue", "challenge",
+            "barrier", "difficulty", "danger", "weakness", "limitation",
+            "crisis", "loss", "churn", "negative impact",
+        ]
+
+        # 3. TREND - trendy, zmiany w czasie, przesunięcia
+        trend_keywords = [
+            # Polish
+            "trend", "tendencja", "zmiana", "przesunięcie", "ewolucja",
+            "wzrostowy", "spadkowy", "rosnący", "malejący", "coraz więcej",
+            "coraz mniej", "stopniowo", "dynamika",
+            # English
+            "trend", "tendency", "shift", "change", "evolution",
+            "increasing", "decreasing", "growing", "declining", "more and more",
+            "less and less", "gradually", "dynamics",
+        ]
+
+        # 4. PATTERN - wzorce, powtarzalność, konsekwencja
+        pattern_keywords = [
+            # Polish
+            "wzorzec", "schemat", "powtarzalny", "konsekwentny", "regularny",
+            "częsty", "powszechny", "typowy", "stały", "większość", "wszyscy",
+            "systematyczny",
+            # English
+            "pattern", "consistent", "regular", "frequent", "common",
+            "typical", "recurring", "systematic", "across", "all", "majority",
+        ]
+
+        # Check for opportunities (highest priority for positive insights)
+        if any(keyword in insight_lower for keyword in opportunity_keywords):
             return "opportunity"
-        elif any(word in insight_lower for word in ["risk", "concern", "problem", "issue", "challenge"]):
+
+        # Check for risks (high priority for negative insights)
+        if any(keyword in insight_lower for keyword in risk_keywords):
             return "risk"
-        elif any(word in insight_lower for word in ["trend", "pattern", "increasing", "decreasing", "shift"]):
+
+        # Check for trends (changes over time)
+        if any(keyword in insight_lower for keyword in trend_keywords):
             return "trend"
-        elif any(word in insight_lower for word in ["consistent", "common", "across", "all", "majority"]):
+
+        # Check for patterns (recurring behaviors)
+        if any(keyword in insight_lower for keyword in pattern_keywords):
             return "pattern"
+
+        # Default fallback logic: infer from context if no keywords matched
+        # If text mentions change/time, likely a trend
+        # If text mentions positive outcome, likely opportunity
+        # Otherwise default to "opportunity" (more actionable than "pattern")
+
+        time_indicators = ["czas", "ostatnio", "wcześniej", "teraz", "obecnie", "recently", "now", "before", "time"]
+        positive_indicators = ["dobrze", "lepiej", "pozytywnie", "sukces", "well", "better", "positive", "success"]
+
+        if any(indicator in insight_lower for indicator in time_indicators):
+            return "trend"
+        elif any(indicator in insight_lower for indicator in positive_indicators):
+            return "opportunity"
         else:
-            return "pattern"  # Default
+            # Final fallback: opportunity (more actionable than pattern)
+            return "opportunity"
 
     def _calculate_confidence(self, insight_text: str) -> float:
         """Calculate confidence score based on language strength (0-1)"""

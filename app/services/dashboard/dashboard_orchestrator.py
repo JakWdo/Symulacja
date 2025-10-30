@@ -940,12 +940,51 @@ class DashboardOrchestrator:
                 insight_type_counts[insight_type] += 1
 
         # Response patterns (heuristics based on evidence and sentiment)
+        # Polish + English keywords for better detection
         keyword_patterns = {
-            "Price sensitivity": ["price", "pricing", "cost", "expensive", "cheap"],
-            "Product quality": ["quality", "durable", "reliable", "defect", "faulty"],
-            "Customer experience": ["experience", "journey", "onboarding", "support", "service"],
-            "Feature requests": ["feature", "missing", "lack", "add", "improve"],
-            "Performance issues": ["slow", "lag", "performance", "crash", "bug"],
+            "Wrażliwość cenowa": [
+                # Polish
+                "cena", "cennik", "ceny", "cenowy", "kosztowny", "drogi", "droga", "drogie",
+                "tani", "tania", "tanie", "koszt", "kosztów", "wydatek", "opłata", "płatność",
+                "zbyt drogo", "za drogo", "ekonomiczny", "budżet",
+                # English
+                "price", "pricing", "cost", "expensive", "cheap", "affordable", "budget",
+            ],
+            "Jakość produktu": [
+                # Polish
+                "jakość", "jakości", "trwałość", "trwały", "niezawodny", "niezawodność",
+                "awaria", "usterka", "defekt", "zepsuty", "uszkodzony", "wadliwy",
+                "solidny", "solidność", "wytrzymały",
+                # English
+                "quality", "durable", "reliable", "defect", "faulty", "broken", "damaged",
+                "solid", "robust", "sturdy",
+            ],
+            "Doświadczenie klienta": [
+                # Polish
+                "doświadczenie", "obsługa", "obsługi", "wsparcie", "pomoc", "kontakt",
+                "onboarding", "wdrożenie", "użyteczność", "łatwość", "intuicyjny",
+                "przyjazny", "serwis", "service", "UX",
+                # English
+                "experience", "journey", "onboarding", "support", "service", "help",
+                "customer service", "usability", "user-friendly", "intuitive",
+            ],
+            "Brakujące funkcje": [
+                # Polish
+                "brakuje", "brak", "brakująca", "brakujący", "funkcja", "funkcji",
+                "dodać", "dodania", "ulepszyć", "ulepszenie", "poprawić", "poprawa",
+                "rozszerzyć", "rozszerzenie", "wprowadzić", "chciałbym", "potrzeba",
+                # English
+                "feature", "missing", "lack", "add", "improve", "enhance", "extend",
+                "would like", "need", "request", "wish",
+            ],
+            "Problemy wydajnościowe": [
+                # Polish
+                "wolny", "wolno", "zacina", "zawieszenie", "wydajność", "opóźnienie",
+                "lag", "powolny", "crash", "błąd", "awaria", "nie działa", "problem techniczny",
+                # English
+                "slow", "lag", "performance", "crash", "bug", "error", "freeze",
+                "hang", "loading", "latency",
+            ],
         }
 
         pattern_counts: dict[str, int] = {}
