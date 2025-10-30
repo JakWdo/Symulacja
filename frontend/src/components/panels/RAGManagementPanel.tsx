@@ -19,13 +19,13 @@ const ACCEPTED_FILE_TYPES =
 function formatStatus(status: RAGDocument['status']) {
   switch (status) {
     case 'completed':
-      return { label: 'Zaindeksowano', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
+      return { label: 'Zaindeksowano', className: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' };
     case 'processing':
-      return { label: 'Przetwarzanie', className: 'bg-amber-100 text-amber-700 border-amber-200' };
+      return { label: 'Przetwarzanie', className: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' };
     case 'failed':
-      return { label: 'Błąd', className: 'bg-rose-100 text-rose-700 border-rose-200' };
+      return { label: 'Błąd', className: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' };
     default:
-      return { label: status, className: 'bg-slate-100 text-slate-600 border-slate-200' };
+      return { label: status, className: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' };
   }
 }
 
@@ -147,14 +147,14 @@ export function RAGManagementPanel() {
       size="lg"
     >
       <div className="space-y-6">
-        <section className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 space-y-4">
+        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-800/80 p-4 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-primary-50 p-2">
-              <Upload className="w-5 h-5 text-primary-600" />
+            <div className="rounded-xl bg-primary-50 dark:bg-primary-900/30 p-2">
+              <Upload className="w-5 h-5 text-primary-600 dark:text-primary-400" />
             </div>
             <div>
-              <h4 className="text-base font-semibold text-slate-900">Dodaj nowy dokument źródłowy</h4>
-              <p className="text-xs text-slate-500">
+              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Dodaj nowy dokument źródłowy</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Wspierane formaty: PDF oraz DOCX. Dokumenty są analizowane i indeksowane semantycznie.
               </p>
             </div>
@@ -195,7 +195,7 @@ export function RAGManagementPanel() {
                   disabled={isUploading}
                 />
                 {selectedFile && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Wybrano: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
                   </p>
                 )}
@@ -211,15 +211,15 @@ export function RAGManagementPanel() {
           </form>
         </section>
 
-        <section className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 space-y-4">
+        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-800/80 p-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-slate-100 p-2">
-                <FileText className="w-5 h-5 text-slate-600" />
+              <div className="rounded-xl bg-slate-100 dark:bg-slate-700 p-2">
+                <FileText className="w-5 h-5 text-slate-600 dark:text-slate-300" />
               </div>
               <div>
-                <h4 className="text-base font-semibold text-slate-900">Indeksowane dokumenty</h4>
-                <p className="text-xs text-slate-500">
+                <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Indeksowane dokumenty</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Monitoruj status przetwarzania oraz usuwaj nieaktualne materiały badawcze.
                 </p>
               </div>
@@ -236,11 +236,11 @@ export function RAGManagementPanel() {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-sm text-slate-500">
+            <div className="flex items-center justify-center py-8 text-sm text-slate-500 dark:text-slate-400">
               <SpinnerLogo className="w-6 h-6 mr-2" /> Wczytywanie dokumentów...
             </div>
           ) : sortedDocuments.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500 text-center">
+            <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-6 text-sm text-slate-500 dark:text-slate-400 text-center">
               Brak dokumentów w bazie RAG. Dodaj raport lub badanie, aby wzbogacić generowane persony.
             </div>
           ) : (
@@ -251,14 +251,14 @@ export function RAGManagementPanel() {
                 return (
                   <div
                     key={document.id}
-                    className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4 md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-4 md:flex-row md:items-center md:justify-between"
                   >
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-slate-900">{document.title}</p>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{document.title}</p>
                         <Badge className={`${status.className} border`}>{status.label}</Badge>
                       </div>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         Dodano {formatDate(document.created_at)} • {document.file_type.toUpperCase()} • {document.num_chunks} segmentów
                       </p>
                     </div>
@@ -282,14 +282,14 @@ export function RAGManagementPanel() {
           )}
         </section>
 
-        <section className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 space-y-4">
+        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-800/80 p-4 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-accent-50 p-2">
-              <Search className="w-5 h-5 text-accent-600" />
+            <div className="rounded-xl bg-accent-50 dark:bg-accent-900/30 p-2">
+              <Search className="w-5 h-5 text-accent-600 dark:text-accent-400" />
             </div>
             <div>
-              <h4 className="text-base font-semibold text-slate-900">Przetestuj wyszukiwanie kontekstowe</h4>
-              <p className="text-xs text-slate-500">
+              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Przetestuj wyszukiwanie kontekstowe</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Sprawdź, jakie fragmenty raportów trafią do generatora person dla konkretnego pytania badawczego.
               </p>
             </div>
@@ -304,8 +304,8 @@ export function RAGManagementPanel() {
               rows={3}
             />
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <Label htmlFor="rag-topk" className="text-xs text-slate-500">
+              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <Label htmlFor="rag-topk" className="text-xs text-slate-500 dark:text-slate-400">
                   Liczba fragmentów
                 </Label>
                 <Input
@@ -327,26 +327,26 @@ export function RAGManagementPanel() {
           </form>
 
           {lastQueryResult && (
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-4 space-y-3">
               <div>
-                <h5 className="text-sm font-semibold text-slate-900">Zsyntetyzowany kontekst</h5>
-                <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">
+                <h5 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Zsyntetyzowany kontekst</h5>
+                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
                   {lastQueryResult.context}
                 </p>
               </div>
               <div className="space-y-2">
-                <h6 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cytowania</h6>
+                <h6 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Cytowania</h6>
                 {lastQueryResult.citations.length === 0 ? (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Brak szczegółowych cytowań dla tego zapytania.
                   </p>
                 ) : (
                   <div className="space-y-2">
                     {lastQueryResult.citations.map((citation, index) => (
-                      <div key={`${citation.document_title}-${index}`} className="rounded-lg bg-white/90 p-3 shadow-sm">
-                        <p className="text-xs text-slate-500 uppercase tracking-wide">{citation.document_title}</p>
-                        <p className="text-sm text-slate-700 mt-1 leading-relaxed">{citation.chunk_text}</p>
-                        <p className="text-xs text-slate-500 mt-2">trafność {Math.round(citation.relevance_score * 100)}%</p>
+                      <div key={`${citation.document_title}-${index}`} className="rounded-lg bg-white/90 dark:bg-slate-700/50 p-3 shadow-sm">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">{citation.document_title}</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">{citation.chunk_text}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">trafność {Math.round(citation.relevance_score * 100)}%</p>
                       </div>
                     ))}
                   </div>
