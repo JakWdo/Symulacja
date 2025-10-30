@@ -40,6 +40,7 @@ from app.schemas.dashboard import (
     UsageBreakdownResponse,
     WeeklyCompletionData,
 )
+from app.utils import get_utc_now
 from app.services.dashboard import (
     DashboardMetricsService,
     DashboardOrchestrator,
@@ -213,7 +214,7 @@ async def get_notifications(
     # Format time_ago
     output = []
     for notif in notifications:
-        delta = datetime.utcnow() - notif.created_at
+        delta = get_utc_now() - notif.created_at
         if delta.days > 0:
             time_ago = f"{delta.days} days ago"
         elif delta.seconds > 3600:

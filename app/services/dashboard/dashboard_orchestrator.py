@@ -24,6 +24,7 @@ from app.services.dashboard.notification_service import NotificationService
 from app.services.dashboard.quick_actions_service import QuickActionsService
 from app.services.dashboard.usage_tracking_service import UsageTrackingService
 from app.core.redis import redis_get_json, redis_set_json
+from app.utils import get_utc_now
 
 
 class DashboardOrchestrator:
@@ -119,7 +120,7 @@ class DashboardOrchestrator:
                 "direction": direction,
             }
 
-        now = datetime.utcnow()
+        now = get_utc_now()
         this_week_start = now - timedelta(days=now.weekday())
         this_week_start = this_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
         last_week_start = this_week_start - timedelta(days=7)
@@ -517,7 +518,7 @@ class DashboardOrchestrator:
         # Import models
         from app.models import FocusGroup, Persona, Survey
 
-        now = datetime.utcnow()
+        now = get_utc_now()
         weeks_data = []
         personas_data = []
         focus_groups_data = []
@@ -654,7 +655,7 @@ class DashboardOrchestrator:
             project_name = project.name if project else "Unknown"
 
             # Calculate time ago
-            delta = datetime.utcnow() - insight.created_at
+            delta = get_utc_now() - insight.created_at
             if delta.days > 0:
                 time_ago = f"{delta.days} days ago"
             elif delta.seconds > 3600:
@@ -713,7 +714,7 @@ class DashboardOrchestrator:
         project = project_result.scalar_one()
 
         # Calculate time ago
-        delta = datetime.utcnow() - insight.created_at
+        delta = get_utc_now() - insight.created_at
         if delta.days > 0:
             time_ago = f"{delta.days} days ago"
         elif delta.seconds > 3600:

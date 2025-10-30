@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import FocusGroup, InsightEvidence, Project
 from app.services.dashboard.health_service import ProjectHealthService
+from app.utils import get_utc_now
 
 
 class QuickActionsService:
@@ -192,8 +193,8 @@ class QuickActionsService:
                 # Check if FG was recently completed (within 24h)
                 recently_completed = False
                 if active_focus_groups:
-                    from datetime import datetime, timedelta
-                    now = datetime.utcnow()
+                    from datetime import timedelta
+                    now = get_utc_now()
                     for fg in active_focus_groups:
                         if fg.status == "completed" and fg.completed_at:
                             time_since_completion = now - fg.completed_at

@@ -4,7 +4,7 @@ Model użytkownika z pełnym wsparciem dla autentykacji i ustawień
 Ten model reprezentuje użytkownika systemu Sight.
 Zawiera dane profilowe, ustawienia notyfikacji, szyfrowany API key i relacje do projektów.
 """
-from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Integer, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -58,10 +58,10 @@ class User(Base):
     critical_threshold = Column(Integer, default=90)  # Critical alert threshold (% of budget)
 
     # === TIMESTAMPS ===
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    last_login_at = Column(DateTime, nullable=True)
-    deleted_at = Column(DateTime, nullable=True)  # Miękkie usunięcie (data dezaktywacji)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)  # Miękkie usunięcie (data dezaktywacji)
 
     # === RELATIONSHIPS ===
     projects = relationship(

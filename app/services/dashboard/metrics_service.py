@@ -18,6 +18,7 @@ from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DashboardMetric, InsightEvidence, Project
+from app.utils import get_utc_now
 
 
 class DashboardMetricsService:
@@ -259,7 +260,7 @@ class DashboardMetricsService:
                 },
             }
         """
-        now = datetime.utcnow()
+        now = get_utc_now()
 
         # Calculate week boundaries (Monday to Sunday)
         # This week: start of current week (Monday 00:00) to now

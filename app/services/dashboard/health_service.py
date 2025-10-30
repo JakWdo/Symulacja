@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import FocusGroup, InsightEvidence, Project, ProjectHealthLog
+from app.utils import get_utc_now
 
 
 class ProjectHealthService:
@@ -177,7 +178,7 @@ class ProjectHealthService:
                     fg.completed_at or fg.created_at,
                     fg.updated_at or fg.created_at,
                 )
-                idle_hours = (datetime.utcnow() - last_activity).total_seconds() / 3600
+                idle_hours = (get_utc_now() - last_activity).total_seconds() / 3600
                 if idle_hours > 48:
                     blockers.append(
                         {
