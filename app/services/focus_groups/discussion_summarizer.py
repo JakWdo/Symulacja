@@ -145,6 +145,75 @@ _POLISH_SUFFIXES = [
 ]
 
 
+def detect_input_language(text: str) -> str:
+    """
+    Wykrywa język z tekstu input (prosty heurystyczny detektor).
+
+    Algorytm:
+    1. Zlicza wystąpienia polskich stopwords (jak, co, jest, się, czy, ...)
+    2. Zlicza wystąpienia angielskich stopwords (what, how, is, are, ...)
+    3. Porównuje liczności i wybiera język z większą liczbą trafień
+    4. Fallback: polski (domyślny język produktu)
+
+    Args:
+        text: Tekst do analizy (questions/messages z focus group)
+
+    Returns:
+        'pl' lub 'en'
+
+    Note:
+        To jest prosty heurystyczny detektor. W przyszłości można użyć biblioteki
+        jak langdetect, ale dla dwóch języków (pl/en) ta metoda jest wystarczająca.
+
+    Examples:
+        >>> detect_input_language("Jak oceniasz ten produkt?")
+        'pl'
+        >>> detect_input_language("What do you think about this product?")
+        'en'
+        >>> detect_input_language("xyz123")  # unclear text
+        'pl'
+    """
+    # Polski stopwords (niektóre z listy POLISH_STOPWORDS)
+    polish_indicators = [
+        'jak', 'co', 'jest', 'się', 'czy', 'nie', 'ale', 'to', 'że', 'do',
+        'z', 'na', 'i', 'w', 'o', 'dla', 'po', 'przez', 'od', 'kiedy',
+        'dlaczego', 'gdzie', 'który', 'jakie', 'jaką', 'jaką', 'które',
+        'czym', 'czemu', 'kto', 'kim', 'kogo', 'was', 'nas', 'mnie', 'cię',
+        'możesz', 'możemy', 'powinien', 'powinna', 'powinno', 'chcesz',
+        'chcemy', 'myślisz', 'uważasz', 'uważam', 'myślę', 'sądzisz',
+    ]
+
+    # Anglojęzyczne stopwords
+    english_indicators = [
+        'what', 'how', 'why', 'where', 'when', 'who', 'which', 'is', 'are',
+        'the', 'and', 'but', 'that', 'this', 'with', 'for', 'from', 'about',
+        'would', 'should', 'could', 'have', 'has', 'do', 'does', 'did',
+        'your', 'you', 'we', 'they', 'them', 'think', 'believe', 'feel',
+        'can', 'will', 'must', 'may', 'might',
+    ]
+
+    text_lower = text.lower()
+    # Usuń znaki interpunkcyjne i podziel na słowa
+    import re
+    words = re.findall(r'\b[a-ząćęłńóśźż]+\b', text_lower, flags=re.UNICODE)
+
+    # Zlicz dokładne dopasowania słów kluczowych (nie substrings!)
+    polish_count = sum(1 for word in words if word in polish_indicators)
+    english_count = sum(1 for word in words if word in english_indicators)
+
+    logger.debug(f"Language detection: PL={polish_count}, EN={english_count} (sample: {text[:100]}...)")
+
+    # Jeśli więcej polskich słów → polski
+    if polish_count > english_count:
+        return 'pl'
+    # Jeśli więcej angielskich słów → angielski
+    elif english_count > polish_count:
+        return 'en'
+
+    # Default: polski (dla polskiego produktu)
+    return 'pl'
+
+
 def _normalize_polish_word(word: str) -> str:
     """
     Pseudo-lematyzacja dla polskich słów.
@@ -308,9 +377,30 @@ class DiscussionSummarizerService:
             focus_group, responses, personas, include_demographics
         )
 
-        # Generujemy podsumowanie przez model AI
+        # Wykryj język z treści dyskusji (questions + first responses)
+        # Bierzemy pierwsze 1500 znaków dla language detection (optymalizacja)
+        all_text = ""
+
+        # Dodaj pytania (z focus_group.questions)
+        for question in focus_group.questions:
+            all_text += question + " "
+
+        # Dodaj pierwsze odpowiedzi (z responses)
+        for response in responses[:10]:  # Pierwsze 10 odpowiedzi
+            all_text += response.response_text + " "
+
+        # Weź pierwsze 1500 znaków dla language detection
+        sample_text = all_text[:1500]
+        detected_language = detect_input_language(sample_text)
+
+        logger.info(
+            f"Language detection for focus group {focus_group_id}: "
+            f"detected='{detected_language}' (sample_length={len(sample_text)} chars)"
+        )
+
+        # Generujemy podsumowanie przez model AI (z wykrytym językiem)
         prompt_text = self._create_summary_prompt(
-            discussion_data, include_recommendations
+            discussion_data, include_recommendations, language=detected_language
         )
 
         # Call LLM via prompt (returns AIMessage with metadata)
@@ -467,11 +557,24 @@ class DiscussionSummarizerService:
         }
 
     def _create_summary_prompt(
-        self, discussion_data: dict[str, Any], include_recommendations: bool
+        self,
+        discussion_data: dict[str, Any],
+        include_recommendations: bool,
+        language: str = 'pl',
     ) -> str:
         """
-        Tworzy szczegółowy prompt do podsumowania AI
-        Formatuje pytania, odpowiedzi, sentiment i demografię
+        Tworzy szczegółowy prompt do podsumowania AI.
+
+        Formatuje pytania, odpowiedzi, sentiment i demografię.
+        Parametryzuje język dla treści AI output (nagłówki sekcji pozostają po angielsku).
+
+        Args:
+            discussion_data: Dane dyskusji z responses, questions, demographics
+            include_recommendations: Czy zawrzeć sekcję Strategic Recommendations
+            language: Język dla treści podsumowania ('pl' lub 'en')
+
+        Returns:
+            Prompt dla LLM z instrukcjami językowymi
         """
 
         topic = discussion_data["topic"]
@@ -578,6 +681,26 @@ Describe the emotional journey of the discussion:
 - Consider both explicit feedback and implicit patterns
 - Format using Markdown for readability (## headings, **bold** emphasis)
 """
+
+        # Dodaj instrukcję językową (nagłówki po angielsku, treść w wybranym języku)
+        language_instruction = {
+            'pl': (
+                "\n\n**CRITICAL LANGUAGE INSTRUCTION:**\n"
+                "- Keep ALL section headings in ENGLISH (e.g., ## 1. EXECUTIVE SUMMARY, ## 2. KEY INSIGHTS)\n"
+                "- Write ALL content (paragraphs, bullet points, analysis, quotes) in POLISH\n"
+                "- Use Polish grammar, vocabulary, and phrasing throughout the content\n"
+                "- Example: '## 2. KEY INSIGHTS' followed by '**Główny problem**: Użytkownicy oczekują...'\n"
+            ),
+            'en': (
+                "\n\n**CRITICAL LANGUAGE INSTRUCTION:**\n"
+                "- Keep ALL section headings in ENGLISH (e.g., ## 1. EXECUTIVE SUMMARY, ## 2. KEY INSIGHTS)\n"
+                "- Write ALL content (paragraphs, bullet points, analysis, quotes) in ENGLISH\n"
+                "- Use English grammar, vocabulary, and phrasing throughout the content\n"
+                "- Example: '## 2. KEY INSIGHTS' followed by '**Main concern**: Users expect...'\n"
+            ),
+        }.get(language, 'pl')
+
+        prompt += language_instruction
 
         return prompt
 

@@ -2,11 +2,14 @@
 
 Strategiczny roadmap projektu Sight. Utrzymujemy 20-30 najważniejszych zadań pogrupowanych według obszarów. Priorytety według MoSCoW: **High** (Must Have - blokuje inne zadania, security, production bugs), **Medium** (Should Have - ważne features, performance), **Low** (Could Have - nice-to-have, technical debt).
 
-**Ostatnia aktualizacja:** 2025-10-27
+**Ostatnia aktualizacja:** 2025-10-31
 
 ---
 
 ## ✅ Recently Completed (Last 7 Days)
+
+- [x] **Full Internationalization (i18n) - Polish/English Support** (data: 2025-10-31)
+  Pełna implementacja dwujęzyczności (PL/EN) dla całej aplikacji. Backend: migracja Alembic (pole `preferred_language` w User model), schematy ProfileUpdateRequest/ProfileResponse, endpointy GET/PUT /settings/profile, middleware locale (`get_locale()` dependency z Accept-Language header), AI language detection w `discussion_summarizer.py` (auto-detect z pytań/odpowiedzi), 56 nowych testów (100% pass). Frontend: infrastruktura i18next (8 namespaces, 16 JSON plików z ~600 kluczy PL/EN), hook `useDateFormat` (locale-aware formatowanie), LanguageToggle w AppSidebar, LanguageSelector w Settings, przetłumaczone core components (sidebar, login, auth, settings, dashboard - 5 plików, focus groups analysis - 6 plików, personas - 3 pliki). Build: TypeScript success, 56 backend testów pass. Docs: CLAUDE.md zaktualizowane z pełną sekcją "Internationalization (i18n)". Kluczowe features: localStorage persistence, Accept-Language interceptor, sync preferred_language z backendem, parametryzowane daty/liczby (Intl API), AI generuje treść w wykrytym języku (nagłówki po EN dla parsera).
 
 - [x] **Dashboard Figma Make Implementation - Phase 1 + 2** (data: 2025-10-27)
   Complete overhaul dashboardu z designem Figma Make + backend optimizations. Backend: insight types distribution, Redis caching (30-60s), N+1 optimization (87% fewer queries), filter parameters (project_id, top_n), budget limit z user plan, database indexes. Frontend: KPI grid 8 columns, Insight Types chart with tabs, P90 tooltip for TTI. Testing: 3 new test cases. Commits: 656b471 (Phase 1), 393584c (Phase 2).

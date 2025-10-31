@@ -10,13 +10,13 @@ with Polish text examples to ensure:
 """
 
 import pytest
-from app.services.focus_groups.discussion_summarizer import DiscussionSummarizer
+from app.services.focus_groups.discussion_summarizer import DiscussionSummarizerService
 
 
 @pytest.fixture
 def summarizer():
-    """Create a DiscussionSummarizer instance for testing."""
-    return DiscussionSummarizer()
+    """Create a DiscussionSummarizerService instance for testing."""
+    return DiscussionSummarizerService()
 
 
 class TestPolishConceptExtraction:

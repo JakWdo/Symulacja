@@ -1,0 +1,240 @@
+{
+  "header": {
+    "title": "Panel główny",
+    "subtitle": "Witaj w Sight - Twoim centrum badań rynku AI",
+    "createProjectButton": "Nowy projekt"
+  },
+
+  "quickActions": {
+    "title": "Szybkie akcje",
+    "createProject": {
+      "title": "Utwórz projekt",
+      "description": "Rozpocznij nowy projekt badawczy"
+    },
+    "generatePersona": {
+      "title": "Generuj persony",
+      "description": "Stwórz persony AI dla swojego projektu"
+    },
+    "createSurvey": {
+      "title": "Nowa ankieta",
+      "description": "Zaprojektuj ankietę dla swoich badań"
+    },
+    "launchFocusGroup": {
+      "title": "Uruchom grupę fokusową",
+      "description": "Rozpocznij wirtualną grupę fokusową AI"
+    }
+  },
+
+  "activeProjects": {
+    "title": "Aktywne projekty badawcze",
+    "subtitle": "Monitoruj postęp, stan i spostrzeżenia we wszystkich projektach",
+    "viewAll": "Zobacz wszystkie",
+    "emptyState": {
+      "title": "Brak aktywnych projektów",
+      "description": "Brak aktywnych projektów. Utwórz swój pierwszy projekt, aby rozpocząć!",
+      "createButton": "Utwórz projekt"
+    },
+    "status": {
+      "running": "W trakcie",
+      "blocked": "Zablokowany",
+      "paused": "Wstrzymany",
+      "completed": "Ukończony"
+    },
+    "health": {
+      "onTrack": "Na bieżąco",
+      "atRisk": "Zagrożony",
+      "blocked": "Zablokowany"
+    },
+    "timeAgo": {
+      "now": "Teraz",
+      "hoursAgo": "{{count}} godz. temu",
+      "dayAgo": "1 dzień temu",
+      "daysAgo": "{{count}} dni temu"
+    },
+    "actions": {
+      "fixIssues": "Napraw problemy",
+      "resume": "Wznów",
+      "export": "Eksportuj"
+    },
+    "progress": {
+      "demographics": "Demografia",
+      "personas": "Persony",
+      "focusGroup": "Grupa fokusowa",
+      "analysis": "Analiza"
+    },
+    "insightsCount": "{{count}} spostrzeżeń",
+    "project": {
+      "personas": "persony",
+      "focusGroups": "grupy fokusowe",
+      "surveys": "ankiety",
+      "lastActivity": "Ostatnia aktywność"
+    }
+  },
+
+  "latestInsights": {
+    "title": "Najnowsze spostrzeżenia",
+    "subtitle": "Odkrycia o wysokim poziomie pewności z ostatnich badań",
+    "viewAll": "Zobacz wszystkie",
+    "viewDetails": "Szczegóły",
+    "confidence": "{{percent}}% pewności",
+    "emptyState": {
+      "title": "Brak spostrzeżeń",
+      "description": "Spostrzeżenia pojawią się tutaj po analizie dyskusji w grupach fokusowych",
+      "startButton": "Rozpocznij badanie"
+    },
+    "impact": {
+      "high": "wysoki wpływ",
+      "medium": "średni wpływ",
+      "low": "niski wpływ"
+    },
+    "insight": {
+      "from": "z",
+      "viewButton": "Zobacz szczegóły"
+    }
+  },
+
+  "notifications": {
+    "title": "Powiadomienia i zadania",
+    "subtitle": "Ważne alerty i zadania do wykonania",
+    "viewAll": "Zobacz wszystkie",
+    "allRead": "Wszystko przeczytane!",
+    "markDone": "Oznacz jako wykonane",
+    "emptyState": {
+      "title": "Brak powiadomień",
+      "description": "Nie masz żadnych nowych powiadomień"
+    },
+    "filters": {
+      "all": "Wszystkie",
+      "unread": "Nieprzeczytane"
+    },
+    "markAllRead": "Oznacz wszystkie jako przeczytane",
+    "types": {
+      "focusGroupComplete": "Grupa fokusowa zakończona",
+      "personaGenerated": "Persona wygenerowana",
+      "surveyComplete": "Ankieta zakończona",
+      "budgetWarning": "Ostrzeżenie o budżecie"
+    }
+  },
+
+  "usage": {
+    "title": "Zużycie i budżet",
+    "subtitle": "Monitorowanie zużycia tokenów i kosztów",
+    "viewDetails": "Zobacz szczegóły",
+    "currentUsage": "Bieżące zużycie",
+    "forecast": "Prognoza (koniec miesiąca)",
+    "alertThreshold": "Próg alertu",
+    "budgetAlert": "Alert budżetowy",
+    "budgetAlertMessage": "Zużycie na poziomie 93% - rozważ optymalizację",
+    "tokensUsed": "{{count}} mln tokenów zużytych",
+    "apiUsage": "Użycie API",
+    "budget": "Budżet",
+    "remaining": "pozostało",
+    "of": "z",
+    "thisMonth": "w tym miesiącu",
+    "breakdown": {
+      "title": "Zużycie według typu operacji",
+      "personaGeneration": "Generowanie person",
+      "focusGroups": "Grupy fokusowe",
+      "ragAnalysis": "RAG i analiza",
+      "other": "Inne operacje"
+    },
+    "emptyState": {
+      "title": "Brak danych o użytkowaniu",
+      "description": "Dane o użytkowaniu pojawią się po rozpoczęciu pracy z platformą"
+    }
+  },
+
+  "welcomeBanner": {
+    "title": "Witaj w Sight!",
+    "description": "Rozpocznij swoją podróż z badaniami rynku AI. Utwórz projekt, generuj persony i uruchamiaj wirtualne grupy fokusowe.",
+    "dismissButton": "Rozumiem",
+    "primaryAction": "Utwórz pierwszy projekt",
+    "secondaryAction": "Obejrzyj przewodnik"
+  },
+
+  "mainDashboard": {
+    "title": "Panel główny",
+    "subtitle": "Przegląd Twoich działań badawczych we wszystkich projektach",
+    "newProject": "Nowy projekt",
+    "stats": {
+      "activeProjects": "Aktywne projekty",
+      "projectsChange": "+2 w ostatnim miesiącu",
+      "totalPersonas": "Łącznie person",
+      "personasChange": "+18% w ostatnim miesiącu",
+      "runningSurveys": "Aktywne ankiety",
+      "surveysChange": "+5 w tym tygodniu",
+      "focusGroups": "Grupy fokusowe",
+      "focusGroupsChange": "+3 ukończone dzisiaj"
+    },
+    "charts": {
+      "researchActivity": {
+        "title": "Aktywność badawcza",
+        "subtitle": "Miesięczny podział person, ankiet i grup fokusowych"
+      },
+      "projectDistribution": {
+        "title": "Rozkład projektów",
+        "subtitle": "Alokacja zasobów według projektu",
+        "totalLabel": "Aktywności",
+        "noData": "Brak ostatnich person, ankiet lub grup fokusowych"
+      }
+    },
+    "recentProjects": {
+      "title": "Ostatnie projekty",
+      "subtitle": "Twoje najnowsze projekty badawcze ze szczegółowymi insightami",
+      "viewAll": "Zobacz wszystkie",
+      "view": "Zobacz",
+      "personas": "Persony",
+      "surveys": "Ankiety",
+      "focusGroups": "Grupy fokusowe",
+      "noProjects": {
+        "title": "Brak projektów",
+        "description": "Zacznij od utworzenia swojego pierwszego projektu",
+        "createButton": "Utwórz swój pierwszy projekt"
+      }
+    },
+    "timeAgo": {
+      "hoursAgo": "{{count}} godz. temu",
+      "dayAgo": "1 dzień temu",
+      "daysAgo": "{{count}} dni temu"
+    }
+  },
+
+  "stats": {
+    "totalProjects": "Łącznie projektów",
+    "totalPersonas": "Łącznie person",
+    "totalFocusGroups": "Łącznie grup fokusowych",
+    "totalSurveys": "Łącznie ankiet"
+  },
+
+  "recentActivity": {
+    "title": "Ostatnia aktywność",
+    "viewAll": "Zobacz całą aktywność",
+    "emptyState": {
+      "title": "Brak aktywności",
+      "description": "Twoja ostatnia aktywność pojawi się tutaj"
+    },
+    "actions": {
+      "createdProject": "utworzył projekt",
+      "generatedPersona": "wygenerował personę",
+      "launchedFocusGroup": "uruchomił grupę fokusową",
+      "completedSurvey": "zakończył ankietę",
+      "updatedProject": "zaktualizował projekt"
+    }
+  },
+
+  "loading": {
+    "projects": "Ładowanie projektów...",
+    "insights": "Ładowanie insightów...",
+    "notifications": "Ładowanie powiadomień...",
+    "usage": "Ładowanie danych o użytkowaniu...",
+    "dashboard": "Ładowanie panelu..."
+  },
+
+  "errors": {
+    "loadProjects": "Nie udało się załadować projektów",
+    "loadInsights": "Nie udało się załadować spostrzeżeń",
+    "loadNotifications": "Nie udało się załadować powiadomień",
+    "loadUsage": "Nie udało się załadować danych o zużyciu",
+    "createProject": "Nie udało się utworzyć projektu"
+  }
+}

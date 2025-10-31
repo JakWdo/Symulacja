@@ -1,7 +1,9 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lightbulb } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { normalizeMarkdown } from '@/lib/markdown';
 
 interface SurprisingFindingsCardProps {
   findings: string[];
@@ -9,12 +11,15 @@ interface SurprisingFindingsCardProps {
 }
 
 /**
- * Karta z zaskakującymi odkryciami (bullet points)
+ * Surprising Findings Card Component
+ * Displays unexpected insights and patterns from focus group discussion
  */
 export const SurprisingFindingsCard: React.FC<SurprisingFindingsCardProps> = ({
   findings,
   className = '',
 }) => {
+  const { t } = useTranslation('focusGroups');
+
   if (!findings || findings.length === 0) {
     return null;
   }
@@ -25,11 +30,11 @@ export const SurprisingFindingsCard: React.FC<SurprisingFindingsCardProps> = ({
         <div className="flex items-center gap-2">
           <Lightbulb className="w-5 h-5 text-figma-yellow" />
           <CardTitle className="text-card-foreground font-crimson text-xl">
-            Zaskakujące Odkrycia
+            {t('analysis.surprisingFindings.title')}
           </CardTitle>
         </div>
         <p className="text-sm text-muted-foreground">
-          Nieoczekiwane insighty i wzorce
+          {t('analysis.surprisingFindings.description')}
         </p>
       </CardHeader>
       <CardContent>
@@ -47,7 +52,7 @@ export const SurprisingFindingsCard: React.FC<SurprisingFindingsCardProps> = ({
                     strong: ({ children }) => <strong className="text-card-foreground font-semibold">{children}</strong>,
                   }}
                 >
-                  {finding}
+                  {normalizeMarkdown(finding)}
                 </ReactMarkdown>
               </div>
             </li>

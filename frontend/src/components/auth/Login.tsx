@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/ui/logo';
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export function Login() {
   const { login, register, isLoading } = useAuth();
+  const { t } = useTranslation('auth');
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -57,12 +59,12 @@ export function Login() {
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold text-foreground">
-              {isRegisterMode ? 'Utwórz konto' : 'Witaj ponownie'}
+              {isRegisterMode ? t('register.title') : t('login.title')}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
               {isRegisterMode
-                ? 'Rozpocznij swoją podróż w badaniach rynku'
-                : 'Zaloguj się, aby przejść do panelu'
+                ? t('register.subtitle')
+                : t('login.subtitle')
               }
             </CardDescription>
           </div>
@@ -73,11 +75,11 @@ export function Login() {
             {isRegisterMode && (
               <>
                 <div>
-                  <Label htmlFor="full_name">Pełne imię i nazwisko</Label>
+                  <Label htmlFor="full_name">{t('register.fullNameLabel')}</Label>
                   <Input
                     id="full_name"
                     type="text"
-                    placeholder="Jan Kowalski"
+                    placeholder={t('register.fullNamePlaceholder')}
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     required={isRegisterMode}
@@ -87,22 +89,22 @@ export function Login() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="company">Firma</Label>
+                    <Label htmlFor="company">{t('register.companyLabel')}</Label>
                     <Input
                       id="company"
                       type="text"
-                      placeholder="Przykładowa Sp. z o.o."
+                      placeholder={t('register.companyPlaceholder')}
                       value={formData.company}
                       onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                       className="mt-1"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="role">Stanowisko</Label>
+                    <Label htmlFor="role">{t('register.roleLabel')}</Label>
                     <Input
                       id="role"
                       type="text"
-                      placeholder="Badacz"
+                      placeholder={t('register.rolePlaceholder')}
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                       className="mt-1"
@@ -113,13 +115,13 @@ export function Login() {
             )}
 
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{isRegisterMode ? t('register.emailLabel') : t('login.emailLabel')}</Label>
               <div className="relative mt-1">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="twoj@email.com"
+                  placeholder={isRegisterMode ? t('register.emailPlaceholder') : t('login.emailPlaceholder')}
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
@@ -129,13 +131,13 @@ export function Login() {
             </div>
 
             <div>
-              <Label htmlFor="password">Hasło</Label>
+              <Label htmlFor="password">{isRegisterMode ? t('register.passwordLabel') : t('login.passwordLabel')}</Label>
               <div className="relative mt-1">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder={isRegisterMode ? t('register.passwordPlaceholder') : t('login.passwordPlaceholder')}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
@@ -151,7 +153,7 @@ export function Login() {
               </div>
               {isRegisterMode && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Min. 8 znaków, musi zawierać litery i cyfry
+                  {t('register.passwordHint')}
                 </p>
               )}
             </div>
@@ -164,11 +166,11 @@ export function Login() {
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <Logo spinning transparent className="w-4 h-4" />
-                  <span>{isRegisterMode ? 'Tworzenie konta...' : 'Logowanie...'}</span>
+                  <span>{isRegisterMode ? t('register.submitButtonLoading') : t('login.submitButtonLoading')}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span>{isRegisterMode ? 'Utwórz konto' : 'Zaloguj się'}</span>
+                  <span>{isRegisterMode ? t('register.submitButton') : t('login.submitButton')}</span>
                   <ArrowRight className="w-4 h-4" />
                 </div>
               )}
@@ -181,8 +183,8 @@ export function Login() {
                 className="text-brand-orange hover:underline"
               >
                 {isRegisterMode
-                  ? 'Masz już konto? Zaloguj się'
-                  : 'Nie masz konta? Zarejestruj się'
+                  ? t('register.toggleText')
+                  : t('login.toggleText')
                 }
               </button>
             </div>
@@ -192,7 +194,7 @@ export function Login() {
 
       {/* Footer */}
       <div className="absolute bottom-4 text-center text-sm text-muted-foreground">
-        <p>© 2025 sight. Wszelkie prawa zastrzeżone.</p>
+        <p>{t('footer.copyright')}</p>
       </div>
     </div>
   );

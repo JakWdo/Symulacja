@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toastStore';
 import axios from 'axios';
@@ -19,13 +21,9 @@ import { analysisApi } from '@/lib/api';
 import type { AISummary } from '@/types';
 import { Logo } from '@/components/ui/logo';
 import { useAISummaryStore } from '@/store/aiSummaryStore';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
-const normalizeMarkdown = (value: string): string =>
-  value.replace(
-    /(^|\n)(\s*(?:[-+*]\s+)?)((?!\*\*)[^:\n]*?)\*\*:/g,
-    (_, lineStart: string, bullet: string, boldText: string) =>
-      `${lineStart}${bullet}**${boldText.trim()}**:`
-  );
+import { normalizeMarkdown } from '@/lib/markdown';
 
 interface AISummaryPanelProps {
   focusGroupId: string;
@@ -49,10 +47,13 @@ export function AISummaryPanel({
   triggerGenerate = false,
   useProModel = true,
 }: AISummaryPanelProps) {
+  const { t } = useTranslation('focusGroups');
+  const { formatDateTime } = useDateFormat();
+
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['executive', 'insights'])
   );
-  const sessionTitle = focusGroupName || 'wybranej sesji';
+  const sessionTitle = focusGroupName || t('analysis.aiSummary.defaultSessionTitle');
   const [hasTriggered, setHasTriggered] = useState(false);
   const [pollCount, setPollCount] = useState(0);
   const queryClient = useQueryClient();
@@ -127,14 +128,14 @@ export function AISummaryPanel({
       const result = await generateMutation.mutateAsync();
       await queryClient.invalidateQueries({ queryKey: ['ai-summary', focusGroupId] });
       toast.success(
-        'Podsumowanie AI gotowe',
-        `Model: ${result.metadata.model_used}`
+        t('analysis.aiSummary.success'),
+        t('analysis.aiSummary.successModel', { model: result.metadata.model_used })
       );
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data?.detail || err.message
-        : 'Failed to generate summary';
-      toast.error('Błąd generowania', message);
+        : t('analysis.aiSummary.errorGeneric');
+      toast.error(t('analysis.aiSummary.error'), message);
       setPersistentGenerating(focusGroupId, false);
       setPollCount(0); // Reset poll counter on error
     } finally {
@@ -147,6 +148,7 @@ export function AISummaryPanel({
     onGenerateStart,
     queryClient,
     setPersistentGenerating,
+    t,
   ]);
 
   // Trigger generation when triggerGenerate prop changes
@@ -179,11 +181,11 @@ export function AISummaryPanel({
       setPersistentGenerating(focusGroupId, false);
       setPollCount(0);
       toast.error(
-        'Timeout generowania podsumowania',
-        'Generowanie podsumowania trwało zbyt długo. Spróbuj ponownie.'
+        t('analysis.aiSummary.timeout'),
+        t('analysis.aiSummary.timeoutDescription')
       );
     }
-  }, [persistentGenerating, pollCount, focusGroupId, setPersistentGenerating]);
+  }, [persistentGenerating, pollCount, focusGroupId, setPersistentGenerating, t]);
 
   // Manual refetch for older polling behavior compatibility
   useEffect(() => {
@@ -249,11 +251,11 @@ export function AISummaryPanel({
             <Logo className="w-10 h-10" transparent />
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-900 mb-3">AI podsumowanie: {sessionTitle}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-3">
+            {t('analysis.aiSummary.emptyTitle', { sessionTitle })}
+          </h2>
           <p className="text-slate-600 mb-6 leading-relaxed">
-            Generate an intelligent summary of your focus group discussion using advanced AI.
-            Get executive summaries, key insights, surprising findings, and strategic recommendations
-            in seconds.
+            {t('analysis.aiSummary.emptyDescription')}
           </p>
 
           {!hideGenerateButton && (
@@ -265,28 +267,30 @@ export function AISummaryPanel({
                 size="lg"
               >
                 <Sparkles className="w-5 h-5" />
-                {hasResponses ? 'Generate AI Summary' : 'Waiting for responses...'}
+                {hasResponses
+                  ? t('analysis.aiSummary.generateButton')
+                  : t('analysis.aiSummary.waitingForResponses')}
               </Button>
               {!hasResponses && (
                 <p className="text-sm text-slate-500 mt-2">
-                  Complete the focus group discussion first before generating AI summary.
+                  {t('analysis.aiSummary.completeDiscussionFirst')}
                 </p>
               )}
-            </>
+          </>
           )}
 
           <div className="mt-6 grid grid-cols-3 gap-4 text-sm">
             <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-lg">
               <Lightbulb className="w-5 h-5 text-primary-600" />
-              <span className="font-medium text-slate-700">Key Insights</span>
+              <span className="font-medium text-slate-700">{t('analysis.keyInsights.title')}</span>
             </div>
             <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-lg">
               <AlertTriangle className="w-5 h-5 text-accent-600" />
-              <span className="font-medium text-slate-700">Surprising Finds</span>
+              <span className="font-medium text-slate-700">{t('analysis.surprisingFindings.title')}</span>
             </div>
             <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-lg">
               <Target className="w-5 h-5 text-green-600" />
-              <span className="font-medium text-slate-700">Recommendations</span>
+              <span className="font-medium text-slate-700">{t('analysis.recommendations.title')}</span>
             </div>
           </div>
         </div>
@@ -302,11 +306,13 @@ export function AISummaryPanel({
             <Logo className="w-20 h-20" spinning />
             <Sparkles className="w-8 h-8 text-accent-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
           </div>
-          <h3 className="text-xl font-bold text-slate-900 mb-2">Generating AI Summary...</h3>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">
+            {t('analysis.aiSummary.generating')}
+          </h3>
           <p className="text-slate-600 mb-4">
             {useProModel
-              ? 'Using Gemini 2.5 Pro for highest quality analysis'
-              : 'Using Gemini 2.5 Flash for fast analysis'}
+              ? t('analysis.aiSummary.usingProModel')
+              : t('analysis.aiSummary.usingFlashModel')}
           </p>
           <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
             <motion.div
@@ -326,12 +332,14 @@ export function AISummaryPanel({
       <div className="floating-panel p-8">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">Failed to Generate Summary</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">
+            {t('analysis.aiSummary.errorTitle')}
+          </h3>
           <p className="text-slate-600 mb-4">
-            {axios.isAxiosError(error) ? error.response?.data?.detail || error.message : 'Unknown error'}
+            {axios.isAxiosError(error) ? error.response?.data?.detail || error.message : t('analysis.aiSummary.errorUnknown')}
           </p>
           <Button onClick={handleGenerate} variant="outline">
-            Try Again
+            {t('analysis.aiSummary.retryButton')}
           </Button>
         </div>
       </div>
@@ -352,21 +360,25 @@ export function AISummaryPanel({
               <Logo className="w-6 h-6" transparent />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Podsumowanie dyskusji • {sessionTitle}</h2>
+              <h2 className="text-xl font-bold text-slate-900">
+                {t('analysis.aiSummary.discussionSummary', { sessionTitle })}
+              </h2>
               <p className="text-sm text-slate-600">
-                Wygenerowano modelem {summary.metadata.model_used} •{' '}
-                {new Date(summary.metadata.generated_at).toLocaleString()}
+                {t('analysis.aiSummary.generatedBy', {
+                  model: summary.metadata.model_used,
+                  date: formatDateTime(summary.metadata.generated_at),
+                })}
               </p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
                 <span className="px-2 py-1 bg-slate-100 rounded-full">
-                  Odpowiedzi: {summary.metadata.total_responses}
+                  {t('analysis.aiSummary.responsesLabel', { count: summary.metadata.total_responses })}
                 </span>
                 <span className="px-2 py-1 bg-slate-100 rounded-full">
-                  Uczestnicy: {summary.metadata.total_participants}
+                  {t('analysis.aiSummary.participantsLabel', { count: summary.metadata.total_participants })}
                 </span>
                 {summary.metadata.questions_asked !== undefined && (
                   <span className="px-2 py-1 bg-slate-100 rounded-full">
-                    Pytania: {summary.metadata.questions_asked}
+                    {t('analysis.aiSummary.questionsLabel', { count: summary.metadata.questions_asked })}
                   </span>
                 )}
               </div>
@@ -380,14 +392,14 @@ export function AISummaryPanel({
             disabled={isGenerating || persistentGenerating}
           >
             <Zap className="w-4 h-4" />
-            Regenerate
+            {t('analysis.aiSummary.regenerateButton')}
           </Button>
         </div>
       </div>
 
       {/* Executive Summary */}
       <div className="floating-panel overflow-hidden">
-        <SectionHeader id="executive" icon={Sparkles} title="Executive Summary" />
+        <SectionHeader id="executive" icon={Sparkles} title={t('analysis.executiveSummary.title')} />
         <AnimatePresence>
           {expandedSections.has('executive') && (
             <motion.div
@@ -397,7 +409,7 @@ export function AISummaryPanel({
               className="px-6 pb-6"
             >
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown>{normalizeMarkdown(summary.executive_summary)}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(summary.executive_summary)}</ReactMarkdown>
               </div>
             </motion.div>
           )}
@@ -409,7 +421,7 @@ export function AISummaryPanel({
         <SectionHeader
           id="insights"
           icon={Lightbulb}
-          title="Key Insights"
+          title={t('analysis.keyInsights.title')}
           count={summary.key_insights.length}
         />
         <AnimatePresence>
@@ -430,7 +442,7 @@ export function AISummaryPanel({
                       {idx + 1}
                     </div>
                     <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
-                      <ReactMarkdown>{normalizeMarkdown(insight)}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(insight)}</ReactMarkdown>
                     </div>
                   </div>
                 ))}
@@ -446,7 +458,7 @@ export function AISummaryPanel({
           <SectionHeader
             id="surprising"
             icon={AlertTriangle}
-            title="Surprising Findings"
+            title={t('analysis.surprisingFindings.title')}
             count={summary.surprising_findings.length}
           />
           <AnimatePresence>
@@ -465,7 +477,7 @@ export function AISummaryPanel({
                   >
                     <AlertTriangle className="w-5 h-5 text-accent-600 flex-shrink-0 mt-0.5" />
                     <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
-                      <ReactMarkdown>{normalizeMarkdown(finding)}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(finding)}</ReactMarkdown>
                     </div>
                   </div>
                 ))}
@@ -482,7 +494,7 @@ export function AISummaryPanel({
           <SectionHeader
             id="segments"
             icon={Users}
-            title="Segment Analysis"
+            title={t('analysis.segments.title')}
             count={Object.keys(summary.segment_analysis).length}
           />
           <AnimatePresence>
@@ -498,7 +510,7 @@ export function AISummaryPanel({
                     <div key={segment} className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
                       <h4 className="text-sm font-semibold text-slate-900 mb-2">{segment}</h4>
                       <div className="text-sm text-slate-700 leading-relaxed prose prose-sm max-w-none">
-                        <ReactMarkdown>{normalizeMarkdown(analysis)}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(analysis)}</ReactMarkdown>
                       </div>
                     </div>
                   ))}
@@ -509,13 +521,13 @@ export function AISummaryPanel({
         </div>
       )}
 
-      {/* Recommendations */}
+      {/* Strategic Recommendations */}
       {summary.recommendations.length > 0 && (
         <div className="floating-panel overflow-hidden">
           <SectionHeader
             id="recommendations"
             icon={Target}
-            title="Strategic Recommendations"
+            title={t('analysis.recommendations.title')}
             count={summary.recommendations.length}
           />
           <AnimatePresence>
@@ -536,7 +548,7 @@ export function AISummaryPanel({
                       {idx + 1}
                     </div>
                     <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
-                      <ReactMarkdown>{normalizeMarkdown(rec)}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(rec)}</ReactMarkdown>
                     </div>
                   </div>
                 ))}
@@ -549,7 +561,7 @@ export function AISummaryPanel({
 
       {/* Sentiment Narrative */}
       <div className="floating-panel overflow-hidden">
-        <SectionHeader id="sentiment" icon={TrendingUp} title="Sentiment Narrative" />
+        <SectionHeader id="sentiment" icon={TrendingUp} title={t('analysis.aiSummary.sentimentNarrative')} />
         <AnimatePresence>
           {expandedSections.has('sentiment') && (
             <motion.div
@@ -559,7 +571,7 @@ export function AISummaryPanel({
               className="px-6 pb-6"
             >
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown>{normalizeMarkdown(summary.sentiment_narrative)}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(summary.sentiment_narrative)}</ReactMarkdown>
               </div>
             </motion.div>
           )}

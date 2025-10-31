@@ -1,7 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/ui/logo';
 import ReactMarkdown from 'react-markdown';
+import { normalizeMarkdown } from '@/lib/markdown';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 interface ExecutiveSummaryCardProps {
   summary: string;
@@ -16,23 +19,16 @@ interface ExecutiveSummaryCardProps {
 }
 
 /**
- * Podsumowanie Zarządcze z Sight logo i metadanymi
+ * Executive Summary Card with Sight logo and metadata
+ * Displays AI-generated executive summary with participant stats
  */
 export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
   summary,
   metadata,
   className = '',
 }) => {
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('pl-PL', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
-  };
+  const { t } = useTranslation('focusGroups');
+  const { formatDate } = useDateFormat();
 
   return (
     <Card className={`bg-card border border-border shadow-sm ${className}`}>
@@ -41,22 +37,37 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
           <div className="flex items-center gap-3">
             <Logo className="w-6 h-6" transparent />
             <CardTitle className="text-card-foreground font-crimson text-xl">
-              Podsumowanie Zarządcze
+              {t('analysis.executiveSummary.title')}
             </CardTitle>
           </div>
           {metadata && (
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>{metadata.total_participants} uczestników</span>
+              <span>
+                {t('analysis.executiveSummary.participants', {
+                  count: metadata.total_participants,
+                })}
+              </span>
               <span>•</span>
-              <span>{metadata.questions_asked || 0} pytań</span>
+              <span>
+                {t('analysis.executiveSummary.questions', {
+                  count: metadata.questions_asked || 0,
+                })}
+              </span>
               <span>•</span>
-              <span>{metadata.total_responses} odpowiedzi</span>
+              <span>
+                {t('analysis.executiveSummary.responses', {
+                  count: metadata.total_responses,
+                })}
+              </span>
             </div>
           )}
         </div>
         {metadata && (
           <p className="text-xs text-muted-foreground mt-1">
-            Wygenerowano {formatDate(metadata.generated_at)} • Model: {metadata.model_used}
+            {t('analysis.executiveSummary.generated', {
+              date: formatDate(metadata.generated_at),
+              model: metadata.model_used,
+            })}
           </p>
         )}
       </CardHeader>
@@ -70,7 +81,7 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
               li: ({ children }) => <li className="leading-relaxed">{children}</li>,
             }}
           >
-            {summary}
+            {normalizeMarkdown(summary)}
           </ReactMarkdown>
         </div>
       </CardContent>

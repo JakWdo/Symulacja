@@ -6,6 +6,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Settings, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface DashboardHeaderProps {
   onSettingsClick?: () => void;
@@ -13,15 +14,17 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ onSettingsClick, onNewProjectClick }: DashboardHeaderProps) {
+  const { t } = useTranslation('dashboard');
+
   return (
     <div className="flex items-center justify-between">
       {/* Left: Title + Subtitle */}
       <div>
         <h1 className="font-crimson font-semibold text-2xl leading-[33.6px] text-[#333333] dark:text-foreground">
-          Panel główny
+          {t('header.title')}
         </h1>
         <p className="font-crimson font-normal text-base leading-[25.6px] text-figma-muted dark:text-muted-foreground">
-          Śledź spostrzeżenia, akcje i postęp badań w czasie rzeczywistym
+          {t('header.subtitle')}
         </p>
       </div>
 
@@ -35,7 +38,7 @@ export function DashboardHeader({ onSettingsClick, onNewProjectClick }: Dashboar
           onClick={onSettingsClick}
         >
           <Settings className="h-4 w-4 mr-2" />
-          Ustawienia
+          {t('header.settingsButton')}
         </Button>
 
         {/* New Project Button - Primary Orange */}
@@ -45,7 +48,7 @@ export function DashboardHeader({ onSettingsClick, onNewProjectClick }: Dashboar
           onClick={onNewProjectClick}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Nowy projekt
+          {t('header.newProjectButton')}
         </Button>
       </div>
     </div>

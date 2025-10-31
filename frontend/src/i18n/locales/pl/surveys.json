@@ -1,0 +1,173 @@
+{
+  "title": "Ankiety",
+  "subtitle": "Twórz i zarządzaj ankietami badawczymi",
+
+  "header": {
+    "createButton": "Nowa ankieta",
+    "searchPlaceholder": "Szukaj ankiet...",
+    "filterAll": "Wszystkie",
+    "filterActive": "Aktywne",
+    "filterCompleted": "Zakończone",
+    "filterDraft": "Szkice"
+  },
+
+  "list": {
+    "emptyState": {
+      "title": "Brak ankiet",
+      "description": "Utwórz swoją pierwszą ankietę dla projektu badawczego",
+      "createButton": "Utwórz ankietę"
+    },
+    "card": {
+      "questions": "pytań",
+      "responses": "odpowiedzi",
+      "status": "Status",
+      "statusDraft": "Szkic",
+      "statusActive": "Aktywna",
+      "statusCompleted": "Zakończona",
+      "createdOn": "Utworzona",
+      "viewButton": "Zobacz wyniki",
+      "editButton": "Edytuj",
+      "duplicateButton": "Duplikuj",
+      "deleteButton": "Usuń"
+    }
+  },
+
+  "createDialog": {
+    "title": "Utwórz nową ankietę",
+    "description": "Zaprojektuj ankietę dla swojego projektu badawczego",
+    "nameLabel": "Nazwa ankiety",
+    "namePlaceholder": "np. Ankieta satysfakcji klienta",
+    "descriptionLabel": "Opis",
+    "descriptionPlaceholder": "Opisz cel ankiety...",
+    "projectLabel": "Projekt",
+    "projectPlaceholder": "Wybierz projekt",
+    "targetAudienceLabel": "Grupa docelowa",
+    "targetAudiencePlaceholder": "Kto powinien wypełnić tę ankietę?",
+    "cancelButton": "Anuluj",
+    "createButton": "Utwórz ankietę",
+    "creatingButton": "Tworzenie..."
+  },
+
+  "builder": {
+    "title": "Kreator ankiety",
+    "backButton": "Powrót do ankiet",
+    "saveButton": "Zapisz szkic",
+    "publishButton": "Opublikuj ankietę",
+    "previewButton": "Podgląd",
+
+    "sidebar": {
+      "questions": "Pytania",
+      "settings": "Ustawienia",
+      "logic": "Logika",
+      "theme": "Motyw"
+    },
+
+    "questionTypes": {
+      "title": "Dodaj pytanie",
+      "multipleChoice": "Wybór wielokrotny",
+      "singleChoice": "Pojedynczy wybór",
+      "text": "Tekst",
+      "textArea": "Pole tekstowe",
+      "rating": "Ocena",
+      "scale": "Skala",
+      "yesNo": "Tak/Nie",
+      "date": "Data",
+      "email": "Email",
+      "number": "Liczba"
+    },
+
+    "questionEditor": {
+      "questionText": "Treść pytania",
+      "questionPlaceholder": "Wpisz swoje pytanie...",
+      "description": "Opis (opcjonalny)",
+      "descriptionPlaceholder": "Dodaj dodatkowe instrukcje...",
+      "required": "Wymagane",
+      "addOption": "Dodaj opcję",
+      "optionPlaceholder": "Opcja",
+      "removeOption": "Usuń opcję",
+      "deleteQuestion": "Usuń pytanie",
+      "duplicateQuestion": "Duplikuj pytanie"
+    },
+
+    "settings": {
+      "title": "Ustawienia ankiety",
+      "general": "Ogólne",
+      "anonymousResponses": "Anonimowe odpowiedzi",
+      "allowMultipleResponses": "Pozwól na wielokrotne odpowiedzi",
+      "shuffleQuestions": "Losowa kolejność pytań",
+      "showProgressBar": "Pokaż pasek postępu",
+      "completion": "Zakończenie",
+      "completionMessage": "Wiadomość po zakończeniu",
+      "completionMessagePlaceholder": "Dziękujemy za wypełnienie ankiety!",
+      "redirectUrl": "URL przekierowania (opcjonalny)",
+      "redirectUrlPlaceholder": "https://example.com/thank-you"
+    }
+  },
+
+  "results": {
+    "title": "Wyniki ankiety",
+    "backButton": "Powrót do ankiet",
+    "exportButton": "Eksportuj wyniki",
+    "refreshButton": "Odśwież",
+
+    "summary": {
+      "totalResponses": "Łączna liczba odpowiedzi",
+      "averageCompletionTime": "Średni czas wypełnienia",
+      "completionRate": "Wskaźnik ukończenia",
+      "lastResponse": "Ostatnia odpowiedź"
+    },
+
+    "tabs": {
+      "overview": "Przegląd",
+      "individual": "Indywidualne odpowiedzi",
+      "analytics": "Analityka",
+      "export": "Eksport"
+    },
+
+    "emptyState": {
+      "title": "Brak odpowiedzi",
+      "description": "Odpowiedzi pojawią się tutaj po wypełnieniu ankiety"
+    }
+  },
+
+  "deleteDialog": {
+    "title": "Usuń ankietę",
+    "description": "Czy na pewno chcesz usunąć tę ankietę? Wszystkie odpowiedzi zostaną trwale usunięte.",
+    "cancelButton": "Anuluj",
+    "deleteButton": "Usuń ankietę",
+    "deletingButton": "Usuwanie..."
+  },
+
+  "toast": {
+    "createSuccess": "Ankieta utworzona pomyślnie",
+    "createError": "Nie udało się utworzyć ankiety",
+    "updateSuccess": "Ankieta zaktualizowana",
+    "updateError": "Nie udało się zaktualizować ankiety",
+    "publishSuccess": "Ankieta opublikowana",
+    "publishError": "Nie udało się opublikować ankiety",
+    "deleteSuccess": "Ankieta usunięta",
+    "deleteError": "Nie udało się usunąć ankiety",
+    "duplicateSuccess": "Ankieta zduplikowana",
+    "duplicateError": "Nie udało się zduplikować ankiety",
+    "exportSuccess": "Wyniki wyeksportowane",
+    "exportError": "Nie udało się wyeksportować wyników"
+  },
+
+  "loading": {
+    "surveys": "Ładowanie ankiet...",
+    "surveyDetails": "Ładowanie szczegółów ankiety...",
+    "results": "Ładowanie wyników...",
+    "creating": "Tworzenie ankiety...",
+    "updating": "Aktualizowanie ankiety...",
+    "deleting": "Usuwanie ankiety..."
+  },
+
+  "errors": {
+    "loadSurveys": "Nie udało się załadować ankiet",
+    "loadSurvey": "Nie udało się załadować ankiety",
+    "invalidName": "Nazwa ankiety jest wymagana",
+    "invalidProject": "Wybierz projekt",
+    "noQuestions": "Dodaj przynajmniej jedno pytanie",
+    "invalidQuestion": "Pytanie nie może być puste"
+  }
+}

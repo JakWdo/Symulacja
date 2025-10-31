@@ -1,6 +1,9 @@
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar, Tooltip } from 'recharts';
 import { X, Sparkles, Clock, BookOpen } from 'lucide-react';
 import type { Persona, PersonaInsight } from '@/types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { normalizeMarkdown } from '@/lib/markdown';
 
 const NAME_FROM_STORY_REGEX = /^(?<name>[A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\s+is\s+(?:an|a)\s/;
 
@@ -143,9 +146,11 @@ export function PersonaInsightDrawer({
           </h4>
           <div className="text-xs text-slate-600 space-y-2">
             {persona.background_story && (
-              <p className="bg-slate-50 border border-slate-200 rounded-lg p-3 leading-relaxed">
-                {persona.background_story}
-              </p>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 leading-relaxed prose prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {normalizeMarkdown(persona.background_story)}
+                </ReactMarkdown>
+              </div>
             )}
             {persona.values && persona.values.length > 0 && (
               <p><span className="font-semibold">Wartości:</span> {persona.values.join(', ')}</p>

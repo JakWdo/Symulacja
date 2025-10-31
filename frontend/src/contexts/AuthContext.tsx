@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi, type User, type LoginCredentials, type RegisterData } from '@/lib/api';
 import { toast } from '@/components/ui/toastStore';
+import { useTranslation } from 'react-i18next';
 
 interface AuthContextType {
   user: User | null;
@@ -15,6 +16,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation('auth');
   const [token, setToken] = useState<string | null>(
     () => localStorage.getItem('access_token')
   );
@@ -46,10 +48,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('access_token', data.access_token);
       setToken(data.access_token);
       queryClient.invalidateQueries({ queryKey: ['auth'] });
-      toast.success('Welcome back!');
+      toast.success(t('login.success'));
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Login failed');
+      toast.error(error?.response?.data?.detail || t('login.error'));
     },
   });
 
@@ -60,10 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('access_token', data.access_token);
       setToken(data.access_token);
       queryClient.invalidateQueries({ queryKey: ['auth'] });
-      toast.success('Account created successfully!');
+      toast.success(t('register.success'));
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Registration failed');
+      toast.error(error?.response?.data?.detail || t('register.error'));
     },
   });
 
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     setToken(null);
     queryClient.clear();
-    toast.info('Logged out');
+    toast.info(t('logout.success'));
   };
 
   const value: AuthContextType = {

@@ -36,6 +36,7 @@ class User(Base):
     role = Column(String(100), nullable=True)  # np. "Market Researcher", "Product Manager"
     company = Column(String(255), nullable=True)
     avatar_url = Column(String(500), nullable=True)  # Adres URL do avatara
+    preferred_language = Column(String(5), default='pl', nullable=False)  # Preferowany język interfejsu ('pl' lub 'en')
 
     # === API CONFIGURATION ===
     # Szyfrowany Google API key (używany zamiast globalnego settings.GOOGLE_API_KEY)

@@ -183,6 +183,195 @@ RAG_CHUNK_OVERLAP=300
 400 * BatchEmbedContentsRequest.model: unexpected model name format
 ```
 
+## Internationalization (i18n)
+
+Aplikacja wspiera pełną dwujęzyczność (Polski/Angielski) zarówno w UI jak i treści generowanej przez AI.
+
+### Frontend i18n
+
+**Biblioteki:**
+- `i18next` - Core library
+- `react-i18next` - React integration
+- `i18next-browser-languagedetector` - Auto-detection i localStorage persistence
+
+**Struktura plików:**
+```
+frontend/src/i18n/
+├── index.ts              # Config i18next
+├── hooks.ts              # Custom hooks (useLanguage, useNamespacedTranslation)
+├── types.ts              # TypeScript types (Language, LANGUAGES)
+└── locales/
+    ├── pl/               # Polskie tłumaczenia
+    │   ├── common.json   # Wspólne elementy (sidebar, buttons, validation)
+    │   ├── auth.json     # Login/Register
+    │   ├── settings.json # Ustawienia
+    │   ├── dashboard.json
+    │   ├── projects.json
+    │   ├── personas.json
+    │   ├── surveys.json
+    │   └── focus-groups.json
+    └── en/               # Angielskie tłumaczenia (ta sama struktura)
+```
+
+**Użycie w komponentach:**
+```tsx
+import { useTranslation } from 'react-i18next';
+
+function MyComponent() {
+  const { t } = useTranslation('dashboard');
+
+  return (
+    <div>
+      <h1>{t('header.title')}</h1>
+      <p>{t('header.subtitle')}</p>
+    </div>
+  );
+}
+```
+
+**Formatowanie dat:**
+```tsx
+import { useDateFormat } from '@/hooks/useDateFormat';
+
+const { formatDate, formatRelativeTime } = useDateFormat();
+const formattedDate = formatDate(createdAt); // Automatycznie pl-PL lub en-US
+const relativeTime = formatRelativeTime(updatedAt); // "2 godz. temu" / "2 hrs ago"
+```
+
+**Przełącznik języka:**
+- `<LanguageToggle />` w AppSidebar (dropdown z flagkami)
+- `<LanguageSelector />` w Settings (przyciski)
+- Synchronizacja z backendem (PUT /settings/profile z preferred_language)
+
+### Backend i18n
+
+**Middleware locale:**
+```python
+from app.middleware.locale import get_locale
+
+@router.post("/some-endpoint")
+async def some_endpoint(
+    locale: str = Depends(get_locale),
+    current_user: User = Depends(get_current_user)
+):
+    # locale zawiera 'pl' lub 'en' z Accept-Language header
+    # Fallback: user.preferred_language → default 'pl'
+    result = await some_service.do_something(locale=locale)
+    return result
+```
+
+**AI Language Detection:**
+- Focus Groups automatycznie wykrywają język z pytań i odpowiedzi
+- Funkcja `detect_input_language()` w `discussion_summarizer.py`
+- AI generuje treść w wykrytym języku (nagłówki sekcji pozostają po angielsku dla parsera)
+
+**Priority logic:**
+1. `Accept-Language` header (wysyłany przez frontend)
+2. `current_user.preferred_language` (z bazy danych)
+3. Default: `'pl'`
+
+**Normalizacja:**
+- `'pl-PL'` → `'pl'`
+- `'en-US'` → `'en'`
+- Niewspierane języki → fallback `'pl'`
+
+### Dodawanie Nowych Tłumaczeń
+
+**1. Dodaj klucze do JSON:**
+```json
+// frontend/src/i18n/locales/pl/projects.json
+{
+  "list": {
+    "title": "Projekty",
+    "empty": "Brak projektów"
+  }
+}
+
+// frontend/src/i18n/locales/en/projects.json
+{
+  "list": {
+    "title": "Projects",
+    "empty": "No projects"
+  }
+}
+```
+
+**2. Użyj w komponencie:**
+```tsx
+const { t } = useTranslation('projects');
+<h1>{t('list.title')}</h1>
+```
+
+**3. Parametryzacja:**
+```json
+{
+  "welcome": "Witaj, {{name}}!",
+  "count": "{{count}} elementów"
+}
+```
+
+```tsx
+{t('welcome', { name: user.name })}
+{t('count', { count: items.length })}
+```
+
+### Testing i18n
+
+**Frontend:**
+```bash
+npm run dev
+# Przełącz język w UI (sidebar lub settings)
+# Sprawdź czy wszystkie stringi się zmieniają
+# Odśwież stronę → język powinien persist (localStorage)
+```
+
+**Backend:**
+```bash
+# Testy middleware
+pytest tests/unit/test_locale_middleware.py -v
+
+# Testy language detection
+pytest tests/unit/test_language_detection.py -v
+
+# Test z headerem Accept-Language
+curl -H "Accept-Language: en-US" http://localhost:8000/api/v1/projects
+```
+
+### Przetłumaczone Komponenty
+
+**Core (100%):**
+- AppSidebar, Login/Register, AuthContext
+- Settings (wszystkie sekcje)
+- DashboardHeader
+
+**Dashboard (100%):**
+- ActiveProjectsSection, LatestInsightsSection
+- NotificationsSection, UsageBudgetSection
+- FigmaDashboard (main)
+
+**Focus Groups Analysis (100%):**
+- ExecutiveSummaryCard, KeyInsightsGrid
+- SegmentCard, SurprisingFindingsCard
+- RecommendationItem, AISummaryPanel
+
+**Personas (100%):**
+- NeedsSection, ProfileSection
+- PersonaReasoningPanel
+
+**Remaining:** Projects, Surveys (można dodać według potrzeb)
+
+### Fallback Strategy
+
+**Brakujące tłumaczenia:** Pokazuj klucz translacyjny (np. `'settings.profile.title'`)
+- Development-friendly - od razu wiadomo co trzeba przetłumaczyć
+- Console warning w dev mode
+
+### Performance
+
+- Bundle size increase: ~100KB (wszystkie translation files)
+- Lazy loading: Możliwe (ale nie zaimplementowane - wszystkie namespaces ładowane od razu)
+- Build time: Nie ma wpływu (JSON importowane statycznie)
+
 ## Konwencje Kodu
 
 ### Backend (Python)

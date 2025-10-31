@@ -96,6 +96,7 @@ async def get_profile(
         role=current_user.role,
         company=current_user.company,
         avatar_url=current_user.avatar_url,
+        preferred_language=current_user.preferred_language,
         plan=current_user.plan,
         is_verified=current_user.is_verified,
         created_at=current_user.created_at.isoformat(),
@@ -125,6 +126,8 @@ async def update_profile(
         current_user.role = request.role
     if request.company is not None:
         current_user.company = request.company
+    if request.preferred_language is not None:
+        current_user.preferred_language = request.preferred_language
 
     current_user.updated_at = datetime.utcnow()
 
@@ -140,6 +143,7 @@ async def update_profile(
             role=current_user.role,
             company=current_user.company,
             avatar_url=current_user.avatar_url,
+            preferred_language=current_user.preferred_language,
             plan=current_user.plan,
             is_verified=current_user.is_verified,
             created_at=current_user.created_at.isoformat(),

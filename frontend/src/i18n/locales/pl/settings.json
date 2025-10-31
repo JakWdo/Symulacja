@@ -1,0 +1,128 @@
+{
+  "header": {
+    "title": "Ustawienia",
+    "subtitle": "Zarządzaj swoim kontem i preferencjami aplikacji"
+  },
+
+  "profile": {
+    "title": "Ustawienia profilu",
+    "description": "Zaktualizuj swoje dane osobowe",
+    "avatar": {
+      "change": "Zmień awatar",
+      "hint": "JPG, PNG lub WEBP, maks. 2MB",
+      "delete": "Usuń awatar",
+      "uploadSuccess": "Awatar przesłany pomyślnie",
+      "deleteSuccess": "Awatar usunięty pomyślnie",
+      "uploadError": "Nie udało się przesłać awatara",
+      "deleteError": "Nie udało się usunąć awatara",
+      "invalidType": "Nieprawidłowy typ pliku. Prześlij JPG, PNG lub WEBP",
+      "tooLarge": "Plik za duży. Maksymalny rozmiar to 2MB"
+    },
+    "fields": {
+      "fullName": "Imię i nazwisko",
+      "email": "Email",
+      "role": "Rola",
+      "company": "Firma"
+    },
+    "saveButton": "Zapisz zmiany",
+    "updateSuccess": "Profil zaktualizowany pomyślnie",
+    "updateError": "Nie udało się zaktualizować profilu"
+  },
+
+  "budget": {
+    "title": "Budżet i limity",
+    "description": "Ustaw limity zużycia tokenów i budżetu miesięcznego",
+    "fields": {
+      "limit": {
+        "label": "Limit budżetu miesięcznego ($)",
+        "placeholder": "100.00",
+        "hint": "Maksymalna kwota miesięczna na zużycie tokenów (0 = bez limitu)"
+      },
+      "warning": {
+        "label": "Próg ostrzeżenia (%)",
+        "placeholder": "80",
+        "hint": "Wysłanie powiadomienia przy osiągnięciu tego progu"
+      },
+      "critical": {
+        "label": "Próg krytyczny (%)",
+        "placeholder": "90",
+        "hint": "Wysłanie krytycznego powiadomienia przy osiągnięciu tego progu"
+      }
+    },
+    "alertsTitle": "Progi alertów",
+    "saveButton": "Zapisz limity",
+    "updateSuccess": "Ustawienia budżetu zapisane pomyślnie",
+    "updateError": "Nie udało się zapisać ustawień budżetu"
+  },
+
+  "appearance": {
+    "title": "Wygląd",
+    "description": "Dostosuj wygląd swojego obszaru roboczego",
+    "theme": {
+      "label": "Motyw",
+      "description": "Wybierz tryb jasny lub ciemny",
+      "light": "Jasny",
+      "dark": "Ciemny",
+      "system": "System"
+    },
+    "language": {
+      "label": "Język",
+      "description": "Wybierz język interfejsu aplikacji"
+    }
+  },
+
+  "account": {
+    "title": "Status konta",
+    "plan": "Plan",
+    "status": "Status",
+    "memberSince": "Członek od",
+    "stats": {
+      "projects": "Projekty",
+      "personas": "Wygenerowane persony",
+      "focusGroups": "Grupy fokusowe",
+      "surveys": "Ankiety"
+    },
+    "upgradeButton": "Ulepsz plan"
+  },
+
+  "privacy": {
+    "title": "Dane i prywatność",
+    "export": "Eksportuj dane",
+    "settings": "Ustawienia prywatności",
+    "deleteAccount": {
+      "title": "Usuń konto",
+      "button": "Usuń konto",
+      "dialog": {
+        "title": "Czy na pewno chcesz to zrobić?",
+        "description": "Ta akcja jest nieodwracalna. Spowoduje to trwałe usunięcie Twojego konta i wszystkich danych z naszych serwerów, w tym:",
+        "items": {
+          "projects": "Wszystkie projekty i persony",
+          "focusGroups": "Dyskusje grup fokusowych i wyniki ankiet",
+          "profile": "Twój profil i ustawienia"
+        },
+        "cancel": "Anuluj",
+        "confirm": "Usuń konto"
+      },
+      "success": "Konto usunięte. Do widzenia!",
+      "error": "Nie udało się usunąć konta"
+    }
+  },
+
+  "support": {
+    "title": "Wsparcie",
+    "helpCenter": "Centrum pomocy",
+    "contact": "Kontakt z pomocą techniczną",
+    "features": "Prośby o funkcje"
+  },
+
+  "toast": {
+    "profileUpdateSuccess": "Profil zaktualizowany pomyślnie",
+    "avatarUploadSuccess": "Awatar przesłany pomyślnie",
+    "avatarDeleteSuccess": "Awatar usunięty pomyślnie",
+    "budgetUpdateSuccess": "Ustawienia budżetu zaktualizowane",
+    "languageUpdateSuccess": "Język zmieniony",
+    "languageUpdateError": "Nie udało się zmienić języka",
+    "accountDeleteSuccess": "Konto usunięte. Do widzenia!",
+    "accountDeleteError": "Nie udało się usunąć konta"
+  }
+}

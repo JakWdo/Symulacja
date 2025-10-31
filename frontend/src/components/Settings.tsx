@@ -8,7 +8,9 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { LanguageSelector } from '@/components/ui/language-selector';
 import { useTheme } from '@/hooks/use-theme';
+import { useTranslation } from '@/i18n/hooks';
 import { toast } from '@/components/ui/toastStore';
 import { settingsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +38,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export function Settings() {
+  const { t } = useTranslation('settings');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
@@ -97,10 +100,10 @@ export function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'profile'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-      toast.success('Profil zaktualizowany pomyślnie');
+      toast.success(t('toast.profileUpdateSuccess'));
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Nie udało się zaktualizować profilu');
+      toast.error(error?.response?.data?.detail || t('profile.updateError'));
     },
   });
 
@@ -113,10 +116,10 @@ export function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'profile'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-      toast.success('Awatar przesłany pomyślnie');
+      toast.success(t('toast.avatarUploadSuccess'));
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Nie udało się przesłać awatara');
+      toast.error(error?.response?.data?.detail || t('profile.avatar.uploadError'));
     },
   });
 
@@ -125,21 +128,21 @@ export function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'profile'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-      toast.success('Awatar usunięty pomyślnie');
+      toast.success(t('toast.avatarDeleteSuccess'));
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Nie udało się usunąć awatara');
+      toast.error(error?.response?.data?.detail || t('profile.avatar.deleteError'));
     },
   });
 
   const deleteAccountMutation = useMutation({
     mutationFn: settingsApi.deleteAccount,
     onSuccess: () => {
-      toast.info('Konto usunięte. Do widzenia!');
+      toast.info(t('toast.accountDeleteSuccess'));
       logout();
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Nie udało się usunąć konta');
+      toast.error(error?.response?.data?.detail || t('toast.accountDeleteError'));
     },
   });
 
@@ -148,10 +151,10 @@ export function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'budget'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'usage-budget'] });
-      toast.success('Ustawienia budżetu zapisane pomyślnie');
+      toast.success(t('toast.budgetUpdateSuccess'));
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Nie udało się zapisać ustawień budżetu');
+      toast.error(error?.response?.data?.detail || t('budget.updateError'));
     },
   });
 
@@ -162,13 +165,13 @@ export function Settings() {
 
     // Validate file type
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error('Nieprawidłowy typ pliku. Prześlij JPG, PNG lub WEBP');
+      toast.error(t('profile.avatar.invalidType'));
       return;
     }
 
     // Validate file size (2MB)
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('Plik za duży. Maksymalny rozmiar to 2MB');
+      toast.error(t('profile.avatar.tooLarge'));
       return;
     }
 
@@ -202,8 +205,8 @@ export function Settings() {
     <div className="max-w-[1920px] w-full mx-auto space-y-6">
       {/* Header */}
       <PageHeader
-        title="Ustawienia"
-        subtitle="Zarządzaj swoim kontem i preferencjami aplikacji"
+        title={t('header.title')}
+        subtitle={t('header.subtitle')}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -213,9 +216,9 @@ export function Settings() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <User className="w-5 h-5 text-chart-2" />
-                <CardTitle className="text-card-foreground">Ustawienia profilu</CardTitle>
+                <CardTitle className="text-card-foreground">{t('profile.title')}</CardTitle>
               </div>
-              <p className="text-muted-foreground">Zaktualizuj swoje dane osobowe</p>
+              <p className="text-muted-foreground">{t('profile.description')}</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleProfileSubmit} className="space-y-4">
@@ -247,7 +250,7 @@ export function Settings() {
                       ) : (
                         <Upload className="w-4 h-4 mr-2" />
                       )}
-                      Zmień awatar
+                      {t('profile.avatar.change')}
                     </Button>
                     {profile?.avatar_url && (
                       <Button
@@ -264,12 +267,12 @@ export function Settings() {
                       </Button>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">JPG, PNG lub WEBP, maks. 2MB</p>
+                  <p className="text-xs text-muted-foreground">{t('profile.avatar.hint')}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Imię i nazwisko</Label>
+                    <Label htmlFor="name">{t('profile.fields.fullName')}</Label>
                     <Input
                       id="name"
                       value={profileForm.full_name}
@@ -279,14 +282,14 @@ export function Settings() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('profile.fields.email')}</Label>
                     <Input id="email" type="email" value={profile?.email} disabled />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="role">Rola</Label>
+                    <Label htmlFor="role">{t('profile.fields.role')}</Label>
                     <Input
                       id="role"
                       value={profileForm.role}
@@ -294,7 +297,7 @@ export function Settings() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="company">Firma</Label>
+                    <Label htmlFor="company">{t('profile.fields.company')}</Label>
                     <Input
                       id="company"
                       value={profileForm.company}
@@ -314,7 +317,7 @@ export function Settings() {
                     {updateProfileMutation.isPending && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     )}
-                    Zapisz zmiany
+                    {t('profile.saveButton')}
                   </Button>
                 </div>
               </form>
@@ -326,68 +329,68 @@ export function Settings() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-chart-3" />
-                <CardTitle className="text-card-foreground">Budżet i limity</CardTitle>
+                <CardTitle className="text-card-foreground">{t('budget.title')}</CardTitle>
               </div>
-              <p className="text-muted-foreground">Ustaw limity zużycia tokenów i budżetu miesięcznego</p>
+              <p className="text-muted-foreground">{t('budget.description')}</p>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="budget_limit">Limit budżetu miesięcznego ($)</Label>
+                  <Label htmlFor="budget_limit">{t('budget.fields.limit.label')}</Label>
                   <Input
                     id="budget_limit"
                     type="number"
                     min="0"
                     step="10"
-                    placeholder="100.00"
+                    placeholder={t('budget.fields.limit.placeholder')}
                     value={budgetForm.budget_limit}
                     onChange={(e) =>
                       setBudgetForm({ ...budgetForm, budget_limit: e.target.value })
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    Maksymalna kwota miesięczna na zużycie tokenów (0 = bez limitu)
+                    {t('budget.fields.limit.hint')}
                   </p>
                 </div>
 
                 <Separator className="bg-border" />
 
                 <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-card-foreground">Progi alertów</h4>
+                  <h4 className="text-sm font-semibold text-card-foreground">{t('budget.alertsTitle')}</h4>
 
                   <div className="space-y-2">
-                    <Label htmlFor="warning_threshold">Próg ostrzeżenia (%)</Label>
+                    <Label htmlFor="warning_threshold">{t('budget.fields.warning.label')}</Label>
                     <Input
                       id="warning_threshold"
                       type="number"
                       min="1"
                       max="100"
-                      placeholder="80"
+                      placeholder={t('budget.fields.warning.placeholder')}
                       value={budgetForm.warning_threshold}
                       onChange={(e) =>
                         setBudgetForm({ ...budgetForm, warning_threshold: e.target.value })
                       }
                     />
                     <p className="text-xs text-muted-foreground">
-                      Wysłanie powiadomienia przy osiągnięciu tego progu
+                      {t('budget.fields.warning.hint')}
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="critical_threshold">Próg krytyczny (%)</Label>
+                    <Label htmlFor="critical_threshold">{t('budget.fields.critical.label')}</Label>
                     <Input
                       id="critical_threshold"
                       type="number"
                       min="1"
                       max="100"
-                      placeholder="90"
+                      placeholder={t('budget.fields.critical.placeholder')}
                       value={budgetForm.critical_threshold}
                       onChange={(e) =>
                         setBudgetForm({ ...budgetForm, critical_threshold: e.target.value })
                       }
                     />
                     <p className="text-xs text-muted-foreground">
-                      Wysłanie krytycznego powiadomienia przy osiągnięciu tego progu
+                      {t('budget.fields.critical.hint')}
                     </p>
                   </div>
                 </div>
@@ -400,7 +403,7 @@ export function Settings() {
                     disabled={updateBudgetMutation.isPending}
                   >
                     {updateBudgetMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Zapisz limity
+                    {t('budget.saveButton')}
                   </Button>
                 </div>
               </div>
@@ -412,50 +415,59 @@ export function Settings() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Palette className="w-5 h-5 text-chart-1" />
-                <CardTitle className="text-card-foreground">Wygląd</CardTitle>
+                <CardTitle className="text-card-foreground">{t('appearance.title')}</CardTitle>
               </div>
-              <p className="text-muted-foreground">Dostosuj wygląd swojego obszaru roboczego</p>
+              <p className="text-muted-foreground">{t('appearance.description')}</p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+            <CardContent className="space-y-6">
+              {/* Theme Selection */}
+              <div className="space-y-3">
                 <div>
-                  <Label htmlFor="theme-mode" className="text-card-foreground">
-                    Motyw
+                  <Label className="text-card-foreground">
+                    {t('appearance.theme.label')}
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Wybierz tryb jasny lub ciemny
+                    {t('appearance.theme.description')}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground capitalize">{theme}</span>
-                  <ThemeToggle />
+                <div className="grid grid-cols-2 gap-4">
+                  <Button
+                    variant={theme === 'light' ? 'default' : 'outline'}
+                    onClick={() => setTheme('light')}
+                    className="justify-start h-auto p-4"
+                  >
+                    <div className="flex flex-col items-start gap-2">
+                      <div className="w-6 h-4 rounded border bg-white border-gray-300"></div>
+                      <span>{t('appearance.theme.light')}</span>
+                    </div>
+                  </Button>
+
+                  <Button
+                    variant={theme === 'dark' ? 'default' : 'outline'}
+                    onClick={() => setTheme('dark')}
+                    className="justify-start h-auto p-4"
+                  >
+                    <div className="flex flex-col items-start gap-2">
+                      <div className="w-6 h-4 rounded border bg-gray-800 border-gray-600"></div>
+                      <span>{t('appearance.theme.dark')}</span>
+                    </div>
+                  </Button>
                 </div>
               </div>
 
               <Separator className="bg-border" />
 
-              <div className="grid grid-cols-2 gap-4">
-                <Button
-                  variant={theme === 'light' ? 'default' : 'outline'}
-                  onClick={() => setTheme('light')}
-                  className="justify-start h-auto p-4"
-                >
-                  <div className="flex flex-col items-start gap-2">
-                    <div className="w-6 h-4 rounded border bg-white border-gray-300"></div>
-                    <span>Jasny</span>
-                  </div>
-                </Button>
-
-                <Button
-                  variant={theme === 'dark' ? 'default' : 'outline'}
-                  onClick={() => setTheme('dark')}
-                  className="justify-start h-auto p-4"
-                >
-                  <div className="flex flex-col items-start gap-2">
-                    <div className="w-6 h-4 rounded border bg-gray-800 border-gray-600"></div>
-                    <span>Ciemny</span>
-                  </div>
-                </Button>
+              {/* Language Selection */}
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-card-foreground">
+                    {t('appearance.language.label')}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('appearance.language.description')}
+                  </p>
+                </div>
+                <LanguageSelector />
               </div>
             </CardContent>
           </Card>
@@ -466,11 +478,11 @@ export function Settings() {
           {/* Account Status */}
           <Card className="bg-card border border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-card-foreground">Status konta</CardTitle>
+              <CardTitle className="text-card-foreground">{t('account.title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Plan</span>
+                <span className="text-muted-foreground">{t('account.plan')}</span>
                 <Badge
                   className="bg-gradient-to-r from-chart-2/10 to-chart-5/10 text-chart-2 border-chart-2/20 capitalize"
                 >
@@ -479,29 +491,29 @@ export function Settings() {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Projekty</span>
+                <span className="text-muted-foreground">{t('account.stats.projects')}</span>
                 <span className="text-card-foreground">{stats?.projects_count || 0}</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Wygenerowane persony</span>
+                <span className="text-muted-foreground">{t('account.stats.personas')}</span>
                 <span className="text-card-foreground">{stats?.personas_count || 0}</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Grupy fokusowe</span>
+                <span className="text-muted-foreground">{t('account.stats.focusGroups')}</span>
                 <span className="text-card-foreground">{stats?.focus_groups_count || 0}</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Ankiety</span>
+                <span className="text-muted-foreground">{t('account.stats.surveys')}</span>
                 <span className="text-card-foreground">{stats?.surveys_count || 0}</span>
               </div>
 
               <Separator className="bg-border" />
 
               <Button variant="outline" className="w-full" disabled>
-                Ulepsz plan
+                {t('account.upgradeButton')}
               </Button>
             </CardContent>
           </Card>
@@ -511,16 +523,16 @@ export function Settings() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-chart-4" />
-                <CardTitle className="text-card-foreground">Dane i prywatność</CardTitle>
+                <CardTitle className="text-card-foreground">{t('privacy.title')}</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button variant="outline" className="w-full justify-start" disabled>
-                Eksportuj dane
+                {t('privacy.export')}
               </Button>
 
               <Button variant="outline" className="w-full justify-start" disabled>
-                Ustawienia prywatności
+                {t('privacy.settings')}
               </Button>
 
               <AlertDialog>
@@ -530,24 +542,23 @@ export function Settings() {
                     className="w-full justify-start border-destructive/50 text-destructive hover:text-destructive hover:border-destructive"
                   >
                     <AlertTriangle className="w-4 h-4 mr-2" />
-                    Usuń konto
+                    {t('privacy.deleteAccount.button')}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Czy na pewno chcesz to zrobić?</AlertDialogTitle>
+                    <AlertDialogTitle>{t('privacy.deleteAccount.dialog.title')}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Ta akcja jest nieodwracalna. Spowoduje to trwałe usunięcie Twojego konta i
-                      wszystkich danych z naszych serwerów, w tym:
+                      {t('privacy.deleteAccount.dialog.description')}
                       <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li>Wszystkie projekty i persony</li>
-                        <li>Dyskusje grup fokusowych i wyniki ankiet</li>
-                        <li>Twój profil i ustawienia</li>
+                        <li>{t('privacy.deleteAccount.dialog.items.projects')}</li>
+                        <li>{t('privacy.deleteAccount.dialog.items.focusGroups')}</li>
+                        <li>{t('privacy.deleteAccount.dialog.items.profile')}</li>
                       </ul>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                    <AlertDialogCancel>{t('privacy.deleteAccount.dialog.cancel')}</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => deleteAccountMutation.mutate()}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -556,7 +567,7 @@ export function Settings() {
                       {deleteAccountMutation.isPending && (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       )}
-                      Usuń konto
+                      {t('privacy.deleteAccount.dialog.confirm')}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -567,19 +578,19 @@ export function Settings() {
           {/* Support */}
           <Card className="bg-card border border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-card-foreground">Wsparcie</CardTitle>
+              <CardTitle className="text-card-foreground">{t('support.title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button variant="outline" className="w-full justify-start" disabled>
-                Centrum pomocy
+                {t('support.helpCenter')}
               </Button>
 
               <Button variant="outline" className="w-full justify-start" disabled>
-                Kontakt z pomocą techniczną
+                {t('support.contact')}
               </Button>
 
               <Button variant="outline" className="w-full justify-start" disabled>
-                Prośby o funkcje
+                {t('support.features')}
               </Button>
             </CardContent>
           </Card>

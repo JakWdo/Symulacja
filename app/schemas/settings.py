@@ -12,12 +12,19 @@ class ProfileUpdateRequest(BaseModel):
     full_name: str | None = None
     role: str | None = None
     company: str | None = None
+    preferred_language: str | None = None
 
     @validator('full_name')
     def validate_name(cls, v):
         if v is not None and len(v.strip()) < 2:
             raise ValueError('Name must be at least 2 characters')
         return v.strip() if v else v
+
+    @validator('preferred_language')
+    def validate_language(cls, v):
+        if v is not None and v not in ['pl', 'en']:
+            raise ValueError('Language must be either "pl" or "en"')
+        return v
 
 
 class ProfileResponse(BaseModel):
@@ -28,6 +35,7 @@ class ProfileResponse(BaseModel):
     role: str | None
     company: str | None
     avatar_url: str | None
+    preferred_language: str
     plan: str
     is_verified: bool
     created_at: str

@@ -23,6 +23,7 @@ import {
   Lightbulb,
   AlertCircle,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useActiveProjects } from '@/hooks/dashboard/useActiveProjects';
 import type { ProjectWithHealth } from '@/types/dashboard';
 
@@ -31,6 +32,7 @@ interface ActiveProjectsSectionProps {
 }
 
 export function ActiveProjectsSection({ onNavigate }: ActiveProjectsSectionProps) {
+  const { t } = useTranslation('dashboard');
   const { data: projects, isLoading, error } = useActiveProjects();
 
   if (isLoading) {
@@ -41,7 +43,7 @@ export function ActiveProjectsSection({ onNavigate }: ActiveProjectsSectionProps
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>Nie udało się załadować aktywnych projektów</AlertDescription>
+        <AlertDescription>{t('errors.loadProjects')}</AlertDescription>
       </Alert>
     );
   }
@@ -51,7 +53,7 @@ export function ActiveProjectsSection({ onNavigate }: ActiveProjectsSectionProps
       <Card className="border-border rounded-[8px]">
         <CardContent className="py-8">
           <p className="text-center text-muted-foreground">
-            Brak aktywnych projektów. Utwórz swój pierwszy projekt, aby rozpocząć!
+            {t('activeProjects.emptyState.description')}
           </p>
         </CardContent>
       </Card>
@@ -63,8 +65,8 @@ export function ActiveProjectsSection({ onNavigate }: ActiveProjectsSectionProps
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-base font-normal text-foreground leading-[16px]">Aktywne projekty badawcze</h2>
-          <p className="text-base text-muted-foreground leading-[24px]">Monitoruj postęp, stan i spostrzeżenia we wszystkich projektach</p>
+          <h2 className="text-base font-normal text-foreground leading-[16px]">{t('activeProjects.title')}</h2>
+          <p className="text-base text-muted-foreground leading-[24px]">{t('activeProjects.subtitle')}</p>
         </div>
         <Button
           variant="outline"
@@ -77,7 +79,7 @@ export function ActiveProjectsSection({ onNavigate }: ActiveProjectsSectionProps
           }}
         >
           <Eye className="w-4 h-4 mr-2" />
-          Zobacz wszystkie
+          {t('activeProjects.viewAll')}
         </Button>
       </div>
 
@@ -100,27 +102,29 @@ function ProjectCard({
   project: ProjectWithHealth;
   onNavigate?: (url: string) => void | Promise<void>;
 }) {
+  const { t } = useTranslation('dashboard');
+
   // Status badge - outline only (from Figma)
   const statusConfig = {
     running: {
       color: 'border-border text-foreground',
       dotColor: 'bg-[#28a745]',
-      label: 'W trakcie',
+      label: t('activeProjects.status.running'),
     },
     blocked: {
       color: 'border-border text-foreground',
       dotColor: 'bg-[#fb2c36]',
-      label: 'Zablokowany',
+      label: t('activeProjects.status.blocked'),
     },
     paused: {
       color: 'border-border text-foreground',
       dotColor: 'bg-[#ffc107]',
-      label: 'Wstrzymany',
+      label: t('activeProjects.status.paused'),
     },
     completed: {
       color: 'border-border text-foreground',
       dotColor: 'bg-[#28a745]',
-      label: 'Ukończony',
+      label: t('activeProjects.status.completed'),
     },
   };
 
@@ -128,15 +132,15 @@ function ProjectCard({
   const healthConfig = {
     on_track: {
       color: 'bg-[#28a745]',
-      label: 'Na bieżąco',
+      label: t('activeProjects.health.onTrack'),
     },
     at_risk: {
       color: 'bg-[#ffc107]',
-      label: 'Zagrożony',
+      label: t('activeProjects.health.atRisk'),
     },
     blocked: {
       color: 'bg-[#fb2c36]',
-      label: 'Zablokowany',
+      label: t('activeProjects.health.blocked'),
     },
   };
 
@@ -151,10 +155,10 @@ function ProjectCard({
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffHours < 1) return 'Teraz';
-    if (diffHours < 24) return `${diffHours} godz. temu`;
-    if (diffDays === 1) return '1 dzień temu';
-    return `${diffDays} dni temu`;
+    if (diffHours < 1) return t('activeProjects.timeAgo.now');
+    if (diffHours < 24) return t('activeProjects.timeAgo.hoursAgo', { count: diffHours });
+    if (diffDays === 1) return t('activeProjects.timeAgo.dayAgo');
+    return t('activeProjects.timeAgo.daysAgo', { count: diffDays });
   };
 
   // Get action button for status
@@ -174,7 +178,7 @@ function ProjectCard({
             }}
           >
             <AlertCircle className="w-4 h-4 mr-2" />
-            Napraw problemy
+            {t('activeProjects.actions.fixIssues')}
           </Button>
         );
       case 'paused':
@@ -191,7 +195,7 @@ function ProjectCard({
             }}
           >
             <Play className="w-4 h-4 mr-2" />
-            Wznów
+            {t('activeProjects.actions.resume')}
           </Button>
         );
       case 'completed':
@@ -208,7 +212,7 @@ function ProjectCard({
             }}
           >
             <Download className="w-4 h-4 mr-2" />
-            Eksportuj
+            {t('activeProjects.actions.export')}
           </Button>
         );
       default:
@@ -297,19 +301,19 @@ function ProjectCard({
         {/* Progress Bars (4 columns grid - horizontal layout from Figma) */}
         <div className="grid grid-cols-4 gap-3 mb-3">
           <ProgressBar
-            label="Demografia"
+            label={t('activeProjects.progress.demographics')}
             percentage={progressToPercentage(project.progress.demographics)}
           />
           <ProgressBar
-            label="Persony"
+            label={t('activeProjects.progress.personas')}
             percentage={progressToPercentage(project.progress.personas)}
           />
           <ProgressBar
-            label="Grupa fokusowa"
+            label={t('activeProjects.progress.focusGroup')}
             percentage={progressToPercentage(project.progress.focus)}
           />
           <ProgressBar
-            label="Analiza"
+            label={t('activeProjects.progress.analysis')}
             percentage={progressToPercentage(project.progress.analysis)}
           />
         </div>
@@ -325,7 +329,7 @@ function ProjectCard({
                   +{project.new_insights_count}{' '}
                 </span>
               )}
-              {project.insights_count} spostrzeżeń
+              {t('activeProjects.insightsCount', { count: project.insights_count })}
             </span>
           </div>
 

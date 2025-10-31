@@ -1,6 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
+import { normalizeMarkdown } from '@/lib/markdown';
 
 interface RecommendationItemProps {
   recommendation: string;
@@ -9,23 +11,24 @@ interface RecommendationItemProps {
 }
 
 /**
- * Pojedyncza rekomendacja strategiczna z priority badge
+ * Recommendation Item Component
+ * Displays individual strategic recommendation with priority badge
  */
 export const RecommendationItem: React.FC<RecommendationItemProps> = ({
   recommendation,
   priority,
   className = '',
 }) => {
+  const { t } = useTranslation('focusGroups');
+
   const priorityColors = {
     high: 'bg-figma-red/10 text-figma-red border-figma-red/30',
     medium: 'bg-figma-yellow/10 text-figma-yellow border-figma-yellow/30',
     low: 'bg-figma-green/10 text-figma-green border-figma-green/30',
   };
 
-  const priorityLabels = {
-    high: 'Wysoki priorytet',
-    medium: 'Średni priorytet',
-    low: 'Niski priorytet',
+  const getPriorityLabel = (priority: 'high' | 'medium' | 'low'): string => {
+    return t(`analysis.recommendations.priority.${priority}`);
   };
 
   return (
@@ -37,12 +40,12 @@ export const RecommendationItem: React.FC<RecommendationItemProps> = ({
             strong: ({ children }) => <strong className="text-card-foreground font-semibold">{children}</strong>,
           }}
         >
-          {recommendation}
+          {normalizeMarkdown(recommendation)}
         </ReactMarkdown>
       </div>
       {priority && (
         <Badge variant="outline" className={`rounded-figma-inner shrink-0 text-xs ${priorityColors[priority]}`}>
-          {priorityLabels[priority]}
+          {getPriorityLabel(priority)}
         </Badge>
       )}
     </div>

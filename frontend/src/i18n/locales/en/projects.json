@@ -1,0 +1,159 @@
+{
+  "title": "Projects",
+  "subtitle": "Manage your research projects",
+
+  "header": {
+    "createButton": "New project",
+    "searchPlaceholder": "Search projects...",
+    "filterAll": "All",
+    "filterActive": "Active",
+    "filterCompleted": "Completed",
+    "filterArchived": "Archived"
+  },
+
+  "list": {
+    "emptyState": {
+      "title": "No projects",
+      "description": "Create your first project to start AI market research",
+      "createButton": "Create first project"
+    },
+    "card": {
+      "personas": "personas",
+      "focusGroups": "focus groups",
+      "surveys": "surveys",
+      "createdOn": "Created",
+      "lastActivity": "Last activity",
+      "viewButton": "View details",
+      "editButton": "Edit",
+      "archiveButton": "Archive",
+      "deleteButton": "Delete"
+    }
+  },
+
+  "createDialog": {
+    "title": "Create new project",
+    "description": "Start a new research project for your product or service",
+    "nameLabel": "Project name",
+    "namePlaceholder": "e.g. New Product Market Research",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe the goal and scope of your project...",
+    "targetAudienceLabel": "Target audience",
+    "targetAudiencePlaceholder": "e.g. Young professionals, 25-35 years old",
+    "objectivesLabel": "Research objectives",
+    "objectivesPlaceholder": "What questions do you want to ask? What do you want to learn?",
+    "cancelButton": "Cancel",
+    "createButton": "Create project",
+    "creatingButton": "Creating..."
+  },
+
+  "editDialog": {
+    "title": "Edit project",
+    "description": "Update project information",
+    "cancelButton": "Cancel",
+    "saveButton": "Save changes",
+    "savingButton": "Saving..."
+  },
+
+  "deleteDialog": {
+    "title": "Delete project",
+    "description": "Are you sure you want to delete this project? This action is irreversible. All personas, focus groups, and data will be permanently deleted.",
+    "confirmationText": "Type project name to confirm",
+    "confirmationPlaceholder": "Project name",
+    "cancelButton": "Cancel",
+    "deleteButton": "Delete project",
+    "deletingButton": "Deleting..."
+  },
+
+  "details": {
+    "backButton": "Back to projects",
+    "editButton": "Edit project",
+    "archiveButton": "Archive",
+    "deleteButton": "Delete",
+
+    "overview": {
+      "title": "Overview",
+      "description": "Description",
+      "targetAudience": "Target audience",
+      "objectives": "Research objectives",
+      "status": "Status",
+      "created": "Created",
+      "lastModified": "Last modified",
+      "statusActive": "Active",
+      "statusCompleted": "Completed",
+      "statusArchived": "Archived"
+    },
+
+    "tabs": {
+      "overview": "Overview",
+      "personas": "Personas",
+      "focusGroups": "Focus groups",
+      "surveys": "Surveys",
+      "insights": "Insights"
+    },
+
+    "personas": {
+      "title": "Project personas",
+      "generateButton": "Generate personas",
+      "emptyState": {
+        "title": "No personas",
+        "description": "Generate AI personas for this project",
+        "generateButton": "Generate personas"
+      }
+    },
+
+    "focusGroups": {
+      "title": "Focus groups",
+      "createButton": "New focus group",
+      "emptyState": {
+        "title": "No focus groups",
+        "description": "Launch an AI virtual focus group",
+        "createButton": "Create focus group"
+      }
+    },
+
+    "surveys": {
+      "title": "Surveys",
+      "createButton": "New survey",
+      "emptyState": {
+        "title": "No surveys",
+        "description": "Create a survey for this project",
+        "createButton": "Create survey"
+      }
+    },
+
+    "insights": {
+      "title": "Project insights",
+      "emptyState": {
+        "title": "No insights",
+        "description": "Insights will appear after conducting research"
+      }
+    }
+  },
+
+  "toast": {
+    "createSuccess": "Project created successfully",
+    "createError": "Failed to create project",
+    "updateSuccess": "Project updated",
+    "updateError": "Failed to update project",
+    "deleteSuccess": "Project deleted",
+    "deleteError": "Failed to delete project",
+    "archiveSuccess": "Project archived",
+    "archiveError": "Failed to archive project"
+  },
+
+  "loading": {
+    "projects": "Loading projects...",
+    "projectDetails": "Loading project details...",
+    "creating": "Creating project...",
+    "updating": "Updating project...",
+    "deleting": "Deleting project..."
+  },
+
+  "errors": {
+    "loadProjects": "Failed to load projects",
+    "loadProject": "Failed to load project",
+    "invalidName": "Project name is required",
+    "invalidDescription": "Description is required",
+    "confirmationMismatch": "Project name doesn't match"
+  }
+}

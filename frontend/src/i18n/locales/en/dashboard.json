@@ -1,0 +1,240 @@
+{
+  "header": {
+    "title": "Dashboard",
+    "subtitle": "Welcome to Sight - Your AI Market Research Hub",
+    "createProjectButton": "New project"
+  },
+
+  "quickActions": {
+    "title": "Quick actions",
+    "createProject": {
+      "title": "Create project",
+      "description": "Start a new research project"
+    },
+    "generatePersona": {
+      "title": "Generate personas",
+      "description": "Create AI personas for your project"
+    },
+    "createSurvey": {
+      "title": "New survey",
+      "description": "Design a survey for your research"
+    },
+    "launchFocusGroup": {
+      "title": "Launch focus group",
+      "description": "Start an AI virtual focus group"
+    }
+  },
+
+  "activeProjects": {
+    "title": "Active research projects",
+    "subtitle": "Monitor progress, status and insights across all projects",
+    "viewAll": "View all",
+    "emptyState": {
+      "title": "No active projects",
+      "description": "No active projects. Create your first project to get started!",
+      "createButton": "Create project"
+    },
+    "status": {
+      "running": "Running",
+      "blocked": "Blocked",
+      "paused": "Paused",
+      "completed": "Completed"
+    },
+    "health": {
+      "onTrack": "On track",
+      "atRisk": "At risk",
+      "blocked": "Blocked"
+    },
+    "timeAgo": {
+      "now": "Now",
+      "hoursAgo": "{{count}} hrs ago",
+      "dayAgo": "1 day ago",
+      "daysAgo": "{{count}} days ago"
+    },
+    "actions": {
+      "fixIssues": "Fix issues",
+      "resume": "Resume",
+      "export": "Export"
+    },
+    "progress": {
+      "demographics": "Demographics",
+      "personas": "Personas",
+      "focusGroup": "Focus group",
+      "analysis": "Analysis"
+    },
+    "insightsCount": "{{count}} insights",
+    "project": {
+      "personas": "personas",
+      "focusGroups": "focus groups",
+      "surveys": "surveys",
+      "lastActivity": "Last activity"
+    }
+  },
+
+  "latestInsights": {
+    "title": "Latest insights",
+    "subtitle": "High-confidence discoveries from recent research",
+    "viewAll": "View all",
+    "viewDetails": "View details",
+    "confidence": "{{percent}}% confidence",
+    "emptyState": {
+      "title": "No insights",
+      "description": "Insights will appear here after conducting research",
+      "startButton": "Start research"
+    },
+    "impact": {
+      "high": "high impact",
+      "medium": "medium impact",
+      "low": "low impact"
+    },
+    "insight": {
+      "from": "from",
+      "viewButton": "View details"
+    }
+  },
+
+  "notifications": {
+    "title": "Notifications & tasks",
+    "subtitle": "Important alerts and tasks to complete",
+    "viewAll": "View all",
+    "allRead": "All caught up!",
+    "markDone": "Mark as done",
+    "emptyState": {
+      "title": "No notifications",
+      "description": "You don't have any new notifications"
+    },
+    "filters": {
+      "all": "All",
+      "unread": "Unread"
+    },
+    "markAllRead": "Mark all as read",
+    "types": {
+      "focusGroupComplete": "Focus group completed",
+      "personaGenerated": "Persona generated",
+      "surveyComplete": "Survey completed",
+      "budgetWarning": "Budget warning"
+    }
+  },
+
+  "usage": {
+    "title": "Usage & budget",
+    "subtitle": "Monitor token usage and costs",
+    "viewDetails": "View details",
+    "currentUsage": "Current usage",
+    "forecast": "Forecast (month end)",
+    "alertThreshold": "Alert threshold",
+    "budgetAlert": "Budget alert",
+    "budgetAlertMessage": "Usage at 93% - consider optimization",
+    "tokensUsed": "{{count}}M tokens used",
+    "apiUsage": "API usage",
+    "budget": "Budget",
+    "remaining": "remaining",
+    "of": "of",
+    "thisMonth": "this month",
+    "breakdown": {
+      "title": "Usage by operation type",
+      "personaGeneration": "Persona generation",
+      "focusGroups": "Focus groups",
+      "ragAnalysis": "RAG & analysis",
+      "other": "Other operations"
+    },
+    "emptyState": {
+      "title": "No usage data",
+      "description": "Usage data will appear after you start working with the platform"
+    }
+  },
+
+  "welcomeBanner": {
+    "title": "Welcome to Sight!",
+    "description": "Start your journey with AI market research. Create projects, generate personas, and launch virtual focus groups.",
+    "dismissButton": "Got it",
+    "primaryAction": "Create first project",
+    "secondaryAction": "Watch guide"
+  },
+
+  "mainDashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your market research activities across all projects",
+    "newProject": "New Project",
+    "stats": {
+      "activeProjects": "Active Projects",
+      "projectsChange": "+2 from last month",
+      "totalPersonas": "Total Personas",
+      "personasChange": "+18% from last month",
+      "runningSurveys": "Running Surveys",
+      "surveysChange": "+5 this week",
+      "focusGroups": "Focus Groups",
+      "focusGroupsChange": "+3 completed today"
+    },
+    "charts": {
+      "researchActivity": {
+        "title": "Research Activity",
+        "subtitle": "Monthly breakdown of personas, surveys, and focus groups"
+      },
+      "projectDistribution": {
+        "title": "Project Distribution",
+        "subtitle": "Resource allocation by project",
+        "totalLabel": "Activities",
+        "noData": "No recent personas, surveys, or focus groups recorded"
+      }
+    },
+    "recentProjects": {
+      "title": "Recent Projects",
+      "subtitle": "Your latest research projects with detailed insights",
+      "viewAll": "View All",
+      "view": "View",
+      "personas": "Personas",
+      "surveys": "Surveys",
+      "focusGroups": "Focus Groups",
+      "noProjects": {
+        "title": "No projects yet",
+        "description": "Get started by creating your first project",
+        "createButton": "Create Your First Project"
+      }
+    },
+    "timeAgo": {
+      "hoursAgo": "{{count}} hours ago",
+      "dayAgo": "1 day ago",
+      "daysAgo": "{{count}} days ago"
+    }
+  },
+
+  "stats": {
+    "totalProjects": "Total projects",
+    "totalPersonas": "Total personas",
+    "totalFocusGroups": "Total focus groups",
+    "totalSurveys": "Total surveys"
+  },
+
+  "recentActivity": {
+    "title": "Recent activity",
+    "viewAll": "View all activity",
+    "emptyState": {
+      "title": "No activity",
+      "description": "Your recent activity will appear here"
+    },
+    "actions": {
+      "createdProject": "created project",
+      "generatedPersona": "generated persona",
+      "launchedFocusGroup": "launched focus group",
+      "completedSurvey": "completed survey",
+      "updatedProject": "updated project"
+    }
+  },
+
+  "loading": {
+    "projects": "Loading projects...",
+    "insights": "Loading insights...",
+    "notifications": "Loading notifications...",
+    "usage": "Loading usage data...",
+    "dashboard": "Loading dashboard..."
+  },
+
+  "errors": {
+    "loadProjects": "Failed to load projects",
+    "loadInsights": "Failed to load insights",
+    "loadNotifications": "Failed to load notifications",
+    "loadUsage": "Failed to load usage data",
+    "createProject": "Failed to create project"
+  }
+}

@@ -1,7 +1,9 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
+import { normalizeMarkdown } from '@/lib/markdown';
 
 interface SegmentCardProps {
   segmentName: string;
@@ -11,7 +13,8 @@ interface SegmentCardProps {
 }
 
 /**
- * Karta pojedynczego segmentu w analizie
+ * Segment Card Component
+ * Displays individual segment analysis with participant percentage
  */
 export const SegmentCard: React.FC<SegmentCardProps> = ({
   segmentName,
@@ -19,6 +22,8 @@ export const SegmentCard: React.FC<SegmentCardProps> = ({
   percentage,
   className = '',
 }) => {
+  const { t } = useTranslation('focusGroups');
+
   return (
     <Card className={`rounded-figma-inner border-border ${className}`}>
       <CardContent className="pt-6 space-y-3">
@@ -28,7 +33,7 @@ export const SegmentCard: React.FC<SegmentCardProps> = ({
           </h3>
           {percentage !== undefined && (
             <Badge variant="outline" className="rounded-figma-inner shrink-0">
-              {percentage}% uczestników
+              {t('analysis.segments.participantPercentage', { percentage })}
             </Badge>
           )}
         </div>
@@ -40,7 +45,7 @@ export const SegmentCard: React.FC<SegmentCardProps> = ({
               li: ({ children }) => <li className="leading-relaxed">{children}</li>,
             }}
           >
-            {analysis}
+            {normalizeMarkdown(analysis)}
           </ReactMarkdown>
         </div>
       </CardContent>

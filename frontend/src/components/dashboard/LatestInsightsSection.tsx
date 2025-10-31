@@ -17,34 +17,20 @@ import {
   Eye,
   CheckCircle,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLatestInsights } from '@/hooks/dashboard/useLatestInsights';
 import { InsightDetailModal } from './InsightDetailModal';
 import type { InsightHighlight } from '@/types/dashboard';
 
-const INSIGHT_TYPE_CONFIG = {
-  opportunity: {
-    icon: Lightbulb,
-    color: 'bg-green-500/10 text-green-700 dark:text-green-400',
-    label: 'Szansa',
-  },
-  risk: {
-    icon: AlertCircle,
-    color: 'bg-red-500/10 text-red-700 dark:text-red-400',
-    label: 'Ryzyko',
-  },
-  trend: {
-    icon: TrendingUp,
-    color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-    label: 'Trend',
-  },
-  pattern: {
-    icon: Activity,
-    color: 'bg-purple-500/10 text-purple-700 dark:text-purple-400',
-    label: 'Wzorzec',
-  },
+const INSIGHT_TYPE_ICONS = {
+  opportunity: Lightbulb,
+  risk: AlertCircle,
+  trend: TrendingUp,
+  pattern: Activity,
 };
 
 export function LatestInsightsSection() {
+  const { t } = useTranslation('dashboard');
   const { data: insights, isLoading, error } = useLatestInsights(3); // Limit to 3 (Figma design)
   const [selectedInsight, setSelectedInsight] = useState<InsightHighlight | null>(null);
 
@@ -57,13 +43,13 @@ export function LatestInsightsSection() {
       <Card className="border-border rounded-figma-card">
         <CardHeader className="px-6 pt-6 pb-4">
           <CardTitle className="text-base font-normal text-foreground leading-[16px]">
-            Najnowsze spostrzeżenia
+            {t('latestInsights.title')}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-6 pb-6">
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Nie udało się załadować spostrzeżeń</AlertDescription>
+            <AlertDescription>{t('errors.loadInsights')}</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -75,18 +61,18 @@ export function LatestInsightsSection() {
       <Card className="border-border rounded-figma-card">
         <CardHeader className="px-6 pt-6 pb-4">
           <CardTitle className="text-base font-normal text-foreground leading-[16px]">
-            Najnowsze spostrzeżenia
+            {t('latestInsights.title')}
           </CardTitle>
           <p className="text-base text-muted-foreground leading-[24px] mt-1.5">
-            Odkrycia o wysokim poziomie pewności z ostatnich badań
+            {t('latestInsights.subtitle')}
           </p>
         </CardHeader>
         <CardContent className="px-6 pb-6">
           <div className="text-center py-12">
             <Lightbulb className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground font-medium mb-2">Brak spostrzeżeń</p>
+            <p className="text-muted-foreground font-medium mb-2">{t('latestInsights.emptyState.title')}</p>
             <p className="text-sm text-muted-foreground mb-4">
-              Spostrzeżenia pojawią się tutaj po analizie dyskusji w grupach fokusowych
+              {t('latestInsights.emptyState.description')}
             </p>
           </div>
         </CardContent>
@@ -99,10 +85,10 @@ export function LatestInsightsSection() {
       <Card className="border-border rounded-figma-card">
         <CardHeader className="px-6 pt-6 pb-4">
           <CardTitle className="text-base font-normal text-foreground leading-[16px]">
-            Najnowsze spostrzeżenia
+            {t('latestInsights.title')}
           </CardTitle>
           <p className="text-base text-muted-foreground leading-[24px] mt-1.5">
-            Odkrycia o wysokim poziomie pewności z ostatnich badań
+            {t('latestInsights.subtitle')}
           </p>
         </CardHeader>
         <CardContent className="px-6 pb-6">
@@ -137,8 +123,8 @@ function InsightCard({
   insight: InsightHighlight;
   onViewDetails: () => void;
 }) {
-  const config = INSIGHT_TYPE_CONFIG[insight.insight_type];
-  const Icon = config.icon;
+  const { t } = useTranslation('dashboard');
+  const Icon = INSIGHT_TYPE_ICONS[insight.insight_type];
 
   // Icon background colors (Figma design)
   const iconBgColors = {
@@ -156,7 +142,7 @@ function InsightCard({
   };
 
   const impactLevel = insight.impact_score >= 7 ? 'high' : insight.impact_score >= 5 ? 'medium' : 'low';
-  const impactLabel = impactLevel === 'high' ? 'wysoki wpływ' : impactLevel === 'medium' ? 'średni wpływ' : 'niski wpływ';
+  const impactLabel = t(`latestInsights.impact.${impactLevel}`);
 
   return (
     <div className="border border-[rgba(0,0,0,0.12)] rounded-figma-inner p-[17px] flex items-start justify-between gap-4">
@@ -164,7 +150,7 @@ function InsightCard({
       <div className="flex items-start gap-2 flex-1 min-w-0">
         {/* Icon with rounded bg (28x28) */}
         <div className={`${iconBgColors[insight.insight_type]} rounded-figma-inner p-[6px] flex-shrink-0 w-7 h-7 flex items-center justify-center`}>
-          <Icon className="h-4 w-4" style={{ color: config.color.includes('text-') ? undefined : config.color }} />
+          <Icon className="h-4 w-4 text-foreground" />
         </div>
 
         {/* Content */}
@@ -190,7 +176,7 @@ function InsightCard({
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <CheckCircle className="h-3 w-3" />
-              <span>{(insight.confidence_score * 100).toFixed(0)}% confidence</span>
+              <span>{t('latestInsights.confidence', { percent: (insight.confidence_score * 100).toFixed(0) })}</span>
             </div>
             <span>•</span>
             <span>{insight.time_ago}</span>
@@ -208,7 +194,7 @@ function InsightCard({
         onClick={onViewDetails}
       >
         <Eye className="h-4 w-4 mr-2" />
-        Szczegóły
+        {t('latestInsights.viewDetails')}
       </Button>
     </div>
   );

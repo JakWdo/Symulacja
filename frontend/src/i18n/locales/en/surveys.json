@@ -1,0 +1,173 @@
+{
+  "title": "Surveys",
+  "subtitle": "Create and manage research surveys",
+
+  "header": {
+    "createButton": "New survey",
+    "searchPlaceholder": "Search surveys...",
+    "filterAll": "All",
+    "filterActive": "Active",
+    "filterCompleted": "Completed",
+    "filterDraft": "Drafts"
+  },
+
+  "list": {
+    "emptyState": {
+      "title": "No surveys",
+      "description": "Create your first survey for a research project",
+      "createButton": "Create survey"
+    },
+    "card": {
+      "questions": "questions",
+      "responses": "responses",
+      "status": "Status",
+      "statusDraft": "Draft",
+      "statusActive": "Active",
+      "statusCompleted": "Completed",
+      "createdOn": "Created",
+      "viewButton": "View results",
+      "editButton": "Edit",
+      "duplicateButton": "Duplicate",
+      "deleteButton": "Delete"
+    }
+  },
+
+  "createDialog": {
+    "title": "Create new survey",
+    "description": "Design a survey for your research project",
+    "nameLabel": "Survey name",
+    "namePlaceholder": "e.g. Customer Satisfaction Survey",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe the purpose of the survey...",
+    "projectLabel": "Project",
+    "projectPlaceholder": "Select project",
+    "targetAudienceLabel": "Target audience",
+    "targetAudiencePlaceholder": "Who should complete this survey?",
+    "cancelButton": "Cancel",
+    "createButton": "Create survey",
+    "creatingButton": "Creating..."
+  },
+
+  "builder": {
+    "title": "Survey Builder",
+    "backButton": "Back to surveys",
+    "saveButton": "Save draft",
+    "publishButton": "Publish survey",
+    "previewButton": "Preview",
+
+    "sidebar": {
+      "questions": "Questions",
+      "settings": "Settings",
+      "logic": "Logic",
+      "theme": "Theme"
+    },
+
+    "questionTypes": {
+      "title": "Add question",
+      "multipleChoice": "Multiple choice",
+      "singleChoice": "Single choice",
+      "text": "Text",
+      "textArea": "Text area",
+      "rating": "Rating",
+      "scale": "Scale",
+      "yesNo": "Yes/No",
+      "date": "Date",
+      "email": "Email",
+      "number": "Number"
+    },
+
+    "questionEditor": {
+      "questionText": "Question text",
+      "questionPlaceholder": "Enter your question...",
+      "description": "Description (optional)",
+      "descriptionPlaceholder": "Add additional instructions...",
+      "required": "Required",
+      "addOption": "Add option",
+      "optionPlaceholder": "Option",
+      "removeOption": "Remove option",
+      "deleteQuestion": "Delete question",
+      "duplicateQuestion": "Duplicate question"
+    },
+
+    "settings": {
+      "title": "Survey Settings",
+      "general": "General",
+      "anonymousResponses": "Anonymous responses",
+      "allowMultipleResponses": "Allow multiple responses",
+      "shuffleQuestions": "Shuffle questions",
+      "showProgressBar": "Show progress bar",
+      "completion": "Completion",
+      "completionMessage": "Completion message",
+      "completionMessagePlaceholder": "Thank you for completing the survey!",
+      "redirectUrl": "Redirect URL (optional)",
+      "redirectUrlPlaceholder": "https://example.com/thank-you"
+    }
+  },
+
+  "results": {
+    "title": "Survey Results",
+    "backButton": "Back to surveys",
+    "exportButton": "Export results",
+    "refreshButton": "Refresh",
+
+    "summary": {
+      "totalResponses": "Total responses",
+      "averageCompletionTime": "Average completion time",
+      "completionRate": "Completion rate",
+      "lastResponse": "Last response"
+    },
+
+    "tabs": {
+      "overview": "Overview",
+      "individual": "Individual responses",
+      "analytics": "Analytics",
+      "export": "Export"
+    },
+
+    "emptyState": {
+      "title": "No responses",
+      "description": "Responses will appear here after the survey is completed"
+    }
+  },
+
+  "deleteDialog": {
+    "title": "Delete Survey",
+    "description": "Are you sure you want to delete this survey? All responses will be permanently deleted.",
+    "cancelButton": "Cancel",
+    "deleteButton": "Delete survey",
+    "deletingButton": "Deleting..."
+  },
+
+  "toast": {
+    "createSuccess": "Survey created successfully",
+    "createError": "Failed to create survey",
+    "updateSuccess": "Survey updated",
+    "updateError": "Failed to update survey",
+    "publishSuccess": "Survey published",
+    "publishError": "Failed to publish survey",
+    "deleteSuccess": "Survey deleted",
+    "deleteError": "Failed to delete survey",
+    "duplicateSuccess": "Survey duplicated",
+    "duplicateError": "Failed to duplicate survey",
+    "exportSuccess": "Results exported",
+    "exportError": "Failed to export results"
+  },
+
+  "loading": {
+    "surveys": "Loading surveys...",
+    "surveyDetails": "Loading survey details...",
+    "results": "Loading results...",
+    "creating": "Creating survey...",
+    "updating": "Updating survey...",
+    "deleting": "Deleting survey..."
+  },
+
+  "errors": {
+    "loadSurveys": "Failed to load surveys",
+    "loadSurvey": "Failed to load survey",
+    "invalidName": "Survey name is required",
+    "invalidProject": "Select a project",
+    "noQuestions": "Add at least one question",
+    "invalidQuestion": "Question cannot be empty"
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "title": "Projekty",
+  "subtitle": "Zarządzaj swoimi projektami badawczymi",
+
+  "header": {
+    "createButton": "Nowy projekt",
+    "searchPlaceholder": "Szukaj projektów...",
+    "filterAll": "Wszystkie",
+    "filterActive": "Aktywne",
+    "filterCompleted": "Zakończone",
+    "filterArchived": "Archiwalne"
+  },
+
+  "list": {
+    "emptyState": {
+      "title": "Brak projektów",
+      "description": "Utwórz swój pierwszy projekt, aby rozpocząć badania rynku AI",
+      "createButton": "Utwórz pierwszy projekt"
+    },
+    "card": {
+      "personas": "persony",
+      "focusGroups": "grupy fokusowe",
+      "surveys": "ankiety",
+      "createdOn": "Utworzony",
+      "lastActivity": "Ostatnia aktywność",
+      "viewButton": "Zobacz szczegóły",
+      "editButton": "Edytuj",
+      "archiveButton": "Archiwizuj",
+      "deleteButton": "Usuń"
+    }
+  },
+
+  "createDialog": {
+    "title": "Utwórz nowy projekt",
+    "description": "Rozpocznij nowy projekt badawczy dla swojego produktu lub usługi",
+    "nameLabel": "Nazwa projektu",
+    "namePlaceholder": "np. Badanie rynku nowego produktu",
+    "descriptionLabel": "Opis",
+    "descriptionPlaceholder": "Opisz cel i zakres swojego projektu...",
+    "targetAudienceLabel": "Grupa docelowa",
+    "targetAudiencePlaceholder": "np. Młodzi profesjonaliści, 25-35 lat",
+    "objectivesLabel": "Cele badawcze",
+    "objectivesPlaceholder": "Jakie pytania chcesz zadać? Czego chcesz się dowiedzieć?",
+    "cancelButton": "Anuluj",
+    "createButton": "Utwórz projekt",
+    "creatingButton": "Tworzenie..."
+  },
+
+  "editDialog": {
+    "title": "Edytuj projekt",
+    "description": "Zaktualizuj informacje o projekcie",
+    "cancelButton": "Anuluj",
+    "saveButton": "Zapisz zmiany",
+    "savingButton": "Zapisywanie..."
+  },
+
+  "deleteDialog": {
+    "title": "Usuń projekt",
+    "description": "Czy na pewno chcesz usunąć ten projekt? Ta akcja jest nieodwracalna. Wszystkie persony, grupy fokusowe i dane zostaną trwale usunięte.",
+    "confirmationText": "Wpisz nazwę projektu aby potwierdzić",
+    "confirmationPlaceholder": "Nazwa projektu",
+    "cancelButton": "Anuluj",
+    "deleteButton": "Usuń projekt",
+    "deletingButton": "Usuwanie..."
+  },
+
+  "details": {
+    "backButton": "Powrót do projektów",
+    "editButton": "Edytuj projekt",
+    "archiveButton": "Archiwizuj",
+    "deleteButton": "Usuń",
+
+    "overview": {
+      "title": "Przegląd",
+      "description": "Opis",
+      "targetAudience": "Grupa docelowa",
+      "objectives": "Cele badawcze",
+      "status": "Status",
+      "created": "Utworzony",
+      "lastModified": "Ostatnia modyfikacja",
+      "statusActive": "Aktywny",
+      "statusCompleted": "Zakończony",
+      "statusArchived": "Archiwalny"
+    },
+
+    "tabs": {
+      "overview": "Przegląd",
+      "personas": "Persony",
+      "focusGroups": "Grupy fokusowe",
+      "surveys": "Ankiety",
+      "insights": "Insighty"
+    },
+
+    "personas": {
+      "title": "Persony projektu",
+      "generateButton": "Generuj persony",
+      "emptyState": {
+        "title": "Brak person",
+        "description": "Wygeneruj persony AI dla tego projektu",
+        "generateButton": "Generuj persony"
+      }
+    },
+
+    "focusGroups": {
+      "title": "Grupy fokusowe",
+      "createButton": "Nowa grupa fokusowa",
+      "emptyState": {
+        "title": "Brak grup fokusowych",
+        "description": "Uruchom wirtualną grupę fokusową AI",
+        "createButton": "Utwórz grupę fokusową"
+      }
+    },
+
+    "surveys": {
+      "title": "Ankiety",
+      "createButton": "Nowa ankieta",
+      "emptyState": {
+        "title": "Brak ankiet",
+        "description": "Utwórz ankietę dla tego projektu",
+        "createButton": "Utwórz ankietę"
+      }
+    },
+
+    "insights": {
+      "title": "Insighty projektu",
+      "emptyState": {
+        "title": "Brak insightów",
+        "description": "Insighty pojawią się po przeprowadzeniu badań"
+      }
+    }
+  },
+
+  "toast": {
+    "createSuccess": "Projekt utworzony pomyślnie",
+    "createError": "Nie udało się utworzyć projektu",
+    "updateSuccess": "Projekt zaktualizowany",
+    "updateError": "Nie udało się zaktualizować projektu",
+    "deleteSuccess": "Projekt usunięty",
+    "deleteError": "Nie udało się usunąć projektu",
+    "archiveSuccess": "Projekt zarchiwizowany",
+    "archiveError": "Nie udało się zarchiwizować projektu"
+  },
+
+  "loading": {
+    "projects": "Ładowanie projektów...",
+    "projectDetails": "Ładowanie szczegółów projektu...",
+    "creating": "Tworzenie projektu...",
+    "updating": "Aktualizowanie projektu...",
+    "deleting": "Usuwanie projektu..."
+  },
+
+  "errors": {
+    "loadProjects": "Nie udało się załadować projektów",
+    "loadProject": "Nie udało się załadować projektu",
+    "invalidName": "Nazwa projektu jest wymagana",
+    "invalidDescription": "Opis jest wymagany",
+    "confirmationMismatch": "Nazwa projektu nie pasuje"
+  }
+}

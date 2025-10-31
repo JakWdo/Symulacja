@@ -1,0 +1,277 @@
+{
+  "title": "Grupy fokusowe",
+  "subtitle": "Zarządzaj wirtualnymi grupami fokusowymi AI",
+
+  "header": {
+    "createButton": "Nowa grupa fokusowa",
+    "searchPlaceholder": "Szukaj grup fokusowych...",
+    "filterAll": "Wszystkie",
+    "filterActive": "Aktywne",
+    "filterCompleted": "Zakończone",
+    "filterScheduled": "Zaplanowane"
+  },
+
+  "list": {
+    "emptyState": {
+      "title": "Brak grup fokusowych",
+      "description": "Uruchom swoją pierwszą wirtualną grupę fokusową AI",
+      "createButton": "Utwórz grupę fokusową"
+    },
+    "card": {
+      "participants": "uczestników",
+      "messages": "wiadomości",
+      "duration": "czas trwania",
+      "status": "Status",
+      "statusScheduled": "Zaplanowana",
+      "statusActive": "Aktywna",
+      "statusCompleted": "Zakończona",
+      "createdOn": "Utworzona",
+      "viewButton": "Zobacz dyskusję",
+      "continueButton": "Kontynuuj",
+      "analyzeButton": "Analizuj",
+      "deleteButton": "Usuń"
+    }
+  },
+
+  "createDialog": {
+    "title": "Utwórz grupę fokusową",
+    "description": "Uruchom wirtualną grupę fokusową AI z wybranymi personami",
+    "nameLabel": "Nazwa grupy fokusowej",
+    "namePlaceholder": "np. Test produktu - młodzi profesjonaliści",
+    "descriptionLabel": "Opis",
+    "descriptionPlaceholder": "Opisz cel dyskusji...",
+    "projectLabel": "Projekt",
+    "projectPlaceholder": "Wybierz projekt",
+    "topicLabel": "Temat dyskusji",
+    "topicPlaceholder": "O czym chcesz rozmawiać?",
+    "participantsLabel": "Uczestnicy (persony)",
+    "participantsPlaceholder": "Wybierz persony do dyskusji",
+    "selectPersonas": "Wybierz persony",
+    "selectedPersonas": "Wybrane persony",
+    "moderatorLabel": "Moderator",
+    "moderatorAI": "AI Moderator",
+    "moderatorHuman": "Ty (ręczne moderowanie)",
+    "advancedSettings": "Ustawienia zaawansowane",
+    "durationLabel": "Planowany czas trwania (minuty)",
+    "durationPlaceholder": "60",
+    "discussionGuideLabel": "Scenariusz dyskusji",
+    "discussionGuidePlaceholder": "Wprowadź kluczowe pytania i tematy...",
+    "cancelButton": "Anuluj",
+    "createButton": "Uruchom grupę fokusową",
+    "creatingButton": "Uruchamianie..."
+  },
+
+  "discussion": {
+    "title": "Dyskusja",
+    "backButton": "Powrót do grup fokusowych",
+    "endButton": "Zakończ dyskusję",
+    "analyzeButton": "Analizuj wyniki",
+    "exportButton": "Eksportuj transkrypt",
+
+    "sidebar": {
+      "participants": "Uczestnicy",
+      "guide": "Scenariusz",
+      "notes": "Notatki",
+      "insights": "Insighty"
+    },
+
+    "chat": {
+      "placeholder": "Napisz wiadomość jako moderator...",
+      "sendButton": "Wyślij",
+      "typingIndicator": "pisze...",
+      "moderator": "Moderator",
+      "you": "Ty"
+    },
+
+    "participants": {
+      "title": "Uczestnicy",
+      "active": "Aktywny",
+      "messagesCount": "wiadomości",
+      "engagementLevel": "Poziom zaangażowania",
+      "high": "Wysoki",
+      "medium": "Średni",
+      "low": "Niski"
+    },
+
+    "guide": {
+      "title": "Scenariusz dyskusji",
+      "currentTopic": "Bieżący temat",
+      "nextTopic": "Następny temat",
+      "completed": "Zakończone",
+      "pending": "Oczekujące"
+    },
+
+    "notes": {
+      "title": "Notatki moderatora",
+      "placeholder": "Dodaj notatki podczas dyskusji...",
+      "saveButton": "Zapisz notatkę",
+      "emptyState": "Brak notatek"
+    }
+  },
+
+  "analysis": {
+    "title": "Analiza grupy fokusowej",
+    "backButton": "Powrót do dyskusji",
+    "exportButton": "Eksportuj raport",
+    "regenerateButton": "Regeneruj analizę",
+
+    "tabs": {
+      "summary": "Podsumowanie",
+      "insights": "Insighty",
+      "segments": "Segmenty",
+      "sentiment": "Sentyment",
+      "recommendations": "Rekomendacje"
+    },
+
+    "executiveSummary": {
+      "title": "Podsumowanie Zarządcze",
+      "participants": "{{count}} uczestników",
+      "questions": "{{count}} pytań",
+      "responses": "{{count}} odpowiedzi",
+      "generated": "Wygenerowano {{date}} • Model: {{model}}"
+    },
+
+    "keyInsights": {
+      "title": "Kluczowe Wnioski",
+      "description": "Najważniejsze odkrycia z dyskusji",
+      "category": "Kategoria",
+      "impact": "Wpływ",
+      "highImpact": "Wysoki",
+      "mediumImpact": "Średni",
+      "lowImpact": "Niski",
+      "supportingQuotes": "Cytaty wspierające",
+      "emptyState": "Brak insightów"
+    },
+
+    "segments": {
+      "title": "Analiza Segmentów",
+      "description": "Porównanie opinii i zachowań różnych segmentów",
+      "participantPercentage": "{{percentage}}% uczestników",
+      "segment": "Segment",
+      "opinions": "Opinie",
+      "preferences": "Preferencje",
+      "painPoints": "Punkty bólu"
+    },
+
+    "surprisingFindings": {
+      "title": "Zaskakujące Odkrycia",
+      "description": "Nieoczekiwane insighty i wzorce",
+      "surprise": "Stopień zaskoczenia",
+      "impact": "Wpływ",
+      "emptyState": "Brak zaskakujących odkryć"
+    },
+
+    "sentiment": {
+      "title": "Analiza sentymentu",
+      "overall": "Ogólny sentyment",
+      "positive": "Pozytywny",
+      "neutral": "Neutralny",
+      "negative": "Negatywny",
+      "byTopic": "Sentyment według tematu",
+      "byParticipant": "Sentyment według uczestnika",
+      "timeline": "Sentyment w czasie"
+    },
+
+    "recommendations": {
+      "title": "Rekomendacje Strategiczne",
+      "description": "Rekomendacje działań na podstawie wyników dyskusji",
+      "priority": {
+        "high": "Wysoki priorytet",
+        "medium": "Średni priorytet",
+        "low": "Niski priorytet"
+      },
+      "impact": {
+        "high": "Wysoki wpływ",
+        "medium": "Średni wpływ",
+        "low": "Niski wpływ"
+      },
+      "actionable": "Działania",
+      "rationale": "Uzasadnienie",
+      "emptyState": "Brak rekomendacji"
+    },
+
+    "aiSummary": {
+      "title": "Podsumowanie AI",
+      "defaultSessionTitle": "wybranej sesji",
+      "emptyTitle": "Podsumowanie AI: {{sessionTitle}}",
+      "emptyDescription": "Wygeneruj inteligentne podsumowanie dyskusji grupy fokusowej z użyciem zaawansowanego AI. Otrzymasz podsumowanie zarządcze, kluczowe wnioski, zaskakujące odkrycia oraz rekomendacje strategiczne w kilka sekund.",
+      "generateButton": "Wygeneruj podsumowanie AI",
+      "waitingForResponses": "Oczekiwanie na odpowiedzi...",
+      "completeDiscussionFirst": "Najpierw zakończ dyskusję grupy fokusowej, aby wygenerować podsumowanie AI.",
+      "generating": "Generowanie podsumowania AI...",
+      "usingProModel": "Używany model Gemini 2.5 Pro dla najwyższej jakości analizy",
+      "usingFlashModel": "Używany model Gemini 2.5 Flash dla szybkiej analizy",
+      "errorTitle": "Nie udało się wygenerować podsumowania",
+      "errorUnknown": "Nieznany błąd",
+      "retryButton": "Spróbuj ponownie",
+      "discussionSummary": "Podsumowanie dyskusji • {{sessionTitle}}",
+      "generatedBy": "Wygenerowano modelem {{model}} • {{date}}",
+      "responsesLabel": "Odpowiedzi: {{count}}",
+      "participantsLabel": "Uczestnicy: {{count}}",
+      "questionsLabel": "Pytania: {{count}}",
+      "regenerateButton": "Wygeneruj ponownie",
+      "sentimentNarrative": "Narracja nastrojów",
+      "success": "Podsumowanie AI gotowe",
+      "successModel": "Model: {{model}}",
+      "error": "Błąd generowania",
+      "errorGeneric": "Nie udało się wygenerować podsumowania",
+      "timeout": "Timeout generowania podsumowania",
+      "timeoutDescription": "Generowanie podsumowania trwało zbyt długo. Spróbuj ponownie."
+    },
+
+    "summary": {
+      "title": "Podsumowanie wykonawcze",
+      "overview": "Przegląd",
+      "keyFindings": "Kluczowe wnioski",
+      "participationStats": "Statystyki uczestnictwa",
+      "totalMessages": "Łączna liczba wiadomości",
+      "averageEngagement": "Średnie zaangażowanie",
+      "topicsDiscussed": "Omówione tematy"
+    }
+  },
+
+  "deleteDialog": {
+    "title": "Usuń grupę fokusową",
+    "description": "Czy na pewno chcesz usunąć tę grupę fokusową? Cała dyskusja i analiza zostaną trwale usunięte.",
+    "cancelButton": "Anuluj",
+    "deleteButton": "Usuń grupę fokusową",
+    "deletingButton": "Usuwanie..."
+  },
+
+  "toast": {
+    "createSuccess": "Grupa fokusowa utworzona pomyślnie",
+    "createError": "Nie udało się utworzyć grupy fokusowej",
+    "updateSuccess": "Grupa fokusowa zaktualizowana",
+    "updateError": "Nie udało się zaktualizować grupy fokusowej",
+    "endSuccess": "Dyskusja zakończona",
+    "endError": "Nie udało się zakończyć dyskusji",
+    "deleteSuccess": "Grupa fokusowa usunięta",
+    "deleteError": "Nie udało się usunąć grupy fokusowej",
+    "analyzeSuccess": "Analiza wygenerowana",
+    "analyzeError": "Nie udało się wygenerować analizy",
+    "exportSuccess": "Raport wyeksportowany",
+    "exportError": "Nie udało się wyeksportować raportu",
+    "messageSent": "Wiadomość wysłana",
+    "messageFailed": "Nie udało się wysłać wiadomości"
+  },
+
+  "loading": {
+    "focusGroups": "Ładowanie grup fokusowych...",
+    "discussion": "Ładowanie dyskusji...",
+    "analysis": "Ładowanie analizy...",
+    "creating": "Tworzenie grupy fokusowej...",
+    "analyzing": "Analizowanie wyników...",
+    "sending": "Wysyłanie wiadomości..."
+  },
+
+  "errors": {
+    "loadFocusGroups": "Nie udało się załadować grup fokusowych",
+    "loadDiscussion": "Nie udało się załadować dyskusji",
+    "loadAnalysis": "Nie udało się załadować analizy",
+    "invalidName": "Nazwa grupy fokusowej jest wymagana",
+    "invalidProject": "Wybierz projekt",
+    "invalidTopic": "Temat dyskusji jest wymagany",
+    "noParticipants": "Wybierz przynajmniej 2 uczestników",
+    "tooManyParticipants": "Maksymalnie 10 uczestników"
+  }
+}

@@ -13,6 +13,7 @@ import {
   TrendingUp,
   AlertCircle,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useUsageBudget } from '@/hooks/dashboard/useUsageBudget';
 import { useUsageBreakdown } from '@/hooks/dashboard/useUsageBreakdown';
 import {
@@ -26,6 +27,7 @@ import {
 } from 'recharts';
 
 export function UsageBudgetSection() {
+  const { t } = useTranslation('dashboard');
   const { data, isLoading, error } = useUsageBudget();
   const { data: breakdown, isLoading: isLoadingBreakdown } = useUsageBreakdown();
 
@@ -37,12 +39,12 @@ export function UsageBudgetSection() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Zużycie i budżet</CardTitle>
+          <CardTitle>{t('usage.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Nie udało się załadować danych o zużyciu</AlertDescription>
+            <AlertDescription>{t('errors.loadUsage')}</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -91,18 +93,18 @@ export function UsageBudgetSection() {
         <div className="flex items-center gap-2 mb-1.5">
           <DollarSign className="h-5 w-5 text-foreground" />
           <CardTitle className="text-base font-normal text-foreground leading-[16px]">
-            Zużycie i budżet
+            {t('usage.title')}
           </CardTitle>
         </div>
         <p className="text-base text-muted-foreground leading-[24px]">
-          Monitorowanie zużycia tokenów i kosztów
+          {t('usage.subtitle')}
         </p>
       </CardHeader>
       <CardContent className="px-6 pb-6 space-y-4">
         {/* Current Usage */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Bieżące zużycie</span>
+            <span className="text-sm text-muted-foreground">{t('usage.currentUsage')}</span>
             <span className="text-base font-normal text-foreground">
               ${data.total_cost.toFixed(2)} / ${data.budget_limit?.toFixed(2) || '100.00'}
             </span>
@@ -117,7 +119,7 @@ export function UsageBudgetSection() {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            {(data.total_tokens / 1_000_000).toFixed(1)} 000 000 tokenów zużytych
+            {t('usage.tokensUsed', { count: Number((data.total_tokens / 1_000_000).toFixed(1)) })}
           </p>
         </div>
 
@@ -127,13 +129,13 @@ export function UsageBudgetSection() {
         {/* Forecast + Alert Threshold (Figma Design) */}
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Prognoza (koniec miesiąca)</p>
+            <p className="text-sm text-muted-foreground">{t('usage.forecast')}</p>
             <p className="text-lg font-semibold text-foreground">
               ${data.forecast_month_end.toFixed(2)}
             </p>
           </div>
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Próg alertu</p>
+            <p className="text-sm text-muted-foreground">{t('usage.alertThreshold')}</p>
             <p className="text-lg font-semibold text-foreground">
               {(critical * 100).toFixed(0)}%
             </p>
@@ -147,10 +149,10 @@ export function UsageBudgetSection() {
               <AlertCircle className="h-4 w-4 text-foreground mt-0.5" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-semibold text-foreground tracking-tight">
-                  Alert budżetowy
+                  {t('usage.budgetAlert')}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {data.alerts[0]?.message || 'Zużycie na poziomie 93% - rozważ optymalizację'}
+                  {data.alerts[0]?.message || t('usage.budgetAlertMessage')}
                 </p>
               </div>
             </div>
@@ -162,12 +164,12 @@ export function UsageBudgetSection() {
           <>
             <div className="h-px bg-border" />
             <div className="space-y-3">
-              <p className="text-sm font-semibold text-foreground">Zużycie według typu operacji</p>
+              <p className="text-sm font-semibold text-foreground">{t('usage.breakdown.title')}</p>
 
               {/* Persona Generation */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Generowanie person</span>
+                  <span className="text-xs text-muted-foreground">{t('usage.breakdown.personaGeneration')}</span>
                   <span className="text-xs text-foreground">
                     {breakdown.persona_generation.percentage.toFixed(0)}%
                   </span>
@@ -183,7 +185,7 @@ export function UsageBudgetSection() {
               {/* Focus Group */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Grupy fokusowe</span>
+                  <span className="text-xs text-muted-foreground">{t('usage.breakdown.focusGroups')}</span>
                   <span className="text-xs text-foreground">
                     {breakdown.focus_group.percentage.toFixed(0)}%
                   </span>
@@ -199,7 +201,7 @@ export function UsageBudgetSection() {
               {/* RAG Query */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">RAG i analiza</span>
+                  <span className="text-xs text-muted-foreground">{t('usage.breakdown.ragAnalysis')}</span>
                   <span className="text-xs text-foreground">
                     {breakdown.rag_query.percentage.toFixed(0)}%
                   </span>
@@ -215,7 +217,7 @@ export function UsageBudgetSection() {
               {/* Other */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Inne operacje</span>
+                  <span className="text-xs text-muted-foreground">{t('usage.breakdown.other')}</span>
                   <span className="text-xs text-foreground">
                     {breakdown.other.percentage.toFixed(0)}%
                   </span>

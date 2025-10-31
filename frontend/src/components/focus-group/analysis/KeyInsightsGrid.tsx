@@ -1,7 +1,9 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { NumberedBadge } from './NumberedBadge';
 import ReactMarkdown from 'react-markdown';
+import { normalizeMarkdown } from '@/lib/markdown';
 
 interface KeyInsightsGridProps {
   insights: string[];
@@ -9,20 +11,23 @@ interface KeyInsightsGridProps {
 }
 
 /**
- * Grid 2x2 z kluczowymi wnioskami (numbered badges)
+ * Key Insights Grid Component
+ * Displays top 4 key insights in a 2x2 grid with numbered badges
  */
 export const KeyInsightsGrid: React.FC<KeyInsightsGridProps> = ({
   insights,
   className = '',
 }) => {
+  const { t } = useTranslation('focusGroups');
+
   return (
     <Card className={`bg-card border border-border shadow-sm ${className}`}>
       <CardHeader>
         <CardTitle className="text-card-foreground font-crimson text-xl">
-          Kluczowe Wnioski
+          {t('analysis.keyInsights.title')}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Najważniejsze odkrycia z dyskusji
+          {t('analysis.keyInsights.description')}
         </p>
       </CardHeader>
       <CardContent>
@@ -40,7 +45,7 @@ export const KeyInsightsGrid: React.FC<KeyInsightsGridProps> = ({
                     strong: ({ children }) => <strong className="text-card-foreground font-semibold">{children}</strong>,
                   }}
                 >
-                  {insight}
+                  {normalizeMarkdown(insight)}
                 </ReactMarkdown>
               </div>
             </div>

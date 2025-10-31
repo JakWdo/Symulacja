@@ -1,0 +1,277 @@
+{
+  "title": "Focus Groups",
+  "subtitle": "Manage AI virtual focus groups",
+
+  "header": {
+    "createButton": "New focus group",
+    "searchPlaceholder": "Search focus groups...",
+    "filterAll": "All",
+    "filterActive": "Active",
+    "filterCompleted": "Completed",
+    "filterScheduled": "Scheduled"
+  },
+
+  "list": {
+    "emptyState": {
+      "title": "No focus groups",
+      "description": "Launch your first AI virtual focus group",
+      "createButton": "Create focus group"
+    },
+    "card": {
+      "participants": "participants",
+      "messages": "messages",
+      "duration": "duration",
+      "status": "Status",
+      "statusScheduled": "Scheduled",
+      "statusActive": "Active",
+      "statusCompleted": "Completed",
+      "createdOn": "Created",
+      "viewButton": "View discussion",
+      "continueButton": "Continue",
+      "analyzeButton": "Analyze",
+      "deleteButton": "Delete"
+    }
+  },
+
+  "createDialog": {
+    "title": "Create Focus Group",
+    "description": "Launch an AI virtual focus group with selected personas",
+    "nameLabel": "Focus group name",
+    "namePlaceholder": "e.g. Product Test - Young Professionals",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe the purpose of the discussion...",
+    "projectLabel": "Project",
+    "projectPlaceholder": "Select project",
+    "topicLabel": "Discussion topic",
+    "topicPlaceholder": "What do you want to discuss?",
+    "participantsLabel": "Participants (personas)",
+    "participantsPlaceholder": "Select personas for discussion",
+    "selectPersonas": "Select personas",
+    "selectedPersonas": "Selected personas",
+    "moderatorLabel": "Moderator",
+    "moderatorAI": "AI Moderator",
+    "moderatorHuman": "You (manual moderation)",
+    "advancedSettings": "Advanced settings",
+    "durationLabel": "Planned duration (minutes)",
+    "durationPlaceholder": "60",
+    "discussionGuideLabel": "Discussion guide",
+    "discussionGuidePlaceholder": "Enter key questions and topics...",
+    "cancelButton": "Cancel",
+    "createButton": "Launch focus group",
+    "creatingButton": "Launching..."
+  },
+
+  "discussion": {
+    "title": "Discussion",
+    "backButton": "Back to focus groups",
+    "endButton": "End discussion",
+    "analyzeButton": "Analyze results",
+    "exportButton": "Export transcript",
+
+    "sidebar": {
+      "participants": "Participants",
+      "guide": "Guide",
+      "notes": "Notes",
+      "insights": "Insights"
+    },
+
+    "chat": {
+      "placeholder": "Write a message as moderator...",
+      "sendButton": "Send",
+      "typingIndicator": "is typing...",
+      "moderator": "Moderator",
+      "you": "You"
+    },
+
+    "participants": {
+      "title": "Participants",
+      "active": "Active",
+      "messagesCount": "messages",
+      "engagementLevel": "Engagement level",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+
+    "guide": {
+      "title": "Discussion Guide",
+      "currentTopic": "Current topic",
+      "nextTopic": "Next topic",
+      "completed": "Completed",
+      "pending": "Pending"
+    },
+
+    "notes": {
+      "title": "Moderator Notes",
+      "placeholder": "Add notes during discussion...",
+      "saveButton": "Save note",
+      "emptyState": "No notes"
+    }
+  },
+
+  "analysis": {
+    "title": "Focus Group Analysis",
+    "backButton": "Back to discussion",
+    "exportButton": "Export report",
+    "regenerateButton": "Regenerate analysis",
+
+    "tabs": {
+      "summary": "Summary",
+      "insights": "Insights",
+      "segments": "Segments",
+      "sentiment": "Sentiment",
+      "recommendations": "Recommendations"
+    },
+
+    "executiveSummary": {
+      "title": "Executive Summary",
+      "participants": "{{count}} participants",
+      "questions": "{{count}} questions",
+      "responses": "{{count}} responses",
+      "generated": "Generated {{date}} • Model: {{model}}"
+    },
+
+    "keyInsights": {
+      "title": "Key Insights",
+      "description": "Most important findings from the discussion",
+      "category": "Category",
+      "impact": "Impact",
+      "highImpact": "High",
+      "mediumImpact": "Medium",
+      "lowImpact": "Low",
+      "supportingQuotes": "Supporting quotes",
+      "emptyState": "No insights"
+    },
+
+    "segments": {
+      "title": "Segment Analysis",
+      "description": "Compare opinions and behaviors across segments",
+      "participantPercentage": "{{percentage}}% of participants",
+      "segment": "Segment",
+      "opinions": "Opinions",
+      "preferences": "Preferences",
+      "painPoints": "Pain Points"
+    },
+
+    "surprisingFindings": {
+      "title": "Surprising Findings",
+      "description": "Unexpected insights and patterns",
+      "surprise": "Surprise Level",
+      "impact": "Impact",
+      "emptyState": "No surprising findings"
+    },
+
+    "sentiment": {
+      "title": "Sentiment Analysis",
+      "overall": "Overall sentiment",
+      "positive": "Positive",
+      "neutral": "Neutral",
+      "negative": "Negative",
+      "byTopic": "Sentiment by topic",
+      "byParticipant": "Sentiment by participant",
+      "timeline": "Sentiment over time"
+    },
+
+    "recommendations": {
+      "title": "Strategic Recommendations",
+      "description": "Actionable recommendations based on discussion results",
+      "priority": {
+        "high": "High priority",
+        "medium": "Medium priority",
+        "low": "Low priority"
+      },
+      "impact": {
+        "high": "High impact",
+        "medium": "Medium impact",
+        "low": "Low impact"
+      },
+      "actionable": "Actions",
+      "rationale": "Rationale",
+      "emptyState": "No recommendations"
+    },
+
+    "aiSummary": {
+      "title": "AI Summary",
+      "defaultSessionTitle": "selected session",
+      "emptyTitle": "AI Summary: {{sessionTitle}}",
+      "emptyDescription": "Generate an intelligent summary of the focus group discussion using advanced AI. Get an executive summary, key insights, surprising findings, and strategic recommendations in seconds.",
+      "generateButton": "Generate AI Summary",
+      "waitingForResponses": "Waiting for responses...",
+      "completeDiscussionFirst": "Complete the focus group discussion first to generate an AI summary.",
+      "generating": "Generating AI summary...",
+      "usingProModel": "Using Gemini 2.5 Pro model for highest quality analysis",
+      "usingFlashModel": "Using Gemini 2.5 Flash model for fast analysis",
+      "errorTitle": "Failed to generate summary",
+      "errorUnknown": "Unknown error",
+      "retryButton": "Try again",
+      "discussionSummary": "Discussion Summary • {{sessionTitle}}",
+      "generatedBy": "Generated with {{model}} • {{date}}",
+      "responsesLabel": "Responses: {{count}}",
+      "participantsLabel": "Participants: {{count}}",
+      "questionsLabel": "Questions: {{count}}",
+      "regenerateButton": "Regenerate",
+      "sentimentNarrative": "Sentiment Narrative",
+      "success": "AI Summary ready",
+      "successModel": "Model: {{model}}",
+      "error": "Generation error",
+      "errorGeneric": "Failed to generate summary",
+      "timeout": "Summary generation timeout",
+      "timeoutDescription": "Summary generation took too long. Please try again."
+    },
+
+    "summary": {
+      "title": "Executive Summary",
+      "overview": "Overview",
+      "keyFindings": "Key Findings",
+      "participationStats": "Participation Statistics",
+      "totalMessages": "Total messages",
+      "averageEngagement": "Average engagement",
+      "topicsDiscussed": "Topics discussed"
+    }
+  },
+
+  "deleteDialog": {
+    "title": "Delete Focus Group",
+    "description": "Are you sure you want to delete this focus group? All discussion and analysis will be permanently deleted.",
+    "cancelButton": "Cancel",
+    "deleteButton": "Delete focus group",
+    "deletingButton": "Deleting..."
+  },
+
+  "toast": {
+    "createSuccess": "Focus group created successfully",
+    "createError": "Failed to create focus group",
+    "updateSuccess": "Focus group updated",
+    "updateError": "Failed to update focus group",
+    "endSuccess": "Discussion ended",
+    "endError": "Failed to end discussion",
+    "deleteSuccess": "Focus group deleted",
+    "deleteError": "Failed to delete focus group",
+    "analyzeSuccess": "Analysis generated",
+    "analyzeError": "Failed to generate analysis",
+    "exportSuccess": "Report exported",
+    "exportError": "Failed to export report",
+    "messageSent": "Message sent",
+    "messageFailed": "Failed to send message"
+  },
+
+  "loading": {
+    "focusGroups": "Loading focus groups...",
+    "discussion": "Loading discussion...",
+    "analysis": "Loading analysis...",
+    "creating": "Creating focus group...",
+    "analyzing": "Analyzing results...",
+    "sending": "Sending message..."
+  },
+
+  "errors": {
+    "loadFocusGroups": "Failed to load focus groups",
+    "loadDiscussion": "Failed to load discussion",
+    "loadAnalysis": "Failed to load analysis",
+    "invalidName": "Focus group name is required",
+    "invalidProject": "Select a project",
+    "invalidTopic": "Discussion topic is required",
+    "noParticipants": "Select at least 2 participants",
+    "tooManyParticipants": "Maximum 10 participants"
+  }
+}

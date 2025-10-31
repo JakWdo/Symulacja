@@ -1,0 +1,128 @@
+{
+  "header": {
+    "title": "Settings",
+    "subtitle": "Manage your account and application preferences"
+  },
+
+  "profile": {
+    "title": "Profile settings",
+    "description": "Update your personal information",
+    "avatar": {
+      "change": "Change avatar",
+      "hint": "JPG, PNG or WEBP, max 2MB",
+      "delete": "Delete avatar",
+      "uploadSuccess": "Avatar uploaded successfully",
+      "deleteSuccess": "Avatar deleted successfully",
+      "uploadError": "Failed to upload avatar",
+      "deleteError": "Failed to delete avatar",
+      "invalidType": "Invalid file type. Upload JPG, PNG or WEBP",
+      "tooLarge": "File too large. Maximum size is 2MB"
+    },
+    "fields": {
+      "fullName": "Full name",
+      "email": "Email",
+      "role": "Role",
+      "company": "Company"
+    },
+    "saveButton": "Save changes",
+    "updateSuccess": "Profile updated successfully",
+    "updateError": "Failed to update profile"
+  },
+
+  "budget": {
+    "title": "Budget & limits",
+    "description": "Set token usage and monthly budget limits",
+    "fields": {
+      "limit": {
+        "label": "Monthly budget limit ($)",
+        "placeholder": "100.00",
+        "hint": "Maximum monthly amount for token usage (0 = no limit)"
+      },
+      "warning": {
+        "label": "Warning threshold (%)",
+        "placeholder": "80",
+        "hint": "Send notification when reaching this threshold"
+      },
+      "critical": {
+        "label": "Critical threshold (%)",
+        "placeholder": "90",
+        "hint": "Send critical notification when reaching this threshold"
+      }
+    },
+    "alertsTitle": "Alert thresholds",
+    "saveButton": "Save limits",
+    "updateSuccess": "Budget settings saved successfully",
+    "updateError": "Failed to save budget settings"
+  },
+
+  "appearance": {
+    "title": "Appearance",
+    "description": "Customize your workspace appearance",
+    "theme": {
+      "label": "Theme",
+      "description": "Select light or dark mode",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "language": {
+      "label": "Language",
+      "description": "Select application interface language"
+    }
+  },
+
+  "account": {
+    "title": "Account status",
+    "plan": "Plan",
+    "status": "Status",
+    "memberSince": "Member since",
+    "stats": {
+      "projects": "Projects",
+      "personas": "Generated personas",
+      "focusGroups": "Focus groups",
+      "surveys": "Surveys"
+    },
+    "upgradeButton": "Upgrade plan"
+  },
+
+  "privacy": {
+    "title": "Data & privacy",
+    "export": "Export data",
+    "settings": "Privacy settings",
+    "deleteAccount": {
+      "title": "Delete account",
+      "button": "Delete account",
+      "dialog": {
+        "title": "Are you sure you want to do this?",
+        "description": "This action is irreversible. It will permanently delete your account and all data from our servers, including:",
+        "items": {
+          "projects": "All projects and personas",
+          "focusGroups": "Focus group discussions and survey results",
+          "profile": "Your profile and settings"
+        },
+        "cancel": "Cancel",
+        "confirm": "Delete account"
+      },
+      "success": "Account deleted. Goodbye!",
+      "error": "Failed to delete account"
+    }
+  },
+
+  "support": {
+    "title": "Support",
+    "helpCenter": "Help center",
+    "contact": "Contact technical support",
+    "features": "Feature requests"
+  },
+
+  "toast": {
+    "profileUpdateSuccess": "Profile updated successfully",
+    "avatarUploadSuccess": "Avatar uploaded successfully",
+    "avatarDeleteSuccess": "Avatar deleted successfully",
+    "budgetUpdateSuccess": "Budget settings updated",
+    "languageUpdateSuccess": "Language changed",
+    "languageUpdateError": "Failed to change language",
+    "accountDeleteSuccess": "Account deleted. Goodbye!",
+    "accountDeleteError": "Failed to delete account"
+  }
+}
