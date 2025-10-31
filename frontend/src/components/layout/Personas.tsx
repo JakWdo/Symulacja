@@ -280,7 +280,7 @@ export function Personas() {
     [i18n.language]
   );
 
-  const projectLabel = selectedProject?.name || translate('Nieznany projekt', 'Unknown project');
+  const projectLabel = selectedProject?.name || t('page.generationToast.unknownProject');
   const [selectedPersonaForDetails, setSelectedPersonaForDetails] = useState<string | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
   const [currentPersonaIndex, setCurrentPersonaIndex] = useState(0);
@@ -420,10 +420,10 @@ export function Personas() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['personas', selectedProject?.id] });
       queryClient.invalidateQueries({ queryKey: ['personas', 'all'] });
-      const modeCopy = variables.adversarial_mode ? 'Tryb Adversarial' : 'Tryb Standard';
+      const modeCopy = variables.adversarial_mode ? t('page.generationToast.adversarialMode') : t('page.generationToast.standardMode');
       toast.info(
-        'Generowanie uruchomione',
-        `${projectLabel} • ${modeCopy}, ${variables.num_personas} personas w tle.`,
+        t('page.generationToast.started'),
+        `${projectLabel} • ${modeCopy}, ${t('page.generationToast.personasInBackground', { count: variables.num_personas })}.`,
       );
     },
     onError: (error: Error) => {
@@ -431,7 +431,7 @@ export function Personas() {
       setProgressMeta(null);
       setShowPersonaWizard(true);
       setActiveGenerationProjectId(null);
-      toast.error('Generowanie zatrzymane', `${projectLabel} • ${error.message}`);
+      toast.error(t('page.generationToast.stopped'), `${projectLabel} • ${error.message}`);
     },
   });
 
@@ -491,8 +491,8 @@ export function Personas() {
       if (!hasReachedTarget && !timeoutWarningIssued.current) {
         timeoutWarningIssued.current = true;
         toast.info(
-          'Generowanie nadal trwa',
-          `${projectLabel} • Proces trwa dłużej niż zwykle — sprawdź logi serwera, jeśli nic się nie zmieni.`,
+          t('page.generationToast.stillRunning'),
+          `${projectLabel} • ${t('page.generationToast.takingLonger')}`,
         );
       }
     }, timeoutMs);
@@ -502,7 +502,7 @@ export function Personas() {
 
   const handleGeneratePersonas = (config: PersonaGenerationConfig) => {
     if (!selectedProject) {
-      toast.error('Wybierz projekt, aby wygenerować persony.');
+      toast.error(t('page.generationToast.selectProject'));
       return;
     }
 
@@ -529,8 +529,8 @@ export function Personas() {
       <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
       {/* Header */}
       <PageHeader
-        title="Persony"
-        subtitle="Zarządzaj personami wygenerowanymi przez AI dla swoich projektów badawczych"
+        title={t('page.title')}
+        subtitle={t('page.subtitle')}
         actions={
           <>
             <Button
@@ -540,7 +540,7 @@ export function Personas() {
               onClick={() => setActivePanel('rag')}
             >
               <Database className="w-4 h-4 mr-2" />
-              Dokumenty RAG
+              {t('page.ragDocumentsButton')}
             </Button>
             <Select
               value={selectedProject?.id || ''}
@@ -551,7 +551,7 @@ export function Personas() {
             >
               <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors">
                 <SelectValue
-                  placeholder="Wybierz projekt"
+                  placeholder={t('page.selectProjectPlaceholder')}
                   className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
                 />
               </SelectTrigger>
@@ -561,7 +561,7 @@ export function Personas() {
                     <SpinnerLogo className="w-4 h-4" />
                   </div>
                 ) : projects.length === 0 ? (
-                  <div className="p-2 text-sm text-muted-foreground">Nie znaleziono projektów</div>
+                  <div className="p-2 text-sm text-muted-foreground">{t('page.noProjectsFound')}</div>
                 ) : (
                   projects.map((project) => (
                     <SelectItem
@@ -580,7 +580,7 @@ export function Personas() {
               className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Generuj persony
+              {t('page.generateButton')}
             </Button>
           </>
         }
@@ -590,7 +590,7 @@ export function Personas() {
         <div className="rounded-lg border border-border bg-card/80 p-4 space-y-2 shadow-sm">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <SpinnerLogo className="w-4 h-4" />
-            <span className="font-medium text-card-foreground">Generowanie person...</span>
+            <span className="font-medium text-card-foreground">{t('page.generating')}</span>
           </div>
           <Progress value={Math.min(generationProgress, 100)} />
         </div>
@@ -602,19 +602,19 @@ export function Personas() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Wszystkie persony</p>
+                <p className="text-sm text-muted-foreground">{t('page.stats.allPersonas')}</p>
                 <p className="text-2xl brand-orange">{filteredPersonas.length}</p>
               </div>
               <Users className="w-8 h-8 text-primary" />
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-card border border-border">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Przedział wieku</p>
+                <p className="text-sm text-muted-foreground">{t('page.stats.ageRange')}</p>
                 <p className="text-2xl brand-orange">
                   {filteredPersonas.length > 0 ? `${Math.min(...filteredPersonas.map(p => p.age))} - ${Math.max(...filteredPersonas.map(p => p.age))}` : 'N/A'}
                 </p>
@@ -623,12 +623,12 @@ export function Personas() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-card border border-border">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Główne zainteresowanie</p>
+                <p className="text-sm text-muted-foreground">{t('page.stats.topInterest')}</p>
                 <p className="text-2xl brand-orange">
                   {sortedInterests[0]?.[0] || 'N/A'}
                 </p>
@@ -643,7 +643,7 @@ export function Personas() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-card border border-border">
           <CardHeader>
-            <CardTitle className="text-foreground">Rozkład wieku</CardTitle>
+            <CardTitle className="text-foreground">{t('page.ageDistribution')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {Object.entries(ageGroups).map(([ageGroup, count]) => (
@@ -660,14 +660,14 @@ export function Personas() {
 
         <Card className="bg-card border border-border">
           <CardHeader>
-            <CardTitle className="text-foreground">Główne zainteresowania</CardTitle>
+            <CardTitle className="text-foreground">{t('page.topInterests')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {sortedInterests.map(([interest, count]) => (
               <div key={interest} className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{interest}</span>
-                  <span className="text-card-foreground">{count} person</span>
+                  <span className="text-card-foreground">{count} {t('page.personCount')}</span>
                 </div>
                 <Progress value={(count / filteredPersonas.length) * 100} className="h-2" />
               </div>
@@ -678,22 +678,22 @@ export function Personas() {
 
       {/* Persona Carousel */}
       <div className="space-y-4">
-        <h2 className="text-xl text-foreground">Projektuj persony</h2>
+        <h2 className="text-xl text-foreground">{t('page.designPersonas')}</h2>
 
         {apiPersonas.length === 0 ? (
           <Card className="bg-card border border-border">
             <CardContent className="p-12 text-center">
               <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg text-card-foreground mb-2">Brak wygenerowanych person</h3>
+              <h3 className="text-lg text-card-foreground mb-2">{t('page.emptyState.title')}</h3>
               <p className="text-muted-foreground mb-4">
-                Uruchom generator, aby poznać swoją grupę docelową na podstawie sztucznej inteligencji
+                {t('page.emptyState.description')}
               </p>
               <Button
                 onClick={() => setShowPersonaWizard(true)}
                 className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Wygeneruj pierwsze persony
+                {t('page.emptyState.generateButton')}
               </Button>
             </CardContent>
           </Card>
@@ -701,9 +701,9 @@ export function Personas() {
           <Card className="bg-card border border-border">
             <CardContent className="p-12 text-center">
               <Filter className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg text-card-foreground mb-2">Brak person spełniających obecne filtry</h3>
+              <h3 className="text-lg text-card-foreground mb-2">{t('page.noResults.title')}</h3>
               <p className="text-muted-foreground mb-4">
-                Zmień ustawienia filtrów, aby zobaczyć więcej wyników
+                {t('page.noResults.description')}
               </p>
               <Button
                 variant="outline"
@@ -714,7 +714,7 @@ export function Personas() {
                 }}
                 className="border-border"
               >
-                Wyczyść filtry
+                {t('page.noResults.clearButton')}
               </Button>
             </CardContent>
           </Card>
@@ -726,13 +726,13 @@ export function Personas() {
                 <CardHeader>
                   <CardTitle className="text-card-foreground flex items-center gap-2">
                     <Filter className="w-5 h-5" />
-                    Filtry i segmenty
+                    {t('page.filters.title')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Gender Filter */}
                   <div className="space-y-3">
-                    <Label className="text-sm">Płeć</Label>
+                    <Label className="text-sm">{t('page.filters.gender')}</Label>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox
@@ -746,7 +746,7 @@ export function Personas() {
                           }}
                         />
                         <label htmlFor="gender-female" className="text-sm text-card-foreground">
-                          Kobieta
+                          {t('page.filters.genderOptions.female')}
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -761,7 +761,7 @@ export function Personas() {
                           }}
                         />
                         <label htmlFor="gender-male" className="text-sm text-card-foreground">
-                          Mężczyzna
+                          {t('page.filters.genderOptions.male')}
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -776,7 +776,7 @@ export function Personas() {
                           }}
                         />
                         <label htmlFor="gender-other" className="text-sm text-card-foreground">
-                          Osoba niebinarna
+                          {t('page.filters.genderOptions.nonbinary')}
                         </label>
                       </div>
                     </div>
@@ -784,7 +784,7 @@ export function Personas() {
 
                   {/* Age Range Filter */}
                   <div className="space-y-3">
-                    <Label className="text-sm">Przedział wieku</Label>
+                    <Label className="text-sm">{t('page.filters.ageRange')}</Label>
                     <div className="px-2">
                       <Slider
                         value={ageRange}
@@ -803,30 +803,30 @@ export function Personas() {
 
                   {/* Occupation Filter */}
                   <div className="space-y-3">
-                    <Label className="text-sm">Zawód</Label>
+                    <Label className="text-sm">{t('page.filters.occupation')}</Label>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox id="occupation-tech" />
                         <label htmlFor="occupation-tech" className="text-sm text-card-foreground">
-                          Technology (35%)
+                          {t('page.occupationFilter.technology')} (35%)
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox id="occupation-healthcare" />
                         <label htmlFor="occupation-healthcare" className="text-sm text-card-foreground">
-                          Healthcare (25%)
+                          {t('page.occupationFilter.healthcare')} (25%)
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox id="occupation-education" />
                         <label htmlFor="occupation-education" className="text-sm text-card-foreground">
-                          Education (20%)
+                          {t('page.occupationFilter.education')} (20%)
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox id="occupation-business" />
                         <label htmlFor="occupation-business" className="text-sm text-card-foreground">
-                          Business (20%)
+                          {t('page.occupationFilter.business')} (20%)
                         </label>
                       </div>
                     </div>
@@ -842,7 +842,7 @@ export function Personas() {
                       setSelectedOccupations([]);
                     }}
                   >
-                    Wyczyść filtry
+                    {t('page.filters.clearFilters')}
                   </Button>
                 </CardContent>
               </Card>
@@ -864,7 +864,7 @@ export function Personas() {
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
                       <span className="text-sm text-muted-foreground">
-                        {currentPersonaIndex + 1} z {filteredPersonas.length}
+                        {currentPersonaIndex + 1} {t('page.carousel.of')} {filteredPersonas.length}
                       </span>
                       <Button
                         variant="outline"
@@ -915,7 +915,7 @@ export function Personas() {
                           <DropdownMenuContent>
                             <DropdownMenuItem onClick={() => setSelectedPersonaForDetails(currentPersona.id)}>
                               <Eye className="w-4 h-4 mr-2" />
-                              Szczegóły persony
+                              {t('page.carousel.viewDetails')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={(e) => {
@@ -926,7 +926,7 @@ export function Personas() {
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
-                              Usuń personę
+                              {t('page.carousel.deletePersona')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -934,7 +934,7 @@ export function Personas() {
 
                       {/* Background */}
                       <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-card-foreground">Kontekst</h4>
+                        <h4 className="text-sm font-semibold text-card-foreground">{t('page.carousel.context')}</h4>
                         <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
                           {currentPersona.background}
                         </p>
@@ -943,29 +943,29 @@ export function Personas() {
                       {/* Demographics Grid */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">Płeć</p>
+                          <p className="text-xs text-muted-foreground">{t('page.carousel.demographics.gender')}</p>
                           <p className="text-sm text-card-foreground">{currentPersona.demographics.gender}</p>
                         </div>
                         <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">Wykształcenie</p>
+                          <p className="text-xs text-muted-foreground">{t('page.carousel.demographics.education')}</p>
                           <p className="text-sm text-card-foreground">{currentPersona.demographics.education}</p>
                         </div>
                         <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">Dochód</p>
+                          <p className="text-xs text-muted-foreground">{t('page.carousel.demographics.income')}</p>
                           <p className="text-sm text-card-foreground">{currentPersona.demographics.income}</p>
                         </div>
                         <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">Styl życia</p>
+                          <p className="text-xs text-muted-foreground">{t('page.carousel.demographics.lifestyle')}</p>
                           <p className="text-sm text-card-foreground line-clamp-1">{currentPersona.psychographics.lifestyle}</p>
                         </div>
                       </div>
 
                       {/* Interests */}
                       <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-card-foreground">Zainteresowania i wartości</h4>
+                        <h4 className="text-sm font-semibold text-card-foreground">{t('page.carousel.interestsAndValues')}</h4>
                         <div className="space-y-1.5">
                           <div>
-                            <p className="text-xs text-muted-foreground mb-1">Zainteresowania</p>
+                            <p className="text-xs text-muted-foreground mb-1">{t('page.carousel.interests')}</p>
                             <div className="flex flex-wrap gap-1.5">
                               {currentPersona.interests.slice(0, 5).map((interest, index) => (
                                 <Badge key={index} variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs py-0">
@@ -975,7 +975,7 @@ export function Personas() {
                             </div>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground mb-1">Wartości</p>
+                            <p className="text-xs text-muted-foreground mb-1">{t('page.carousel.values')}</p>
                             <div className="flex flex-wrap gap-1.5">
                               {currentPersona.psychographics.values.slice(0, 5).map((value, index) => (
                                 <Badge key={index} variant="outline" className="border-secondary text-secondary text-xs py-0">
@@ -990,7 +990,7 @@ export function Personas() {
                       {/* Creation Date */}
                       <div className="pt-2">
                         <p className="text-xs text-muted-foreground text-right">
-                          Utworzono {new Date(filteredPersonas[currentPersonaIndex].createdAt).toLocaleDateString()}
+                          {t('page.carousel.createdOn')} {new Date(filteredPersonas[currentPersonaIndex].createdAt).toLocaleDateString()}
                         </p>
                       </div>
                     </div>

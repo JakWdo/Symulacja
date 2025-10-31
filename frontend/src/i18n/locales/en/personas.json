@@ -324,6 +324,80 @@
     }
   },
 
+  "page": {
+    "title": "Personas",
+    "subtitle": "Manage AI-generated personas for your research projects",
+    "ragDocumentsButton": "RAG Documents",
+    "selectProjectPlaceholder": "Select project",
+    "noProjectsFound": "No projects found",
+    "generateButton": "Generate personas",
+    "generating": "Generating personas...",
+    "stats": {
+      "allPersonas": "All personas",
+      "ageRange": "Age range",
+      "topInterest": "Top interest"
+    },
+    "ageDistribution": "Age Distribution",
+    "topInterests": "Top Interests",
+    "designPersonas": "Design personas",
+    "emptyState": {
+      "title": "No personas generated",
+      "description": "Run the generator to discover your target audience using artificial intelligence",
+      "generateButton": "Generate first personas"
+    },
+    "noResults": {
+      "title": "No personas match current filters",
+      "description": "Change filter settings to see more results",
+      "clearButton": "Clear filters"
+    },
+    "filters": {
+      "title": "Filters & Segments",
+      "gender": "Gender",
+      "genderOptions": {
+        "female": "Female",
+        "male": "Male",
+        "nonbinary": "Non-binary"
+      },
+      "ageRange": "Age Range",
+      "occupation": "Occupation",
+      "clearFilters": "Clear filters"
+    },
+    "carousel": {
+      "of": "of",
+      "viewDetails": "Persona details",
+      "deletePersona": "Delete persona",
+      "context": "Context",
+      "demographics": {
+        "gender": "Gender",
+        "education": "Education",
+        "income": "Income",
+        "lifestyle": "Lifestyle"
+      },
+      "interestsAndValues": "Interests & Values",
+      "interests": "Interests",
+      "values": "Values",
+      "createdOn": "Created on"
+    },
+    "generationToast": {
+      "started": "Generation started",
+      "standardMode": "Standard Mode",
+      "adversarialMode": "Adversarial Mode",
+      "personasInBackground": "{{count}} personas in background",
+      "stopped": "Generation stopped",
+      "stillRunning": "Generation still running",
+      "takingLonger": "Process is taking longer than usual — check server logs if nothing changes",
+      "selectProject": "Select a project to generate personas",
+      "unknownProject": "Unknown project"
+    },
+    "occupationFilter": {
+      "technology": "Technology",
+      "healthcare": "Healthcare",
+      "education": "Education",
+      "business": "Business"
+    },
+    "personCount": "personas"
+  },
+
   "wizard": {
     "title": "AI Persona Generator",
     "subtitle": "Create advanced AI personas using real demographic data",

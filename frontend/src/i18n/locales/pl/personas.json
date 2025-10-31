@@ -324,6 +324,80 @@
     }
   },
 
+  "page": {
+    "title": "Persony",
+    "subtitle": "Zarządzaj personami wygenerowanymi przez AI dla swoich projektów badawczych",
+    "ragDocumentsButton": "Dokumenty RAG",
+    "selectProjectPlaceholder": "Wybierz projekt",
+    "noProjectsFound": "Nie znaleziono projektów",
+    "generateButton": "Generuj persony",
+    "generating": "Generowanie person...",
+    "stats": {
+      "allPersonas": "Wszystkie persony",
+      "ageRange": "Przedział wieku",
+      "topInterest": "Główne zainteresowanie"
+    },
+    "ageDistribution": "Rozkład wieku",
+    "topInterests": "Główne zainteresowania",
+    "designPersonas": "Projektuj persony",
+    "emptyState": {
+      "title": "Brak wygenerowanych person",
+      "description": "Uruchom generator, aby poznać swoją grupę docelową na podstawie sztucznej inteligencji",
+      "generateButton": "Wygeneruj pierwsze persony"
+    },
+    "noResults": {
+      "title": "Brak person spełniających obecne filtry",
+      "description": "Zmień ustawienia filtrów, aby zobaczyć więcej wyników",
+      "clearButton": "Wyczyść filtry"
+    },
+    "filters": {
+      "title": "Filtry i segmenty",
+      "gender": "Płeć",
+      "genderOptions": {
+        "female": "Kobieta",
+        "male": "Mężczyzna",
+        "nonbinary": "Osoba niebinarna"
+      },
+      "ageRange": "Przedział wieku",
+      "occupation": "Zawód",
+      "clearFilters": "Wyczyść filtry"
+    },
+    "carousel": {
+      "of": "z",
+      "viewDetails": "Szczegóły persony",
+      "deletePersona": "Usuń personę",
+      "context": "Kontekst",
+      "demographics": {
+        "gender": "Płeć",
+        "education": "Wykształcenie",
+        "income": "Dochód",
+        "lifestyle": "Styl życia"
+      },
+      "interestsAndValues": "Zainteresowania i wartości",
+      "interests": "Zainteresowania",
+      "values": "Wartości",
+      "createdOn": "Utworzono"
+    },
+    "generationToast": {
+      "started": "Generowanie uruchomione",
+      "standardMode": "Tryb Standard",
+      "adversarialMode": "Tryb Adversarial",
+      "personasInBackground": "{{count}} personas w tle",
+      "stopped": "Generowanie zatrzymane",
+      "stillRunning": "Generowanie nadal trwa",
+      "takingLonger": "Proces trwa dłużej niż zwykle — sprawdź logi serwera, jeśli nic się nie zmieni",
+      "selectProject": "Wybierz projekt, aby wygenerować persony",
+      "unknownProject": "Nieznany projekt"
+    },
+    "occupationFilter": {
+      "technology": "Technology",
+      "healthcare": "Healthcare",
+      "education": "Education",
+      "business": "Business"
+    },
+    "personCount": "person"
+  },
+
   "wizard": {
     "title": "Generator Person AI",
     "subtitle": "Stwórz zaawansowane persony AI z wykorzystaniem rzeczywistych danych demograficznych",
