@@ -323,5 +323,49 @@
     "invalidTopic": "Discussion topic is required",
     "noParticipants": "Select at least 2 participants",
     "tooManyParticipants": "Maximum 10 participants"
+  },
+
+  "builder": {
+    "backButton": "Back to Focus Groups",
+    "title": "Focus Group Builder",
+    "subtitle": "Configure new focus group session",
+    "createButton": "Create Focus Group",
+    "basicInfo": {
+      "title": "Basic Information",
+      "nameLabel": "Focus Group Title",
+      "namePlaceholder": "e.g. Mobile App Usability Testing",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Brief description of goals and scope",
+      "projectLabel": "Related Project",
+      "projectPlaceholder": "Select project"
+    },
+    "sessionConfig": {
+      "title": "Session Configuration",
+      "participantsLabel": "Target Number of Participants",
+      "participants4": "4 participants",
+      "participants6": "6 participants",
+      "participants8": "8 participants",
+      "participants10": "10 participants"
+    },
+    "topics": {
+      "title": "Discussion Topics",
+      "count": "topic",
+      "countPlural": "topics",
+      "countMany": "topics",
+      "label": "Discussion Topic {{index}}",
+      "addButton": "Add Topic"
+    },
+    "questions": {
+      "title": "Key Research Questions",
+      "label": "Research Question {{index}}",
+      "addButton": "Add Question"
+    },
+    "summary": {
+      "title": "Configuration Summary",
+      "participants": "Participants",
+      "topics": "Topics",
+      "questions": "Questions",
+      "description": "AI participants will be generated based on your project personas. AI moderator will lead the discussion and ask follow-up questions. Results will be analyzed for themes, sentiment, and key insights."
+    }
   }
 }

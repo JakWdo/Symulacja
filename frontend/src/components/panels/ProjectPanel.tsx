@@ -8,9 +8,11 @@ import { cn, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button'; // Import Button
 import type { Project } from '@/types';
 import { Logo } from '@/components/ui/logo';
+import { useTranslation } from 'react-i18next';
 
 // Komponent formularza do tworzenia projektu
 function CreateProjectForm({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation('projects');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const queryClient = useQueryClient();
@@ -31,7 +33,7 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert('Nazwa projektu jest wymagana.');
+      alert(t('panel.validation.nameRequired'));
       return;
     }
     // Domyślna demografia z większą różnorodnością
@@ -79,26 +81,26 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="p-4 border-t border-slate-200/50">
-      <h4 className="font-semibold text-slate-800 mb-3">Utwórz nowy projekt</h4>
+      <h4 className="font-semibold text-slate-800 mb-3">{t('panel.createForm.title')}</h4>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Nazwa projektu"
+          placeholder={t('panel.createForm.namePlaceholder')}
           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           required
         />
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Opis projektu (opcjonalnie)"
+          placeholder={t('panel.createForm.descriptionPlaceholder')}
           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           rows={3}
         />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            Anuluj
+            {t('panel.createForm.cancelButton')}
           </Button>
           <Button
             type="submit"
@@ -106,7 +108,7 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
             size="sm"
             isLoading={createProjectMutation.isPending}
           >
-            Utwórz
+            {t('panel.createForm.createButton')}
           </Button>
         </div>
       </form>
@@ -116,6 +118,7 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
 
 
 export function ProjectPanel() {
+  const { t } = useTranslation('projects');
   // Use Zustand selectors to prevent unnecessary re-renders
   const activePanel = useAppStore(state => state.activePanel);
   const setActivePanel = useAppStore(state => state.setActivePanel);
@@ -151,7 +154,7 @@ export function ProjectPanel() {
     <FloatingPanel
       isOpen={activePanel === 'projects'}
       onClose={() => setActivePanel(null)}
-      title="Projekty"
+      title={t('panel.title')}
       panelKey="projects"
       size="lg"
     >
@@ -164,7 +167,7 @@ export function ProjectPanel() {
             className="w-full flex items-center justify-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            <span>Utwórz nowy projekt</span>
+            <span>{t('panel.createButton')}</span>
           </Button>
         )}
 
@@ -175,7 +178,7 @@ export function ProjectPanel() {
           </div>
         ) : isError ? (
           <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-600">
-            {error instanceof Error ? error.message : 'Nie udało się załadować projektów.'}
+            {error instanceof Error ? error.message : t('panel.errors.loadFailed')}
           </div>
         ) : (
           <div className="space-y-3">
@@ -216,12 +219,12 @@ export function ProjectPanel() {
                         {project.is_statistically_valid ? (
                           <>
                             <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            <span className="text-green-600">Poprawne</span>
+                            <span className="text-green-600">{t('panel.status.valid')}</span>
                           </>
                         ) : (
                           <>
                             <XCircle className="w-4 h-4 text-slate-400" />
-                            <span className="text-slate-500">Oczekujące</span>
+                            <span className="text-slate-500">{t('panel.status.pending')}</span>
                           </>
                         )}
                       </div>

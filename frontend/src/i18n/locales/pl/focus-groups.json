@@ -325,5 +325,49 @@
     "invalidTopic": "Temat dyskusji jest wymagany",
     "noParticipants": "Wybierz przynajmniej 2 uczestników",
     "tooManyParticipants": "Maksymalnie 10 uczestników"
+  },
+
+  "builder": {
+    "backButton": "Wróć do grup fokusowych",
+    "title": "Kreator grup fokusowych",
+    "subtitle": "Skonfiguruj nową sesję grupy fokusowej",
+    "createButton": "Utwórz grupę fokusową",
+    "basicInfo": {
+      "title": "Podstawowe informacje",
+      "nameLabel": "Tytuł grupy fokusowej",
+      "namePlaceholder": "np. Testy użyteczności aplikacji mobilnej",
+      "descriptionLabel": "Opis",
+      "descriptionPlaceholder": "Krótki opis celów i zakresu grupy fokusowej",
+      "projectLabel": "Powiązany projekt",
+      "projectPlaceholder": "Wybierz projekt"
+    },
+    "sessionConfig": {
+      "title": "Konfiguracja sesji",
+      "participantsLabel": "Docelowa liczba uczestników",
+      "participants4": "4 uczestników",
+      "participants6": "6 uczestników",
+      "participants8": "8 uczestników",
+      "participants10": "10 uczestników"
+    },
+    "topics": {
+      "title": "Tematy dyskusji",
+      "count": "temat",
+      "countPlural": "tematy",
+      "countMany": "tematów",
+      "label": "Temat dyskusji {{index}}",
+      "addButton": "Dodaj temat"
+    },
+    "questions": {
+      "title": "Kluczowe pytania badawcze",
+      "label": "Pytanie badawcze {{index}}",
+      "addButton": "Dodaj pytanie"
+    },
+    "summary": {
+      "title": "Podsumowanie konfiguracji",
+      "participants": "Uczestnicy",
+      "topics": "Tematy",
+      "questions": "Pytania",
+      "description": "Persony AI zostaną automatycznie wygenerowane na podstawie demografii Twojego projektu. Moderator AI poprowadzi dyskusję i zada pytania uzupełniające. Wyniki zostaną przeanalizowane pod kątem tematów, sentymentu i kluczowych wniosków."
+    }
   }
 }

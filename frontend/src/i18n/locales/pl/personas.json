@@ -301,5 +301,85 @@
     "parents": "Rodzice",
     "techSavvy": "Tech-savvy",
     "traditional": "Tradycjonaliści"
+  },
+
+  "wizard": {
+    "title": "Generator Person AI",
+    "subtitle": "Stwórz zaawansowane persony AI z wykorzystaniem rzeczywistych danych demograficznych",
+    "cancelButton": "Anuluj",
+    "generateButton": "Generuj {{count}} Person",
+    "generatingButton": "Generowanie...",
+    "validation": {
+      "countRange": "Liczba person musi być między 2 a 100",
+      "selectDemographic": "Wybierz grupę demograficzną",
+      "selectFocus": "Wybierz obszar zainteresowań"
+    },
+    "count": {
+      "label": "Liczba Person",
+      "description": "Ile person AI ma wygenerować? (2-100)"
+    },
+    "demographic": {
+      "label": "Grupa Demograficzna",
+      "description": "Wybierz grupę docelową - szczegóły demograficzne pochodzą z raportu RAG",
+      "presets": {
+        "genZ": {
+          "name": "Gen Z (18-27)",
+          "description": "Młodzi, cyfrowi tubylcy, świadomi wartości"
+        },
+        "millennials": {
+          "name": "Millennials (28-43)",
+          "description": "Profesjonaliści znający się na technologii"
+        },
+        "genX": {
+          "name": "Gen X (44-59)",
+          "description": "Ustabilizowana kariera, fokus na rodzinie"
+        },
+        "boomers": {
+          "name": "Baby Boomers (60+)",
+          "description": "Tradycyjne wartości, stabilność"
+        },
+        "diverse": {
+          "name": "Zróżnicowana grupa",
+          "description": "Mix wszystkich grup wiekowych i demografii"
+        }
+      }
+    },
+    "focusArea": {
+      "label": "Obszar Zainteresowań",
+      "description": "Wybierz główny obszar badania - persony będą dostosowane do tego kontekstu",
+      "areas": {
+        "technology": {
+          "name": "Technologia",
+          "description": "Produkty tech, oprogramowanie, gadżety"
+        },
+        "lifestyle": {
+          "name": "Styl życia",
+          "description": "Zdrowie, fitness, wellness, hobby"
+        },
+        "finance": {
+          "name": "Finanse",
+          "description": "Bankowość, inwestycje, oszczędzanie"
+        },
+        "shopping": {
+          "name": "Zakupy",
+          "description": "Retail, e-commerce, konsumpcja"
+        },
+        "entertainment": {
+          "name": "Rozrywka",
+          "description": "Media, kultura, czas wolny"
+        },
+        "general": {
+          "name": "Ogólne",
+          "description": "Szeroka perspektywa społeczna"
+        }
+      }
+    },
+    "additionalDescription": {
+      "label": "Dodatkowy Opis (opcjonalnie)",
+      "description": "Opisz dokładniej grupę docelową lub specyficzne wymagania",
+      "placeholder": "np. 'Osoby zainteresowane zrównoważonym rozwojem i ekologicznymi produktami'",
+      "charLimit": "znaków",
+      "charWarning": "Krótszy opis = lepsze wyniki"
+    }
   }
 }

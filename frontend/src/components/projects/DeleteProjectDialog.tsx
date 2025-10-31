@@ -24,6 +24,7 @@ import { projectsApi } from '@/lib/api';
 import type { Project } from '@/types';
 import { AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
+import { useTranslation } from 'react-i18next';
 
 interface DeleteProjectDialogProps {
   open: boolean;
@@ -50,6 +51,7 @@ export function DeleteProjectDialog({
   project,
   onSuccess,
 }: DeleteProjectDialogProps) {
+  const { t } = useTranslation('projects');
   const [reason, setReason] = useState<string>('');
   const [reasonDetail, setReasonDetail] = useState<string>('');
   const deleteMutation = useDeleteProject();
@@ -102,10 +104,10 @@ export function DeleteProjectDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>Usuń projekt?</AlertDialogTitle>
+          <AlertDialogTitle>{t('delete.dialogTitle')}</AlertDialogTitle>
+          <AlertDialogDescription dangerouslySetInnerHTML={{ __html: t('delete.confirmation', { name: project?.name || t('delete.unknown') }) }} />
           <AlertDialogDescription>
-            Zamierzasz usunąć projekt <strong>{project?.name || 'Nieznany'}</strong>.
-            Ta operacja jest odwracalna w ciągu 7 dni.
+            {t('delete.recoverable')}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -114,7 +116,7 @@ export function DeleteProjectDialog({
           <div className="flex items-center justify-center py-6">
             <Logo className="w-6 h-6" spinning />
             <span className="ml-2 text-sm text-muted-foreground">
-              Sprawdzanie wpływu usunięcia...
+              {t('delete.checking')}
             </span>
           </div>
         ) : deleteImpact && (
@@ -123,35 +125,27 @@ export function DeleteProjectDialog({
               <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
               <div className="space-y-2 flex-1">
                 <p className="font-medium text-destructive">
-                  Ostrzeżenie o kaskadowym usunięciu
+                  {t('delete.cascadeWarning')}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Usunięcie tego projektu spowoduje również usunięcie:
+                  {t('delete.cascadeMessage')}
                 </p>
                 <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
                   {deleteImpact.personas_count > 0 && (
-                    <li>
-                      <strong>{deleteImpact.personas_count}</strong> person
-                    </li>
+                    <li dangerouslySetInnerHTML={{ __html: t('delete.cascadeItems.personas', { count: deleteImpact.personas_count }) }} />
                   )}
                   {deleteImpact.focus_groups_count > 0 && (
-                    <li>
-                      <strong>{deleteImpact.focus_groups_count}</strong> grup fokusowych
-                    </li>
+                    <li dangerouslySetInnerHTML={{ __html: t('delete.cascadeItems.focusGroups', { count: deleteImpact.focus_groups_count }) }} />
                   )}
                   {deleteImpact.surveys_count > 0 && (
-                    <li>
-                      <strong>{deleteImpact.surveys_count}</strong> ankiet
-                    </li>
+                    <li dangerouslySetInnerHTML={{ __html: t('delete.cascadeItems.surveys', { count: deleteImpact.surveys_count }) }} />
                   )}
                   {deleteImpact.total_responses_count > 0 && (
-                    <li>
-                      <strong>{deleteImpact.total_responses_count}</strong> odpowiedzi
-                    </li>
+                    <li dangerouslySetInnerHTML={{ __html: t('delete.cascadeItems.responses', { count: deleteImpact.total_responses_count }) }} />
                   )}
                 </ul>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Wszystkie encje mogą zostać przywrócone w ciągu 7 dni poprzez cofnięcie usunięcia projektu.
+                  {t('delete.recoveryNote')}
                 </p>
               </div>
             </div>
@@ -161,16 +155,16 @@ export function DeleteProjectDialog({
         <div className="space-y-4 py-4">
           {/* Reason Dropdown */}
           <div className="space-y-2">
-            <Label htmlFor="delete-reason">Powód usunięcia *</Label>
+            <Label htmlFor="delete-reason">{t('delete.reasons.label')}</Label>
             <Select value={reason} onValueChange={setReason}>
               <SelectTrigger id="delete-reason">
-                <SelectValue placeholder="Wybierz powód..." />
+                <SelectValue placeholder={t('delete.reasons.placeholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="duplicate">Duplikat</SelectItem>
-                <SelectItem value="outdated">Nieaktualny</SelectItem>
-                <SelectItem value="test_data">Dane testowe</SelectItem>
-                <SelectItem value="other">Inny powód</SelectItem>
+                <SelectItem value="duplicate">{t('delete.reasons.duplicate')}</SelectItem>
+                <SelectItem value="outdated">{t('delete.reasons.outdated')}</SelectItem>
+                <SelectItem value="test_data">{t('delete.reasons.testData')}</SelectItem>
+                <SelectItem value="other">{t('delete.reasons.other')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -178,10 +172,10 @@ export function DeleteProjectDialog({
           {/* Reason Detail Textarea (visible when "other" selected) */}
           {reason === 'other' && (
             <div className="space-y-2">
-              <Label htmlFor="reason-detail">Szczegóły *</Label>
+              <Label htmlFor="reason-detail">{t('delete.reasonDetail.label')}</Label>
               <Textarea
                 id="reason-detail"
-                placeholder="Opisz powód usunięcia..."
+                placeholder={t('delete.reasonDetail.placeholder')}
                 value={reasonDetail}
                 onChange={(e) => setReasonDetail(e.target.value)}
                 rows={3}
@@ -192,7 +186,7 @@ export function DeleteProjectDialog({
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={deleteMutation.isPending}>
-            Anuluj
+            {t('delete.cancelButton')}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
@@ -202,10 +196,10 @@ export function DeleteProjectDialog({
             {deleteMutation.isPending ? (
               <>
                 <Logo className="w-4 h-4 mr-2" spinning />
-                Usuwanie...
+                {t('delete.deletingButton')}
               </>
             ) : (
-              'Usuń projekt'
+              t('delete.deleteButton')
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

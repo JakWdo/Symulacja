@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Users, AlertCircle, Check } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useTranslation } from 'react-i18next';
 
 interface PersonaGenerationWizardProps {
   open: boolean;
@@ -28,24 +29,10 @@ export interface PersonaGenerationConfig {
   // RAG is always enabled, demographics come from reports
 }
 
-const demographicPresets = [
-  { id: 'gen-z', name: 'Gen Z (18-27)', description: 'Młodzi, cyfrowi tubylcy, świadomi wartości' },
-  { id: 'millennials', name: 'Millennials (28-43)', description: 'Profesjonaliści znający się na technologii' },
-  { id: 'gen-x', name: 'Gen X (44-59)', description: 'Ustabilizowana kariera, fokus na rodzinie' },
-  { id: 'boomers', name: 'Baby Boomers (60+)', description: 'Tradycyjne wartości, stabilność' },
-  { id: 'diverse', name: 'Zróżnicowana grupa', description: 'Mix wszystkich grup wiekowych i demografii' }
-];
-
-const focusAreas = [
-  { id: 'technology', name: 'Technologia', description: 'Produkty tech, oprogramowanie, gadżety' },
-  { id: 'lifestyle', name: 'Styl życia', description: 'Zdrowie, fitness, wellness, hobby' },
-  { id: 'finance', name: 'Finanse', description: 'Bankowość, inwestycje, oszczędzanie' },
-  { id: 'shopping', name: 'Zakupy', description: 'Retail, e-commerce, konsumpcja' },
-  { id: 'entertainment', name: 'Rozrywka', description: 'Media, kultura, czas wolny' },
-  { id: 'general', name: 'Ogólne', description: 'Szeroka perspektywa społeczna' }
-];
+// Demographic presets and focus areas will be translated dynamically
 
 export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: PersonaGenerationWizardProps) {
+  const { t } = useTranslation('personas');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [config, setConfig] = useState<PersonaGenerationConfig>({
@@ -58,19 +45,38 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
+  // Dynamically build demographic presets from translations
+  const demographicPresets = [
+    { id: 'gen-z', name: t('wizard.demographic.presets.genZ.name'), description: t('wizard.demographic.presets.genZ.description') },
+    { id: 'millennials', name: t('wizard.demographic.presets.millennials.name'), description: t('wizard.demographic.presets.millennials.description') },
+    { id: 'gen-x', name: t('wizard.demographic.presets.genX.name'), description: t('wizard.demographic.presets.genX.description') },
+    { id: 'boomers', name: t('wizard.demographic.presets.boomers.name'), description: t('wizard.demographic.presets.boomers.description') },
+    { id: 'diverse', name: t('wizard.demographic.presets.diverse.name'), description: t('wizard.demographic.presets.diverse.description') }
+  ];
+
+  // Dynamically build focus areas from translations
+  const focusAreas = [
+    { id: 'technology', name: t('wizard.focusArea.areas.technology.name'), description: t('wizard.focusArea.areas.technology.description') },
+    { id: 'lifestyle', name: t('wizard.focusArea.areas.lifestyle.name'), description: t('wizard.focusArea.areas.lifestyle.description') },
+    { id: 'finance', name: t('wizard.focusArea.areas.finance.name'), description: t('wizard.focusArea.areas.finance.description') },
+    { id: 'shopping', name: t('wizard.focusArea.areas.shopping.name'), description: t('wizard.focusArea.areas.shopping.description') },
+    { id: 'entertainment', name: t('wizard.focusArea.areas.entertainment.name'), description: t('wizard.focusArea.areas.entertainment.description') },
+    { id: 'general', name: t('wizard.focusArea.areas.general.name'), description: t('wizard.focusArea.areas.general.description') }
+  ];
+
   const validateConfig = (): string[] => {
     const errors: string[] = [];
 
     if (config.personaCount < 2 || config.personaCount > 100) {
-      errors.push('Liczba person musi być między 2 a 100');
+      errors.push(t('wizard.validation.countRange'));
     }
 
     if (!config.demographicPreset) {
-      errors.push('Wybierz grupę demograficzną');
+      errors.push(t('wizard.validation.selectDemographic'));
     }
 
     if (!config.focusArea) {
-      errors.push('Wybierz obszar zainteresowań');
+      errors.push(t('wizard.validation.selectFocus'));
     }
 
     return errors;
@@ -106,9 +112,9 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
       <DialogContent className="max-w-3xl w-full max-h-[90vh] bg-card dark:bg-[#11161d] border border-border text-foreground flex flex-col p-0 shadow-xl overflow-hidden">
         <div className="p-6 pb-4 bg-card dark:bg-transparent border-b border-border">
           <DialogHeader>
-            <DialogTitle className="text-xl">Generator Person AI</DialogTitle>
+            <DialogTitle className="text-xl">{t('wizard.title')}</DialogTitle>
             <DialogDescription>
-              Stwórz zaawansowane persony AI z wykorzystaniem rzeczywistych danych demograficznych
+              {t('wizard.subtitle')}
             </DialogDescription>
           </DialogHeader>
 
@@ -133,10 +139,10 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
             {/* Number of Personas */}
             <div>
               <Label htmlFor="persona-count" className="text-base font-medium text-slate-900 dark:text-slate-300">
-                Liczba Person
+                {t('wizard.count.label')}
               </Label>
               <p className="text-sm text-muted-foreground mb-3 dark:text-slate-400">
-                Ile person AI ma wygenerować? (2-100)
+                {t('wizard.count.description')}
               </p>
               <Input
                 id="persona-count"
@@ -153,9 +159,9 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
 
             {/* Demographic Preset */}
             <div>
-              <Label className="text-base font-medium">Grupa Demograficzna</Label>
+              <Label className="text-base font-medium">{t('wizard.demographic.label')}</Label>
               <p className="text-sm text-muted-foreground mb-4">
-                Wybierz grupę docelową - szczegóły demograficzne pochodzą z raportu RAG
+                {t('wizard.demographic.description')}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -191,9 +197,9 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
 
             {/* Focus Area */}
             <div>
-              <Label className="text-base font-medium">Obszar Zainteresowań</Label>
+              <Label className="text-base font-medium">{t('wizard.focusArea.label')}</Label>
               <p className="text-sm text-muted-foreground mb-4">
-                Wybierz główny obszar badania - persony będą dostosowane do tego kontekstu
+                {t('wizard.focusArea.description')}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -230,10 +236,10 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
             {/* Additional Description (optional) */}
             <div>
               <Label htmlFor="target-audience" className="text-base font-medium">
-                Dodatkowy Opis (opcjonalnie)
+                {t('wizard.additionalDescription.label')}
               </Label>
               <p className="text-sm text-muted-foreground mb-3">
-                Opisz dokładniej grupę docelową lub specyficzne wymagania
+                {t('wizard.additionalDescription.description')}
               </p>
               <div className="relative space-y-2">
                 <Textarea
@@ -245,7 +251,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
                   }}
                   maxLength={500}
                   className="bg-input-background border-border"
-                  placeholder="np. 'Osoby zainteresowane zrównoważonym rozwojem i ekologicznymi produktami'"
+                  placeholder={t('wizard.additionalDescription.placeholder')}
                   rows={3}
                 />
                 <div
@@ -257,8 +263,8 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
                       : 'text-muted-foreground'
                   }`}
                 >
-                  {config.targetAudience.length}/500 znaków
-                  {config.targetAudience.length > 300 && ' - Krótszy opis = lepsze wyniki'}
+                  {config.targetAudience.length}/500 {t('wizard.additionalDescription.charLimit')}
+                  {config.targetAudience.length > 300 && ` - ${t('wizard.additionalDescription.charWarning')}`}
                 </div>
               </div>
             </div>
@@ -273,7 +279,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
             disabled={isSubmitting}
             className="border-border w-full sm:w-auto"
           >
-            Anuluj
+            {t('wizard.cancelButton')}
           </Button>
 
           <Button
@@ -282,7 +288,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
             className="bg-brand-orange hover:bg-brand-orange/90 text-white w-full sm:w-auto"
           >
             <Users className="w-4 h-4 mr-2" />
-            {isSubmitting ? 'Generowanie...' : `Generuj ${config.personaCount} Person`}
+            {isSubmitting ? t('wizard.generatingButton') : t('wizard.generateButton', { count: config.personaCount })}
           </Button>
         </div>
       </DialogContent>

@@ -243,6 +243,73 @@
     "invalidName": "Nazwa ankiety jest wymagana",
     "invalidProject": "Wybierz projekt",
     "noQuestions": "Dodaj przynajmniej jedno pytanie",
-    "invalidQuestion": "Pytanie nie może być puste"
+    "invalidQuestion": "Pytanie nie może być puste",
+    "unknown": "Nieznany błąd"
+  },
+
+  "builder": {
+    "backButton": "Wróć",
+    "title": "Kreator ankiet",
+    "subtitle": "Utwórz nową syntetyczną ankietę",
+    "createButton": "Utwórz ankietę",
+    "creatingButton": "Tworzenie...",
+    "firstSelectProject": "Najpierw wybierz projekt",
+    "questionTypes": {
+      "title": "Typy pytań",
+      "singleChoice": {
+        "label": "Jednokrotny wybór",
+        "description": "Przyciski opcji - tylko jedna odpowiedź"
+      },
+      "multipleChoice": {
+        "label": "Wielokrotny wybór",
+        "description": "Pola wyboru - wiele odpowiedzi dozwolone"
+      },
+      "ratingScale": {
+        "label": "Skala ocen",
+        "description": "Skala 1-5 lub 1-10 punktów"
+      },
+      "openText": {
+        "label": "Tekst otwarty",
+        "description": "Odpowiedź tekstowa"
+      }
+    },
+    "configuration": {
+      "title": "Konfiguracja ankiety",
+      "titleLabel": "Tytuł ankiety *",
+      "titlePlaceholder": "np. Badanie satysfakcji klienta",
+      "descriptionLabel": "Opis",
+      "descriptionPlaceholder": "Krótki opis celu ankiety",
+      "responsesLabel": "Docelowa liczba odpowiedzi",
+      "responsesPlaceholder": "np. 100"
+    },
+    "questions": {
+      "title": "Pytania ankiety",
+      "count": "pytanie",
+      "countPlural": "pytania",
+      "countMany": "pytań",
+      "dragPlaceholder": "Przeciągnij typy pytań tutaj, aby rozpocząć tworzenie ankiety",
+      "questionLabel": "Wpisz swoje pytanie",
+      "questionPlaceholder": "Wpisz swoje pytanie",
+      "optionLabel": "Opcja {{index}}",
+      "optionPlaceholder": "Opcja {{index}}",
+      "addOption": "Dodaj opcję",
+      "minLabel": "Min:",
+      "maxLabel": "Maks:",
+      "required": "Pytanie wymagane",
+      "scaleLabel": "Skala",
+      "scale5": "1-5",
+      "scale10": "1-10",
+      "dragTip": "💡 Przeciągnij typy pytań do obszaru ankiety",
+      "reorderTip": "🔄 Zmień kolejność pytań przeciągając",
+      "responsesHelp": "Liczba odpowiedzi wygenerowanych przez AI na podstawie person projektu"
+    },
+    "toast": {
+      "createSuccess": "Ankieta utworzona",
+      "createError": "Nie udało się utworzyć ankiety"
+    }
+  },
+
+  "common": {
+    "unknownProject": "Nieznany projekt"
   }
 }

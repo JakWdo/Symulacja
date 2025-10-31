@@ -155,5 +155,61 @@
     "invalidName": "Nazwa projektu jest wymagana",
     "invalidDescription": "Opis jest wymagany",
     "confirmationMismatch": "Nazwa projektu nie pasuje"
+  },
+
+  "panel": {
+    "title": "Projekty",
+    "createButton": "Utwórz nowy projekt",
+    "createForm": {
+      "title": "Utwórz nowy projekt",
+      "nameLabel": "Nazwa projektu",
+      "namePlaceholder": "Nazwa projektu",
+      "descriptionLabel": "Opis projektu",
+      "descriptionPlaceholder": "Opis projektu (opcjonalnie)",
+      "cancelButton": "Anuluj",
+      "createButton": "Utwórz"
+    },
+    "validation": {
+      "nameRequired": "Nazwa projektu jest wymagana."
+    },
+    "status": {
+      "valid": "Poprawne",
+      "pending": "Oczekujące"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować projektów."
+    }
+  },
+
+  "delete": {
+    "dialogTitle": "Usuń projekt?",
+    "confirmation": "Zamierzasz usunąć projekt <strong>{{name}}</strong>.",
+    "unknown": "Nieznany",
+    "recoverable": "Ta operacja jest odwracalna w ciągu 7 dni.",
+    "checking": "Sprawdzanie wpływu usunięcia...",
+    "cascadeWarning": "Ostrzeżenie o kaskadowym usunięciu",
+    "cascadeMessage": "Usunięcie tego projektu spowoduje również usunięcie:",
+    "cascadeItems": {
+      "personas": "<strong>{{count}}</strong> person",
+      "focusGroups": "<strong>{{count}}</strong> grup fokusowych",
+      "surveys": "<strong>{{count}}</strong> ankiet",
+      "responses": "<strong>{{count}}</strong> odpowiedzi"
+    },
+    "recoveryNote": "Wszystkie encje mogą zostać przywrócone w ciągu 7 dni poprzez cofnięcie usunięcia projektu.",
+    "reasons": {
+      "label": "Powód usunięcia *",
+      "placeholder": "Wybierz powód...",
+      "duplicate": "Duplikat",
+      "outdated": "Nieaktualny",
+      "testData": "Dane testowe",
+      "other": "Inny powód"
+    },
+    "reasonDetail": {
+      "label": "Szczegóły *",
+      "placeholder": "Opisz powód usunięcia..."
+    },
+    "cancelButton": "Anuluj",
+    "deleteButton": "Usuń projekt",
+    "deletingButton": "Usuwanie..."
   }
 }

@@ -155,5 +155,61 @@
     "invalidName": "Project name is required",
     "invalidDescription": "Description is required",
     "confirmationMismatch": "Project name doesn't match"
+  },
+
+  "panel": {
+    "title": "Projects",
+    "createButton": "Create new project",
+    "createForm": {
+      "title": "Create new project",
+      "nameLabel": "Project name",
+      "namePlaceholder": "Project name",
+      "descriptionLabel": "Project description",
+      "descriptionPlaceholder": "Project description (optional)",
+      "cancelButton": "Cancel",
+      "createButton": "Create"
+    },
+    "validation": {
+      "nameRequired": "Project name is required."
+    },
+    "status": {
+      "valid": "Valid",
+      "pending": "Pending"
+    },
+    "errors": {
+      "loadFailed": "Failed to load projects."
+    }
+  },
+
+  "delete": {
+    "dialogTitle": "Delete project?",
+    "confirmation": "You are about to delete project <strong>{{name}}</strong>.",
+    "unknown": "Unknown",
+    "recoverable": "This operation is reversible within 7 days.",
+    "checking": "Checking deletion impact...",
+    "cascadeWarning": "Cascade deletion warning",
+    "cascadeMessage": "Deleting this project will also delete:",
+    "cascadeItems": {
+      "personas": "<strong>{{count}}</strong> personas",
+      "focusGroups": "<strong>{{count}}</strong> focus groups",
+      "surveys": "<strong>{{count}}</strong> surveys",
+      "responses": "<strong>{{count}}</strong> responses"
+    },
+    "recoveryNote": "All entities can be restored within 7 days by undoing project deletion.",
+    "reasons": {
+      "label": "Reason for deletion *",
+      "placeholder": "Select reason...",
+      "duplicate": "Duplicate",
+      "outdated": "Outdated",
+      "testData": "Test data",
+      "other": "Other reason"
+    },
+    "reasonDetail": {
+      "label": "Details *",
+      "placeholder": "Describe the reason for deletion..."
+    },
+    "cancelButton": "Cancel",
+    "deleteButton": "Delete project",
+    "deletingButton": "Deleting..."
   }
 }

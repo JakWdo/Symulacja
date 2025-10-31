@@ -301,5 +301,85 @@
     "parents": "Parents",
     "techSavvy": "Tech-savvy",
     "traditional": "Traditionalists"
+  },
+
+  "wizard": {
+    "title": "AI Persona Generator",
+    "subtitle": "Create advanced AI personas using real demographic data",
+    "cancelButton": "Cancel",
+    "generateButton": "Generate {{count}} Personas",
+    "generatingButton": "Generating...",
+    "validation": {
+      "countRange": "Number of personas must be between 2 and 100",
+      "selectDemographic": "Select a demographic group",
+      "selectFocus": "Select a focus area"
+    },
+    "count": {
+      "label": "Number of Personas",
+      "description": "How many personas should AI generate? (2-100)"
+    },
+    "demographic": {
+      "label": "Demographic Group",
+      "description": "Select target group - demographic details come from RAG report",
+      "presets": {
+        "genZ": {
+          "name": "Gen Z (18-27)",
+          "description": "Young, digital natives, value-conscious"
+        },
+        "millennials": {
+          "name": "Millennials (28-43)",
+          "description": "Tech-savvy professionals"
+        },
+        "genX": {
+          "name": "Gen X (44-59)",
+          "description": "Established career, family-focused"
+        },
+        "boomers": {
+          "name": "Baby Boomers (60+)",
+          "description": "Traditional values, stability"
+        },
+        "diverse": {
+          "name": "Diverse group",
+          "description": "Mix of all age groups and demographics"
+        }
+      }
+    },
+    "focusArea": {
+      "label": "Focus Area",
+      "description": "Select main research area - personas will be tailored to this context",
+      "areas": {
+        "technology": {
+          "name": "Technology",
+          "description": "Tech products, software, gadgets"
+        },
+        "lifestyle": {
+          "name": "Lifestyle",
+          "description": "Health, fitness, wellness, hobbies"
+        },
+        "finance": {
+          "name": "Finance",
+          "description": "Banking, investments, savings"
+        },
+        "shopping": {
+          "name": "Shopping",
+          "description": "Retail, e-commerce, consumption"
+        },
+        "entertainment": {
+          "name": "Entertainment",
+          "description": "Media, culture, leisure"
+        },
+        "general": {
+          "name": "General",
+          "description": "Broad social perspective"
+        }
+      }
+    },
+    "additionalDescription": {
+      "label": "Additional Description (optional)",
+      "description": "Describe target group or specific requirements in more detail",
+      "placeholder": "e.g. 'People interested in sustainable development and eco-friendly products'",
+      "charLimit": "characters",
+      "charWarning": "Shorter description = better results"
+    }
   }
 }

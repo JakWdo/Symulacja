@@ -12,6 +12,7 @@ import { ArrowLeft, Plus, Trash2, Users, MessageSquare, Settings, Check } from '
 import { projectsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { SpinnerLogo } from '@/components/ui/spinner-logo';
+import { useTranslation } from 'react-i18next';
 
 interface FocusGroupBuilderProps {
   onBack: () => void;
@@ -19,6 +20,7 @@ interface FocusGroupBuilderProps {
 }
 
 export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
+  const { t } = useTranslation('focus-groups');
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
@@ -98,11 +100,11 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Wróć do grup fokusowych
+          {t('builder.backButton')}
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl brand-orange">Kreator grup fokusowych</h1>
-          <p className="text-muted-foreground">Skonfiguruj nową sesję grupy fokusowej</p>
+          <h1 className="text-3xl brand-orange">{t('builder.title')}</h1>
+          <p className="text-muted-foreground">{t('builder.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -115,7 +117,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
             ) : (
               <Check className="w-4 h-4 mr-2" />
             )}
-            Utwórz grupę fokusową
+            {t('builder.createButton')}
           </Button>
         </div>
       </div>
@@ -126,35 +128,35 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           {/* Basic Information */}
           <Card className="bg-card border border-border">
             <CardHeader>
-              <CardTitle className="text-card-foreground">Podstawowe informacje</CardTitle>
+              <CardTitle className="text-card-foreground">{t('builder.basicInfo.title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Tytuł grupy fokusowej</Label>
+                <Label htmlFor="title">{t('builder.basicInfo.nameLabel')}</Label>
                 <Input
                   id="title"
                   value={focusGroupTitle}
                   onChange={(e) => setFocusGroupTitle(e.target.value)}
-                  placeholder="np. Testy użyteczności aplikacji mobilnej"
+                  placeholder={t('builder.basicInfo.namePlaceholder')}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Opis</Label>
+                <Label htmlFor="description">{t('builder.basicInfo.descriptionLabel')}</Label>
                 <Textarea
                   id="description"
                   value={focusGroupDescription}
                   onChange={(e) => setFocusGroupDescription(e.target.value)}
-                  placeholder="Krótki opis celów i zakresu grupy fokusowej"
+                  placeholder={t('builder.basicInfo.descriptionPlaceholder')}
                   rows={3}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="project">Powiązany projekt</Label>
+                <Label htmlFor="project">{t('builder.basicInfo.projectLabel')}</Label>
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Wybierz projekt" />
+                    <SelectValue placeholder={t('builder.basicInfo.projectPlaceholder')} />
                   </SelectTrigger>
                 <SelectContent>
                   {projectsLoading ? (
@@ -177,21 +179,20 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           {/* Session Configuration */}
           <Card className="bg-card border border-border">
             <CardHeader>
-              <CardTitle className="text-card-foreground">Konfiguracja sesji</CardTitle>
+              <CardTitle className="text-card-foreground">{t('builder.sessionConfig.title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="participants">Docelowa liczba uczestników</Label>
+                <Label htmlFor="participants">{t('builder.sessionConfig.participantsLabel')}</Label>
                 <Select value={participantCount} onValueChange={setParticipantCount}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="4">4 uczestników</SelectItem>
-                    <SelectItem value="6">6 uczestników</SelectItem>
-                    <SelectItem value="8">8 uczestników</SelectItem>
-                    <SelectItem value="10">10 uczestników</SelectItem>
-                    <SelectItem value="12">12 uczestników</SelectItem>
+                    <SelectItem value="4">{t('builder.sessionConfig.participants4')}</SelectItem>
+                    <SelectItem value="6">{t('builder.sessionConfig.participants6')}</SelectItem>
+                    <SelectItem value="8">{t('builder.sessionConfig.participants8')}</SelectItem>
+                    <SelectItem value="10">{t('builder.sessionConfig.participants10')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -202,9 +203,9 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           <Card className="bg-card border border-border">
             <CardHeader>
               <CardTitle className="text-card-foreground flex items-center justify-between">
-                Tematy dyskusji
+                {t('builder.topics.title')}
                 <Badge variant="outline">
-                  {discussionTopics.filter(topic => topic.trim() !== '').length} {discussionTopics.filter(topic => topic.trim() !== '').length === 1 ? 'temat' : discussionTopics.filter(topic => topic.trim() !== '').length < 5 ? 'tematy' : 'tematów'}
+                  {discussionTopics.filter(topic => topic.trim() !== '').length} {discussionTopics.filter(topic => topic.trim() !== '').length === 1 ? t('builder.topics.count', { count: 1 }) : discussionTopics.filter(topic => topic.trim() !== '').length < 5 ? t('builder.topics.countPlural', { count: discussionTopics.filter(topic => topic.trim() !== '').length }) : t('builder.topics.countMany', { count: discussionTopics.filter(topic => topic.trim() !== '').length })}
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -215,7 +216,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                     <Input
                       value={topic}
                       onChange={(e) => updateDiscussionTopic(index, e.target.value)}
-                      placeholder={`Temat dyskusji ${index + 1}`}
+                      placeholder={t('builder.topics.label', { index: index + 1 })}
                     />
                   </div>
                   {discussionTopics.length > 1 && (
@@ -237,7 +238,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                 className="text-primary hover:text-primary"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Dodaj temat
+                {t('builder.topics.addButton')}
               </Button>
             </CardContent>
           </Card>
@@ -246,9 +247,9 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           <Card className="bg-card border border-border">
             <CardHeader>
               <CardTitle className="text-card-foreground flex items-center justify-between">
-                Kluczowe pytania badawcze
+                {t('builder.questions.title')}
                 <Badge variant="outline">
-                  {researchQuestions.filter(q => q.trim() !== '').length} {researchQuestions.filter(q => q.trim() !== '').length === 1 ? 'pytanie' : researchQuestions.filter(q => q.trim() !== '').length < 5 ? 'pytania' : 'pytań'}
+                  {researchQuestions.filter(q => q.trim() !== '').length} {t('builder.topics.count', { count: researchQuestions.filter(q => q.trim() !== '').length })}
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -259,7 +260,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                     <Textarea
                       value={question}
                       onChange={(e) => updateResearchQuestion(index, e.target.value)}
-                      placeholder={`Pytanie badawcze ${index + 1}`}
+                      placeholder={t('builder.questions.label', { index: index + 1 })}
                       rows={2}
                     />
                   </div>
@@ -282,7 +283,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                 className="text-primary hover:text-primary"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Dodaj pytanie
+                {t('builder.questions.addButton')}
               </Button>
             </CardContent>
           </Card>
@@ -294,7 +295,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
             <CardHeader>
               <CardTitle className="text-card-foreground flex items-center gap-2">
                 <Settings className="w-5 h-5" />
-                Podsumowanie konfiguracji
+                {t('builder.summary.title')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -302,17 +303,27 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                   <Users className="w-5 h-5 brand-orange" />
                   <div>
-                    <p className="text-sm text-card-foreground">Uczestnicy</p>
-                    <p className="text-xs text-muted-foreground">{participantCount} {parseInt(participantCount) === 1 ? 'osoba' : parseInt(participantCount) < 5 ? 'osoby' : 'osób'}</p>
+                    <p className="text-sm text-card-foreground">{t('builder.summary.participants')}</p>
+                    <p className="text-xs text-muted-foreground">{participantCount}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                   <MessageSquare className="w-5 h-5 brand-orange" />
                   <div>
-                    <p className="text-sm text-card-foreground">Tematy</p>
+                    <p className="text-sm text-card-foreground">{t('builder.summary.topics')}</p>
                     <p className="text-xs text-muted-foreground">
-                      {discussionTopics.filter(topic => topic.trim() !== '').length} {discussionTopics.filter(topic => topic.trim() !== '').length === 1 ? 'obszar dyskusji' : 'obszarów dyskusji'}
+                      {discussionTopics.filter(topic => topic.trim() !== '').length}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                  <MessageSquare className="w-5 h-5 brand-orange" />
+                  <div>
+                    <p className="text-sm text-card-foreground">{t('builder.summary.questions')}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {researchQuestions.filter(q => q.trim() !== '').length}
                     </p>
                   </div>
                 </div>
@@ -321,9 +332,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
               <Separator />
 
               <div className="space-y-2 text-xs text-muted-foreground">
-                <p>Persony AI zostaną automatycznie wygenerowane na podstawie demografii Twojego projektu</p>
-                <p>Moderator AI poprowadzi dyskusję i zada pytania uzupełniające</p>
-                <p>Wyniki zostaną przeanalizowane pod kątem tematów, sentymentu i kluczowych wniosków</p>
+                <p>{t('builder.summary.description')}</p>
               </div>
             </CardContent>
           </Card>
