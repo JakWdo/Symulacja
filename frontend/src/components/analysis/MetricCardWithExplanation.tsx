@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Info, TrendingUp, TrendingDown, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 interface MetricExplanation {
   name: string;
@@ -76,6 +77,7 @@ export function MetricCardWithExplanation({
   icon,
   compact = false,
 }: MetricCardProps) {
+  const { t } = useTranslation('analysis');
   const [isExpanded, setIsExpanded] = useState(false);
   const styles = getVariantStyles(variant);
 
@@ -184,7 +186,7 @@ export function MetricCardWithExplanation({
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className={`p-2 rounded-lg hover:bg-white/50 transition-colors ${styles.icon}`}
-            aria-label={isExpanded ? 'Hide details' : 'Show details'}
+            aria-label={isExpanded ? t('metrics.accessibility.hideDetails') : t('metrics.accessibility.showDetails')}
           >
             <motion.div
               animate={{ rotate: isExpanded ? 180 : 0 }}

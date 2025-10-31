@@ -327,6 +327,18 @@
     "tooManyParticipants": "Maksymalnie 10 uczestników"
   },
 
+  "analysis": {
+    "filters": {
+      "searchPlaceholder": "Szukaj w odpowiedziach...",
+      "allParticipants": "Wszyscy uczestnicy",
+      "allQuestions": "Wszystkie pytania",
+      "questionLabel": "Pytanie {{number}}"
+    },
+    "responses": {
+      "noResponse": "Brak odpowiedzi"
+    }
+  },
+
   "builder": {
     "backButton": "Wróć do grup fokusowych",
     "title": "Kreator grup fokusowych",
@@ -369,5 +381,9 @@
       "questions": "Pytania",
       "description": "Persony AI zostaną automatycznie wygenerowane na podstawie demografii Twojego projektu. Moderator AI poprowadzi dyskusję i zada pytania uzupełniające. Wyniki zostaną przeanalizowane pod kątem tematów, sentymentu i kluczowych wniosków."
     }
+  },
+
+  "accessibility": {
+    "addQuestion": "Dodaj pytanie"
   }
 }

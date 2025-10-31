@@ -211,5 +211,9 @@
     "cancelButton": "Cancel",
     "deleteButton": "Delete project",
     "deletingButton": "Deleting..."
+  },
+
+  "accessibility": {
+    "openMenu": "Open menu"
   }
 }

@@ -5,6 +5,7 @@
  * Provides CustomBarChart and CustomPieChart with dynamic data support
  */
 
+import { useTranslation } from 'react-i18next';
 import { pieSvgPaths } from '@/lib/svg-paths';
 
 export interface MonthlyActivity {
@@ -26,10 +27,12 @@ export interface CustomBarChartProps {
  * (personas, surveys, focus groups)
  */
 export function CustomBarChart({ data, maxHeight = 200 }: CustomBarChartProps) {
+  const { t } = useTranslation('charts');
+
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center h-[240px] text-muted-foreground">
-        <p>No data available</p>
+        <p>{t('noData')}</p>
       </div>
     );
   }
@@ -103,10 +106,12 @@ export interface CustomPieChartProps {
  * Shows project distribution percentages
  */
 export function CustomPieChart({ data }: CustomPieChartProps) {
+  const { t } = useTranslation('charts');
+
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center w-full h-[200px] text-muted-foreground">
-        <p>No data available</p>
+        <p>{t('noData')}</p>
       </div>
     );
   }
@@ -222,10 +227,12 @@ export function CustomLineChart({
   series,
   height = 240,
 }: CustomLineChartProps) {
+  const { t } = useTranslation('charts');
+
   if (!data || data.length === 0 || !series || series.length === 0) {
     return (
       <div className="flex items-center justify-center h-[240px] text-muted-foreground">
-        <p>No data available</p>
+        <p>{t('noData')}</p>
       </div>
     );
   }
@@ -395,12 +402,13 @@ export function CustomDonutChart({
   thickness = 22,
   totalLabel,
 }: CustomDonutChartProps) {
+  const { t } = useTranslation('charts');
   const total = data.reduce((sum, item) => sum + item.value, 0);
 
   if (!data || data.length === 0 || total === 0) {
     return (
       <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-        <p>No distribution data</p>
+        <p>{t('noDistributionData')}</p>
       </div>
     );
   }
@@ -452,7 +460,7 @@ export function CustomDonutChart({
 
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
         <span className="text-xs text-muted-foreground uppercase tracking-wide">
-          {totalLabel || 'Total'}
+          {totalLabel || t('total')}
         </span>
         <span className="text-2xl font-semibold text-foreground">
           {total}

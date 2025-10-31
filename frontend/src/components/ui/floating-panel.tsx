@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useDragControls } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useAppStore, PanelKey } from '@/store/appStore';
 
@@ -47,6 +48,7 @@ export function FloatingPanel({
   className,
   panelKey,
 }: FloatingPanelProps) {
+  const { t } = useTranslation('common');
   const { panelPositions, setPanelPosition } = useAppStore();
   const motionX = useMotionValue(0);
   const motionY = useMotionValue(0);
@@ -139,7 +141,7 @@ export function FloatingPanel({
             <button
               onClick={onClose}
               className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
-              aria-label="Close panel"
+              aria-label={t('ui.closePanel')}
             >
               <X className="w-5 h-5 text-slate-500" />
             </button>

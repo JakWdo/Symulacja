@@ -15,35 +15,33 @@ import {
   Wrench,
   Activity,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useHealthBlockers } from '@/hooks/dashboard/useHealthBlockers';
 import type { BlockerWithFix } from '@/types/dashboard';
 
 const HEALTH_STATUS_CONFIG = {
   on_track: {
     icon: CheckCircle,
-    label: 'Na bieżąco',
     color: 'text-green-600',
     bgColor: 'bg-green-500/10',
   },
   at_risk: {
     icon: AlertCircle,
-    label: 'Zagrożony',
     color: 'text-yellow-600',
     bgColor: 'bg-yellow-500/10',
   },
   blocked: {
     icon: XCircle,
-    label: 'Zablokowany',
     color: 'text-red-600',
     bgColor: 'bg-red-500/10',
   },
 };
 
 const SEVERITY_CONFIG = {
-  critical: { color: 'bg-red-500', label: 'Krytyczny' },
-  high: { color: 'bg-orange-500', label: 'Wysoki' },
-  medium: { color: 'bg-yellow-500', label: 'Średni' },
-  low: { color: 'bg-blue-500', label: 'Niski' },
+  critical: { color: 'bg-red-500' },
+  high: { color: 'bg-orange-500' },
+  medium: { color: 'bg-yellow-500' },
+  low: { color: 'bg-blue-500' },
 };
 
 interface HealthBlockersSectionProps {
@@ -51,6 +49,7 @@ interface HealthBlockersSectionProps {
 }
 
 export function HealthBlockersSection({ onFixBlocker }: HealthBlockersSectionProps) {
+  const { t } = useTranslation('dashboard');
   const { data, isLoading, error } = useHealthBlockers();
 
   if (isLoading) {
@@ -61,12 +60,12 @@ export function HealthBlockersSection({ onFixBlocker }: HealthBlockersSectionPro
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Stan projektu</CardTitle>
+          <CardTitle>{t('health.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Nie udało się załadować danych o stanie</AlertDescription>
+            <AlertDescription>{t('health.error')}</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -87,11 +86,11 @@ export function HealthBlockersSection({ onFixBlocker }: HealthBlockersSectionPro
         <div className="flex items-center gap-2 mb-1.5">
           <AlertCircle className="h-5 w-5 text-foreground" />
           <CardTitle className="text-base font-normal text-foreground leading-[16px]">
-            Stan i blokady
+            {t('health.title')}
           </CardTitle>
         </div>
         <p className="text-base text-muted-foreground leading-[24px]">
-          Aktywne problemy wymagające uwagi
+          {t('health.subtitle')}
         </p>
       </CardHeader>
       <CardContent>
@@ -103,15 +102,15 @@ export function HealthBlockersSection({ onFixBlocker }: HealthBlockersSectionPro
                 return severityOrder[a.severity] - severityOrder[b.severity];
               })
               .map((blocker, index) => (
-                <BlockerCard key={index} blocker={blocker} onFixBlocker={onFixBlocker} />
+                <BlockerCard key={index} blocker={blocker} onFixBlocker={onFixBlocker} t={t} />
               ))}
           </div>
         ) : (
           <div className="py-12 text-center">
             <CheckCircle className="h-12 w-12 mx-auto text-figma-green mb-4" />
-            <p className="font-medium text-lg mb-2">Wszystko w porządku!</p>
+            <p className="font-medium text-lg mb-2">{t('health.allGood.title')}</p>
             <p className="text-sm text-figma-muted">
-              Brak aktywnych blokad. Wszystkie projekty na bieżąco.
+              {t('health.allGood.description')}
             </p>
           </div>
         )}
@@ -157,9 +156,11 @@ function HealthSummaryCard({
 function BlockerCard({
   blocker,
   onFixBlocker,
+  t,
 }: {
   blocker: BlockerWithFix;
   onFixBlocker?: (url: string) => void | Promise<void>;
+  t: any;
 }) {
   const handleFix = () => {
     if (!blocker.fix_url) {
@@ -199,7 +200,7 @@ function BlockerCard({
           size="sm"
           className="bg-figma-red hover:bg-figma-red/90 text-white h-8 px-3 flex-shrink-0 rounded-[6px]"
         >
-          Napraw
+          {t('health.fixButton')}
         </Button>
       )}
     </div>

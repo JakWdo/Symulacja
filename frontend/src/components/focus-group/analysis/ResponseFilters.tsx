@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { Persona } from '@/types';
 
 interface ResponseFiltersProps {
@@ -36,13 +37,15 @@ export const ResponseFilters: React.FC<ResponseFiltersProps> = ({
   questions,
   className = '',
 }) => {
+  const { t } = useTranslation('focus-groups');
+
   return (
     <div className={`flex flex-col md:flex-row gap-3 ${className}`}>
       {/* Search */}
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
-          placeholder="Szukaj w odpowiedziach..."
+          placeholder={t('analysis.filters.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10"
@@ -52,10 +55,10 @@ export const ResponseFilters: React.FC<ResponseFiltersProps> = ({
       {/* Persona Filter */}
       <Select value={selectedPersonaId} onValueChange={onPersonaChange}>
         <SelectTrigger className="w-full md:w-[200px]">
-          <SelectValue placeholder="Wszyscy uczestnicy" />
+          <SelectValue placeholder={t('analysis.filters.allParticipants')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Wszyscy uczestnicy</SelectItem>
+          <SelectItem value="all">{t('analysis.filters.allParticipants')}</SelectItem>
           {personas.map((persona) => (
             <SelectItem key={persona.id} value={persona.id}>
               {persona.full_name || `Persona ${persona.id.slice(0, 8)}`}
@@ -67,13 +70,13 @@ export const ResponseFilters: React.FC<ResponseFiltersProps> = ({
       {/* Question Filter */}
       <Select value={selectedQuestionIndex} onValueChange={onQuestionChange}>
         <SelectTrigger className="w-full md:w-[200px]">
-          <SelectValue placeholder="Wszystkie pytania" />
+          <SelectValue placeholder={t('analysis.filters.allQuestions')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Wszystkie pytania</SelectItem>
+          <SelectItem value="all">{t('analysis.filters.allQuestions')}</SelectItem>
           {questions.map((question, index) => (
             <SelectItem key={index} value={index.toString()}>
-              Pytanie {index + 1}
+              {t('analysis.filters.questionLabel', { number: index + 1 })}
             </SelectItem>
           ))}
         </SelectContent>

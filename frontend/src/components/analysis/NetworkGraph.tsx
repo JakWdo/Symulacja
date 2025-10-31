@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from 'react-i18next';
 
 interface Node {
   id: string;
@@ -35,6 +36,7 @@ interface NetworkGraphProps {
 }
 
 export function NetworkGraph({ data, onNodeClick, className }: NetworkGraphProps) {
+  const { t } = useTranslation('analysis');
   const svgRef = useRef<SVGSVGElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 400 });
   const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
@@ -105,7 +107,7 @@ export function NetworkGraph({ data, onNodeClick, className }: NetworkGraphProps
   if (!layoutNodes.length) {
     return (
       <div className={`flex items-center justify-center h-full ${className}`}>
-        <p className="text-muted-foreground">No graph data available</p>
+        <p className="text-muted-foreground">{t('graph.noData')}</p>
       </div>
     );
   }
@@ -212,13 +214,13 @@ export function NetworkGraph({ data, onNodeClick, className }: NetworkGraphProps
           </Badge>
           {hoveredNode.sentiment !== undefined && (
             <div className="text-xs text-muted-foreground">
-              Sentiment: {Math.round(hoveredNode.sentiment * 100)}%
+              {t('graph.tooltip.sentiment', { score: Math.round(hoveredNode.sentiment * 100) })}
             </div>
           )}
           {hoveredNode.metadata && (
             <div className="mt-2 text-xs text-muted-foreground">
-              {hoveredNode.metadata.age && <div>Age: {hoveredNode.metadata.age}</div>}
-              {hoveredNode.metadata.occupation && <div>Occupation: {hoveredNode.metadata.occupation}</div>}
+              {hoveredNode.metadata.age && <div>{t('graph.tooltip.age', { age: hoveredNode.metadata.age })}</div>}
+              {hoveredNode.metadata.occupation && <div>{t('graph.tooltip.occupation', { occupation: hoveredNode.metadata.occupation })}</div>}
             </div>
           )}
         </div>
@@ -226,42 +228,42 @@ export function NetworkGraph({ data, onNodeClick, className }: NetworkGraphProps
 
       {/* Legend */}
       <div className="absolute bottom-4 left-4 bg-card/95 border border-border rounded-lg p-3 backdrop-blur-sm">
-        <div className="text-xs text-card-foreground mb-2 font-medium">Node Types</div>
+        <div className="text-xs text-card-foreground mb-2 font-medium">{t('graph.legend.nodeTypes')}</div>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#F27405' }}></div>
-            <span className="text-xs text-muted-foreground">Personas</span>
+            <span className="text-xs text-muted-foreground">{t('graph.legend.personas')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#F29F05' }}></div>
-            <span className="text-xs text-muted-foreground">Concepts</span>
+            <span className="text-xs text-muted-foreground">{t('graph.legend.concepts')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span className="text-xs text-muted-foreground">Emotions</span>
+            <span className="text-xs text-muted-foreground">{t('graph.legend.emotions')}</span>
           </div>
         </div>
       </div>
 
       {/* Connection Types Legend */}
       <div className="absolute bottom-4 right-4 bg-card/95 border border-border rounded-lg p-3 backdrop-blur-sm">
-        <div className="text-xs text-card-foreground mb-2 font-medium">Connection Types</div>
+        <div className="text-xs text-card-foreground mb-2 font-medium">{t('graph.legend.connectionTypes')}</div>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="w-4 h-0.5" style={{ backgroundColor: '#F29F05' }}></div>
-            <span className="text-xs text-muted-foreground">Mentions</span>
+            <span className="text-xs text-muted-foreground">{t('graph.legend.mentions')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-0.5" style={{ backgroundColor: '#6366F1' }}></div>
-            <span className="text-xs text-muted-foreground">Feels</span>
+            <span className="text-xs text-muted-foreground">{t('graph.legend.feels')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-0.5" style={{ backgroundColor: '#10B981' }}></div>
-            <span className="text-xs text-muted-foreground">Agrees</span>
+            <span className="text-xs text-muted-foreground">{t('graph.legend.agrees')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-0.5" style={{ backgroundColor: '#EF4444' }}></div>
-            <span className="text-xs text-muted-foreground">Disagrees</span>
+            <span className="text-xs text-muted-foreground">{t('graph.legend.disagrees')}</span>
           </div>
         </div>
       </div>

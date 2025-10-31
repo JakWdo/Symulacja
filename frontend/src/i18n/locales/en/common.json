@@ -80,6 +80,7 @@
     "years": "years"
   },
   "pagination": {
+    "label": "pagination",
     "previous": "Previous",
     "next": "Next",
     "first": "First",
@@ -88,7 +89,10 @@
     "of": "of",
     "showing": "Showing",
     "to": "to",
-    "results": "results"
+    "results": "results",
+    "previousLabel": "Go to previous page",
+    "nextLabel": "Go to next page",
+    "morePages": "More pages"
   },
   "empty": {
     "noData": "No data",
@@ -96,5 +100,27 @@
     "noItems": "No items",
     "nothingFound": "Nothing found",
     "tryAgain": "Try again"
+  },
+  "ui": {
+    "errorBoundary": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. Please try refreshing the page.",
+      "reloadButton": "Reload Page"
+    },
+    "carousel": {
+      "previousSlide": "Previous slide",
+      "nextSlide": "Next slide",
+      "label": "carousel",
+      "slideLabel": "slide"
+    },
+    "breadcrumb": {
+      "label": "breadcrumb",
+      "more": "More"
+    },
+    "close": "Close",
+    "closePanel": "Close panel",
+    "toggleTheme": "Toggle theme",
+    "toggleLanguage": "Toggle language",
+    "imageError": "Error loading image"
   }
 }

@@ -256,7 +256,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                           onClick={(e) => e.stopPropagation()}
                         >
                           <MoreVertical className="h-4 w-4" />
-                          <span className="sr-only">Otwórz menu</span>
+                          <span className="sr-only">{t('projects:accessibility.openMenu')}</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">

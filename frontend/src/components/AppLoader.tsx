@@ -1,10 +1,13 @@
+import { useTranslation } from 'react-i18next';
 import { Logo } from '@/components/ui/logo';
 
 interface AppLoaderProps {
   message?: string;
 }
 
-export function AppLoader({ message = "Loading..." }: AppLoaderProps) {
+export function AppLoader({ message }: AppLoaderProps) {
+  const { t } = useTranslation('common');
+  const displayMessage = message || t('status.loading');
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-background via-background to-sidebar">
       {/* Animated background elements */}
@@ -28,7 +31,7 @@ export function AppLoader({ message = "Loading..." }: AppLoaderProps) {
 
         {/* Loading text */}
         <div className="flex flex-col items-center gap-2">
-          <p className="text-lg font-medium text-foreground">{message}</p>
+          <p className="text-lg font-medium text-foreground">{displayMessage}</p>
 
           {/* Animated dots */}
           <div className="flex gap-1">

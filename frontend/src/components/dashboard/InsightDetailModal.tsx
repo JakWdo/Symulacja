@@ -24,6 +24,7 @@ import {
   FileText,
   Tag,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useInsightDetail } from '@/hooks/dashboard/useInsightDetail';
 import type { InsightEvidenceItem } from '@/types/dashboard';
 
@@ -38,6 +39,7 @@ export function InsightDetailModal({
   isOpen,
   onClose,
 }: InsightDetailModalProps) {
+  const { t } = useTranslation('dashboard');
   const { data: insight, isLoading, error } = useInsightDetail(insightId);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -57,17 +59,17 @@ export function InsightDetailModal({
         ) : error ? (
           <div>
             <DialogHeader>
-              <DialogTitle>Insight Details</DialogTitle>
+              <DialogTitle>{t('insightModal.title')}</DialogTitle>
             </DialogHeader>
             <Alert variant="destructive" className="mt-4">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>Failed to load insight details</AlertDescription>
+              <AlertDescription>{t('insightModal.loadError')}</AlertDescription>
             </Alert>
           </div>
         ) : insight ? (
           <>
             <DialogHeader>
-              <DialogTitle>Insight Details</DialogTitle>
+              <DialogTitle>{t('insightModal.title')}</DialogTitle>
             </DialogHeader>
 
             {/* Insight Overview */}
@@ -82,7 +84,7 @@ export function InsightDetailModal({
                     {insight.is_adopted && (
                       <Badge variant="outline">
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        Adopted
+                        {t('insightModal.adopted')}
                       </Badge>
                     )}
                   </div>
@@ -96,16 +98,16 @@ export function InsightDetailModal({
               {/* Metrics */}
               <div className="flex gap-6 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Confidence:</span>{' '}
+                  <span className="text-muted-foreground">{t('insightModal.confidence')}:</span>{' '}
                   <strong>{(insight.confidence_score * 100).toFixed(0)}%</strong>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Impact:</span>{' '}
+                  <span className="text-muted-foreground">{t('insightModal.impact')}:</span>{' '}
                   <strong>{insight.impact_score}/10</strong>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Evidence:</span>{' '}
-                  <strong>{insight.evidence_count} items</strong>
+                  <span className="text-muted-foreground">{t('insightModal.evidence')}:</span>{' '}
+                  <strong>{insight.evidence_count} {t('insightModal.items')}</strong>
                 </div>
               </div>
 
@@ -118,7 +120,7 @@ export function InsightDetailModal({
                   disabled={!!actionLoading}
                 >
                   <Share2 className="h-4 w-4 mr-1" />
-                  Share
+                  {t('insightModal.shareButton')}
                 </Button>
                 <Button
                   size="sm"
@@ -127,7 +129,7 @@ export function InsightDetailModal({
                   disabled={!!actionLoading}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Export
+                  {t('insightModal.exportButton')}
                 </Button>
                 {!insight.is_adopted && (
                   <Button
@@ -136,7 +138,7 @@ export function InsightDetailModal({
                     disabled={!!actionLoading}
                   >
                     <ThumbsUp className="h-4 w-4 mr-1" />
-                    Mark as Adopted
+                    {t('insightModal.adoptButton')}
                   </Button>
                 )}
               </div>
@@ -148,7 +150,7 @@ export function InsightDetailModal({
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <Tag className="h-4 w-4 text-muted-foreground" />
-                    <h3 className="font-semibold text-sm">Key Concepts</h3>
+                    <h3 className="font-semibold text-sm">{t('insightModal.keyConcepts')}</h3>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {insight.concepts.map((concept, index) => (
@@ -164,7 +166,7 @@ export function InsightDetailModal({
               {insight.sentiment && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold text-sm">Sentiment</h3>
+                    <h3 className="font-semibold text-sm">{t('insightModal.sentiment')}</h3>
                   </div>
                   <Badge
                     variant="secondary"
@@ -189,9 +191,9 @@ export function InsightDetailModal({
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Quote className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-sm">Evidence Trail</h3>
+                  <h3 className="font-semibold text-sm">{t('insightModal.evidenceTrail')}</h3>
                   <span className="text-xs text-muted-foreground">
-                    ({insight.evidence.length} items)
+                    ({insight.evidence.length} {t('insightModal.items')})
                   </span>
                 </div>
                 <div className="space-y-3">
@@ -207,15 +209,15 @@ export function InsightDetailModal({
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <FileText className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-sm">Provenance</h3>
+                  <h3 className="font-semibold text-sm">{t('insightModal.provenance')}</h3>
                 </div>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div>
-                    <span className="font-medium">Model:</span>{' '}
+                    <span className="font-medium">{t('insightModal.model')}:</span>{' '}
                     {insight.provenance.model_version}
                   </div>
                   <div>
-                    <span className="font-medium">Generated:</span>{' '}
+                    <span className="font-medium">{t('insightModal.generated')}:</span>{' '}
                     {new Date(insight.provenance.created_at).toLocaleString()}
                   </div>
                   <div>
@@ -225,7 +227,7 @@ export function InsightDetailModal({
                     </code>
                   </div>
                   <div>
-                    <span className="font-medium">Sources:</span>{' '}
+                    <span className="font-medium">{t('insightModal.sources')}:</span>{' '}
                     {insight.provenance.sources.length} references
                   </div>
                 </div>

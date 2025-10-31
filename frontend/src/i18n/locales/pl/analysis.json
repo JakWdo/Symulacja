@@ -1,0 +1,40 @@
+{
+  "graph": {
+    "legend": {
+      "title": "Legenda",
+      "nodeTypes": "Typy węzłów",
+      "connectionTypes": "Typy połączeń",
+      "personas": "Persony",
+      "concepts": "Koncepcje",
+      "emotions": "Emocje",
+      "mentions": "Wzmianki",
+      "feels": "Odczuwa",
+      "agrees": "Zgadza się",
+      "disagrees": "Nie zgadza się"
+    },
+    "noData": "Brak danych grafu",
+    "tooltip": {
+      "sentiment": "Sentyment: {{score}}%",
+      "age": "Wiek: {{age}}",
+      "occupation": "Zawód: {{occupation}}"
+    }
+  },
+  "metrics": {
+    "marketFit": "Dopasowanie rynkowe",
+    "readiness": "Gotowość",
+    "riskLevel": "Poziom ryzyka",
+    "topOpportunity": "Najlepsza szansa",
+    "aiMetrics": "Metryki AI biznesowe",
+    "generated": "Wygenerowano: {{date}}",
+    "ready": "Gotowy",
+    "notReady": "Niegotowy",
+    "needsWork": "Wymaga pracy",
+    "highConfidence": "Wysoka pewność",
+    "noOpportunities": "Nie zidentyfikowano możliwości",
+    "generateInsights": "Wygeneruj AI Business Insights aby zobaczyć kluczowe metryki",
+    "accessibility": {
+      "hideDetails": "Ukryj szczegóły",
+      "showDetails": "Pokaż szczegóły"
+    }
+  }
+}

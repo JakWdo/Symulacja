@@ -272,6 +272,49 @@
     "createProject": "Nie udało się utworzyć projektu"
   },
 
+  "health": {
+    "title": "Stan i blokady",
+    "subtitle": "Aktywne problemy wymagające uwagi",
+    "allGood": {
+      "title": "Wszystko w porządku!",
+      "description": "Brak aktywnych blokad. Wszystkie projekty na bieżąco."
+    },
+    "status": {
+      "onTrack": "Na bieżąco",
+      "atRisk": "Zagrożony",
+      "blocked": "Zablokowany"
+    },
+    "severity": {
+      "critical": "Krytyczny",
+      "high": "Wysoki",
+      "medium": "Średni",
+      "low": "Niski"
+    },
+    "fixButton": "Napraw",
+    "error": "Nie udało się załadować danych o stanie"
+  },
+
+  "insightModal": {
+    "title": "Szczegóły insightu",
+    "loadError": "Nie udało się załadować szczegółów",
+    "sentiment": "Sentyment",
+    "confidence": "Pewność",
+    "impact": "Wpływ",
+    "evidence": "Dowody",
+    "provenance": "Źródło",
+    "model": "Model",
+    "generated": "Wygenerowano",
+    "sources": "Źródła",
+    "keyConcepts": "Kluczowe koncepcje",
+    "evidenceTrail": "Ścieżka dowodowa",
+    "items": "elementów",
+    "closeButton": "Zamknij",
+    "shareButton": "Udostępnij",
+    "exportButton": "Eksportuj",
+    "adoptButton": "Oznacz jako przyjęte",
+    "adopted": "Przyjęte"
+  },
+
   "insightAnalytics": {
     "insightTypes": {
       "title": "Typy spostrzeżeń",

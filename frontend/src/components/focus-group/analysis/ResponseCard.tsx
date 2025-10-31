@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ResponseCardProps {
   personaName: string;
@@ -18,6 +19,8 @@ export const ResponseCard: React.FC<ResponseCardProps> = React.memo(({
   timestamp,
   className = '',
 }) => {
+  const { t } = useTranslation('focus-groups');
+
   return (
     <div className={`bg-muted/30 border border-border/50 rounded-figma-inner p-4 space-y-3 ${className}`}>
       <div className="flex items-center gap-3">
@@ -39,7 +42,7 @@ export const ResponseCard: React.FC<ResponseCardProps> = React.memo(({
         </div>
       </div>
       <p className="text-sm text-muted-foreground leading-relaxed ml-13">
-        {response || <span className="italic">Brak odpowiedzi</span>}
+        {response || <span className="italic">{t('analysis.responses.noResponse')}</span>}
       </p>
     </div>
   );

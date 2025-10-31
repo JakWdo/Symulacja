@@ -272,6 +272,49 @@
     "createProject": "Failed to create project"
   },
 
+  "health": {
+    "title": "Health & Blockers",
+    "subtitle": "Active issues requiring attention",
+    "allGood": {
+      "title": "All Good!",
+      "description": "No active blockers. All projects on track."
+    },
+    "status": {
+      "onTrack": "On Track",
+      "atRisk": "At Risk",
+      "blocked": "Blocked"
+    },
+    "severity": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "fixButton": "Fix",
+    "error": "Failed to load health data"
+  },
+
+  "insightModal": {
+    "title": "Insight Details",
+    "loadError": "Failed to load insight details",
+    "sentiment": "Sentiment",
+    "confidence": "Confidence",
+    "impact": "Impact",
+    "evidence": "Evidence",
+    "provenance": "Provenance",
+    "model": "Model",
+    "generated": "Generated",
+    "sources": "Sources",
+    "keyConcepts": "Key Concepts",
+    "evidenceTrail": "Evidence Trail",
+    "items": "items",
+    "closeButton": "Close",
+    "shareButton": "Share",
+    "exportButton": "Export",
+    "adoptButton": "Mark as Adopted",
+    "adopted": "Adopted"
+  },
+
   "insightAnalytics": {
     "insightTypes": {
       "title": "Insight Types",

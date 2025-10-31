@@ -303,6 +303,19 @@
     "traditional": "Tradycjonaliści"
   },
 
+  "drawer": {
+    "persona": "Persona",
+    "closeLabel": "Zamknij panel",
+    "psychographics": "Cechy psychograficzne",
+    "intensity": "Intensywność",
+    "accessibility": {
+      "loadingTitle": "Ładowanie szczegółów persony",
+      "loadingDescription": "Proszę czekać, pobieranie danych...",
+      "detailsTitle": "Szczegóły persony",
+      "noDataDescription": "Brak danych do wyświetlenia"
+    }
+  },
+
   "wizard": {
     "title": "Generator Person AI",
     "subtitle": "Stwórz zaawansowane persony AI z wykorzystaniem rzeczywistych danych demograficznych",

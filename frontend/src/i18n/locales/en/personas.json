@@ -303,6 +303,19 @@
     "traditional": "Traditionalists"
   },
 
+  "drawer": {
+    "persona": "Persona",
+    "closeLabel": "Close panel",
+    "psychographics": "Psychographic Traits",
+    "intensity": "Intensity",
+    "accessibility": {
+      "loadingTitle": "Loading persona details",
+      "loadingDescription": "Please wait, fetching data...",
+      "detailsTitle": "Persona details",
+      "noDataDescription": "No data to display"
+    }
+  },
+
   "wizard": {
     "title": "AI Persona Generator",
     "subtitle": "Create advanced AI personas using real demographic data",

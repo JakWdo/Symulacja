@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { BusinessInsights } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -139,6 +140,8 @@ function MetricCard({
 }
 
 export function BusinessMetricsOverview({ insights, isLoading }: BusinessMetricsOverviewProps) {
+  const { t } = useTranslation('analysis');
+
   // Determine variants based on scores
   const marketFitVariant = useMemo(() => {
     if (!insights) return 'default';
@@ -181,13 +184,13 @@ export function BusinessMetricsOverview({ insights, isLoading }: BusinessMetrics
     if (!insights) return '—';
     const level = insights.readiness.level;
     const labels = {
-      not_ready: 'Not Ready',
-      needs_work: 'Needs Work',
-      ready: 'Ready',
-      high_confidence: 'High Confidence',
+      not_ready: t('metrics.notReady'),
+      needs_work: t('metrics.needsWork'),
+      ready: t('metrics.ready'),
+      high_confidence: t('metrics.highConfidence'),
     };
     return labels[level];
-  }, [insights]);
+  }, [insights, t]);
 
   // Get top opportunity
   const topOpportunity = useMemo(() => {
@@ -211,7 +214,7 @@ export function BusinessMetricsOverview({ insights, isLoading }: BusinessMetrics
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
         <p className="text-sm text-slate-600">
-          Generate AI Business Insights to see key metrics
+          {t('metrics.generateInsights')}
         </p>
       </div>
     );
@@ -222,10 +225,10 @@ export function BusinessMetricsOverview({ insights, isLoading }: BusinessMetrics
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
           <Info className="h-5 w-5 text-purple-600" />
-          AI Business Metrics
+          {t('metrics.aiMetrics')}
         </h3>
         <p className="text-xs text-slate-500">
-          Generated: {new Date(insights.generated_at).toLocaleString()}
+          {t('metrics.generated', { date: new Date(insights.generated_at).toLocaleString() })}
         </p>
       </div>
 
@@ -233,7 +236,7 @@ export function BusinessMetricsOverview({ insights, isLoading }: BusinessMetrics
         {/* Market Fit Score */}
         <MetricCard
           icon={TrendingUp}
-          label="Market Fit"
+          label={t('metrics.marketFit')}
           value={insights.market_fit.score}
           score={insights.market_fit.score}
           variant={marketFitVariant}
@@ -244,7 +247,7 @@ export function BusinessMetricsOverview({ insights, isLoading }: BusinessMetrics
         {/* Readiness Level */}
         <MetricCard
           icon={Rocket}
-          label="Readiness"
+          label={t('metrics.readiness')}
           value={readinessLabel}
           score={insights.readiness.score}
           variant={readinessVariant}
@@ -255,7 +258,7 @@ export function BusinessMetricsOverview({ insights, isLoading }: BusinessMetrics
         {/* Risk Profile */}
         <MetricCard
           icon={AlertTriangle}
-          label="Risk Level"
+          label={t('metrics.riskLevel')}
           value={insights.risk_profile.overall_risk_level.toUpperCase()}
           variant={riskVariant}
           subtitle={insights.risk_profile.risk_summary.slice(0, 80) + '...'}
@@ -265,11 +268,11 @@ export function BusinessMetricsOverview({ insights, isLoading }: BusinessMetrics
         {/* Top Opportunity */}
         <MetricCard
           icon={Lightbulb}
-          label="Top Opportunity"
+          label={t('metrics.topOpportunity')}
           value={topOpportunity ? topOpportunity.impact_score : '—'}
           score={topOpportunity?.impact_score}
           variant={opportunityVariant}
-          subtitle={topOpportunity ? topOpportunity.description.slice(0, 80) + '...' : 'No opportunities identified'}
+          subtitle={topOpportunity ? topOpportunity.description.slice(0, 80) + '...' : t('metrics.noOpportunities')}
           isClickable={false}
         />
       </div>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ export function PersonaDetailsDrawer({
   isOpen,
   onClose,
 }: PersonaDetailsDrawerProps) {
+  const { t } = useTranslation('personas');
   // Only fetch when drawer is actually open
   const { data: persona, isLoading, error } = usePersonaDetails(isOpen ? personaId : null);
 
@@ -72,8 +74,8 @@ export function PersonaDetailsDrawer({
             <DialogHeader className="p-6 border-b border-border shrink-0">
               {isLoading ? (
                 <>
-                  <DialogTitle className="sr-only">Ładowanie szczegółów persony</DialogTitle>
-                  <DialogDescription className="sr-only">Proszę czekać, pobieranie danych...</DialogDescription>
+                  <DialogTitle className="sr-only">{t('drawer.accessibility.loadingTitle')}</DialogTitle>
+                  <DialogDescription className="sr-only">{t('drawer.accessibility.loadingDescription')}</DialogDescription>
                   <div className="space-y-2">
                     <Skeleton className="h-6 w-48" />
                     <Skeleton className="h-4 w-64" />
@@ -98,8 +100,8 @@ export function PersonaDetailsDrawer({
                 </>
               ) : (
                 <>
-                  <DialogTitle className="sr-only">Szczegóły persony</DialogTitle>
-                  <DialogDescription className="sr-only">Brak danych do wyświetlenia</DialogDescription>
+                  <DialogTitle className="sr-only">{t('drawer.accessibility.detailsTitle')}</DialogTitle>
+                  <DialogDescription className="sr-only">{t('drawer.accessibility.noDataDescription')}</DialogDescription>
                 </>
               )}
             </DialogHeader>

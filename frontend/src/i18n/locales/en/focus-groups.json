@@ -325,6 +325,18 @@
     "tooManyParticipants": "Maximum 10 participants"
   },
 
+  "analysis": {
+    "filters": {
+      "searchPlaceholder": "Search in responses...",
+      "allParticipants": "All Participants",
+      "allQuestions": "All Questions",
+      "questionLabel": "Question {{number}}"
+    },
+    "responses": {
+      "noResponse": "No response"
+    }
+  },
+
   "builder": {
     "backButton": "Back to Focus Groups",
     "title": "Focus Group Builder",
@@ -367,5 +379,9 @@
       "questions": "Questions",
       "description": "AI participants will be generated based on your project personas. AI moderator will lead the discussion and ask follow-up questions. Results will be analyzed for themes, sentiment, and key insights."
     }
+  },
+
+  "accessibility": {
+    "addQuestion": "Add Question"
   }
 }

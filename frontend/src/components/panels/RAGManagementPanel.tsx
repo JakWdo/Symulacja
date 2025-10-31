@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Upload, FileText, Trash2, RefreshCw, Search, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { FloatingPanel } from '@/components/ui/floating-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

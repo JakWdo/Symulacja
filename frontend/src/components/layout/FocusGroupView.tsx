@@ -567,7 +567,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                   <div className="mt-4 pt-4 border-t border-border">
                     <div className="flex gap-2">
                       <div className="flex-1">
-                        <Label htmlFor="new-question" className="sr-only">Add Question</Label>
+                        <Label htmlFor="new-question" className="sr-only">{t('focus-groups:accessibility.addQuestion')}</Label>
                         <Input
                           id="new-question"
                           placeholder="Enter a new discussion question..."

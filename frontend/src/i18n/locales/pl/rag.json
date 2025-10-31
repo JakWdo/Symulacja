@@ -1,0 +1,64 @@
+{
+  "panel": {
+    "title": "Centrum wiedzy RAG",
+    "uploadButton": "Dodaj nowy dokument źródłowy",
+    "refreshButton": "Odśwież listę",
+    "testSearch": "Przetestuj wyszukiwanie kontekstowe"
+  },
+  "status": {
+    "indexed": "Zaindeksowano",
+    "processing": "Przetwarzanie",
+    "error": "Błąd"
+  },
+  "upload": {
+    "title": "Dodaj nowy dokument źródłowy",
+    "description": "Wspierane formaty: PDF oraz DOCX. Dokumenty są analizowane i indeksowane semantycznie.",
+    "fileLabel": "Plik",
+    "titleLabel": "Tytuł dokumentu",
+    "titlePlaceholder": "np. Diagnoza Społeczna 2024",
+    "descriptionLabel": "Opis",
+    "typeLabel": "Typ dokumentu",
+    "countryLabel": "Kraj",
+    "uploadButton": "Prześlij do RAG",
+    "uploading": "Przesyłanie...",
+    "success": "Dokument przesłany",
+    "successDescription": "Rozpoczęto indeksowanie w bazie wiedzy RAG.",
+    "error": "Nie udało się przesłać dokumentu",
+    "errorNoFile": "Brak pliku",
+    "errorNoFileDescription": "Wybierz dokument PDF lub DOCX do przesłania.",
+    "errorNoTitle": "Brak tytułu",
+    "errorNoTitleDescription": "Nadaj dokumentowi krótką, opisową nazwę.",
+    "fileSelected": "Wybrano: {{name}} ({{size}} KB)"
+  },
+  "list": {
+    "title": "Indeksowane dokumenty",
+    "description": "Monitoruj status przetwarzania oraz usuwaj nieaktualne materiały badawcze.",
+    "empty": "Brak dokumentów w bazie RAG. Dodaj raport lub badanie, aby wzbogacić generowane persony.",
+    "loading": "Wczytywanie dokumentów...",
+    "addedAt": "Dodano {{date}} • {{type}} • {{chunks}} segmentów",
+    "deleteButton": "Usuń dokument z RAG"
+  },
+  "delete": {
+    "success": "Dokument usunięty",
+    "successDescription": "Plik został wyłączony z wyszukiwania kontekstowego.",
+    "error": "Nie udało się usunąć dokumentu"
+  },
+  "search": {
+    "title": "Przetestuj wyszukiwanie kontekstowe",
+    "description": "Sprawdź, jakie fragmenty raportów trafią do generatora person dla konkretnego pytania badawczego.",
+    "queryLabel": "Zapytanie testowe",
+    "queryPlaceholder": "Jakie są największe obawy młodych rodziców w średnich miastach?",
+    "topKLabel": "Liczba fragmentów",
+    "searchButton": "Wykonaj zapytanie",
+    "searching": "Wyszukiwanie...",
+    "errorNoQuery": "Brak zapytania",
+    "errorNoQueryDescription": "Wpisz pytanie lub frazę badawczą.",
+    "success": "Zapytanie wykonane",
+    "successDescription": "Pobrano fragmenty wiedzy z silnika RAG.",
+    "error": "Nie udało się wykonać zapytania",
+    "resultsTitle": "Zsyntetyzowany kontekst",
+    "citationsTitle": "Cytowania",
+    "noCitations": "Brak szczegółowych cytowań dla tego zapytania.",
+    "relevance": "trafność {{score}}%"
+  }
+}

@@ -1,5 +1,6 @@
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar, Tooltip } from 'recharts';
 import { X, Sparkles, Clock, BookOpen } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { Persona, PersonaInsight } from '@/types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -58,6 +59,8 @@ export function PersonaInsightDrawer({
   historyLoading,
   onClose,
 }: PersonaInsightDrawerProps) {
+  const { t } = useTranslation('personas');
+
   if (!persona) {
     return null;
   }
@@ -93,7 +96,7 @@ export function PersonaInsightDrawer({
             <p className="text-xs text-slate-500 mt-1 italic">{headline}</p>
           )}
         </div>
-        <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100" aria-label="Zamknij panel">
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100" aria-label={t('drawer.closeLabel')}>
           <X className="w-5 h-5" />
         </button>
       </div>

@@ -6,6 +6,7 @@
  */
 
 import { Languages } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,6 +18,7 @@ import { useLanguage } from '@/i18n/hooks';
 import { LANGUAGES, type Language } from '@/i18n/types';
 
 export function LanguageToggle() {
+  const { t } = useTranslation('common');
   const { language, changeLanguage } = useLanguage();
 
   const handleLanguageChange = async (newLanguage: Language) => {
@@ -30,7 +32,7 @@ export function LanguageToggle() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="h-9 w-9">
           <Languages className="h-4 w-4" />
-          <span className="sr-only">Toggle language</span>
+          <span className="sr-only">{t('ui.toggleLanguage')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

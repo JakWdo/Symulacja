@@ -80,6 +80,7 @@
     "years": "lata"
   },
   "pagination": {
+    "label": "paginacja",
     "previous": "Poprzednia",
     "next": "Następna",
     "first": "Pierwsza",
@@ -88,7 +89,10 @@
     "of": "z",
     "showing": "Pokazywanie",
     "to": "do",
-    "results": "wyników"
+    "results": "wyników",
+    "previousLabel": "Przejdź do poprzedniej strony",
+    "nextLabel": "Przejdź do następnej strony",
+    "morePages": "Więcej stron"
   },
   "empty": {
     "noData": "Brak danych",
@@ -96,5 +100,27 @@
     "noItems": "Brak elementów",
     "nothingFound": "Nic nie znaleziono",
     "tryAgain": "Spróbuj ponownie"
+  },
+  "ui": {
+    "errorBoundary": {
+      "title": "Coś poszło nie tak",
+      "description": "Wystąpił nieoczekiwany błąd. Spróbuj odświeżyć stronę.",
+      "reloadButton": "Odśwież stronę"
+    },
+    "carousel": {
+      "previousSlide": "Poprzedni slajd",
+      "nextSlide": "Następny slajd",
+      "label": "karuzela",
+      "slideLabel": "slajd"
+    },
+    "breadcrumb": {
+      "label": "nawigacja okruszkowa",
+      "more": "Więcej"
+    },
+    "close": "Zamknij",
+    "closePanel": "Zamknij panel",
+    "toggleTheme": "Przełącz motyw",
+    "toggleLanguage": "Przełącz język",
+    "imageError": "Błąd ładowania obrazu"
   }
 }

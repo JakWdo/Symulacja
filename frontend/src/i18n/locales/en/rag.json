@@ -1,0 +1,64 @@
+{
+  "panel": {
+    "title": "RAG Knowledge Center",
+    "uploadButton": "Add new source document",
+    "refreshButton": "Refresh list",
+    "testSearch": "Test contextual search"
+  },
+  "status": {
+    "indexed": "Indexed",
+    "processing": "Processing",
+    "error": "Error"
+  },
+  "upload": {
+    "title": "Add new source document",
+    "description": "Supported formats: PDF and DOCX. Documents are analyzed and semantically indexed.",
+    "fileLabel": "File",
+    "titleLabel": "Document title",
+    "titlePlaceholder": "e.g. Social Diagnosis 2024",
+    "descriptionLabel": "Description",
+    "typeLabel": "Document type",
+    "countryLabel": "Country",
+    "uploadButton": "Upload to RAG",
+    "uploading": "Uploading...",
+    "success": "Document uploaded",
+    "successDescription": "Indexing started in RAG knowledge base.",
+    "error": "Failed to upload document",
+    "errorNoFile": "No file",
+    "errorNoFileDescription": "Select a PDF or DOCX document to upload.",
+    "errorNoTitle": "No title",
+    "errorNoTitleDescription": "Give the document a short, descriptive name.",
+    "fileSelected": "Selected: {{name}} ({{size}} KB)"
+  },
+  "list": {
+    "title": "Indexed documents",
+    "description": "Monitor processing status and remove outdated research materials.",
+    "empty": "No documents in RAG database. Add a report or study to enrich generated personas.",
+    "loading": "Loading documents...",
+    "addedAt": "Added {{date}} • {{type}} • {{chunks}} segments",
+    "deleteButton": "Remove document from RAG"
+  },
+  "delete": {
+    "success": "Document deleted",
+    "successDescription": "File removed from contextual search.",
+    "error": "Failed to delete document"
+  },
+  "search": {
+    "title": "Test contextual search",
+    "description": "Check which report fragments will be sent to persona generator for a specific research question.",
+    "queryLabel": "Test query",
+    "queryPlaceholder": "What are the biggest concerns of young parents in mid-sized cities?",
+    "topKLabel": "Number of fragments",
+    "searchButton": "Execute query",
+    "searching": "Searching...",
+    "errorNoQuery": "No query",
+    "errorNoQueryDescription": "Enter a question or research phrase.",
+    "success": "Query executed",
+    "successDescription": "Knowledge fragments retrieved from RAG engine.",
+    "error": "Failed to execute query",
+    "resultsTitle": "Synthesized context",
+    "citationsTitle": "Citations",
+    "noCitations": "No detailed citations for this query.",
+    "relevance": "relevance {{score}}%"
+  }
+}

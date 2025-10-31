@@ -1,0 +1,40 @@
+{
+  "graph": {
+    "legend": {
+      "title": "Legend",
+      "nodeTypes": "Node Types",
+      "connectionTypes": "Connection Types",
+      "personas": "Personas",
+      "concepts": "Concepts",
+      "emotions": "Emotions",
+      "mentions": "Mentions",
+      "feels": "Feels",
+      "agrees": "Agrees",
+      "disagrees": "Disagrees"
+    },
+    "noData": "No graph data available",
+    "tooltip": {
+      "sentiment": "Sentiment: {{score}}%",
+      "age": "Age: {{age}}",
+      "occupation": "Occupation: {{occupation}}"
+    }
+  },
+  "metrics": {
+    "marketFit": "Market Fit",
+    "readiness": "Readiness",
+    "riskLevel": "Risk Level",
+    "topOpportunity": "Top Opportunity",
+    "aiMetrics": "AI Business Metrics",
+    "generated": "Generated: {{date}}",
+    "ready": "Ready",
+    "notReady": "Not Ready",
+    "needsWork": "Needs Work",
+    "highConfidence": "High Confidence",
+    "noOpportunities": "No opportunities identified",
+    "generateInsights": "Generate AI Business Insights to see key metrics",
+    "accessibility": {
+      "hideDetails": "Hide details",
+      "showDetails": "Show details"
+    }
+  }
+}

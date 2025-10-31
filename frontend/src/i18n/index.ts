@@ -34,6 +34,18 @@ import surveysEN from './locales/en/surveys.json';
 import focusGroupsPL from './locales/pl/focus-groups.json';
 import focusGroupsEN from './locales/en/focus-groups.json';
 
+// Import translations - RAG
+import ragPL from './locales/pl/rag.json';
+import ragEN from './locales/en/rag.json';
+
+// Import translations - Analysis
+import analysisPL from './locales/pl/analysis.json';
+import analysisEN from './locales/en/analysis.json';
+
+// Import translations - Charts
+import chartsPL from './locales/pl/charts.json';
+import chartsEN from './locales/en/charts.json';
+
 /**
  * i18next Configuration
  *
@@ -54,6 +66,9 @@ i18n
         personas: personasPL,
         surveys: surveysPL,
         focusGroups: focusGroupsPL,
+        rag: ragPL,
+        analysis: analysisPL,
+        charts: chartsPL,
       },
       en: {
         common: commonEN,
@@ -64,6 +79,9 @@ i18n
         personas: personasEN,
         surveys: surveysEN,
         focusGroups: focusGroupsEN,
+        rag: ragEN,
+        analysis: analysisEN,
+        charts: chartsEN,
       },
     },
 
@@ -83,6 +101,9 @@ i18n
       'personas',
       'surveys',
       'focusGroups',
+      'rag',
+      'analysis',
+      'charts',
     ],
 
     interpolation: {
