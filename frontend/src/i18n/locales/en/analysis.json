@@ -36,5 +36,80 @@
       "hideDetails": "Hide details",
       "showDetails": "Show details"
     }
+  },
+  "graphAnalysis": {
+    "title": "Graph Analysis",
+    "subtitle": "Explore dynamic networks of personas, concepts, and emotions from your research",
+    "selectProject": "Select project",
+    "selectFocusGroup": "Select focus group",
+    "noProjectsFound": "No projects found",
+    "loadingFocusGroups": "Loading focus groups...",
+    "noCompletedFocusGroups": "No completed focus groups",
+    "unlockMessage": "Run or complete a focus group to unlock graph insights",
+    "errors": {
+      "selectFocusGroup": "Select a focus group",
+      "selectFocusGroupMessage": "Choose a completed focus group to analyze questions.",
+      "unknownError": "Unknown error",
+      "graphRebuildFailed": "Failed to build graph",
+      "retryMessage": "Try rebuilding the graph or rerun the focus group."
+    },
+    "toast": {
+      "graphRebuilt": "Graph rebuilt",
+      "relationshipsCreated": "Created {{count}} relations"
+    },
+    "noProjectSelected": {
+      "title": "No Project Selected",
+      "description": "Please select a project to view graph analysis"
+    },
+    "knowledgeNetwork": {
+      "title": "Knowledge Network",
+      "buildButton": "Build Graph",
+      "buildingButton": "Building...",
+      "filtersButton": "Filters",
+      "clear": "Clear",
+      "filterOptions": {
+        "all": "All Data",
+        "positive": "Positive Only",
+        "negative": "Negative Only",
+        "influence": "High Influence"
+      },
+      "emptyState": "Select a completed focus group to explore its knowledge graph.",
+      "noData": "No graph data available yet. Run a focus group or rebuild the graph to generate insights.",
+      "retryButton": "Retry",
+      "filteredLabel": "Filtered: {{concept}}",
+      "filterLabel": "Filter: {{filter}}"
+    },
+    "askYourData": {
+      "title": "Ask Your Data",
+      "placeholder": "Ask a question about your research data (e.g., 'Who was most concerned about pricing?')",
+      "analyzeButton": "Analyze",
+      "analyzingButton": "Analyzing...",
+      "analyzingMessage": "Analyzing graph relationships...",
+      "answerLabel": "Answer",
+      "insightsLabel": "Supporting insights",
+      "suggestedQueries": {
+        "influence": "Who influences others the most?",
+        "controversial": "Show me controversial topics.",
+        "emotions": "Which emotions dominate the discussion?",
+        "positive": "Which concepts are rated most positively?"
+      }
+    },
+    "concepts": {
+      "title": "Key Concepts",
+      "tabLabel": "Concepts",
+      "emptyState": "Select a completed focus group to see extracted concepts.",
+      "noData": "No concepts extracted yet",
+      "sentimentLabel": "Sentiment:",
+      "personasCount": "{{count}} personas"
+    },
+    "personas": {
+      "title": "Influential Personas",
+      "tabLabel": "Personas",
+      "emptyState": "Select a completed focus group to review persona influence.",
+      "noData": "No personas analyzed yet",
+      "influenceScore": "Influence Score:",
+      "connections": "Connections:",
+      "avgSentiment": "Avg Sentiment:"
+    }
   }
 }

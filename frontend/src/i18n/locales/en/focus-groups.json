@@ -403,5 +403,80 @@
 
   "accessibility": {
     "addQuestion": "Add Question"
+  },
+
+  "view": {
+    "backButton": "Back to Focus Groups",
+    "questionsCount": "{{count}} questions",
+    "questionsCount_one": "{{count}} question",
+    "questionsCount_few": "{{count}} questions",
+    "participantsCount": "{{count}} participants",
+    "participantsCount_one": "{{count}} participant",
+    "participantsCount_few": "{{count}} participants",
+    "statusLabel": {
+      "running": "In Progress",
+      "completed": "Completed",
+      "pending": "Pending",
+      "failed": "Failed"
+    },
+    "tabs": {
+      "setup": "Setup",
+      "discussion": "Discussion",
+      "results": "Results & Analysis"
+    },
+    "setup": {
+      "questionsTitle": "Discussion Questions",
+      "questionsDescriptionEditable": "Adjust the prompts for your discussion. Changes save automatically.",
+      "questionsDescriptionReadonly": "These are the prompts used during the session.",
+      "saving": "Saving...",
+      "noQuestions": "No questions configured",
+      "addQuestionPlaceholder": "Enter a new discussion question...",
+      "participantsTitle": "Participants",
+      "participantsDescriptionEditable": "Select personas for this session. Changes save automatically.",
+      "participantsDescriptionReadonly": "{{count}} personas participated in this session.",
+      "noPersonas": "No personas available",
+      "yearsOld": "years old",
+      "noOccupation": "No occupation"
+    },
+    "discussion": {
+      "runTitle": "Run Discussion",
+      "runDescription": "Start the AI-simulated focus group discussion",
+      "startButton": "Start Discussion",
+      "readyTitle": "Ready to Start",
+      "readyDescription": "Click \"Start Discussion\" to begin the AI simulation with {{count}} participants.",
+      "simulationInProgress": "Simulation in progress...",
+      "progressLabel": "Discussion Progress",
+      "currentStatus": "Current Status:",
+      "statusIntroduction": "Participants are introducing themselves...",
+      "statusDiscussing": "Discussing question {{current}} of {{total}}",
+      "statusFollowUp": "Exploring follow-up questions...",
+      "statusWrapping": "Wrapping up discussion...",
+      "liveDiscussionTitle": "Live Discussion",
+      "completeTitle": "Discussion Complete",
+      "completeDescription": "The focus group simulation has finished. Generate AI insights to analyze the results.",
+      "generatingButton": "Generating AI Summary...",
+      "generateButton": "Generate AI Summary",
+      "summaryGeneratedTitle": "AI Summary Generated",
+      "summaryGeneratedDescription": "AI insights have been generated. View the complete analysis in the \"Results & Analysis\" tab.",
+      "viewResultsButton": "View Results"
+    },
+    "results": {
+      "pendingTitle": "No Results",
+      "pendingDescription": "Run the discussion first to generate analysis and insights",
+      "runningTitle": "Discussion in Progress",
+      "runningDescription": "Responses and insights will appear here automatically after the simulation completes",
+      "progressCompleted": "{{percent}}% completed",
+      "responsesCount": "{{current}}/{{total}} responses",
+      "failedTitle": "Execution Failed",
+      "failedDescription": "This simulation failed to complete. Check the activity log or try running again.",
+      "loadingAnalysis": "Loading analysis..."
+    },
+    "toast": {
+      "saveError": "Failed to save changes",
+      "launchSuccess": "Focus group launched",
+      "launchError": "Failed to launch focus group",
+      "summarySuccess": "AI Summary generated successfully",
+      "summaryError": "Failed to generate AI summary"
+    }
   }
 }

@@ -337,28 +337,35 @@ pytest tests/unit/test_language_detection.py -v
 curl -H "Accept-Language: en-US" http://localhost:8000/api/v1/projects
 ```
 
-### Przetłumaczone Komponenty
+### Przetłumaczone Komponenty (Status: 2025-10-31)
 
-**Core (100%):**
-- AppSidebar, Login/Register, AuthContext
-- Settings (wszystkie sekcje)
-- DashboardHeader
+**✅ COMPLETE - Core Features (100%):**
+- **Core UI:** AppSidebar, Login/Register, AuthContext, Settings (all sections), AppLoader, LanguageToggle
+- **Dashboard:** FigmaDashboard, DashboardHeader, ActiveProjectsSection, LatestInsightsSection, NotificationsSection, UsageBudgetSection, HealthBlockersSection, InsightDetailModal, InsightAnalyticsCharts
+- **Personas:** PersonaGenerationWizard, PersonaDetailsDrawer, NeedsSection, ProfileSection, PersonaReasoningPanel, DeletePersonaDialog, ComparePersonasDialog, MessagingGeneratorDialog, InsightsSection
+- **Focus Groups:** FocusGroupBuilder, FocusGroupView (complete - all tabs), FocusGroupAnalysisView (all tabs), ExecutiveSummaryCard, KeyInsightsGrid, SegmentCard, SurprisingFindingsCard, RecommendationItem, AISummaryPanel, ResponsesList, ResponseCard, ResponseFilters
+- **Surveys:** SurveyBuilder (complete builder), SurveyResults
+- **Projects:** ProjectPanel, DeleteProjectDialog, UndoDeleteDialog
+- **Analysis:** BusinessMetricsOverview, MetricCardWithExplanation, PersonaInsightDrawer
+- **RAG:** RAGManagementPanel
 
-**Dashboard (100%):**
-- ActiveProjectsSection, LatestInsightsSection
-- NotificationsSection, UsageBudgetSection
-- FigmaDashboard (main)
+**📊 Translation Coverage:**
+- **Namespaces:** 11 complete (common, dashboard, personas, projects, focus-groups, surveys, settings, auth, analysis, rag, charts)
+- **Translation Keys:** ~2,500+ keys (PL + EN)
+- **Components Using i18n:** 60+ components
+- **Test Coverage:** Comprehensive i18n tests in `frontend/src/__tests__/i18n.test.tsx`
 
-**Focus Groups Analysis (100%):**
-- ExecutiveSummaryCard, KeyInsightsGrid
-- SegmentCard, SurprisingFindingsCard
-- RecommendationItem, AISummaryPanel
+**⚠️ ARCHIVED/PARTIAL:**
+- **GraphAnalysis.tsx** - 30% translated (archived feature per CLAUDE.md)
+- **Minor UI utilities** - FloatingControls, StatsOverlay, PageHeader (minimal/no user-facing strings)
 
-**Personas (100%):**
-- NeedsSection, ProfileSection
-- PersonaReasoningPanel
-
-**Remaining:** Projects, Surveys (można dodać według potrzeb)
+**🎯 Implementation Quality:**
+- ✅ Zero hardcoded strings in active features
+- ✅ Consistent key structure across namespaces
+- ✅ Parameter interpolation for dynamic content (e.g., `{{count}}`, `{{name}}`)
+- ✅ Plural forms where needed
+- ✅ Date/time formatting with locale support
+- ✅ All translations verified with automated tests
 
 ### Fallback Strategy
 

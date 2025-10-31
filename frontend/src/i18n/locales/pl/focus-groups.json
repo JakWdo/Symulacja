@@ -407,5 +407,80 @@
 
   "accessibility": {
     "addQuestion": "Dodaj pytanie"
+  },
+
+  "view": {
+    "backButton": "Powrót do grup fokusowych",
+    "questionsCount": "{{count}} pytań",
+    "questionsCount_one": "{{count}} pytanie",
+    "questionsCount_few": "{{count}} pytania",
+    "participantsCount": "{{count}} uczestników",
+    "participantsCount_one": "{{count}} uczestnik",
+    "participantsCount_few": "{{count}} uczestników",
+    "statusLabel": {
+      "running": "W trakcie",
+      "completed": "Zakończony",
+      "pending": "Oczekujący",
+      "failed": "Nieudany"
+    },
+    "tabs": {
+      "setup": "Konfiguracja",
+      "discussion": "Dyskusja",
+      "results": "Wyniki i Analiza"
+    },
+    "setup": {
+      "questionsTitle": "Pytania dyskusyjne",
+      "questionsDescriptionEditable": "Dostosuj pytania do swojej dyskusji. Zmiany zapisują się automatycznie.",
+      "questionsDescriptionReadonly": "To są pytania użyte podczas sesji.",
+      "saving": "Zapisywanie...",
+      "noQuestions": "Brak skonfigurowanych pytań",
+      "addQuestionPlaceholder": "Wprowadź nowe pytanie dyskusyjne...",
+      "participantsTitle": "Uczestnicy",
+      "participantsDescriptionEditable": "Wybierz persony dla tej sesji. Zmiany zapisują się automatycznie.",
+      "participantsDescriptionReadonly": "{{count}} person uczestniczyło w tej sesji.",
+      "noPersonas": "Brak dostępnych person",
+      "yearsOld": "lat",
+      "noOccupation": "Brak zawodu"
+    },
+    "discussion": {
+      "runTitle": "Uruchom dyskusję",
+      "runDescription": "Rozpocznij symulowaną przez AI dyskusję grupy fokusowej",
+      "startButton": "Rozpocznij dyskusję",
+      "readyTitle": "Gotowy do startu",
+      "readyDescription": "Kliknij \"Rozpocznij dyskusję\", aby rozpocząć symulację AI z {{count}} uczestnikami.",
+      "simulationInProgress": "Symulacja w toku...",
+      "progressLabel": "Postęp dyskusji",
+      "currentStatus": "Aktualny status:",
+      "statusIntroduction": "Uczestnicy się przedstawiają...",
+      "statusDiscussing": "Dyskusja nad pytaniem {{current}} z {{total}}",
+      "statusFollowUp": "Eksplorowanie pytań uzupełniających...",
+      "statusWrapping": "Podsumowanie dyskusji...",
+      "liveDiscussionTitle": "Dyskusja na żywo",
+      "completeTitle": "Dyskusja zakończona",
+      "completeDescription": "Symulacja grupy fokusowej zakończyła się. Wygeneruj wnioski AI, aby przeanalizować wyniki.",
+      "generatingButton": "Generowanie podsumowania AI...",
+      "generateButton": "Wygeneruj podsumowanie AI",
+      "summaryGeneratedTitle": "Podsumowanie AI wygenerowane",
+      "summaryGeneratedDescription": "Wnioski AI zostały wygenerowane. Zobacz pełną analizę w zakładce \"Wyniki i Analiza\".",
+      "viewResultsButton": "Zobacz wyniki"
+    },
+    "results": {
+      "pendingTitle": "Brak wyników",
+      "pendingDescription": "Uruchom najpierw dyskusję, aby wygenerować analizę i wnioski",
+      "runningTitle": "Dyskusja w toku",
+      "runningDescription": "Odpowiedzi i wnioski pojawią się tutaj automatycznie po zakończeniu symulacji",
+      "progressCompleted": "{{percent}}% ukończono",
+      "responsesCount": "{{current}}/{{total}} odpowiedzi",
+      "failedTitle": "Uruchomienie nie powiodło się",
+      "failedDescription": "Nie udało się ukończyć tej symulacji. Sprawdź dziennik aktywności lub spróbuj uruchomić ponownie.",
+      "loadingAnalysis": "Ładowanie analizy..."
+    },
+    "toast": {
+      "saveError": "Nie udało się zapisać zmian",
+      "launchSuccess": "Grupa fokusowa uruchomiona",
+      "launchError": "Nie udało się uruchomić grupy fokusowej",
+      "summarySuccess": "Podsumowanie AI wygenerowane pomyślnie",
+      "summaryError": "Nie udało się wygenerować podsumowania AI"
+    }
   }
 }

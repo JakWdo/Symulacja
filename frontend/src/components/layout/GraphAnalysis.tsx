@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { toast } from '@/components/ui/toastStore';
 import type { GraphQueryResponse } from '@/types';
 
 export function GraphAnalysis() {
+  const { t } = useTranslation('analysis');
   const {
     selectedProject,
     setSelectedProject,
@@ -34,18 +36,19 @@ export function GraphAnalysis() {
   const [selectedConcept, setSelectedConcept] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [graphFilter, setGraphFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const queryClient = useQueryClient();
   const question = graphAsk.question;
   const askResult = graphAsk.result;
   const askErrorMessage = graphAsk.error;
   const suggestedQueries = useMemo(
     () => [
-      'Who influences others the most?',
-      'Show me controversial topics.',
-      'Which emotions dominate the discussion?',
-      'Which concepts are rated most positively?',
+      t('graphAnalysis.askYourData.suggestedQueries.influence'),
+      t('graphAnalysis.askYourData.suggestedQueries.controversial'),
+      t('graphAnalysis.askYourData.suggestedQueries.emotions'),
+      t('graphAnalysis.askYourData.suggestedQueries.positive'),
     ],
-    []
+    [t]
   );
   const {
     mutate: runAskQuestion,
@@ -55,7 +58,7 @@ export function GraphAnalysis() {
     mutationKey: ['graph-ask', selectedFocusGroup?.id],
     mutationFn: async (queryText: string) => {
       if (!selectedFocusGroup) {
-        throw new Error('Select a completed focus group first.');
+        throw new Error(t('graphAnalysis.errors.selectFocusGroup'));
       }
       return graphApi.askQuestion(selectedFocusGroup.id, queryText);
     },
@@ -68,7 +71,7 @@ export function GraphAnalysis() {
         ? error.response?.data?.detail || error.message
         : error instanceof Error
           ? error.message
-          : 'Unknown error';
+          : t('graphAnalysis.errors.unknownError');
       setGraphAskStatus('error', message);
     },
   });
@@ -171,7 +174,7 @@ export function GraphAnalysis() {
       return;
     }
     if (!selectedFocusGroup) {
-      toast.info('Select a focus group', 'Choose a completed focus group to analyze questions.');
+      toast.info(t('graphAnalysis.errors.selectFocusGroup'), t('graphAnalysis.errors.selectFocusGroupMessage'));
       return;
     }
     if (isAskPending) {
@@ -236,7 +239,7 @@ export function GraphAnalysis() {
   const buildGraphMutation = useMutation({
     mutationFn: () => graphApi.buildGraph(selectedFocusGroup!.id),
     onSuccess: (stats) => {
-      toast.success('Graph rebuilt', `Created ${stats.relationships_created} relations`);
+      toast.success(t('graphAnalysis.toast.graphRebuilt'), t('graphAnalysis.toast.relationshipsCreated', { count: stats.relationships_created }));
       queryClient.invalidateQueries({ queryKey: ['graph-data', selectedFocusGroup?.id] });
       queryClient.invalidateQueries({ queryKey: ['key-concepts', selectedFocusGroup?.id] });
       queryClient.invalidateQueries({ queryKey: ['influential-personas', selectedFocusGroup?.id] });
@@ -246,8 +249,8 @@ export function GraphAnalysis() {
         ? error.response?.data?.detail || error.message
         : error instanceof Error
           ? error.message
-          : 'Unknown error';
-      toast.error('Failed to build graph', message);
+          : t('graphAnalysis.errors.unknownError');
+      toast.error(t('graphAnalysis.errors.graphRebuildFailed'), message);
     },
   });
 

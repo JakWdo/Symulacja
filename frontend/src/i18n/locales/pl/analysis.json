@@ -36,5 +36,80 @@
       "hideDetails": "Ukryj szczegóły",
       "showDetails": "Pokaż szczegóły"
     }
+  },
+  "graphAnalysis": {
+    "title": "Analiza Grafu",
+    "subtitle": "Eksploruj dynamiczne sieci person, koncepcji i emocji z Twoich badań",
+    "selectProject": "Wybierz projekt",
+    "selectFocusGroup": "Wybierz grupę fokusową",
+    "noProjectsFound": "Nie znaleziono projektów",
+    "loadingFocusGroups": "Ładowanie grup fokusowych...",
+    "noCompletedFocusGroups": "Brak zakończonych grup fokusowych",
+    "unlockMessage": "Uruchom lub zakończ grupę fokusową, aby odblokować wnioski z grafu",
+    "errors": {
+      "selectFocusGroup": "Wybierz grupę fokusową",
+      "selectFocusGroupMessage": "Wybierz zakończoną grupę fokusową, aby analizować pytania.",
+      "unknownError": "Nieznany błąd",
+      "graphRebuildFailed": "Nie udało się zbudować grafu",
+      "retryMessage": "Spróbuj przebudować graf lub uruchom ponownie grupę fokusową."
+    },
+    "toast": {
+      "graphRebuilt": "Graf przebudowany",
+      "relationshipsCreated": "Utworzono {{count}} relacji"
+    },
+    "noProjectSelected": {
+      "title": "Nie wybrano projektu",
+      "description": "Wybierz projekt, aby wyświetlić analizę grafu"
+    },
+    "knowledgeNetwork": {
+      "title": "Sieć Wiedzy",
+      "buildButton": "Zbuduj graf",
+      "buildingButton": "Budowanie...",
+      "filtersButton": "Filtry",
+      "clear": "Wyczyść",
+      "filterOptions": {
+        "all": "Wszystkie dane",
+        "positive": "Tylko pozytywne",
+        "negative": "Tylko negatywne",
+        "influence": "Wysoki wpływ"
+      },
+      "emptyState": "Wybierz zakończoną grupę fokusową, aby eksplorować jej graf wiedzy.",
+      "noData": "Brak jeszcze danych grafu. Uruchom grupę fokusową lub przebuduj graf, aby wygenerować wnioski.",
+      "retryButton": "Ponów",
+      "filteredLabel": "Filtrowane: {{concept}}",
+      "filterLabel": "Filtr: {{filter}}"
+    },
+    "askYourData": {
+      "title": "Zapytaj swoje dane",
+      "placeholder": "Zadaj pytanie o swoje dane badawcze (np. 'Kto był najbardziej zaniepokojony ceną?')",
+      "analyzeButton": "Analizuj",
+      "analyzingButton": "Analizowanie...",
+      "analyzingMessage": "Analizowanie relacji w grafie...",
+      "answerLabel": "Odpowiedź",
+      "insightsLabel": "Wspierające wnioski",
+      "suggestedQueries": {
+        "influence": "Kto wpływa na innych najbardziej?",
+        "controversial": "Pokaż kontrowersyjne tematy.",
+        "emotions": "Które emocje dominują w dyskusji?",
+        "positive": "Które koncepcje są oceniane najbardziej pozytywnie?"
+      }
+    },
+    "concepts": {
+      "title": "Kluczowe koncepcje",
+      "tabLabel": "Koncepcje",
+      "emptyState": "Wybierz zakończoną grupę fokusową, aby zobaczyć wyodrębnione koncepcje.",
+      "noData": "Brak jeszcze wyodrębnionych koncepcji",
+      "sentimentLabel": "Sentyment:",
+      "personasCount": "{{count}} person"
+    },
+    "personas": {
+      "title": "Wpływowe persony",
+      "tabLabel": "Persony",
+      "emptyState": "Wybierz zakończoną grupę fokusową, aby przejrzeć wpływ person.",
+      "noData": "Brak jeszcze przeanalizowanych person",
+      "influenceScore": "Wskaźnik wpływu:",
+      "connections": "Połączenia:",
+      "avgSentiment": "Średni sentyment:"
+    }
   }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -58,6 +59,7 @@ const sanitizeQuestions = (list: string[]) =>
   list.map((question) => question.trim()).filter((question) => question.length > 0);
 
 export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusGroupViewProps) {
+  const { t } = useTranslation('focus-groups');
   const { selectedProject, pendingSummaries, setSummaryPending } = useAppStore((state) => ({
     selectedProject: state.selectedProject,
     pendingSummaries: state.pendingSummaries,
@@ -97,7 +99,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     },
     onError: (error: unknown) => {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Failed to save changes', message);
+      toast.error(t('view.toast.saveError'), message);
     },
   });
 
@@ -315,11 +317,11 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
       }, 500);
 
       progressTimerRef.current = intervalId;
-      toast.success('Focus group launched', contextLabel);
+      toast.success(t('view.toast.launchSuccess'), contextLabel);
     },
     onError: (error: unknown) => {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Failed to launch focus group', `${contextLabel} • ${message}`);
+      toast.error(t('view.toast.launchError'), `${contextLabel} • ${message}`);
     },
   });
 
@@ -418,13 +420,13 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
       setSummaryPending(focusGroup.id, false);
       setActiveTab('results');
       await queryClient.invalidateQueries({ queryKey: ['focus-group-ai-summary', focusGroup.id] });
-      toast.success('AI Summary generated successfully', contextLabel);
+      toast.success(t('view.toast.summarySuccess'), contextLabel);
     } catch (error) {
       console.error('Failed to generate AI summary:', error);
       setGeneratingAiSummary(false);
       setSummaryPending(focusGroup.id, false);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Failed to generate AI summary', `${contextLabel} • ${message}`);
+      toast.error(t('view.toast.summaryError'), `${contextLabel} • ${message}`);
     }
   };
 
@@ -446,13 +448,13 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   const getStatusText = (status: string) => {
     switch (status) {
       case 'running':
-        return 'In Progress';
+        return t('view.statusLabel.running');
       case 'completed':
-        return 'Completed';
+        return t('view.statusLabel.completed');
       case 'pending':
-        return 'Pending';
+        return t('view.statusLabel.pending');
       case 'failed':
-        return 'Failed';
+        return t('view.statusLabel.failed');
       default:
         return status;
     }
@@ -480,7 +482,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
           className="text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Focus Groups
+          {t('view.backButton')}
         </Button>
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">{focusGroup.name}</h1>
@@ -489,9 +491,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               {getStatusText(focusGroup.status)}
             </Badge>
             <span className="text-muted-foreground">•</span>
-            <span className="text-muted-foreground">{focusGroup.questions.length} questions</span>
+            <span className="text-muted-foreground">{t('view.questionsCount', { count: focusGroup.questions.length })}</span>
             <span className="text-muted-foreground">•</span>
-            <span className="text-muted-foreground">{focusGroup.persona_ids.length} participants</span>
+            <span className="text-muted-foreground">{t('view.participantsCount', { count: focusGroup.persona_ids.length })}</span>
           </div>
         </div>
       </div>
@@ -501,15 +503,15 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
         <TabsList className="bg-muted border border-border shadow-sm">
           <TabsTrigger value="setup" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
             <SettingsIcon className="w-4 h-4 mr-2" />
-            Konfiguracja
+            {t('view.tabs.setup')}
           </TabsTrigger>
           <TabsTrigger value="discussion" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
             <MessageSquare className="w-4 h-4 mr-2" />
-            Dyskusja
+            {t('view.tabs.discussion')}
           </TabsTrigger>
           <TabsTrigger value="results" className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm">
             <BarChart3 className="w-4 h-4 mr-2" />
-            Wyniki i Analiza
+            {t('view.tabs.results')}
           </TabsTrigger>
         </TabsList>
 
@@ -521,16 +523,16 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <CardTitle className="text-card-foreground">Discussion Questions</CardTitle>
+                    <CardTitle className="text-card-foreground">{t('view.setup.questionsTitle')}</CardTitle>
                     <p className="text-muted-foreground">
                       {canModifyConfig
-                        ? 'Adjust the prompts for your discussion. Changes save automatically.'
-                        : 'These are the prompts used during the session.'}
+                        ? t('view.setup.questionsDescriptionEditable')
+                        : t('view.setup.questionsDescriptionReadonly')}
                     </p>
                   </div>
                   {updateMutation.isPending && (
                     <Badge variant="outline" className="text-xs">
-                      Saving...
+                      {t('view.setup.saving')}
                     </Badge>
                   )}
                 </div>
@@ -559,7 +561,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     </div>
                   ))}
                   {questions.length === 0 && (
-                    <p className="text-muted-foreground text-center py-4">No questions configured</p>
+                    <p className="text-muted-foreground text-center py-4">{t('view.setup.noQuestions')}</p>
                   )}
                 </div>
 
@@ -567,10 +569,10 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                   <div className="mt-4 pt-4 border-t border-border">
                     <div className="flex gap-2">
                       <div className="flex-1">
-                        <Label htmlFor="new-question" className="sr-only">{t('focus-groups:accessibility.addQuestion')}</Label>
+                        <Label htmlFor="new-question" className="sr-only">{t('accessibility.addQuestion')}</Label>
                         <Input
                           id="new-question"
-                          placeholder="Enter a new discussion question..."
+                          placeholder={t('view.setup.addQuestionPlaceholder')}
                           value={newQuestion}
                           onChange={(e) => setNewQuestion(e.target.value)}
                           onKeyDown={(e) => {
@@ -600,11 +602,11 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <CardTitle className="text-card-foreground">Participants</CardTitle>
+                    <CardTitle className="text-card-foreground">{t('view.setup.participantsTitle')}</CardTitle>
                     <p className="text-muted-foreground">
                       {canModifyConfig
-                        ? 'Select personas for this session. Changes save automatically.'
-                        : `${selectedPersonaIds.length} personas participated in this session.`}
+                        ? t('view.setup.participantsDescriptionEditable')
+                        : t('view.setup.participantsDescriptionReadonly', { count: selectedPersonaIds.length })}
                     </p>
                   </div>
                 </div>
@@ -612,7 +614,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               <CardContent>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {personas.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">No personas available</p>
+                    <p className="text-muted-foreground text-center py-4">{t('view.setup.noPersonas')}</p>
                   ) : (
                     personas.map((persona) => {
                       const isSelected = selectedPersonaIds.includes(persona.id);
@@ -635,7 +637,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                               {persona.full_name || `Persona ${persona.id.slice(0, 8)}`}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {persona.age} years old • {persona.occupation || 'No occupation'}
+                              {persona.age} {t('view.setup.yearsOld')} • {persona.occupation || t('view.setup.noOccupation')}
                             </p>
                           </div>
                         </div>
@@ -655,8 +657,8 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-card-foreground">Run Discussion</CardTitle>
-                  <p className="text-muted-foreground">Start the AI-simulated focus group discussion</p>
+                  <CardTitle className="text-card-foreground">{t('view.discussion.runTitle')}</CardTitle>
+                  <p className="text-muted-foreground">{t('view.discussion.runDescription')}</p>
                 </div>
 
                 {!discussionComplete && !isRunning && focusGroup.status === 'pending' && (
@@ -666,7 +668,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     disabled={runMutation.isPending}
                   >
                     <Play className="w-4 h-4 mr-2" />
-                    Start Discussion
+                    {t('view.discussion.startButton')}
                   </Button>
                 )}
               </div>
@@ -675,9 +677,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               {!isRunning && !discussionComplete && focusGroup.status === 'pending' && (
                 <div className="text-center py-8">
                   <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-card-foreground mb-2">Ready to Start</h3>
+                  <h3 className="text-lg font-medium text-card-foreground mb-2">{t('view.discussion.readyTitle')}</h3>
                   <p className="text-muted-foreground">
-                    Click "Start Discussion" to begin the AI simulation with {focusGroup.persona_ids.length} participants.
+                    {t('view.discussion.readyDescription', { count: focusGroup.persona_ids.length })}
                   </p>
                 </div>
               )}
@@ -686,12 +688,12 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <Logo className="w-5 h-5" spinning />
-                    <span className="text-card-foreground">Simulation in progress...</span>
+                    <span className="text-card-foreground">{t('view.discussion.simulationInProgress')}</span>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Discussion Progress</span>
+                      <span className="text-muted-foreground">{t('view.discussion.progressLabel')}</span>
                       <span className="text-muted-foreground">{discussionProgress}%</span>
                     </div>
                     <Progress value={discussionProgress} className="w-full" />
@@ -701,13 +703,13 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 text-sm">
                         <Clock className="w-4 h-4 text-primary" />
-                        <span className="text-muted-foreground">Current Status:</span>
+                        <span className="text-muted-foreground">{t('view.discussion.currentStatus')}</span>
                       </div>
                       <p className="text-card-foreground">
-                        {discussionProgress < 30 && "Participants are introducing themselves..."}
-                        {discussionProgress >= 30 && discussionProgress < 60 && `Discussing question 1 of ${focusGroup.questions.length}`}
-                        {discussionProgress >= 60 && discussionProgress < 90 && "Exploring follow-up questions..."}
-                        {discussionProgress >= 90 && "Wrapping up discussion..."}
+                        {discussionProgress < 30 && t('view.discussion.statusIntroduction')}
+                        {discussionProgress >= 30 && discussionProgress < 60 && t('view.discussion.statusDiscussing', { current: 1, total: focusGroup.questions.length })}
+                        {discussionProgress >= 60 && discussionProgress < 90 && t('view.discussion.statusFollowUp')}
+                        {discussionProgress >= 90 && t('view.discussion.statusWrapping')}
                       </p>
                     </div>
                   </div>
@@ -715,7 +717,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                   {/* Live Chat Messages */}
                   {chatMessages.length > 0 && (
                     <div className="bg-card border border-border rounded-lg p-4">
-                      <h4 className="text-card-foreground font-medium mb-3">Live Discussion</h4>
+                      <h4 className="text-card-foreground font-medium mb-3">{t('view.discussion.liveDiscussionTitle')}</h4>
                       <div className="space-y-3 max-h-48 overflow-y-auto">
                         {chatMessages.map((message) => (
                           <motion.div
@@ -754,9 +756,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     alt="Sight Logo"
                     className="w-16 h-16 mx-auto mb-4 object-contain"
                   />
-                  <h3 className="text-lg font-medium text-[#F27405] mb-2">Discussion Complete</h3>
+                  <h3 className="text-lg font-medium text-[#F27405] mb-2">{t('view.discussion.completeTitle')}</h3>
                   <p className="text-muted-foreground mb-4">
-                    The focus group simulation has finished. Generate AI insights to analyze the results.
+                    {t('view.discussion.completeDescription')}
                   </p>
                   <Button
                     onClick={handleGenerateAiSummary}
@@ -766,12 +768,12 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     {summaryProcessing ? (
                       <>
                         <Logo className="w-4 h-4 mr-2" spinning />
-                        Generating AI Summary...
+                        {t('view.discussion.generatingButton')}
                       </>
                     ) : (
                       <>
                         <Brain className="w-4 h-4 mr-2" />
-                        Generate AI Summary
+                        {t('view.discussion.generateButton')}
                       </>
                     )}
                   </Button>
@@ -785,9 +787,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     alt="Sight Logo"
                     className="w-16 h-16 mx-auto mb-4 object-contain"
                   />
-                  <h3 className="text-lg font-medium text-[#F27405] mb-2">AI Summary Generated</h3>
+                  <h3 className="text-lg font-medium text-[#F27405] mb-2">{t('view.discussion.summaryGeneratedTitle')}</h3>
                   <p className="text-muted-foreground mb-4">
-                    AI insights have been generated. View the complete analysis in the "Results & Analysis" tab.
+                    {t('view.discussion.summaryGeneratedDescription')}
                   </p>
                   <div className="flex gap-3 justify-center">
                     <Button
@@ -795,7 +797,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                       onClick={() => setActiveTab('results')}
                       className="border-border text-card-foreground hover:text-card-foreground"
                     >
-                      View Results
+                      {t('view.discussion.viewResultsButton')}
                     </Button>
                   </div>
                 </div>
@@ -810,9 +812,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
             <Card className="bg-card border border-border shadow-sm">
               <CardContent className="text-center py-12">
                 <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">Brak wyników</h3>
+                <h3 className="text-lg font-medium text-foreground mb-2">{t('view.results.pendingTitle')}</h3>
                 <p className="text-muted-foreground">
-                  Uruchom najpierw dyskusję, aby wygenerować analizę i wnioski
+                  {t('view.results.pendingDescription')}
                 </p>
               </CardContent>
             </Card>
@@ -823,18 +825,18 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
               <CardContent className="py-12 flex flex-col items-center gap-4 text-center">
                 <Logo className="w-8 h-8" spinning />
                 <div className="space-y-1">
-                  <h3 className="text-lg font-medium text-card-foreground">Dyskusja w toku</h3>
+                  <h3 className="text-lg font-medium text-card-foreground">{t('view.results.runningTitle')}</h3>
                   <p className="text-sm text-muted-foreground max-w-md">
-                    Odpowiedzi i wnioski pojawią się tutaj automatycznie po zakończeniu symulacji
+                    {t('view.results.runningDescription')}
                   </p>
                 </div>
                 <div className="w-full max-w-sm space-y-2">
                   <Progress value={discussionProgress} className="w-full" />
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{discussionProgress}% ukończono</span>
+                    <span>{t('view.results.progressCompleted', { percent: discussionProgress })}</span>
                     {totalExpectedResponses > 0 ? (
                       <span>
-                        {responsesCount}/{totalExpectedResponses} odpowiedzi
+                        {t('view.results.responsesCount', { current: responsesCount, total: totalExpectedResponses })}
                       </span>
                     ) : null}
                   </div>
@@ -847,9 +849,9 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
             <Card className="bg-card border border-border shadow-sm">
               <CardContent className="py-12 text-center space-y-3">
                 <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
-                <h3 className="text-lg font-medium text-destructive">Uruchomienie nie powiodło się</h3>
+                <h3 className="text-lg font-medium text-destructive">{t('view.results.failedTitle')}</h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Nie udało się ukończyć tej symulacji. Sprawdź dziennik aktywności lub spróbuj uruchomić ponownie.
+                  {t('view.results.failedDescription')}
                 </p>
               </CardContent>
             </Card>
@@ -861,7 +863,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                 <Card className="bg-card border border-border shadow-sm">
                   <CardContent className="py-12 flex flex-col items-center justify-center">
                     <Logo className="w-8 h-8 mb-4" spinning />
-                    <p className="text-muted-foreground">Ładowanie analizy...</p>
+                    <p className="text-muted-foreground">{t('view.results.loadingAnalysis')}</p>
                   </CardContent>
                 </Card>
               }
