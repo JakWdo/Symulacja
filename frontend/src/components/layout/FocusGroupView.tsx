@@ -59,7 +59,7 @@ const sanitizeQuestions = (list: string[]) =>
   list.map((question) => question.trim()).filter((question) => question.length > 0);
 
 export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusGroupViewProps) {
-  const { t } = useTranslation('focus-groups');
+  const { t } = useTranslation('focusGroups');
   const { selectedProject, pendingSummaries, setSummaryPending } = useAppStore((state) => ({
     selectedProject: state.selectedProject,
     pendingSummaries: state.pendingSummaries,

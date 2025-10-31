@@ -20,7 +20,7 @@ interface FocusGroupBuilderProps {
 }
 
 export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
-  const { t } = useTranslation('focus-groups');
+  const { t } = useTranslation('focusGroups');
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,

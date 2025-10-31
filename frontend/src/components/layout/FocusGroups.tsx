@@ -50,7 +50,7 @@ const getStatusBadge = (focusGroup: any, t: any) => {
 };
 
 export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGroupsProps) {
-  const { t } = useTranslation('focus-groups');
+  const { t } = useTranslation('focusGroups');
   // Use Zustand selectors to prevent unnecessary re-renders
   const selectedProject = useAppStore(state => state.selectedProject);
   const setSelectedProject = useAppStore(state => state.setSelectedProject);

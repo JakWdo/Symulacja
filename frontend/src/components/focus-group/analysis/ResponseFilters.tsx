@@ -37,7 +37,7 @@ export const ResponseFilters: React.FC<ResponseFiltersProps> = ({
   questions,
   className = '',
 }) => {
-  const { t } = useTranslation('focus-groups');
+  const { t } = useTranslation('focusGroups');
 
   return (
     <div className={`flex flex-col md:flex-row gap-3 ${className}`}>

@@ -19,7 +19,7 @@ export const ResponseCard: React.FC<ResponseCardProps> = React.memo(({
   timestamp,
   className = '',
 }) => {
-  const { t } = useTranslation('focus-groups');
+  const { t } = useTranslation('focusGroups');
 
   return (
     <div className={`bg-muted/30 border border-border/50 rounded-figma-inner p-4 space-y-3 ${className}`}>
