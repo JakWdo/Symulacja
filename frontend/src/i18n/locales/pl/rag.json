@@ -33,8 +33,10 @@
     "errorNoFileDescription": "Wybierz dokument PDF lub DOCX do przesłania.",
     "errorNoTitle": "Brak tytułu",
     "errorNoTitleDescription": "Nadaj dokumentowi krótką, opisową nazwę.",
-    "fileSelected": "Wybrano: {{name}} ({{size}} KB)",
-    "uploadToRag": "Prześlij do RAG"
+    "fileSelected": "{{name}} ({{size}} KB)",
+    "uploadToRag": "Prześlij do RAG",
+    "selectFile": "Wybierz plik",
+    "changeFile": "Zmień plik"
   },
   "list": {
     "title": "Indeksowane dokumenty",

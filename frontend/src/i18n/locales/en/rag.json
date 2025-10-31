@@ -33,8 +33,10 @@
     "errorNoFileDescription": "Select a PDF or DOCX document to upload.",
     "errorNoTitle": "No title",
     "errorNoTitleDescription": "Give the document a short, descriptive name.",
-    "fileSelected": "Selected: {{name}} ({{size}} KB)",
-    "uploadToRag": "Upload to RAG"
+    "fileSelected": "{{name}} ({{size}} KB)",
+    "uploadToRag": "Upload to RAG",
+    "selectFile": "Select file",
+    "changeFile": "Change file"
   },
   "list": {
     "title": "Indexed documents",

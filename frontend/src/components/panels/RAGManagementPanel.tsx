@@ -186,6 +186,22 @@ export function RAGManagementPanel() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="rag-file">{t('upload.fileLabel')}</Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('rag-file')?.click()}
+                    disabled={isUploading}
+                    className="flex-shrink-0"
+                  >
+                    {selectedFile ? t('upload.changeFile') : t('upload.selectFile')}
+                  </Button>
+                  {selectedFile && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {t('upload.fileSelected', { name: selectedFile.name, size: Math.round(selectedFile.size / 1024) })}
+                    </p>
+                  )}
+                </div>
                 <Input
                   id="rag-file"
                   type="file"
@@ -195,12 +211,8 @@ export function RAGManagementPanel() {
                     setSelectedFile(file);
                   }}
                   disabled={isUploading}
+                  className="hidden"
                 />
-                {selectedFile && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {t('upload.fileSelected', { name: selectedFile.name, size: Math.round(selectedFile.size / 1024) })}
-                  </p>
-                )}
               </div>
             </div>
 
