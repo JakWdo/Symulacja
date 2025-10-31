@@ -1,8 +1,12 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { PersonaDetailsResponse } from '@/types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { normalizeMarkdown } from '@/lib/markdown';
 
 interface ProfileSectionProps {
   persona: PersonaDetailsResponse;
@@ -17,6 +21,7 @@ interface ProfileSectionProps {
  * - Background story
  */
 export function ProfileSection({ persona }: ProfileSectionProps) {
+  const { t } = useTranslation('personas');
 
   // Extract persona uniqueness from rag_context_details
   const personaUniqueness = useMemo(() => {
@@ -37,33 +42,33 @@ export function ProfileSection({ persona }: ProfileSectionProps) {
       <div>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Dane demograficzne</CardTitle>
+            <CardTitle className="text-base">{t('details.profile.demographics.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">Wiek</p>
-                <p className="text-foreground font-medium">{persona.age} lat</p>
+                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.age')}</p>
+                <p className="text-foreground font-medium">{t('details.profile.demographics.ageYears', { count: persona.age })}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Płeć</p>
-                <p className="text-foreground font-medium">{persona.gender || 'Nie podano'}</p>
+                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.gender')}</p>
+                <p className="text-foreground font-medium">{persona.gender || t('details.profile.demographics.notSpecified')}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Lokalizacja</p>
-                <p className="text-foreground font-medium">{persona.location || 'Nie podano'}</p>
+                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.location')}</p>
+                <p className="text-foreground font-medium">{persona.location || t('details.profile.demographics.notSpecified')}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Wykształcenie</p>
-                <p className="text-foreground font-medium">{persona.education_level || 'Nie podano'}</p>
+                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.education')}</p>
+                <p className="text-foreground font-medium">{persona.education_level || t('details.profile.demographics.notSpecified')}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Dochód</p>
-                <p className="text-foreground font-medium">{persona.income_bracket || 'Nie podano'}</p>
+                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.income')}</p>
+                <p className="text-foreground font-medium">{persona.income_bracket || t('details.profile.demographics.notSpecified')}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Zawód</p>
-                <p className="text-foreground font-medium">{persona.occupation || 'Nie podano'}</p>
+                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.occupation')}</p>
+                <p className="text-foreground font-medium">{persona.occupation || t('details.profile.demographics.notSpecified')}</p>
               </div>
             </div>
           </CardContent>
@@ -74,13 +79,13 @@ export function ProfileSection({ persona }: ProfileSectionProps) {
       <div>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Wartości i zainteresowania</CardTitle>
+            <CardTitle className="text-base">{t('details.profile.valuesAndInterests.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Values */}
             {persona.values && persona.values.length > 0 && (
               <div>
-                <p className="text-sm text-muted-foreground mb-2">Wartości</p>
+                <p className="text-sm text-muted-foreground mb-2">{t('details.profile.valuesAndInterests.values')}</p>
                 <div className="flex flex-wrap gap-2">
                   {persona.values.map((value, idx) => (
                     <div key={idx}>
@@ -99,7 +104,7 @@ export function ProfileSection({ persona }: ProfileSectionProps) {
             {/* Interests */}
             {persona.interests && persona.interests.length > 0 && (
               <div>
-                <p className="text-sm text-muted-foreground mb-2">Zainteresowania</p>
+                <p className="text-sm text-muted-foreground mb-2">{t('details.profile.valuesAndInterests.interests')}</p>
                 <div className="flex flex-wrap gap-2">
                   {persona.interests.map((interest, idx) => (
                     <div key={idx}>
@@ -123,18 +128,13 @@ export function ProfileSection({ persona }: ProfileSectionProps) {
         <div>
           <Card className="border-l-4 border-l-primary">
             <CardHeader>
-              <CardTitle className="text-base">Historia</CardTitle>
+              <CardTitle className="text-base">{t('details.profile.backgroundStory.title')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {persona.background_story.split('\n\n').map((paragraph, idx) => (
-                  <p
-                    key={idx}
-                    className="text-sm text-foreground leading-relaxed"
-                  >
-                    {paragraph.trim()}
-                  </p>
-                ))}
+              <div className="prose prose-sm max-w-none text-foreground">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {normalizeMarkdown(persona.background_story)}
+                </ReactMarkdown>
               </div>
             </CardContent>
           </Card>
@@ -149,20 +149,17 @@ export function ProfileSection({ persona }: ProfileSectionProps) {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-accent" />
                 <CardTitle className="text-base">
-                  Dlaczego {persona.full_name?.split(' ')[0] || 'ta osoba'} jest wyjątkowa/y w swoim segmencie
+                  {persona.full_name?.split(' ')[0]
+                    ? t('details.profile.uniqueness.title', { name: persona.full_name.split(' ')[0] })
+                    : t('details.profile.uniqueness.titleDefault')}
                 </CardTitle>
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              <div className="space-y-3">
-                {personaUniqueness.split('\n\n').map((paragraph, idx) => (
-                  <p
-                    key={idx}
-                    className="text-sm text-foreground leading-relaxed"
-                  >
-                    {paragraph.trim()}
-                  </p>
-                ))}
+              <div className="prose prose-sm max-w-none text-foreground">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {normalizeMarkdown(personaUniqueness)}
+                </ReactMarkdown>
               </div>
             </CardContent>
           </Card>

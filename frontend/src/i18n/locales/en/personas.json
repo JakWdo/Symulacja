@@ -1,0 +1,305 @@
+{
+  "title": "Personas",
+  "subtitle": "Manage AI personas for your projects",
+
+  "header": {
+    "generateButton": "Generate personas",
+    "searchPlaceholder": "Search personas...",
+    "filterAll": "All",
+    "filterProject": "Project"
+  },
+
+  "list": {
+    "emptyState": {
+      "title": "No personas",
+      "description": "Generate AI personas for your research projects",
+      "generateButton": "Generate personas"
+    },
+    "card": {
+      "age": "years old",
+      "location": "Location",
+      "occupation": "Occupation",
+      "segment": "Segment",
+      "viewButton": "View details",
+      "editButton": "Edit",
+      "deleteButton": "Delete"
+    }
+  },
+
+  "generateDialog": {
+    "title": "Generate AI Personas",
+    "description": "Create realistic personas based on demographic and psychographic data",
+    "projectLabel": "Project",
+    "projectPlaceholder": "Select project",
+    "countLabel": "Number of personas",
+    "countDescription": "How many personas do you want to generate?",
+    "segmentLabel": "Segments",
+    "segmentDescription": "Select demographic segments to generate",
+    "segmentOptions": {
+      "youngProfessionals": "Young professionals (25-35)",
+      "middleAged": "Middle-aged (36-50)",
+      "seniors": "Seniors (51+)",
+      "students": "Students (18-24)",
+      "parents": "Parents",
+      "techSavvy": "Tech-savvy",
+      "traditional": "Traditionalists"
+    },
+    "advancedOptions": "Advanced options",
+    "useRAG": "Use RAG data",
+    "useRAGDescription": "Utilize demographic data from knowledge base",
+    "diversityLevel": "Diversity level",
+    "diversityLow": "Low",
+    "diversityMedium": "Medium",
+    "diversityHigh": "High",
+    "cancelButton": "Cancel",
+    "generateButton": "Generate personas",
+    "generatingButton": "Generating..."
+  },
+
+  "details": {
+    "backButton": "Back to personas",
+    "editButton": "Edit persona",
+    "deleteButton": "Delete",
+    "exportButton": "Export",
+
+    "tabs": {
+      "overview": "Overview",
+      "profile": "Profile",
+      "needs": "Needs",
+      "reasoning": "Reasoning",
+      "interactions": "Interactions"
+    },
+
+    "overview": {
+      "title": "Persona Overview",
+      "demographics": "Demographics",
+      "age": "Age",
+      "gender": "Gender",
+      "location": "Location",
+      "occupation": "Occupation",
+      "income": "Income",
+      "education": "Education",
+      "segment": "Segment",
+      "psychographics": "Psychographics",
+      "personality": "Personality",
+      "values": "Values",
+      "interests": "Interests",
+      "lifestyle": "Lifestyle"
+    },
+
+    "profile": {
+      "title": "Full Profile",
+      "bio": "Biography",
+      "background": "Background",
+      "goals": "Goals",
+      "challenges": "Challenges",
+      "motivations": "Motivations",
+      "painPoints": "Pain Points",
+      "preferences": "Preferences",
+      "behavior": "Behavior",
+      "demographics": {
+        "title": "Demographics",
+        "age": "Age",
+        "ageYears": "{{count}} years old",
+        "gender": "Gender",
+        "location": "Location",
+        "education": "Education",
+        "income": "Income",
+        "occupation": "Occupation",
+        "notSpecified": "Not specified"
+      },
+      "valuesAndInterests": {
+        "title": "Values & Interests",
+        "values": "Values",
+        "interests": "Interests"
+      },
+      "backgroundStory": {
+        "title": "Background Story"
+      },
+      "uniqueness": {
+        "title": "Why {{name}} is unique in their segment",
+        "titleDefault": "Why this person is unique in their segment"
+      }
+    },
+
+    "needs": {
+      "title": "Needs & Jobs-to-be-Done",
+      "description": "Understand what the persona is trying to achieve",
+      "jobsToBeDone": "Jobs-to-be-Done",
+      "functionalNeeds": "Functional needs",
+      "emotionalNeeds": "Emotional needs",
+      "socialNeeds": "Social needs",
+      "pain": "Pain",
+      "gain": "Gain",
+      "importance": "Importance",
+      "highImportance": "High",
+      "mediumImportance": "Medium",
+      "lowImportance": "Low",
+      "emptyState": "No identified needs or pain points for this persona.",
+      "sections": {
+        "jtbd": "Jobs to Be Done (JTBD)",
+        "desiredOutcomes": "Desired Outcomes",
+        "painPoints": "Pain Points"
+      },
+      "metrics": {
+        "priority": "Priority",
+        "frequency": "Frequency",
+        "difficulty": "Difficulty",
+        "quotesOne": "{{count}} quote",
+        "quotesOther": "{{count}} quotes",
+        "opportunityScore": "Opportunity Score",
+        "opportunityLevels": {
+          "veryHigh": "Very High",
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low"
+        },
+        "importance": "Importance",
+        "satisfaction": "Satisfaction",
+        "measurable": "Measurable",
+        "severity": "Severity",
+        "severityLevels": {
+          "critical": "Critical",
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low",
+          "unknown": "Unknown"
+        },
+        "affectedPercent": "Affects {{percent}}% of people",
+        "potentialSolutions": "Potential Solutions ({{count}})"
+      },
+      "footer": {
+        "generatedAt": "Generated {{date}} • {{source}}"
+      }
+    },
+
+    "reasoning": {
+      "title": "AI Reasoning",
+      "description": "How AI understands this persona",
+      "generationProcess": "Generation process",
+      "dataSource": "Data source",
+      "confidence": "Confidence",
+      "assumptions": "Assumptions",
+      "limitations": "Limitations",
+      "similarPersonas": "Similar personas",
+      "loading": "Loading reasoning...",
+      "error": "Error loading reasoning data",
+      "emptyState": {
+        "title": "This persona has no detailed reasoning",
+        "description": "The persona was generated, but the orchestration service did not add detailed explanations.",
+        "reasons": {
+          "failed": "Orchestration failed during generation (check API logs)",
+          "invalidJson": "Gemini 2.5 Pro did not return valid JSON",
+          "legacy": "Persona was generated before orchestration was enabled"
+        },
+        "solution": "Solution: Generate new personas to see full reasoning."
+      },
+      "ageInconsistency": "Warning: Persona age ({{personaAge}}) does not match the demographic group age range ({{segmentAge}}). This may indicate an orchestration issue.",
+      "segmentSection": {
+        "title": "Social Segment",
+        "demographicTitle": "Demographics",
+        "characteristicsTitle": "Key Segment Characteristics",
+        "descriptionTitle": "Segment Description"
+      },
+      "insightsSection": {
+        "title": "Key AI Insights",
+        "subtitle": "Most important data from Polish society reports",
+        "showAll": "Show all insights ({{count}})",
+        "showLess": "Collapse insights",
+        "remaining": "Remaining insights:",
+        "confidenceLevels": {
+          "high": "High confidence",
+          "medium": "Medium confidence",
+          "low": "Low confidence"
+        }
+      },
+      "allocationSection": {
+        "title": "Allocation Reasoning",
+        "subtitle": "Why this demographic group and how many personas?",
+        "toggleLabel": "Show allocation reasoning"
+      },
+      "demographicLabels": {
+        "age": "Age",
+        "ageRange": "Age Range",
+        "gender": "Gender",
+        "location": "Location",
+        "education": "Education",
+        "income": "Income",
+        "incomeRange": "Income Range",
+        "occupation": "Occupation"
+      }
+    },
+
+    "interactions": {
+      "title": "Interaction History",
+      "description": "Previous interactions with this persona",
+      "emptyState": {
+        "title": "No interactions",
+        "description": "This persona hasn't participated in any research yet"
+      },
+      "focusGroup": "Focus group",
+      "survey": "Survey",
+      "interview": "Interview",
+      "date": "Date"
+    }
+  },
+
+  "editDialog": {
+    "title": "Edit Persona",
+    "description": "Update persona information",
+    "nameLabel": "Full name",
+    "ageLabel": "Age",
+    "genderLabel": "Gender",
+    "locationLabel": "Location",
+    "occupationLabel": "Occupation",
+    "bioLabel": "Biography",
+    "cancelButton": "Cancel",
+    "saveButton": "Save changes",
+    "savingButton": "Saving..."
+  },
+
+  "deleteDialog": {
+    "title": "Delete Persona",
+    "description": "Are you sure you want to delete this persona? This action is irreversible.",
+    "cancelButton": "Cancel",
+    "deleteButton": "Delete persona",
+    "deletingButton": "Deleting..."
+  },
+
+  "toast": {
+    "generateSuccess": "Personas generated successfully",
+    "generateError": "Failed to generate personas",
+    "updateSuccess": "Persona updated",
+    "updateError": "Failed to update persona",
+    "deleteSuccess": "Persona deleted",
+    "deleteError": "Failed to delete persona",
+    "exportSuccess": "Persona exported",
+    "exportError": "Failed to export persona"
+  },
+
+  "loading": {
+    "personas": "Loading personas...",
+    "personaDetails": "Loading persona details...",
+    "generating": "Generating personas...",
+    "updating": "Updating persona...",
+    "deleting": "Deleting persona..."
+  },
+
+  "errors": {
+    "loadPersonas": "Failed to load personas",
+    "loadPersona": "Failed to load persona",
+    "invalidProject": "Select a project",
+    "invalidCount": "Number of personas must be greater than 0",
+    "noSegments": "Select at least one segment"
+  },
+
+  "segments": {
+    "youngProfessionals": "Young professionals",
+    "middleAged": "Middle-aged",
+    "seniors": "Seniors",
+    "students": "Students",
+    "parents": "Parents",
+    "techSavvy": "Tech-savvy",
+    "traditional": "Traditionalists"
+  }
+}

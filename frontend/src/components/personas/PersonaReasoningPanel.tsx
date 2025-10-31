@@ -11,6 +11,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -40,6 +41,8 @@ interface GraphInsight {
 }
 
 export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
+  const { t } = useTranslation('personas');
+
   const [expanded, setExpanded] = useState({
     allocation: false,
     allInsights: false,
@@ -53,16 +56,21 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
 
   const personaStory = persona.background_story?.trim() ?? '';
 
-  // Polskie nazwy dla kluczy demografii
-  const demographicLabels: Record<string, string> = {
-    'age': 'Wiek',
-    'age_range': 'Przedział wiekowy',
-    'gender': 'Płeć',
-    'location': 'Lokalizacja',
-    'education': 'Wykształcenie',
-    'income': 'Dochód',
-    'income_range': 'Przedział dochodowy',
-    'occupation': 'Zawód',
+  // Funkcja do tłumaczenia kluczy demografii
+  const getDemographicLabel = (key: string): string => {
+    const labelKey = key as 'age' | 'ageRange' | 'gender' | 'location' | 'education' | 'income' | 'incomeRange' | 'occupation';
+    const mapping: Record<string, string> = {
+      'age': 'age',
+      'age_range': 'ageRange',
+      'gender': 'gender',
+      'location': 'location',
+      'education': 'education',
+      'income': 'income',
+      'income_range': 'incomeRange',
+      'occupation': 'occupation',
+    };
+    const translationKey = mapping[key] || key;
+    return t(`details.reasoning.demographicLabels.${translationKey}`, { defaultValue: key.replace(/_/g, ' ') });
   };
 
   // Get top 3 high-confidence insights
@@ -112,7 +120,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
         <AlertDescription>
           {error instanceof Error
             ? error.message
-            : 'Błąd podczas ładowania reasoning data'}
+            : t('details.reasoning.error')}
         </AlertDescription>
       </Alert>
     );
@@ -128,18 +136,17 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
           <div className="space-y-2">
-            <p className="font-medium">Ta persona nie ma szczegółowego reasoning</p>
+            <p className="font-medium">{t('details.reasoning.emptyState.title')}</p>
             <p className="text-sm text-muted-foreground">
-              Persona została wygenerowana, ale orchestration service nie dodał szczegółowych wyjaśnień.
-              Możliwe przyczyny:
+              {t('details.reasoning.emptyState.description')}
             </p>
             <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-              <li>Orchestration failował podczas generowania (sprawdź logi API)</li>
-              <li>Gemini 2.5 Pro nie zwrócił poprawnego JSON</li>
-              <li>Persona została wygenerowana przed włączeniem orchestration</li>
+              <li>{t('details.reasoning.emptyState.reasons.failed')}</li>
+              <li>{t('details.reasoning.emptyState.reasons.invalidJson')}</li>
+              <li>{t('details.reasoning.emptyState.reasons.legacy')}</li>
             </ul>
             <p className="text-sm font-medium mt-4">
-              Rozwiązanie: Wygeneruj nowe persony aby zobaczyć pełne reasoning.
+              {t('details.reasoning.emptyState.solution')}
             </p>
           </div>
         </AlertDescription>
@@ -189,8 +196,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                   insight.confidence === 'low' && 'border-gray-400 text-gray-600'
                 )}
               >
-                {insight.confidence === 'high' ? 'Wysoka pewność' :
-                 insight.confidence === 'medium' ? 'Średnia pewność' : 'Niska pewność'}
+                {t(`details.reasoning.insightsSection.confidenceLevels.${insight.confidence}`)}
               </Badge>
             </>
           )}
@@ -206,8 +212,10 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
         <Alert className="border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20">
           <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
           <AlertDescription className="text-yellow-900 dark:text-yellow-100">
-            Uwaga: Wiek persony ({persona.age}) nie pasuje do zakresu grupy demograficznej
-            ({reasoning.demographics?.age_range}). To może oznaczać problem w orchestration.
+            {t('details.reasoning.ageInconsistency', {
+              personaAge: persona.age,
+              segmentAge: reasoning.demographics?.age_range
+            })}
           </AlertDescription>
         </Alert>
       )}
@@ -222,7 +230,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
               </div>
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                  Segment społeczny
+                  {t('details.reasoning.segmentSection.title')}
                 </p>
                 <h2 className="text-2xl font-bold text-foreground">
                   {reasoning.segment_name}
@@ -238,7 +246,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                 {Object.entries(reasoning.demographics).map(([key, value]) => (
                   <div key={key} className="space-y-1">
                     <p className="text-xs text-muted-foreground">
-                      {demographicLabels[key] || key.replace(/_/g, ' ')}
+                      {getDemographicLabel(key)}
                     </p>
                     <p className="text-sm font-semibold text-foreground">
                       {String(value)}
@@ -252,7 +260,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
             {reasoning.segment_characteristics && reasoning.segment_characteristics.length > 0 && (
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Kluczowe cechy segmentu
+                  {t('details.reasoning.segmentSection.characteristicsTitle')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {reasoning.segment_characteristics.map((characteristic, idx) => (
@@ -277,7 +285,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
               return (
                 <div className="mt-6 space-y-3">
                   <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">
-                    Opis segmentu
+                    {t('details.reasoning.segmentSection.descriptionTitle')}
                   </h3>
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ReactMarkdown
@@ -289,7 +297,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                         p: ({children}) => <p className="mb-3 leading-relaxed">{children}</p>,
                       }}
                     >
-                      {orchestrationBrief}
+                      {normalizeMarkdown(orchestrationBrief)}
                     </ReactMarkdown>
                   </div>
                 </div>
@@ -306,11 +314,11 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
               <CardTitle className="text-base font-semibold text-foreground">
-                Kluczowe Spostrzeżenia AI
+                {t('details.reasoning.insightsSection.title')}
               </CardTitle>
             </div>
             <CardDescription className="text-muted-foreground">
-              Najważniejsze dane z raportów o polskim społeczeństwie
+              {t('details.reasoning.insightsSection.subtitle')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -324,7 +332,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                 onClick={() => setExpanded(prev => ({ ...prev, allInsights: true }))}
                 className="w-full mt-4 border-primary text-primary hover:bg-primary/10"
               >
-                Pokaż wszystkie wskaźniki ({allInsights.length})
+                {t('details.reasoning.insightsSection.showAll', { count: allInsights.length })}
                 <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             )}
@@ -333,7 +341,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
             {expanded.allInsights && allInsights.length > 3 && (
               <div className="space-y-4 mt-4 pt-4 border-t border-border">
                 <p className="text-sm font-medium text-foreground mb-3">
-                  Pozostałe wskaźniki:
+                  {t('details.reasoning.insightsSection.remaining')}
                 </p>
                 {allInsights.slice(3).map((insight, idx) => renderInsight(insight, idx + 3))}
                 <Button
@@ -343,7 +351,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                   className="w-full mt-2 text-primary hover:bg-primary/10"
                 >
                   <ChevronDown className="mr-2 h-4 w-4 rotate-180" />
-                  Zwiń wskaźniki
+                  {t('details.reasoning.insightsSection.showLess')}
                 </Button>
               </div>
             )}
@@ -363,11 +371,11 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
               <CollapsibleTrigger asChild>
                 <button
                   className="flex w-full items-center justify-between text-left hover:opacity-80 transition-opacity"
-                  aria-label="Pokaż uzasadnienie alokacji"
+                  aria-label={t('details.reasoning.allocationSection.toggleLabel')}
                 >
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5 text-primary" />
-                    Uzasadnienie Alokacji
+                    {t('details.reasoning.allocationSection.title')}
                   </CardTitle>
                   <ChevronDown
                     className={cn(
@@ -378,7 +386,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                 </button>
               </CollapsibleTrigger>
               <CardDescription>
-                Dlaczego ta grupa demograficzna i dlaczego tyle person?
+                {t('details.reasoning.allocationSection.subtitle')}
               </CardDescription>
             </CardHeader>
 
@@ -392,7 +400,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
               <CollapsibleContent className="space-y-2">
                 <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {reasoning.allocation_reasoning}
+                    {normalizeMarkdown(reasoning.allocation_reasoning)}
                   </ReactMarkdown>
                 </div>
               </CollapsibleContent>
@@ -403,3 +411,4 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
     </div>
   );
 }
+import { normalizeMarkdown } from '@/lib/markdown';

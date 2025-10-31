@@ -1,0 +1,305 @@
+{
+  "title": "Persony",
+  "subtitle": "Zarządzaj personami AI dla swoich projektów",
+
+  "header": {
+    "generateButton": "Generuj persony",
+    "searchPlaceholder": "Szukaj person...",
+    "filterAll": "Wszystkie",
+    "filterProject": "Projekt"
+  },
+
+  "list": {
+    "emptyState": {
+      "title": "Brak person",
+      "description": "Wygeneruj persony AI dla swoich projektów badawczych",
+      "generateButton": "Generuj persony"
+    },
+    "card": {
+      "age": "lat",
+      "location": "Lokalizacja",
+      "occupation": "Zawód",
+      "segment": "Segment",
+      "viewButton": "Zobacz szczegóły",
+      "editButton": "Edytuj",
+      "deleteButton": "Usuń"
+    }
+  },
+
+  "generateDialog": {
+    "title": "Generuj persony AI",
+    "description": "Utwórz realistyczne persony na podstawie danych demograficznych i psychograficznych",
+    "projectLabel": "Projekt",
+    "projectPlaceholder": "Wybierz projekt",
+    "countLabel": "Liczba person",
+    "countDescription": "Ile person chcesz wygenerować?",
+    "segmentLabel": "Segmenty",
+    "segmentDescription": "Wybierz segmenty demograficzne do wygenerowania",
+    "segmentOptions": {
+      "youngProfessionals": "Młodzi profesjonaliści (25-35)",
+      "middleAged": "Średni wiek (36-50)",
+      "seniors": "Seniorzy (51+)",
+      "students": "Studenci (18-24)",
+      "parents": "Rodzice",
+      "techSavvy": "Tech-savvy",
+      "traditional": "Tradycjonaliści"
+    },
+    "advancedOptions": "Opcje zaawansowane",
+    "useRAG": "Użyj danych RAG",
+    "useRAGDescription": "Wykorzystaj dane demograficzne z bazy wiedzy",
+    "diversityLevel": "Poziom różnorodności",
+    "diversityLow": "Niska",
+    "diversityMedium": "Średnia",
+    "diversityHigh": "Wysoka",
+    "cancelButton": "Anuluj",
+    "generateButton": "Generuj persony",
+    "generatingButton": "Generowanie..."
+  },
+
+  "details": {
+    "backButton": "Powrót do person",
+    "editButton": "Edytuj personę",
+    "deleteButton": "Usuń",
+    "exportButton": "Eksportuj",
+
+    "tabs": {
+      "overview": "Przegląd",
+      "profile": "Profil",
+      "needs": "Potrzeby",
+      "reasoning": "Reasoning",
+      "interactions": "Interakcje"
+    },
+
+    "overview": {
+      "title": "Przegląd persony",
+      "demographics": "Demografia",
+      "age": "Wiek",
+      "gender": "Płeć",
+      "location": "Lokalizacja",
+      "occupation": "Zawód",
+      "income": "Dochód",
+      "education": "Wykształcenie",
+      "segment": "Segment",
+      "psychographics": "Psychografia",
+      "personality": "Osobowość",
+      "values": "Wartości",
+      "interests": "Zainteresowania",
+      "lifestyle": "Styl życia"
+    },
+
+    "profile": {
+      "title": "Pełny profil",
+      "bio": "Biografia",
+      "background": "Tło",
+      "goals": "Cele",
+      "challenges": "Wyzwania",
+      "motivations": "Motywacje",
+      "painPoints": "Punkty bólu",
+      "preferences": "Preferencje",
+      "behavior": "Zachowanie",
+      "demographics": {
+        "title": "Dane demograficzne",
+        "age": "Wiek",
+        "ageYears": "{{count}} lat",
+        "gender": "Płeć",
+        "location": "Lokalizacja",
+        "education": "Wykształcenie",
+        "income": "Dochód",
+        "occupation": "Zawód",
+        "notSpecified": "Nie podano"
+      },
+      "valuesAndInterests": {
+        "title": "Wartości i zainteresowania",
+        "values": "Wartości",
+        "interests": "Zainteresowania"
+      },
+      "backgroundStory": {
+        "title": "Historia"
+      },
+      "uniqueness": {
+        "title": "Dlaczego {{name}} jest wyjątkowa/y w swoim segmencie",
+        "titleDefault": "Dlaczego ta osoba jest wyjątkowa/y w swoim segmencie"
+      }
+    },
+
+    "needs": {
+      "title": "Potrzeby i Jobs-to-be-Done",
+      "description": "Zrozum co persona próbuje osiągnąć",
+      "jobsToBeDone": "Jobs-to-be-Done",
+      "functionalNeeds": "Potrzeby funkcjonalne",
+      "emotionalNeeds": "Potrzeby emocjonalne",
+      "socialNeeds": "Potrzeby społeczne",
+      "pain": "Ból",
+      "gain": "Korzyść",
+      "importance": "Ważność",
+      "highImportance": "Wysoka",
+      "mediumImportance": "Średnia",
+      "lowImportance": "Niska",
+      "emptyState": "Brak zidentyfikowanych potrzeb lub pain pointów dla tej persony.",
+      "sections": {
+        "jtbd": "Zadania do wykonania (JTBD)",
+        "desiredOutcomes": "Pożądane rezultaty",
+        "painPoints": "Punkty bólu"
+      },
+      "metrics": {
+        "priority": "Priorytet",
+        "frequency": "Częstotliwość",
+        "difficulty": "Trudność",
+        "quotesOne": "{{count}} cytat",
+        "quotesOther": "{{count}} cytaty",
+        "opportunityScore": "Wskaźnik szansy",
+        "opportunityLevels": {
+          "veryHigh": "Bardzo wysoka",
+          "high": "Wysoka",
+          "medium": "Średnia",
+          "low": "Niska"
+        },
+        "importance": "Ważność",
+        "satisfaction": "Satysfakcja",
+        "measurable": "Mierzalne",
+        "severity": "Dotkliwość",
+        "severityLevels": {
+          "critical": "Krytyczny",
+          "high": "Wysoki",
+          "medium": "Średni",
+          "low": "Niski",
+          "unknown": "Nieznany"
+        },
+        "affectedPercent": "Dotyczy {{percent}}% osób",
+        "potentialSolutions": "Potencjalne rozwiązania ({{count}})"
+      },
+      "footer": {
+        "generatedAt": "Wygenerowano {{date}} • {{source}}"
+      }
+    },
+
+    "reasoning": {
+      "title": "AI Reasoning",
+      "description": "Jak AI rozumie tę personę",
+      "generationProcess": "Proces generowania",
+      "dataSource": "Źródło danych",
+      "confidence": "Pewność",
+      "assumptions": "Założenia",
+      "limitations": "Ograniczenia",
+      "similarPersonas": "Podobne persony",
+      "loading": "Ładowanie uzasadnienia...",
+      "error": "Błąd podczas ładowania reasoning data",
+      "emptyState": {
+        "title": "Ta persona nie ma szczegółowego reasoning",
+        "description": "Persona została wygenerowana, ale orchestration service nie dodał szczegółowych wyjaśnień.",
+        "reasons": {
+          "failed": "Orchestration failował podczas generowania (sprawdź logi API)",
+          "invalidJson": "Gemini 2.5 Pro nie zwrócił poprawnego JSON",
+          "legacy": "Persona została wygenerowana przed włączeniem orchestration"
+        },
+        "solution": "Rozwiązanie: Wygeneruj nowe persony aby zobaczyć pełne reasoning."
+      },
+      "ageInconsistency": "Uwaga: Wiek persony ({{personaAge}}) nie pasuje do zakresu grupy demograficznej ({{segmentAge}}). To może oznaczać problem w orchestration.",
+      "segmentSection": {
+        "title": "Segment społeczny",
+        "demographicTitle": "Demografia",
+        "characteristicsTitle": "Kluczowe cechy segmentu",
+        "descriptionTitle": "Opis segmentu"
+      },
+      "insightsSection": {
+        "title": "Kluczowe Spostrzeżenia AI",
+        "subtitle": "Najważniejsze dane z raportów o polskim społeczeństwie",
+        "showAll": "Pokaż wszystkie wskaźniki ({{count}})",
+        "showLess": "Zwiń wskaźniki",
+        "remaining": "Pozostałe wskaźniki:",
+        "confidenceLevels": {
+          "high": "Wysoka pewność",
+          "medium": "Średnia pewność",
+          "low": "Niska pewność"
+        }
+      },
+      "allocationSection": {
+        "title": "Uzasadnienie Alokacji",
+        "subtitle": "Dlaczego ta grupa demograficzna i dlaczego tyle person?",
+        "toggleLabel": "Pokaż uzasadnienie alokacji"
+      },
+      "demographicLabels": {
+        "age": "Wiek",
+        "ageRange": "Przedział wiekowy",
+        "gender": "Płeć",
+        "location": "Lokalizacja",
+        "education": "Wykształcenie",
+        "income": "Dochód",
+        "incomeRange": "Przedział dochodowy",
+        "occupation": "Zawód"
+      }
+    },
+
+    "interactions": {
+      "title": "Historia interakcji",
+      "description": "Poprzednie interakcje z tą personą",
+      "emptyState": {
+        "title": "Brak interakcji",
+        "description": "Ta persona nie brała jeszcze udziału w żadnych badaniach"
+      },
+      "focusGroup": "Grupa fokusowa",
+      "survey": "Ankieta",
+      "interview": "Wywiad",
+      "date": "Data"
+    }
+  },
+
+  "editDialog": {
+    "title": "Edytuj personę",
+    "description": "Zaktualizuj informacje o personie",
+    "nameLabel": "Imię i nazwisko",
+    "ageLabel": "Wiek",
+    "genderLabel": "Płeć",
+    "locationLabel": "Lokalizacja",
+    "occupationLabel": "Zawód",
+    "bioLabel": "Biografia",
+    "cancelButton": "Anuluj",
+    "saveButton": "Zapisz zmiany",
+    "savingButton": "Zapisywanie..."
+  },
+
+  "deleteDialog": {
+    "title": "Usuń personę",
+    "description": "Czy na pewno chcesz usunąć tę personę? Ta akcja jest nieodwracalna.",
+    "cancelButton": "Anuluj",
+    "deleteButton": "Usuń personę",
+    "deletingButton": "Usuwanie..."
+  },
+
+  "toast": {
+    "generateSuccess": "Persony wygenerowane pomyślnie",
+    "generateError": "Nie udało się wygenerować person",
+    "updateSuccess": "Persona zaktualizowana",
+    "updateError": "Nie udało się zaktualizować persony",
+    "deleteSuccess": "Persona usunięta",
+    "deleteError": "Nie udało się usunąć persony",
+    "exportSuccess": "Persona wyeksportowana",
+    "exportError": "Nie udało się wyeksportować persony"
+  },
+
+  "loading": {
+    "personas": "Ładowanie person...",
+    "personaDetails": "Ładowanie szczegółów persony...",
+    "generating": "Generowanie person...",
+    "updating": "Aktualizowanie persony...",
+    "deleting": "Usuwanie persony..."
+  },
+
+  "errors": {
+    "loadPersonas": "Nie udało się załadować person",
+    "loadPersona": "Nie udało się załadować persony",
+    "invalidProject": "Wybierz projekt",
+    "invalidCount": "Liczba person musi być większa niż 0",
+    "noSegments": "Wybierz przynajmniej jeden segment"
+  },
+
+  "segments": {
+    "youngProfessionals": "Młodzi profesjonaliści",
+    "middleAged": "Średni wiek",
+    "seniors": "Seniorzy",
+    "students": "Studenci",
+    "parents": "Rodzice",
+    "techSavvy": "Tech-savvy",
+    "traditional": "Tradycjonaliści"
+  }
+}

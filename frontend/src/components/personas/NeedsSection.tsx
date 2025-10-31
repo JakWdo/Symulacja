@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { NeedsAndPains, JTBDJob, DesiredOutcome, PainPoint } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +16,8 @@ interface NeedsSectionProps {
  * Komponent pojedynczego Job-to-be-Done
  */
 export function JobCard({ job, index }: { job: JTBDJob; index: number }) {
+  const { t } = useTranslation('personas');
+
   const priorityColor = job.priority_score
     ? job.priority_score >= 8
       ? 'bg-red-500'
@@ -42,7 +45,7 @@ export function JobCard({ job, index }: { job: JTBDJob; index: number }) {
               <div className="flex flex-wrap gap-2 mt-2 text-[11px]">
                 {typeof job.priority_score === 'number' && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground">Priorytet:</span>
+                    <span className="text-muted-foreground">{t('details.needs.metrics.priority')}:</span>
                     <Progress
                       value={job.priority_score * 10}
                       className="h-1.5 w-16"
@@ -54,12 +57,12 @@ export function JobCard({ job, index }: { job: JTBDJob; index: number }) {
                 )}
                 {job.frequency && (
                   <Badge variant="secondary" className="text-[10px]">
-                    Częstotliwość: {job.frequency}
+                    {t('details.needs.metrics.frequency')}: {job.frequency}
                   </Badge>
                 )}
                 {job.difficulty && (
                   <Badge variant="outline" className="text-[10px]">
-                    Trudność: {job.difficulty}
+                    {t('details.needs.metrics.difficulty')}: {job.difficulty}
                   </Badge>
                 )}
               </div>
@@ -74,7 +77,11 @@ export function JobCard({ job, index }: { job: JTBDJob; index: number }) {
                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
               >
                 <Quote className="w-3 h-3" />
-                <span>{job.quotes.length} cytat{job.quotes.length > 1 ? 'y' : ''}</span>
+                <span>
+                  {job.quotes.length === 1
+                    ? t('details.needs.metrics.quotesOne', { count: job.quotes.length })
+                    : t('details.needs.metrics.quotesOther', { count: job.quotes.length })}
+                </span>
                 <ChevronDown
                   className={cn(
                     'w-3 h-3 transition-transform ml-auto',
@@ -115,15 +122,17 @@ export function JobCard({ job, index }: { job: JTBDJob; index: number }) {
  * Komponent pojedynczego Desired Outcome
  */
 export function OutcomeCard({ outcome, index }: { outcome: DesiredOutcome; index: number }) {
+  const { t } = useTranslation('personas');
+
   const opportunityLevel =
     typeof outcome.opportunity_score === 'number'
       ? outcome.opportunity_score >= 75
-        ? 'Bardzo wysoka'
+        ? t('details.needs.metrics.opportunityLevels.veryHigh')
         : outcome.opportunity_score >= 50
-        ? 'Wysoka'
+        ? t('details.needs.metrics.opportunityLevels.high')
         : outcome.opportunity_score >= 25
-        ? 'Średnia'
-        : 'Niska'
+        ? t('details.needs.metrics.opportunityLevels.medium')
+        : t('details.needs.metrics.opportunityLevels.low')
       : null;
 
   const opportunityColor =
@@ -154,7 +163,7 @@ export function OutcomeCard({ outcome, index }: { outcome: DesiredOutcome; index
             {typeof outcome.opportunity_score === 'number' && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Opportunity Score:</span>
+                  <span className="text-muted-foreground">{t('details.needs.metrics.opportunityScore')}:</span>
                   <span className={cn('font-bold', opportunityColor)}>
                     {opportunityLevel}
                   </span>
@@ -169,17 +178,17 @@ export function OutcomeCard({ outcome, index }: { outcome: DesiredOutcome; index
             <div className="flex flex-wrap gap-2 pt-1">
               {typeof outcome.importance === 'number' && (
                 <Badge variant="outline" className="text-[10px]">
-                  Ważność: {outcome.importance}/10
+                  {t('details.needs.metrics.importance')}: {outcome.importance}/10
                 </Badge>
               )}
               {typeof outcome.satisfaction_current_solutions === 'number' && (
                 <Badge variant="secondary" className="text-[10px]">
-                  Satysfakcja: {outcome.satisfaction_current_solutions}/10
+                  {t('details.needs.metrics.satisfaction')}: {outcome.satisfaction_current_solutions}/10
                 </Badge>
               )}
               {outcome.is_measurable && (
                 <Badge variant="default" className="text-[10px] bg-green-500">
-                  Mierzalne
+                  {t('details.needs.metrics.measurable')}
                 </Badge>
               )}
             </div>
@@ -194,6 +203,7 @@ export function OutcomeCard({ outcome, index }: { outcome: DesiredOutcome; index
  * Komponent pojedynczego Pain Point
  */
 export function PainCard({ pain, index }: { pain: PainPoint; index: number }) {
+  const { t } = useTranslation('personas');
   const [isExpanded, setIsExpanded] = useState(false);
 
   const severityColor =
@@ -210,13 +220,13 @@ export function PainCard({ pain, index }: { pain: PainPoint; index: number }) {
   const severityLabel =
     typeof pain.severity === 'number'
       ? pain.severity >= 8
-        ? 'Krytyczny'
+        ? t('details.needs.metrics.severityLevels.critical')
         : pain.severity >= 6
-        ? 'Wysoki'
+        ? t('details.needs.metrics.severityLevels.high')
         : pain.severity >= 4
-        ? 'Średni'
-        : 'Niski'
-      : 'Nieznany';
+        ? t('details.needs.metrics.severityLevels.medium')
+        : t('details.needs.metrics.severityLevels.low')
+      : t('details.needs.metrics.severityLevels.unknown');
 
   return (
     <motion.div
@@ -252,12 +262,12 @@ export function PainCard({ pain, index }: { pain: PainPoint; index: number }) {
           <div className="flex flex-wrap gap-2 text-[11px]">
             {pain.frequency && (
               <Badge variant="outline" className="text-[10px] border-red-300">
-                Częstość: {pain.frequency}
+                {t('details.needs.metrics.frequency')}: {pain.frequency}
               </Badge>
             )}
             {typeof pain.percent_affected === 'number' && (
               <Badge variant="secondary" className="text-[10px] bg-red-100 dark:bg-red-900/30">
-                Dotyczy {Math.round(pain.percent_affected * 100)}% osób
+                {t('details.needs.metrics.affectedPercent', { percent: Math.round(pain.percent_affected * 100) })}
               </Badge>
             )}
           </div>
@@ -270,7 +280,7 @@ export function PainCard({ pain, index }: { pain: PainPoint; index: number }) {
                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
               >
                 <TrendingUp className="w-3 h-3" />
-                <span>Potencjalne rozwiązania ({pain.potential_solutions.length})</span>
+                <span>{t('details.needs.metrics.potentialSolutions', { count: pain.potential_solutions.length })}</span>
                 <ChevronDown
                   className={cn(
                     'w-3 h-3 transition-transform ml-auto',
@@ -326,6 +336,8 @@ export function PainCard({ pain, index }: { pain: PainPoint; index: number }) {
 }
 
 export function NeedsSection({ data }: NeedsSectionProps) {
+  const { t } = useTranslation('personas');
+
   if (!data || (
     data.jobs_to_be_done.length === 0 &&
     data.desired_outcomes.length === 0 &&
@@ -338,7 +350,7 @@ export function NeedsSection({ data }: NeedsSectionProps) {
       >
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Brak zidentyfikowanych potrzeb lub pain pointów dla tej persony.
+            {t('details.needs.emptyState')}
           </CardContent>
         </Card>
       </motion.div>
@@ -361,7 +373,7 @@ export function NeedsSection({ data }: NeedsSectionProps) {
           >
             <Target className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Jobs-to-be-Done ({data.jobs_to_be_done.length})
+              {t('details.needs.sections.jtbd')} ({data.jobs_to_be_done.length})
             </h3>
           </motion.div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -382,7 +394,7 @@ export function NeedsSection({ data }: NeedsSectionProps) {
           >
             <TrendingUp className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Desired Outcomes ({data.desired_outcomes.length})
+              {t('details.needs.sections.desiredOutcomes')} ({data.desired_outcomes.length})
             </h3>
           </motion.div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -403,7 +415,7 @@ export function NeedsSection({ data }: NeedsSectionProps) {
           >
             <AlertTriangle className="w-4 h-4 text-red-600" />
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Pain Points ({data.pain_points.length})
+              {t('details.needs.sections.painPoints')} ({data.pain_points.length})
             </h3>
           </motion.div>
           <div className="space-y-3">
@@ -422,7 +434,10 @@ export function NeedsSection({ data }: NeedsSectionProps) {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          Wygenerowano {new Date(data.generated_at).toLocaleString('pl-PL')} • {data.generated_by ?? 'LLM'}
+          {t('details.needs.footer.generatedAt', {
+            date: new Date(data.generated_at).toLocaleString('pl-PL'),
+            source: data.generated_by ?? 'LLM'
+          })}
         </motion.p>
       )}
     </motion.div>
