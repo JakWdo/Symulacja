@@ -16,9 +16,48 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import FocusGroup, InsightEvidence, Project
+from app.models import FocusGroup, InsightEvidence, Project, User
 from app.services.dashboard.health_service import ProjectHealthService
 from app.utils import get_utc_now
+
+
+# Translation dictionaries for Quick Actions
+TRANSLATIONS = {
+    "pl": {
+        "fix_blocker_title": "Napraw zablokowany projekt",
+        "fix_blocker_desc": "Projekt '{project_name}' ma {blocker_count} krytycznych problemów.",
+        "fix_blocker_cta": "Napraw problemy",
+        "generate_personas_title": "Wygeneruj persony",
+        "generate_personas_desc": "Projekt '{project_name}' potrzebuje person. Wygeneruj {target_count} person (30-60s).",
+        "generate_personas_cta": "Wygeneruj persony",
+        "view_insights_title": "Przejrzyj nowe spostrzeżenia",
+        "view_insights_desc": "{insight_count} nowych spostrzeżeń gotowych w '{project_name}'. Przejrzyj i podejmij działanie.",
+        "view_insights_cta": "Zobacz spostrzeżenia",
+        "start_focus_title": "Rozpocznij dyskusję grupy fokusowej",
+        "start_focus_desc": "Projekt '{project_name}' ma {persona_count} gotowych person. Rozpocznij grupę fokusową (2-5 min).",
+        "start_focus_cta": "Rozpocznij grupę fokusową",
+        "first_project_title": "Rozpocznij swoje pierwsze badanie",
+        "first_project_desc": "Utwórz projekt, zdefiniuj grupę docelową i wygeneruj persony.",
+        "first_project_cta": "Utwórz projekt",
+    },
+    "en": {
+        "fix_blocker_title": "Fix blocked project",
+        "fix_blocker_desc": "Project '{project_name}' has {blocker_count} critical issues.",
+        "fix_blocker_cta": "Fix issues",
+        "generate_personas_title": "Generate personas",
+        "generate_personas_desc": "Project '{project_name}' needs personas. Generate {target_count} personas (30-60s).",
+        "generate_personas_cta": "Generate personas",
+        "view_insights_title": "Review new insights",
+        "view_insights_desc": "{insight_count} new insights ready in '{project_name}'. Review and take action.",
+        "view_insights_cta": "View insights",
+        "start_focus_title": "Start focus group discussion",
+        "start_focus_desc": "Project '{project_name}' has {persona_count} personas ready. Start focus group (2-5 min).",
+        "start_focus_cta": "Start focus group",
+        "first_project_title": "Start your first research",
+        "first_project_desc": "Create a project, define your target audience, and generate personas.",
+        "first_project_cta": "Create project",
+    },
+}
 
 
 class QuickActionsService:
@@ -39,6 +78,37 @@ class QuickActionsService:
         self.db = db
         self.health_service = health_service
 
+    async def _get_user_language(self, user_id: UUID) -> str:
+        """
+        Pobierz preferowany język użytkownika
+
+        Args:
+            user_id: UUID użytkownika
+
+        Returns:
+            Kod języka ('pl' lub 'en'), domyślnie 'pl'
+        """
+        stmt = select(User.preferred_language).where(User.id == user_id)
+        result = await self.db.execute(stmt)
+        lang = result.scalar_one_or_none()
+        return lang if lang in ['pl', 'en'] else 'pl'
+
+    def _translate(self, key: str, lang: str, **kwargs) -> str:
+        """
+        Przetłumacz tekst z użyciem słownika tłumaczeń
+
+        Args:
+            key: Klucz tłumaczenia
+            lang: Kod języka ('pl' lub 'en')
+            **kwargs: Parametry do formatowania (np. project_name, count)
+
+        Returns:
+            Przetłumaczony i sformatowany tekst
+        """
+        translations = TRANSLATIONS.get(lang, TRANSLATIONS['pl'])
+        text = translations.get(key, key)
+        return text.format(**kwargs)
+
     async def recommend_actions(
         self, user_id: UUID, limit: int = 4
     ) -> list[dict[str, Any]]:
@@ -53,6 +123,9 @@ class QuickActionsService:
             Lista akcji z priorytetem, title, description, context, CTA
         """
         actions = []
+
+        # Get user's preferred language
+        lang = await self._get_user_language(user_id)
 
         # Load user's projects
         stmt = (
@@ -80,8 +153,8 @@ class QuickActionsService:
                         "action_id": f"fix_project_{project.id}",
                         "action_type": "fix_blocker",
                         "priority": "high",
-                        "title": "Napraw zablokowany projekt",
-                        "description": f"Projekt '{project.name}' ma {len(health['blockers'])} krytycznych problemów.",
+                        "title": self._translate("fix_blocker_title", lang),
+                        "description": self._translate("fix_blocker_desc", lang, project_name=project.name, blocker_count=len(health['blockers'])),
                         "icon": "AlertTriangle",
                         "context": {
                             "project_id": str(project.id),
@@ -89,7 +162,7 @@ class QuickActionsService:
                             "blocker_count": len(health["blockers"]),
                             "blockers": health["blockers"],
                         },
-                        "cta_label": "Napraw problemy",
+                        "cta_label": self._translate("fix_blocker_cta", lang),
                         "cta_url": f"/projects/{project.id}",
                     }
                 )
@@ -102,15 +175,15 @@ class QuickActionsService:
                         "action_id": f"generate_personas_{project.id}",
                         "action_type": "generate_personas",
                         "priority": "high",
-                        "title": "Wygeneruj persony",
-                        "description": f"Projekt '{project.name}' potrzebuje person. Wygeneruj {project.target_sample_size} person (30-60s).",
+                        "title": self._translate("generate_personas_title", lang),
+                        "description": self._translate("generate_personas_desc", lang, project_name=project.name, target_count=project.target_sample_size),
                         "icon": "Users",
                         "context": {
                             "project_id": str(project.id),
                             "project_name": project.name,
                             "target_count": project.target_sample_size,
                         },
-                        "cta_label": "Wygeneruj persony",
+                        "cta_label": self._translate("generate_personas_cta", lang),
                         "cta_url": f"/projects/{project.id}/personas/generate",
                     }
                 )
@@ -158,15 +231,15 @@ class QuickActionsService:
                     "action_id": f"view_insights_{project.id}",
                     "action_type": "view_insights",
                     "priority": "high",  # Changed from "medium" to "high"
-                    "title": "Przejrzyj nowe spostrzeżenia",
-                    "description": f"{unviewed_count} nowych spostrzeżeń gotowych w '{project.name}'. Przejrzyj i podejmij działanie.",
+                    "title": self._translate("view_insights_title", lang),
+                    "description": self._translate("view_insights_desc", lang, insight_count=unviewed_count, project_name=project.name),
                     "icon": "Lightbulb",
                     "context": {
                         "project_id": str(project.id),
                         "project_name": project.name,
                         "insight_count": unviewed_count,
                     },
-                    "cta_label": "Zobacz spostrzeżenia",
+                    "cta_label": self._translate("view_insights_cta", lang),
                     "cta_url": f"/projects/{project.id}/insights",
                 }
             )
@@ -211,15 +284,15 @@ class QuickActionsService:
                             "action_id": f"start_focus_{project.id}",
                             "action_type": "start_focus_group",
                             "priority": "medium",
-                            "title": "Rozpocznij dyskusję grupy fokusowej",
-                            "description": f"Projekt '{project.name}' ma {len(active_personas)} gotowych person. Rozpocznij grupę fokusową (2-5 min).",
+                            "title": self._translate("start_focus_title", lang),
+                            "description": self._translate("start_focus_desc", lang, project_name=project.name, persona_count=len(active_personas)),
                             "icon": "MessageSquare",
                             "context": {
                                 "project_id": str(project.id),
                                 "project_name": project.name,
                                 "persona_count": len(active_personas),
                             },
-                            "cta_label": "Rozpocznij grupę fokusową",
+                            "cta_label": self._translate("start_focus_cta", lang),
                             "cta_url": f"/projects/{project.id}/focus-groups/create",
                         }
                     )
@@ -231,11 +304,11 @@ class QuickActionsService:
                     "action_id": "create_first_project",
                     "action_type": "create_project",
                     "priority": "high",
-                    "title": "Rozpocznij swoje pierwsze badanie",
-                    "description": "Utwórz projekt, zdefiniuj grupę docelową i wygeneruj persony.",
+                    "title": self._translate("first_project_title", lang),
+                    "description": self._translate("first_project_desc", lang),
                     "icon": "Plus",
                     "context": {},
-                    "cta_label": "Utwórz projekt",
+                    "cta_label": self._translate("first_project_cta", lang),
                     "cta_url": "/projects/create",
                 }
             )
