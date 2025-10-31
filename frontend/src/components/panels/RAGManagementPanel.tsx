@@ -17,14 +17,14 @@ import { toast } from '@/components/ui/toastStore';
 const ACCEPTED_FILE_TYPES =
   'application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-function formatStatus(status: RAGDocument['status']) {
+function formatStatus(status: RAGDocument['status'], t: any) {
   switch (status) {
     case 'completed':
-      return { label: 'Zaindeksowano', className: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' };
+      return { label: t('formatStatus.indexed'), className: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' };
     case 'processing':
-      return { label: 'Przetwarzanie', className: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' };
+      return { label: t('formatStatus.processing'), className: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' };
     case 'failed':
-      return { label: 'Błąd', className: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' };
+      return { label: t('formatStatus.error'), className: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' };
     default:
       return { label: status, className: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' };
   }
@@ -42,6 +42,7 @@ function formatDate(value: string) {
 }
 
 export function RAGManagementPanel() {
+  const { t } = useTranslation('rag');
   // Use Zustand selectors to prevent unnecessary re-renders
   const activePanel = useAppStore(state => state.activePanel);
   const setActivePanel = useAppStore(state => state.setActivePanel);
@@ -74,13 +75,13 @@ export function RAGManagementPanel() {
       return ragApi.uploadDocument(file, title, uploadCountry);
     },
     onSuccess: () => {
-      toast.success('Dokument przesłany', 'Rozpoczęto indeksowanie w bazie wiedzy RAG.');
+      toast.success(t('upload.success'), t('upload.successDescription'));
       setSelectedFile(null);
       setDocumentTitle('');
       queryClient.invalidateQueries({ queryKey: ['rag-documents'] });
     },
     onError: (error: Error) => {
-      toast.error('Nie udało się przesłać dokumentu', error.message);
+      toast.error(t('upload.error'), error.message);
     },
   });
 
@@ -90,11 +91,11 @@ export function RAGManagementPanel() {
       return ragApi.deleteDocument(documentId);
     },
     onSuccess: () => {
-      toast.success('Dokument usunięty', 'Plik został wyłączony z wyszukiwania kontekstowego.');
+      toast.success(t('delete.success'), t('delete.successDescription'));
       queryClient.invalidateQueries({ queryKey: ['rag-documents'] });
     },
     onError: (error: Error) => {
-      toast.error('Nie udało się usunąć dokumentu', error.message);
+      toast.error(t('delete.error'), error.message);
     },
     onSettled: () => setDeletingId(null),
   });
@@ -105,21 +106,21 @@ export function RAGManagementPanel() {
     },
     onSuccess: (data) => {
       setLastQueryResult(data);
-      toast.success('Zapytanie wykonane', 'Pobrano fragmenty wiedzy z silnika RAG.');
+      toast.success(t('search.success'), t('search.successDescription'));
     },
     onError: (error: Error) => {
-      toast.error('Nie udało się wykonać zapytania', error.message);
+      toast.error(t('search.error'), error.message);
     },
   });
 
   const handleUpload = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedFile) {
-      toast.error('Brak pliku', 'Wybierz dokument PDF lub DOCX do przesłania.');
+      toast.error(t('upload.errorNoFile'), t('upload.errorNoFileDescription'));
       return;
     }
     if (!documentTitle.trim()) {
-      toast.error('Brak tytułu', 'Nadaj dokumentowi krótką, opisową nazwę.');
+      toast.error(t('upload.errorNoTitle'), t('upload.errorNoTitleDescription'));
       return;
     }
     uploadMutation.mutate({ file: selectedFile, title: documentTitle.trim(), country });
@@ -129,7 +130,7 @@ export function RAGManagementPanel() {
     event.preventDefault();
     const cleanedQuery = testQuery.trim();
     if (!cleanedQuery) {
-      toast.error('Brak zapytania', 'Wpisz pytanie lub frazę badawczą.');
+      toast.error(t('search.errorNoQuery'), t('search.errorNoQueryDescription'));
       return;
     }
     setLastQueryResult(null);
@@ -143,7 +144,7 @@ export function RAGManagementPanel() {
     <FloatingPanel
       isOpen={activePanel === 'rag'}
       onClose={() => setActivePanel(null)}
-      title="Centrum wiedzy RAG"
+      title={t('panel.title')}
       panelKey="rag"
       size="lg"
     >
@@ -154,28 +155,28 @@ export function RAGManagementPanel() {
               <Upload className="w-5 h-5 text-primary-600 dark:text-primary-400" />
             </div>
             <div>
-              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Dodaj nowy dokument źródłowy</h4>
+              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t('upload.title')}</h4>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Wspierane formaty: PDF oraz DOCX. Dokumenty są analizowane i indeksowane semantycznie.
+                {t('upload.description')}
               </p>
             </div>
           </div>
 
           <form className="space-y-4" onSubmit={handleUpload}>
             <div className="space-y-2">
-              <Label htmlFor="rag-title">Tytuł dokumentu</Label>
+              <Label htmlFor="rag-title">{t('upload.titleLabel')}</Label>
               <Input
                 id="rag-title"
                 value={documentTitle}
                 onChange={(event) => setDocumentTitle(event.target.value)}
-                placeholder="np. Diagnoza Społeczna 2024"
+                placeholder={t('upload.titlePlaceholder')}
                 disabled={isUploading}
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="rag-country">Kraj</Label>
+                <Label htmlFor="rag-country">{t('upload.countryLabel')}</Label>
                 <Input
                   id="rag-country"
                   value={country}
@@ -184,7 +185,7 @@ export function RAGManagementPanel() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rag-file">Plik</Label>
+                <Label htmlFor="rag-file">{t('upload.fileLabel')}</Label>
                 <Input
                   id="rag-file"
                   type="file"
@@ -197,7 +198,7 @@ export function RAGManagementPanel() {
                 />
                 {selectedFile && (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Wybrano: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+                    {t('upload.fileSelected', { name: selectedFile.name, size: Math.round(selectedFile.size / 1024) })}
                   </p>
                 )}
               </div>
@@ -206,7 +207,7 @@ export function RAGManagementPanel() {
             <div className="flex justify-end">
               <Button type="submit" disabled={isUploading} className="gap-2">
                 {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                Prześlij do RAG
+                {t('upload.uploadToRag')}
               </Button>
             </div>
           </form>
@@ -219,9 +220,9 @@ export function RAGManagementPanel() {
                 <FileText className="w-5 h-5 text-slate-600 dark:text-slate-300" />
               </div>
               <div>
-                <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Indeksowane dokumenty</h4>
+                <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t('list.title')}</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Monitoruj status przetwarzania oraz usuwaj nieaktualne materiały badawcze.
+                  {t('list.description')}
                 </p>
               </div>
             </div>
@@ -230,7 +231,7 @@ export function RAGManagementPanel() {
               variant="ghost"
               size="icon"
               onClick={() => queryClient.invalidateQueries({ queryKey: ['rag-documents'] })}
-              title="Odśwież listę"
+              title={t('list.refreshTitle')}
             >
               <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
             </Button>
@@ -238,16 +239,16 @@ export function RAGManagementPanel() {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-sm text-slate-500 dark:text-slate-400">
-              <SpinnerLogo className="w-6 h-6 mr-2" /> Wczytywanie dokumentów...
+              <SpinnerLogo className="w-6 h-6 mr-2" /> {t('list.loading')}
             </div>
           ) : sortedDocuments.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-6 text-sm text-slate-500 dark:text-slate-400 text-center">
-              Brak dokumentów w bazie RAG. Dodaj raport lub badanie, aby wzbogacić generowane persony.
+              {t('list.empty')}
             </div>
           ) : (
             <div className="space-y-3">
               {sortedDocuments.map((document) => {
-                const status = formatStatus(document.status);
+                const status = formatStatus(document.status, t);
                 const isDeleting = deletingId === document.id && deleteMutation.isPending;
                 return (
                   <div
@@ -260,7 +261,7 @@ export function RAGManagementPanel() {
                         <Badge className={`${status.className} border`}>{status.label}</Badge>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Dodano {formatDate(document.created_at)} • {document.file_type.toUpperCase()} • {document.num_chunks} segmentów
+                        {t('list.added')} {formatDate(document.created_at)} • {document.file_type.toUpperCase()} • {document.num_chunks} {t('list.segments')}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -271,7 +272,7 @@ export function RAGManagementPanel() {
                         className="text-rose-600 hover:text-rose-700"
                         disabled={isDeleting}
                         onClick={() => deleteMutation.mutate(document.id)}
-                        title="Usuń dokument z RAG"
+                        title={t('list.deleteButton')}
                       >
                         {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                       </Button>
@@ -289,9 +290,9 @@ export function RAGManagementPanel() {
               <Search className="w-5 h-5 text-accent-600 dark:text-accent-400" />
             </div>
             <div>
-              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Przetestuj wyszukiwanie kontekstowe</h4>
+              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t('search.title')}</h4>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Sprawdź, jakie fragmenty raportów trafią do generatora person dla konkretnego pytania badawczego.
+                {t('search.description')}
               </p>
             </div>
           </div>
@@ -300,14 +301,14 @@ export function RAGManagementPanel() {
             <Textarea
               value={testQuery}
               onChange={(event) => setTestQuery(event.target.value)}
-              placeholder="Jakie są największe obawy młodych rodziców w średnich miastach?"
+              placeholder={t('search.queryPlaceholder')}
               disabled={isQuerying}
               rows={3}
             />
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                 <Label htmlFor="rag-topk" className="text-xs text-slate-500 dark:text-slate-400">
-                  Liczba fragmentów
+                  {t('search.topKLabel')}
                 </Label>
                 <Input
                   id="rag-topk"
@@ -322,7 +323,7 @@ export function RAGManagementPanel() {
               </div>
               <Button type="submit" disabled={isQuerying} className="gap-2">
                 {isQuerying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                Wykonaj zapytanie
+                {t('search.executeQuery')}
               </Button>
             </div>
           </form>
@@ -330,16 +331,16 @@ export function RAGManagementPanel() {
           {lastQueryResult && (
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-4 space-y-3">
               <div>
-                <h5 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Zsyntetyzowany kontekst</h5>
+                <h5 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('search.resultsTitle')}</h5>
                 <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
                   {lastQueryResult.context}
                 </p>
               </div>
               <div className="space-y-2">
-                <h6 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Cytowania</h6>
+                <h6 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('search.citationsTitle')}</h6>
                 {lastQueryResult.citations.length === 0 ? (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Brak szczegółowych cytowań dla tego zapytania.
+                    {t('search.noCitations')}
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -347,7 +348,7 @@ export function RAGManagementPanel() {
                       <div key={`${citation.document_title}-${index}`} className="rounded-lg bg-white/90 dark:bg-slate-700/50 p-3 shadow-sm">
                         <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">{citation.document_title}</p>
                         <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">{citation.chunk_text}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">trafność {Math.round(citation.relevance_score * 100)}%</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t('search.relevance', { score: Math.round(citation.relevance_score * 100) })}</p>
                       </div>
                     ))}
                   </div>

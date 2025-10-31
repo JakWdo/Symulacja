@@ -1,9 +1,14 @@
 {
   "panel": {
-    "title": "RAG Knowledge Center",
+    "title": "Knowledge Base",
     "uploadButton": "Add new source document",
     "refreshButton": "Refresh list",
     "testSearch": "Test contextual search"
+  },
+  "formatStatus": {
+    "indexed": "Indexed",
+    "processing": "Processing",
+    "error": "Error"
   },
   "status": {
     "indexed": "Indexed",
@@ -28,7 +33,8 @@
     "errorNoFileDescription": "Select a PDF or DOCX document to upload.",
     "errorNoTitle": "No title",
     "errorNoTitleDescription": "Give the document a short, descriptive name.",
-    "fileSelected": "Selected: {{name}} ({{size}} KB)"
+    "fileSelected": "Selected: {{name}} ({{size}} KB)",
+    "uploadToRag": "Upload to RAG"
   },
   "list": {
     "title": "Indexed documents",
@@ -36,7 +42,10 @@
     "empty": "No documents in RAG database. Add a report or study to enrich generated personas.",
     "loading": "Loading documents...",
     "addedAt": "Added {{date}} • {{type}} • {{chunks}} segments",
-    "deleteButton": "Remove document from RAG"
+    "deleteButton": "Remove document from RAG",
+    "refreshTitle": "Refresh list",
+    "added": "Added",
+    "segments": "segments"
   },
   "delete": {
     "success": "Document deleted",
@@ -59,6 +68,7 @@
     "resultsTitle": "Synthesized context",
     "citationsTitle": "Citations",
     "noCitations": "No detailed citations for this query.",
-    "relevance": "relevance {{score}}%"
+    "relevance": "relevance {{score}}%",
+    "executeQuery": "Execute query"
   }
 }
