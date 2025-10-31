@@ -228,14 +228,14 @@ function ProjectCard({
     if (project.status === 'blocked' && !project.progress.personas) {
       return {
         icon: AlertCircle,
-        text: `Low persona coverage (${progressToPercentage(project.progress.personas)}%)`,
+        text: t('activeProjects.alerts.lowPersonaCoverage', { percentage: progressToPercentage(project.progress.personas) }),
       };
     }
     if (project.health.status === 'at_risk') {
       // Check for idle focus group (this is mock data, adjust based on your API)
       return {
         icon: Clock,
-        text: 'Grupa fokusowa bezczynna od 52 godz.',
+        text: t('activeProjects.alerts.idleFocusGroup', { hours: 52 }),
       };
     }
     return null;

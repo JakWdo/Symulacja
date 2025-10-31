@@ -82,24 +82,24 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
   const totalFocusGroups = allFocusGroups.length;
 
   // Calculate monthly activity
-  const monthlyActivity = calculateMonthlyActivity(allPersonas, allSurveys, allFocusGroups);
+  const monthlyActivity = calculateMonthlyActivity(allPersonas, allSurveys, allFocusGroups, t);
 
   const activitySeries: LineChartSeries[] = [
     {
       id: 'personas',
-      label: 'Personas',
+      label: t('mainDashboard.charts.researchActivity.legend.personas'),
       color: '#F27405',
       getValue: (month) => month.personas,
     },
     {
       id: 'surveys',
-      label: 'Surveys',
+      label: t('mainDashboard.charts.researchActivity.legend.surveys'),
       color: '#F29F05',
       getValue: (month) => month.surveys,
     },
     {
       id: 'focusGroups',
-      label: 'Focus Groups',
+      label: t('mainDashboard.charts.researchActivity.legend.focusGroups'),
       color: '#28a745',
       getValue: (month) => month.focusGroups,
     },
@@ -391,9 +391,22 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
   );
 }
 
-function calculateMonthlyActivity(personas: any[], surveys: any[], focusGroups: any[]) {
+function calculateMonthlyActivity(personas: any[], surveys: any[], focusGroups: any[], t: any) {
   const now = new Date();
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'];
+  const months = [
+    t('mainDashboard.charts.researchActivity.months.jan'),
+    t('mainDashboard.charts.researchActivity.months.feb'),
+    t('mainDashboard.charts.researchActivity.months.mar'),
+    t('mainDashboard.charts.researchActivity.months.apr'),
+    t('mainDashboard.charts.researchActivity.months.may'),
+    t('mainDashboard.charts.researchActivity.months.jun'),
+    t('mainDashboard.charts.researchActivity.months.jul'),
+    t('mainDashboard.charts.researchActivity.months.aug'),
+    t('mainDashboard.charts.researchActivity.months.sep'),
+    t('mainDashboard.charts.researchActivity.months.oct'),
+    t('mainDashboard.charts.researchActivity.months.nov'),
+    t('mainDashboard.charts.researchActivity.months.dec')
+  ];
 
   const activity = [];
   for (let i = 7; i >= 0; i--) {

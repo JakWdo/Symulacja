@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useInsightAnalytics } from '@/hooks/dashboard/useInsightAnalytics';
 import {
   BarChart,
@@ -36,6 +37,7 @@ const INSIGHT_TYPE_COLORS = {
 };
 
 export function InsightAnalyticsCharts() {
+  const { t } = useTranslation('dashboard');
   const { data, isLoading, error } = useInsightAnalytics();
 
   if (isLoading) {
@@ -47,23 +49,23 @@ export function InsightAnalyticsCharts() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Najczęstsze koncepcje</CardTitle>
+            <CardTitle>{t('insightAnalytics.topConcepts.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>Nie udało się załadować danych o koncepcjach</AlertDescription>
+              <AlertDescription>{t('insightAnalytics.topConcepts.error')}</AlertDescription>
             </Alert>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Rozkład sentymentu</CardTitle>
+            <CardTitle>{t('insightAnalytics.sentiment.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>Nie udało się załadować danych o sentymencie</AlertDescription>
+              <AlertDescription>{t('insightAnalytics.sentiment.error')}</AlertDescription>
             </Alert>
           </CardContent>
         </Card>
@@ -106,10 +108,10 @@ export function InsightAnalyticsCharts() {
     <Card className="border-border rounded-figma-card">
       <CardHeader className="px-6 pt-6 pb-4">
         <CardTitle className="text-base font-normal text-foreground leading-[16px]">
-          Najczęstsze koncepcje
+          {t('insightAnalytics.topConcepts.title')}
         </CardTitle>
         <p className="text-base text-muted-foreground leading-[24px] mt-1.5">
-          Najczęściej omawiane tematy
+          {t('insightAnalytics.topConcepts.subtitle')}
         </p>
       </CardHeader>
       <CardContent className="px-6 pb-6">
@@ -144,7 +146,7 @@ export function InsightAnalyticsCharts() {
         ) : (
           <div className="flex items-center justify-center h-[280px]">
             <p className="text-center text-muted-foreground">
-              Brak jeszcze danych o koncepcjach
+              {t('insightAnalytics.topConcepts.noData')}
             </p>
           </div>
         )}

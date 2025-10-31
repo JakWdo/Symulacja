@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useWeeklyCompletion } from '@/hooks/dashboard/useWeeklyCompletion';
 import {
   LineChart,
@@ -28,6 +29,7 @@ interface WeeklyCompletionChartProps {
 }
 
 export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps) {
+  const { t } = useTranslation('dashboard');
   const { data, isLoading, error } = useWeeklyCompletion(weeks);
 
   if (isLoading) {
@@ -38,12 +40,12 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Aktywność tygodniowa</CardTitle>
+          <CardTitle>{t('insightAnalytics.weeklyCompletion.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Nie udało się załadować danych o aktywności tygodniowej</AlertDescription>
+            <AlertDescription>{t('insightAnalytics.weeklyCompletion.error')}</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -54,11 +56,11 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Aktywność tygodniowa</CardTitle>
+          <CardTitle>{t('insightAnalytics.weeklyCompletion.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-center text-muted-foreground py-8">
-            Brak jeszcze danych o aktywności
+            {t('insightAnalytics.weeklyCompletion.noData')}
           </p>
         </CardContent>
       </Card>
@@ -84,10 +86,10 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
     <Card className="border-border rounded-figma-card">
       <CardHeader className="px-6 pt-6 pb-4">
         <CardTitle className="text-base font-normal text-foreground leading-[16px]">
-          Trend aktywności tygodniowej
+          {t('insightAnalytics.weeklyCompletion.title')}
         </CardTitle>
         <p className="text-base text-muted-foreground leading-[24px] mt-1.5">
-          Generowanie person, grup fokusowych i spostrzeżeń
+          {t('insightAnalytics.weeklyCompletion.subtitle')}
         </p>
       </CardHeader>
       <CardContent className="px-6 pb-6">
@@ -126,7 +128,7 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
               strokeWidth={2}
               dot={{ fill: '#F27405', r: 4 }}
               activeDot={{ r: 6 }}
-              name="Persony"
+              name={t('insightAnalytics.weeklyCompletion.legend.personas')}
             />
             <Line
               type="monotone"
@@ -135,7 +137,7 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
               strokeWidth={2}
               dot={{ fill: '#F29F05', r: 4 }}
               activeDot={{ r: 6 }}
-              name="Grupy fokusowe"
+              name={t('insightAnalytics.weeklyCompletion.legend.focusGroups')}
             />
             <Line
               type="monotone"
@@ -144,7 +146,7 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
               strokeWidth={2}
               dot={{ fill: '#28a745', r: 4 }}
               activeDot={{ r: 6 }}
-              name="Spostrzeżenia"
+              name={t('insightAnalytics.weeklyCompletion.legend.insights')}
             />
           </LineChart>
         </ResponsiveContainer>

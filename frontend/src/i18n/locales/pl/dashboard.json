@@ -63,6 +63,10 @@
       "analysis": "Analiza"
     },
     "insightsCount": "{{count}} spostrzeżeń",
+    "alerts": {
+      "lowPersonaCoverage": "Niskie pokrycie personami ({{percentage}}%)",
+      "idleFocusGroup": "Grupa fokusowa bezczynna od {{hours}} godz."
+    },
     "project": {
       "personas": "persony",
       "focusGroups": "grupy fokusowe",
@@ -169,7 +173,26 @@
     "charts": {
       "researchActivity": {
         "title": "Aktywność badawcza",
-        "subtitle": "Miesięczny podział person, ankiet i grup fokusowych"
+        "subtitle": "Miesięczny podział person, ankiet i grup fokusowych",
+        "legend": {
+          "personas": "Persony",
+          "surveys": "Ankiety",
+          "focusGroups": "Grupy fokusowe"
+        },
+        "months": {
+          "jan": "Sty",
+          "feb": "Lut",
+          "mar": "Mar",
+          "apr": "Kwi",
+          "may": "Maj",
+          "jun": "Cze",
+          "jul": "Lip",
+          "aug": "Sie",
+          "sep": "Wrz",
+          "oct": "Paź",
+          "nov": "Lis",
+          "dec": "Gru"
+        }
       },
       "projectDistribution": {
         "title": "Rozkład projektów",
@@ -236,5 +259,41 @@
     "loadNotifications": "Nie udało się załadować powiadomień",
     "loadUsage": "Nie udało się załadować danych o zużyciu",
     "createProject": "Nie udało się utworzyć projektu"
+  },
+
+  "insightAnalytics": {
+    "insightTypes": {
+      "title": "Typy spostrzeżeń",
+      "subtitle": "Rozkład według kategorii",
+      "error": "Nie udało się załadować danych o typach spostrzeżeń",
+      "noData": "Brak jeszcze danych o typach spostrzeżeń",
+      "opportunity": "Szanse",
+      "risk": "Ryzyka",
+      "trend": "Trendy",
+      "pattern": "Wzorce"
+    },
+    "weeklyCompletion": {
+      "title": "Trend aktywności tygodniowej",
+      "subtitle": "Generowanie person, grup fokusowych i spostrzeżeń",
+      "error": "Nie udało się załadować danych o aktywności tygodniowej",
+      "noData": "Brak jeszcze danych o aktywności",
+      "legend": {
+        "personas": "Persony",
+        "focusGroups": "Grupy fokusowe",
+        "insights": "Spostrzeżenia"
+      }
+    },
+    "topConcepts": {
+      "title": "Najczęstsze koncepcje",
+      "subtitle": "Najczęściej omawiane tematy",
+      "error": "Nie udało się załadować danych o koncepcjach",
+      "noData": "Brak jeszcze danych o koncepcjach"
+    },
+    "sentiment": {
+      "title": "Rozkład sentymentu",
+      "subtitle": "Analiza emocji w dyskusjach",
+      "error": "Nie udało się załadować danych o sentymencie",
+      "noData": "Brak jeszcze danych o sentymencie"
+    }
   }
 }

@@ -63,6 +63,10 @@
       "analysis": "Analysis"
     },
     "insightsCount": "{{count}} insights",
+    "alerts": {
+      "lowPersonaCoverage": "Low persona coverage ({{percentage}}%)",
+      "idleFocusGroup": "Focus group idle for {{hours}} hrs"
+    },
     "project": {
       "personas": "personas",
       "focusGroups": "focus groups",
@@ -169,7 +173,26 @@
     "charts": {
       "researchActivity": {
         "title": "Research Activity",
-        "subtitle": "Monthly breakdown of personas, surveys, and focus groups"
+        "subtitle": "Monthly breakdown of personas, surveys, and focus groups",
+        "legend": {
+          "personas": "Personas",
+          "surveys": "Surveys",
+          "focusGroups": "Focus Groups"
+        },
+        "months": {
+          "jan": "Jan",
+          "feb": "Feb",
+          "mar": "Mar",
+          "apr": "Apr",
+          "may": "May",
+          "jun": "Jun",
+          "jul": "Jul",
+          "aug": "Aug",
+          "sep": "Sep",
+          "oct": "Oct",
+          "nov": "Nov",
+          "dec": "Dec"
+        }
       },
       "projectDistribution": {
         "title": "Project Distribution",
@@ -236,5 +259,41 @@
     "loadNotifications": "Failed to load notifications",
     "loadUsage": "Failed to load usage data",
     "createProject": "Failed to create project"
+  },
+
+  "insightAnalytics": {
+    "insightTypes": {
+      "title": "Insight Types",
+      "subtitle": "Distribution by category",
+      "error": "Failed to load insight types data",
+      "noData": "No insight types data yet",
+      "opportunity": "Opportunities",
+      "risk": "Risks",
+      "trend": "Trends",
+      "pattern": "Patterns"
+    },
+    "weeklyCompletion": {
+      "title": "Weekly Activity Trend",
+      "subtitle": "Personas, focus groups and insights generation",
+      "error": "Failed to load weekly activity data",
+      "noData": "No activity data yet",
+      "legend": {
+        "personas": "Personas",
+        "focusGroups": "Focus Groups",
+        "insights": "Insights"
+      }
+    },
+    "topConcepts": {
+      "title": "Top Concepts",
+      "subtitle": "Most frequently discussed topics",
+      "error": "Failed to load concepts data",
+      "noData": "No concepts data yet"
+    },
+    "sentiment": {
+      "title": "Sentiment Distribution",
+      "subtitle": "Emotion analysis in discussions",
+      "error": "Failed to load sentiment data",
+      "noData": "No sentiment data yet"
+    }
   }
 }

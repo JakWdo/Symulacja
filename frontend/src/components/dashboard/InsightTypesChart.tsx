@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useInsightAnalytics } from '@/hooks/dashboard/useInsightAnalytics';
 import {
   PieChart,
@@ -22,15 +23,16 @@ const INSIGHT_TYPE_COLORS = {
   pattern: '#3b82f6',     // blue
 };
 
-const INSIGHT_TYPE_LABELS = {
-  opportunity: 'Szanse',
-  risk: 'Ryzyka',
-  trend: 'Trendy',
-  pattern: 'Wzorce',
-};
-
 export function InsightTypesChart() {
+  const { t } = useTranslation('dashboard');
   const { data, isLoading, error } = useInsightAnalytics();
+
+  const INSIGHT_TYPE_LABELS = {
+    opportunity: t('insightAnalytics.insightTypes.opportunity'),
+    risk: t('insightAnalytics.insightTypes.risk'),
+    trend: t('insightAnalytics.insightTypes.trend'),
+    pattern: t('insightAnalytics.insightTypes.pattern'),
+  };
 
   if (isLoading) {
     return <InsightTypesChartSkeleton />;
@@ -41,13 +43,13 @@ export function InsightTypesChart() {
       <Card className="border-border rounded-figma-card">
         <CardHeader className="px-6 pt-6 pb-4">
           <CardTitle className="text-base font-normal text-foreground leading-[16px]">
-            Typy spostrzeżeń
+            {t('insightAnalytics.insightTypes.title')}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-6 pb-6">
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>Nie udało się załadować danych o typach spostrzeżeń</AlertDescription>
+            <AlertDescription>{t('insightAnalytics.insightTypes.error')}</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -100,10 +102,10 @@ export function InsightTypesChart() {
     <Card className="border-border rounded-figma-card h-[486px]">
       <CardHeader className="px-6 pt-6 pb-4">
         <CardTitle className="text-base font-normal text-foreground leading-[16px]">
-          Typy spostrzeżeń
+          {t('insightAnalytics.insightTypes.title')}
         </CardTitle>
         <p className="text-base text-muted-foreground leading-[24px] mt-1.5">
-          Rozkład według kategorii
+          {t('insightAnalytics.insightTypes.subtitle')}
         </p>
       </CardHeader>
       <CardContent className="px-6 pb-6">
@@ -143,7 +145,7 @@ export function InsightTypesChart() {
         ) : (
           <div className="flex items-center justify-center h-[316px]">
             <p className="text-center text-muted-foreground">
-              Brak jeszcze danych o typach spostrzeżeń
+              {t('insightAnalytics.insightTypes.noData')}
             </p>
           </div>
         )}
