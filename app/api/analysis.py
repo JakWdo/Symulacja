@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import FocusGroup, PersonaResponse, User
 from app.api.dependencies import get_current_user, get_focus_group_for_user
+from app.middleware import get_locale
 from app.services.focus_groups.discussion_summarizer import DiscussionSummarizerService
 
 router = APIRouter()
@@ -41,6 +42,7 @@ async def generate_ai_summary(
     include_recommendations: bool = Query(True, description="Include strategic recommendations"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ) -> dict[str, Any]:
     """
     Generate AI-powered discussion summary for a focus group
@@ -60,6 +62,7 @@ async def generate_ai_summary(
             "user_id": str(current_user.id),
             "use_pro_model": use_pro_model,
             "include_recommendations": include_recommendations,
+            "locale": locale,
         }
     )
 
@@ -111,6 +114,7 @@ async def generate_ai_summary(
             focus_group_id=str(focus_group_id),
             include_demographics=True,
             include_recommendations=include_recommendations,
+            preferred_language=locale,
         )
 
         await db.commit()

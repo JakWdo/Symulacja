@@ -5,6 +5,7 @@ import { AISummarySkeleton } from './AISummarySkeleton';
 import { ResponsesSkeleton } from './ResponsesSkeleton';
 import { RawResponsesTab } from './RawResponsesTab';
 import type { Persona } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 // Lazy load Results Analysis Tab
 const ResultsAnalysisTab = lazy(() =>
@@ -32,6 +33,7 @@ export const FocusGroupAnalysisView: React.FC<FocusGroupAnalysisViewProps> = ({
   onTabChange,
 }) => {
   const [activeTab, setActiveTab] = React.useState(defaultTab);
+  const { t } = useTranslation('focusGroups');
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -47,14 +49,14 @@ export const FocusGroupAnalysisView: React.FC<FocusGroupAnalysisViewProps> = ({
             className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm"
           >
             <BarChart3 className="w-4 h-4 mr-2" />
-            Podsumowanie AI
+            {t('analysis.tabLabels.aiSummary')}
           </TabsTrigger>
           <TabsTrigger
             value="raw-responses"
             className="data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm"
           >
             <MessageSquare className="w-4 h-4 mr-2" />
-            Surowe Odpowiedzi
+            {t('analysis.tabLabels.rawResponses')}
           </TabsTrigger>
         </TabsList>
 

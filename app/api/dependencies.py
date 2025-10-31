@@ -14,7 +14,7 @@ Użycie w endpointach:
 from uuid import UUID
 import logging
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db)
 ) -> User:
@@ -114,6 +115,8 @@ async def get_current_user(
             detail="User account is disabled"
         )
 
+    request.state.current_user = user
+
     logger.debug(f"User authenticated successfully", extra={"user_id": str(user.id)})
     return user
 
@@ -185,6 +188,7 @@ async def get_current_admin_user(
 
 # Opcjonalna zależność dla publicznych endpointów (token jest opcjonalny)
 async def get_current_user_optional(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db)
 ) -> User | None:
@@ -227,6 +231,7 @@ async def get_current_user_optional(
         user = result.scalar_one_or_none()
 
         if user and user.is_active:
+            request.state.current_user = user
             return user
     except Exception:
         # Ignorujemy błędy i zwracamy None dla dostępu publicznego

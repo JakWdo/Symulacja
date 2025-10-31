@@ -154,6 +154,10 @@
     "backButton": "Back to discussion",
     "exportButton": "Export report",
     "regenerateButton": "Regenerate analysis",
+    "tabLabels": {
+      "aiSummary": "AI Summary",
+      "rawResponses": "Raw Responses"
+    },
 
     "tabs": {
       "summary": "Summary",
@@ -232,13 +236,17 @@
 
     "aiSummary": {
       "title": "AI Summary",
+      "subtitle": "Comprehensive AI-generated overview of the discussion",
       "defaultSessionTitle": "selected session",
       "emptyTitle": "AI Summary: {{sessionTitle}}",
       "emptyDescription": "Generate an intelligent summary of the focus group discussion using advanced AI. Get an executive summary, key insights, surprising findings, and strategic recommendations in seconds.",
+      "notGeneratedTitle": "AI summary hasn't been generated yet",
+      "notGeneratedDescription": "Generate a detailed AI analysis for this focus group to unlock executive summary, key insights, and recommendations.",
       "generateButton": "Generate AI Summary",
       "waitingForResponses": "Waiting for responses...",
       "completeDiscussionFirst": "Complete the focus group discussion first to generate an AI summary.",
       "generating": "Generating AI summary...",
+      "regenerateLoading": "Regenerating...",
       "usingProModel": "Using Gemini 2.5 Pro model for highest quality analysis",
       "usingFlashModel": "Using Gemini 2.5 Flash model for fast analysis",
       "errorTitle": "Failed to generate summary",
@@ -253,6 +261,8 @@
       "sentimentNarrative": "Sentiment Narrative",
       "success": "AI Summary ready",
       "successModel": "Model: {{model}}",
+      "toastTitle": "AI summary ready",
+      "toastDescription": "The AI analysis has been generated successfully.",
       "error": "Generation error",
       "errorGeneric": "Failed to generate summary",
       "timeout": "Summary generation timeout",
@@ -267,6 +277,28 @@
       "totalMessages": "Total messages",
       "averageEngagement": "Average engagement",
       "topicsDiscussed": "Topics discussed"
+    },
+
+    "rawResponses": {
+      "title": "Raw Responses",
+      "description": "Detailed participant responses grouped by research question",
+      "emptyTitle": "No responses yet",
+      "emptyDescription": "Responses will appear here once the discussion is complete.",
+      "errorTitle": "Failed to load responses",
+      "errorUnknown": "An unexpected error occurred",
+      "filteredEmpty": "No responses match the selected filters",
+      "totalResponses_one": "{{count}} response",
+      "totalResponses_other": "{{count}} responses"
+    },
+
+    "filters": {
+      "searchPlaceholder": "Search in responses...",
+      "allParticipants": "All Participants",
+      "allQuestions": "All Questions",
+      "questionLabel": "Question {{number}}"
+    },
+    "responses": {
+      "noResponse": "No response"
     }
   },
 
@@ -323,18 +355,6 @@
     "invalidTopic": "Discussion topic is required",
     "noParticipants": "Select at least 2 participants",
     "tooManyParticipants": "Maximum 10 participants"
-  },
-
-  "analysis": {
-    "filters": {
-      "searchPlaceholder": "Search in responses...",
-      "allParticipants": "All Participants",
-      "allQuestions": "All Questions",
-      "questionLabel": "Question {{number}}"
-    },
-    "responses": {
-      "noResponse": "No response"
-    }
   },
 
   "builder": {

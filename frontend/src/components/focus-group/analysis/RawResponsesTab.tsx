@@ -6,6 +6,7 @@ import { ResponsesList } from './ResponsesList';
 import { ResponsesSkeleton } from './ResponsesSkeleton';
 import { useFocusGroupResponses } from '@/hooks/focus-group/useFocusGroupResponses';
 import type { Persona } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface RawResponsesTabProps {
   focusGroupId: string;
@@ -19,6 +20,7 @@ export const RawResponsesTab: React.FC<RawResponsesTabProps> = ({
   focusGroupId,
   personas,
 }) => {
+  const { t } = useTranslation('focusGroups');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPersonaId, setSelectedPersonaId] = useState('all');
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState('all');
@@ -35,10 +37,10 @@ export const RawResponsesTab: React.FC<RawResponsesTabProps> = ({
         <CardContent className="py-12 text-center">
           <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium text-card-foreground mb-2">
-            Nie udało się załadować odpowiedzi
+            {t('analysis.rawResponses.errorTitle')}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Wystąpił nieoczekiwany błąd'}
+            {error instanceof Error ? error.message : t('analysis.rawResponses.errorUnknown')}
           </p>
         </CardContent>
       </Card>
@@ -51,10 +53,10 @@ export const RawResponsesTab: React.FC<RawResponsesTabProps> = ({
         <CardContent className="py-12 text-center">
           <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium text-card-foreground mb-2">
-            Brak odpowiedzi
+            {t('analysis.rawResponses.emptyTitle')}
           </h3>
           <p className="text-sm text-muted-foreground">
-            Odpowiedzi pojawią się tutaj po zakończeniu dyskusji
+            {t('analysis.rawResponses.emptyDescription')}
           </p>
         </CardContent>
       </Card>
@@ -64,9 +66,13 @@ export const RawResponsesTab: React.FC<RawResponsesTabProps> = ({
   return (
     <Card className="bg-card border border-border shadow-sm">
       <CardHeader>
-        <CardTitle className="text-card-foreground">Surowe Odpowiedzi</CardTitle>
+        <CardTitle className="text-card-foreground">{t('analysis.rawResponses.title')}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Szczegółowe odpowiedzi od każdego uczestnika ({responses.total_responses} odpowiedzi)
+          {t('analysis.rawResponses.description')}
+          {' '}
+          <span className="font-medium text-card-foreground">
+            ({t('analysis.rawResponses.totalResponses', { count: responses.total_responses })})
+          </span>
         </p>
       </CardHeader>
       <CardContent className="space-y-6">

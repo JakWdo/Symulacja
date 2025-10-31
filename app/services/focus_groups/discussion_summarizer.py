@@ -314,6 +314,7 @@ class DiscussionSummarizerService:
         focus_group_id: str,
         include_demographics: bool = True,
         include_recommendations: bool = True,
+        preferred_language: str | None = None,
     ) -> dict[str, Any]:
         """
         Generuje kompleksowe AI-powered podsumowanie dyskusji grupy fokusowej
@@ -323,6 +324,7 @@ class DiscussionSummarizerService:
             focus_group_id: ID grupy fokusowej
             include_demographics: Czy uwzględnić dane demograficzne
             include_recommendations: Czy zawrzeć rekomendacje strategiczne
+            preferred_language: Docelowy język treści ("pl" lub "en"); jeśli None, wykryj automatycznie
 
         Returns:
             {
@@ -393,14 +395,24 @@ class DiscussionSummarizerService:
         sample_text = all_text[:1500]
         detected_language = detect_input_language(sample_text)
 
+        target_language = detected_language
+        if preferred_language and preferred_language in {"pl", "en"}:
+            target_language = preferred_language
+
         logger.info(
-            f"Language detection for focus group {focus_group_id}: "
-            f"detected='{detected_language}' (sample_length={len(sample_text)} chars)"
+            "Language selection for focus group %s: detected='%s', preferred='%s', target='%s' (sample_length=%s chars)",
+            focus_group_id,
+            detected_language,
+            preferred_language,
+            target_language,
+            len(sample_text),
         )
 
         # Generujemy podsumowanie przez model AI (z wykrytym językiem)
         prompt_text = self._create_summary_prompt(
-            discussion_data, include_recommendations, language=detected_language
+            discussion_data,
+            include_recommendations,
+            language=target_language,
         )
 
         # Call LLM via prompt (returns AIMessage with metadata)
@@ -445,6 +457,7 @@ class DiscussionSummarizerService:
             "total_responses": len(responses),
             "total_participants": len(persona_ids),
             "questions_asked": len(focus_group.questions),
+            "language": target_language,
         }
 
         # Przypisujemy podsumowanie do obiektu grupy (commit wykona wywołujący)
@@ -683,7 +696,7 @@ Describe the emotional journey of the discussion:
 """
 
         # Dodaj instrukcję językową (nagłówki po angielsku, treść w wybranym języku)
-        language_instruction = {
+        language_instruction_map = {
             'pl': (
                 "\n\n**CRITICAL LANGUAGE INSTRUCTION:**\n"
                 "- Keep ALL section headings in ENGLISH (e.g., ## 1. EXECUTIVE SUMMARY, ## 2. KEY INSIGHTS)\n"
@@ -698,7 +711,12 @@ Describe the emotional journey of the discussion:
                 "- Use English grammar, vocabulary, and phrasing throughout the content\n"
                 "- Example: '## 2. KEY INSIGHTS' followed by '**Main concern**: Users expect...'\n"
             ),
-        }.get(language, 'pl')
+        }
+
+        language_instruction = language_instruction_map.get(
+            language,
+            language_instruction_map['pl']
+        )
 
         prompt += language_instruction
 

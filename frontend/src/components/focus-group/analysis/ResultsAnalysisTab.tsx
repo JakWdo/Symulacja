@@ -11,6 +11,7 @@ import { StrategicRecommendationsCard } from './StrategicRecommendationsCard';
 import { AISummarySkeleton } from './AISummarySkeleton';
 import { useFocusGroupAnalysis } from '@/hooks/focus-group/useFocusGroupAnalysis';
 import { useRegenerateAnalysis } from '@/hooks/focus-group/useRegenerateAnalysis';
+import { useTranslation } from 'react-i18next';
 
 interface ResultsAnalysisTabProps {
   focusGroupId: string;
@@ -22,6 +23,7 @@ interface ResultsAnalysisTabProps {
 export const ResultsAnalysisTab: React.FC<ResultsAnalysisTabProps> = ({ focusGroupId }) => {
   const { data: aiSummary, isLoading, error } = useFocusGroupAnalysis(focusGroupId);
   const regenerateMutation = useRegenerateAnalysis();
+  const { t } = useTranslation('focusGroups');
 
   const handleRegenerate = () => {
     regenerateMutation.mutate({ focusGroupId, useProModel: false });
@@ -43,10 +45,10 @@ export const ResultsAnalysisTab: React.FC<ResultsAnalysisTabProps> = ({ focusGro
             <>
               <Brain className="w-12 h-12 text-muted-foreground mx-auto" />
               <h3 className="text-lg font-medium text-card-foreground">
-                Analiza AI nie została jeszcze wygenerowana
+                {t('analysis.aiSummary.notGeneratedTitle')}
               </h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Kliknij poniższy przycisk, aby wygenerować szczegółową analizę AI dla tej grupy fokusowej
+                {t('analysis.aiSummary.notGeneratedDescription')}
               </p>
               <Button
                 onClick={handleRegenerate}
@@ -56,12 +58,12 @@ export const ResultsAnalysisTab: React.FC<ResultsAnalysisTabProps> = ({ focusGro
                 {regenerateMutation.isPending ? (
                   <>
                     <Logo className="w-4 h-4 mr-2" spinning />
-                    Generowanie analizy...
+                    {t('analysis.aiSummary.generating')}
                   </>
                 ) : (
                   <>
                     <Brain className="w-4 h-4 mr-2" />
-                    Wygeneruj analizę AI
+                    {t('analysis.aiSummary.generateButton')}
                   </>
                 )}
               </Button>
@@ -70,14 +72,14 @@ export const ResultsAnalysisTab: React.FC<ResultsAnalysisTabProps> = ({ focusGro
             <>
               <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
               <h3 className="text-lg font-medium text-destructive">
-                Nie udało się załadować analizy
+                {t('analysis.aiSummary.errorTitle')}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {error instanceof Error ? error.message : 'Wystąpił nieoczekiwany błąd'}
+                {error instanceof Error ? error.message : t('analysis.aiSummary.errorUnknown')}
               </p>
               <Button onClick={handleRegenerate} variant="outline">
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Spróbuj ponownie
+                {t('analysis.aiSummary.retryButton')}
               </Button>
             </>
           )}
@@ -97,10 +99,10 @@ export const ResultsAnalysisTab: React.FC<ResultsAnalysisTabProps> = ({ focusGro
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-card-foreground font-crimson">
-            Analiza AI
+            {t('analysis.aiSummary.title')}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Kompleksowe podsumowanie dyskusji wygenerowane przez AI
+            {t('analysis.aiSummary.subtitle')}
           </p>
         </div>
         <Button
@@ -112,12 +114,12 @@ export const ResultsAnalysisTab: React.FC<ResultsAnalysisTabProps> = ({ focusGro
           {regenerateMutation.isPending ? (
             <>
               <Logo className="w-4 h-4 mr-2" spinning />
-              Generowanie...
+              {t('analysis.aiSummary.regenerateLoading')}
             </>
           ) : (
             <>
               <RefreshCw className="w-4 h-4 mr-2" />
-              Wygeneruj ponownie
+              {t('analysis.aiSummary.regenerateButton')}
             </>
           )}
         </Button>

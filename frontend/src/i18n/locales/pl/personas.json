@@ -274,7 +274,11 @@
     "deleteSuccess": "Persona usunięta",
     "deleteError": "Nie udało się usunąć persony",
     "exportSuccess": "Persona wyeksportowana",
-    "exportError": "Nie udało się wyeksportować persony"
+    "exportError": "Nie udało się wyeksportować persony",
+    "undoSuccess": "Persona przywrócona",
+    "undoSuccessDescription": "{{name}} ponownie dostępna.",
+    "undoError": "Nie udało się przywrócić persony",
+    "undoErrorDescription": "Spróbuj ponownie później."
   },
 
   "loading": {

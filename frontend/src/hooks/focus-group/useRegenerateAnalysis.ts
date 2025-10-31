@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { analysisApi } from '@/lib/api';
 import { toast } from '@/components/ui/toastStore';
 import type { AISummary } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Hook do regeneracji analizy AI dla focus group
@@ -10,6 +11,7 @@ import type { AISummary } from '@/types';
  */
 export function useRegenerateAnalysis() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation('focusGroups');
 
   return useMutation<AISummary, Error, { focusGroupId: string; useProModel?: boolean }>({
     mutationFn: ({ focusGroupId, useProModel = false }) =>
@@ -24,15 +26,15 @@ export function useRegenerateAnalysis() {
         queryKey: ['focus-group', variables.focusGroupId, 'ai-summary'],
       });
       toast.success(
-        'Analiza AI została wygenerowana',
-        'Podsumowanie zostało pomyślnie utworzone'
+        t('analysis.aiSummary.toastTitle'),
+        t('analysis.aiSummary.toastDescription')
       );
     },
     onError: (error) => {
       console.error('Failed to generate AI summary:', error);
       toast.error(
-        'Nie udało się wygenerować analizy',
-        error.message || 'Spróbuj ponownie później'
+        t('analysis.aiSummary.errorTitle'),
+        error.message || t('analysis.aiSummary.errorUnknown')
       );
     },
   });

@@ -155,6 +155,10 @@
     "backButton": "Powrót do dyskusji",
     "exportButton": "Eksportuj raport",
     "regenerateButton": "Regeneruj analizę",
+    "tabLabels": {
+      "aiSummary": "Podsumowanie AI",
+      "rawResponses": "Surowe odpowiedzi"
+    },
 
     "tabs": {
       "summary": "Podsumowanie",
@@ -233,13 +237,17 @@
 
     "aiSummary": {
       "title": "Podsumowanie AI",
+      "subtitle": "Kompleksowe podsumowanie dyskusji wygenerowane przez AI",
       "defaultSessionTitle": "wybranej sesji",
       "emptyTitle": "Podsumowanie AI: {{sessionTitle}}",
       "emptyDescription": "Wygeneruj inteligentne podsumowanie dyskusji grupy fokusowej z użyciem zaawansowanego AI. Otrzymasz podsumowanie zarządcze, kluczowe wnioski, zaskakujące odkrycia oraz rekomendacje strategiczne w kilka sekund.",
+      "notGeneratedTitle": "Podsumowanie AI nie zostało jeszcze wygenerowane",
+      "notGeneratedDescription": "Wygeneruj szczegółową analizę AI dla tej grupy fokusowej, aby uzyskać podsumowanie zarządcze, kluczowe wnioski i rekomendacje.",
       "generateButton": "Wygeneruj podsumowanie AI",
       "waitingForResponses": "Oczekiwanie na odpowiedzi...",
       "completeDiscussionFirst": "Najpierw zakończ dyskusję grupy fokusowej, aby wygenerować podsumowanie AI.",
       "generating": "Generowanie podsumowania AI...",
+      "regenerateLoading": "Ponowne generowanie...",
       "usingProModel": "Używany model Gemini 2.5 Pro dla najwyższej jakości analizy",
       "usingFlashModel": "Używany model Gemini 2.5 Flash dla szybkiej analizy",
       "errorTitle": "Nie udało się wygenerować podsumowania",
@@ -254,6 +262,8 @@
       "sentimentNarrative": "Narracja nastrojów",
       "success": "Podsumowanie AI gotowe",
       "successModel": "Model: {{model}}",
+      "toastTitle": "Podsumowanie AI gotowe",
+      "toastDescription": "Analiza AI została wygenerowana pomyślnie.",
       "error": "Błąd generowania",
       "errorGeneric": "Nie udało się wygenerować podsumowania",
       "timeout": "Timeout generowania podsumowania",
@@ -268,6 +278,30 @@
       "totalMessages": "Łączna liczba wiadomości",
       "averageEngagement": "Średnie zaangażowanie",
       "topicsDiscussed": "Omówione tematy"
+    },
+
+    "rawResponses": {
+      "title": "Surowe odpowiedzi",
+      "description": "Szczegółowe odpowiedzi uczestników pogrupowane według pytań badawczych",
+      "emptyTitle": "Brak odpowiedzi",
+      "emptyDescription": "Odpowiedzi pojawią się tutaj po zakończeniu dyskusji.",
+      "errorTitle": "Nie udało się załadować odpowiedzi",
+      "errorUnknown": "Wystąpił nieoczekiwany błąd",
+      "filteredEmpty": "Brak odpowiedzi spełniających wybrane filtry",
+      "totalResponses_one": "{{count}} odpowiedź",
+      "totalResponses_few": "{{count}} odpowiedzi",
+      "totalResponses_many": "{{count}} odpowiedzi",
+      "totalResponses_other": "{{count}} odpowiedzi"
+    },
+
+    "filters": {
+      "searchPlaceholder": "Szukaj w odpowiedziach...",
+      "allParticipants": "Wszyscy uczestnicy",
+      "allQuestions": "Wszystkie pytania",
+      "questionLabel": "Pytanie {{number}}"
+    },
+    "responses": {
+      "noResponse": "Brak odpowiedzi"
     }
   },
 
@@ -325,18 +359,6 @@
     "invalidTopic": "Temat dyskusji jest wymagany",
     "noParticipants": "Wybierz przynajmniej 2 uczestników",
     "tooManyParticipants": "Maksymalnie 10 uczestników"
-  },
-
-  "analysis": {
-    "filters": {
-      "searchPlaceholder": "Szukaj w odpowiedziach...",
-      "allParticipants": "Wszyscy uczestnicy",
-      "allQuestions": "Wszystkie pytania",
-      "questionLabel": "Pytanie {{number}}"
-    },
-    "responses": {
-      "noResponse": "Brak odpowiedzi"
-    }
   },
 
   "builder": {

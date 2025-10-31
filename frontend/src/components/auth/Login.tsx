@@ -166,11 +166,11 @@ export function Login() {
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <Logo spinning transparent className="w-4 h-4" />
-                  <span>{isRegisterMode ? t('register.submitButtonLoading') : t('login.submitButtonLoading')}</span>
+                  <span>{isRegisterMode ? t('register.submitButton') : t('login.submitButton')}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span>{isRegisterMode ? t('register.submitButton') : t('login.submitButton')}</span>
+                  <span>{isRegisterMode ? t('register.submitButtonDefault') : t('login.submitButtonDefault')}</span>
                   <ArrowRight className="w-4 h-4" />
                 </div>
               )}

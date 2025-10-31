@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users } from 'lucide-react';
 import { SegmentCard } from './SegmentCard';
+import { useTranslation } from 'react-i18next';
 
 interface SegmentAnalysisSectionProps {
   segmentAnalysis: Record<string, string>;
@@ -17,6 +18,7 @@ export const SegmentAnalysisSection: React.FC<SegmentAnalysisSectionProps> = ({
   totalParticipants,
   className = '',
 }) => {
+  const { t } = useTranslation('focusGroups');
   const segments = Object.entries(segmentAnalysis);
 
   if (segments.length === 0) {
@@ -34,11 +36,11 @@ export const SegmentAnalysisSection: React.FC<SegmentAnalysisSectionProps> = ({
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-figma-primary" />
           <CardTitle className="text-card-foreground font-crimson text-xl">
-            Analiza Segmentów
+            {t('analysis.segments.title')}
           </CardTitle>
         </div>
         <p className="text-sm text-muted-foreground">
-          Jak różne grupy uczestników reagowały na dyskusję
+          {t('analysis.segments.description')}
         </p>
       </CardHeader>
       <CardContent>

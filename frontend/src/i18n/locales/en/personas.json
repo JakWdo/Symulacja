@@ -274,7 +274,11 @@
     "deleteSuccess": "Persona deleted",
     "deleteError": "Failed to delete persona",
     "exportSuccess": "Persona exported",
-    "exportError": "Failed to export persona"
+    "exportError": "Failed to export persona",
+    "undoSuccess": "Persona restored",
+    "undoSuccessDescription": "{{name}} is available again.",
+    "undoError": "Failed to restore persona",
+    "undoErrorDescription": "Try again later."
   },
 
   "loading": {

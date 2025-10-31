@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { ResponseCard } from './ResponseCard';
 import type { Persona, FocusGroupResponses } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface ResponsesListProps {
   responses: FocusGroupResponses;
@@ -22,6 +23,7 @@ export const ResponsesList: React.FC<ResponsesListProps> = ({
   selectedQuestionIndex,
   className = '',
 }) => {
+  const { t } = useTranslation('focusGroups');
   const filteredResponses = useMemo(() => {
     let filtered = responses.questions;
 
@@ -60,7 +62,7 @@ export const ResponsesList: React.FC<ResponsesListProps> = ({
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">
-          Brak odpowiedzi spełniających kryteria filtrowania
+          {t('analysis.rawResponses.filteredEmpty')}
         </p>
       </div>
     );
