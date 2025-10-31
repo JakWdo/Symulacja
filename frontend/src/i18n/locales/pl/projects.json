@@ -136,9 +136,15 @@
     "updateSuccess": "Projekt zaktualizowany",
     "updateError": "Nie udało się zaktualizować projektu",
     "deleteSuccess": "Projekt usunięty",
+    "deleteSuccessDescription": "Projekt został przeniesiony do kosza.",
     "deleteError": "Nie udało się usunąć projektu",
+    "deleteErrorDescription": "Spróbuj ponownie później.",
     "archiveSuccess": "Projekt zarchiwizowany",
-    "archiveError": "Nie udało się zarchiwizować projektu"
+    "archiveError": "Nie udało się zarchiwizować projektu",
+    "undoSuccess": "Projekt przywrócony",
+    "undoSuccessDescription": "{{name}} ponownie dostępny.",
+    "undoError": "Nie udało się przywrócić projektu",
+    "undoErrorDescription": "Spróbuj ponownie później."
   },
 
   "loading": {
@@ -159,15 +165,47 @@
 
   "panel": {
     "title": "Projekty",
+    "subtitle": "Zarządzaj projektami badawczymi opartymi o AI",
     "createButton": "Utwórz nowy projekt",
+    "actions": {
+      "ragDocuments": "Dokumenty RAG",
+      "deleteProject": "Usuń projekt"
+    },
     "createForm": {
       "title": "Utwórz nowy projekt",
       "nameLabel": "Nazwa projektu",
       "namePlaceholder": "Nazwa projektu",
       "descriptionLabel": "Opis projektu",
       "descriptionPlaceholder": "Opis projektu (opcjonalnie)",
+      "description": "Utwórz nowy projekt badawczy, aby rozpocząć zbieranie wniosków i analizę danych.",
+      "sampleSizeLabel": "Docelowa wielkość próby",
+      "sampleSizePlaceholder": "20",
       "cancelButton": "Anuluj",
       "createButton": "Utwórz"
+    },
+    "searchPlaceholder": "Szukaj projektów...",
+    "noDescription": "Brak opisu",
+    "projectStats": {
+      "personas_one": "{{count}} persona",
+      "personas_few": "{{count}} persony",
+      "personas_many": "{{count}} person",
+      "personas_other": "{{count}} person",
+      "focusGroups_one": "{{count}} grupa fokusowa",
+      "focusGroups_few": "{{count}} grupy fokusowe",
+      "focusGroups_many": "{{count}} grup fokusowych",
+      "focusGroups_other": "{{count}} grup fokusowych"
+    },
+    "goalLabel": "Cel: {{count}}",
+    "projectStatus": {
+      "active": "Aktywny",
+      "inProgress": "W trakcie",
+      "planning": "Planowanie"
+    },
+    "emptyState": {
+      "title": "Nie znaleziono projektów",
+      "searchDescription": "Żadne projekty nie spełniają kryteriów wyszukiwania.",
+      "defaultDescription": "Zacznij od utworzenia swojego pierwszego projektu.",
+      "primaryAction": "Utwórz swój pierwszy projekt"
     },
     "validation": {
       "nameRequired": "Nazwa projektu jest wymagana."

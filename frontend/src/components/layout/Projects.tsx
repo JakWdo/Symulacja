@@ -21,6 +21,7 @@ import { formatDate } from '@/lib/utils';
 import type { Project } from '@/types';
 import { Logo } from '@/components/ui/logo';
 import { DeleteProjectDialog } from '@/components/projects/DeleteProjectDialog';
+import { useTranslation } from 'react-i18next';
 
 interface ProjectsProps {
   onSelectProject?: (project: Project) => void;
@@ -36,6 +37,8 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
     description: '',
     target_sample_size: 20,
   });
+  const { t } = useTranslation('projects');
+  const { t: tCommon } = useTranslation('common');
 
   const { setSelectedProject } = useAppStore();
   const shouldOpenProjectCreation = useAppStore((state) => state.shouldOpenProjectCreation);
@@ -94,9 +97,13 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
     const projectPersonas = allPersonas.filter(p => p.project_id === project.id);
     const projectFocusGroups = allFocusGroups.filter(fg => fg.project_id === project.id);
 
-    if (projectPersonas.length > 0 && projectFocusGroups.length > 0) return 'Aktywny';
-    if (projectPersonas.length > 0) return 'W trakcie';
-    return 'Planowanie';
+    if (projectPersonas.length > 0 && projectFocusGroups.length > 0) {
+      return t('panel.projectStatus.active');
+    }
+    if (projectPersonas.length > 0) {
+      return t('panel.projectStatus.inProgress');
+    }
+    return t('panel.projectStatus.planning');
   };
 
   // Fetch all personas and focus groups for project cards
@@ -137,54 +144,54 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
       <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
       {/* Header */}
       <PageHeader
-        title="Projekty"
-        subtitle="Zarządzaj swoimi projektami badawczymi"
+        title={t('panel.title')}
+        subtitle={t('panel.subtitle')}
         actions={
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button className="bg-[#F27405] hover:bg-[#F27405]/90 text-white">
                 <Plus className="w-4 h-4 mr-2" />
-                Nowy projekt
+                {t('panel.createButton')}
               </Button>
             </DialogTrigger>
           <DialogContent className="bg-popover border border-border text-popover-foreground shadow-xl">
             <DialogHeader>
-              <DialogTitle>Utwórz nowy projekt</DialogTitle>
+              <DialogTitle>{t('panel.createForm.title')}</DialogTitle>
               <DialogDescription>
-                Utwórz nowy projekt badawczy, aby rozpocząć zbieranie wniosków i analizę danych.
+                {t('panel.createForm.description')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">Nazwa projektu</Label>
+                <Label htmlFor="name">{t('panel.createForm.nameLabel')}</Label>
                 <Input
                   id="name"
                   value={newProject.name}
                   onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
                   className="mt-1"
-                  placeholder="Wprowadź nazwę projektu"
+                  placeholder={t('panel.createForm.namePlaceholder')}
                 />
               </div>
               <div>
-                <Label htmlFor="description">Opis</Label>
+                <Label htmlFor="description">{t('panel.createForm.descriptionLabel')}</Label>
                 <Textarea
                   id="description"
                   value={newProject.description}
                   onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
                   className="mt-1"
-                  placeholder="Opisz cele swojego projektu"
+                  placeholder={t('panel.createForm.descriptionPlaceholder')}
                   rows={3}
                 />
               </div>
               <div>
-                <Label htmlFor="sample_size">Docelowa wielkość próby</Label>
+                <Label htmlFor="sample_size">{t('panel.createForm.sampleSizeLabel')}</Label>
                 <Input
                   id="sample_size"
                   type="number"
                   value={newProject.target_sample_size}
                   onChange={(e) => setNewProject({ ...newProject, target_sample_size: parseInt(e.target.value) })}
                   className="mt-1"
-                  placeholder="20"
+                  placeholder={t('panel.createForm.sampleSizePlaceholder')}
                 />
               </div>
               <div className="flex justify-end gap-2">
@@ -193,14 +200,14 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                   onClick={() => setShowCreateDialog(false)}
                   disabled={createMutation.isPending}
                 >
-                  Anuluj
+                  {tCommon('buttons.cancel')}
                 </Button>
                 <Button
                   onClick={handleCreateProject}
                   disabled={createMutation.isPending || !newProject.name || !newProject.description}
                 >
                   {createMutation.isPending && <Logo className="w-4 h-4 mr-2" spinning />}
-                  Utwórz projekt
+                  {t('panel.createForm.createButton')}
                 </Button>
               </div>
             </div>
@@ -213,7 +220,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
         <Input
-          placeholder="Szukaj projektów..."
+          placeholder={t('panel.searchPlaceholder')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"
@@ -256,25 +263,25 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                           onClick={(e) => e.stopPropagation()}
                         >
                           <MoreVertical className="h-4 w-4" />
-                          <span className="sr-only">{t('projects:accessibility.openMenu')}</span>
+                          <span className="sr-only">{t('accessibility.openMenu')}</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setProjectToDelete(project);
-                            setShowDeleteDialog(true);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Usuń projekt
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete(project);
+                          setShowDeleteDialog(true);
+                        }}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {t('panel.actions.deleteProject')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
+              </div>
                 <p
                   className="text-muted-foreground text-sm line-clamp-2 cursor-pointer"
                   onClick={() => {
@@ -284,7 +291,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                     }
                   }}
                 >
-                  {project.description || 'Brak opisu'}
+                  {project.description || t('panel.noDescription')}
                 </p>
               </CardHeader>
               <CardContent
@@ -300,13 +307,17 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-chart-4" />
                     <span className="text-sm text-card-foreground">
-                      {allPersonas.filter(p => p.project_id === project.id).length} persony
+                      {t('panel.projectStats.personas', {
+                        count: allPersonas.filter(p => p.project_id === project.id).length,
+                      })}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MessageSquare className="w-4 h-4 text-chart-1" />
                     <span className="text-sm text-card-foreground">
-                      {allFocusGroups.filter(fg => fg.project_id === project.id).length} grupy
+                      {t('panel.projectStats.focusGroups', {
+                        count: allFocusGroups.filter(fg => fg.project_id === project.id).length,
+                      })}
                     </span>
                   </div>
                 </div>
@@ -319,7 +330,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                     </span>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Cel: {project.target_sample_size}
+                    {t('panel.goalLabel', { count: project.target_sample_size })}
                   </span>
                 </div>
               </CardContent>
@@ -329,9 +340,13 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
       ) : (
         <div className="text-center py-12">
           <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">Nie znaleziono projektów</h3>
+          <h3 className="text-lg font-medium text-foreground mb-2">
+            {t('panel.emptyState.title')}
+          </h3>
           <p className="text-muted-foreground mb-4">
-            {searchTerm ? 'Żadne projekty nie spełniają kryteriów wyszukiwania.' : 'Zacznij od utworzenia swojego pierwszego projektu.'}
+            {searchTerm
+              ? t('panel.emptyState.searchDescription')
+              : t('panel.emptyState.defaultDescription')}
           </p>
           {!searchTerm && (
             <Button
@@ -339,7 +354,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
               className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Utwórz swój pierwszy projekt
+              {t('panel.emptyState.primaryAction')}
             </Button>
           )}
         </div>

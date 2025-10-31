@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ import { Persona as APIPersona } from '@/types';
 import { toast } from '@/components/ui/toastStore';
 import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
 import { SpinnerLogo } from '@/components/ui/spinner-logo';
+import { useTranslation } from 'react-i18next';
 
 
 // Display-friendly Persona interface
@@ -272,8 +273,14 @@ export function Personas() {
   const selectedProject = useAppStore(state => state.selectedProject);
   const setGlobalProject = useAppStore(state => state.setSelectedProject);
   const setActivePanel = useAppStore(state => state.setActivePanel);
+  const { t, i18n } = useTranslation('personas');
+  const { t: tCommon } = useTranslation('common');
+  const translate = useCallback(
+    (pl: string, en: string): string => (i18n.language.startsWith('pl') ? pl : en),
+    [i18n.language]
+  );
 
-  const projectLabel = selectedProject?.name || 'Nieznany projekt';
+  const projectLabel = selectedProject?.name || translate('Nieznany projekt', 'Unknown project');
   const [selectedPersonaForDetails, setSelectedPersonaForDetails] = useState<string | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
   const [currentPersonaIndex, setCurrentPersonaIndex] = useState(0);

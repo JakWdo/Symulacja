@@ -136,9 +136,15 @@
     "updateSuccess": "Project updated",
     "updateError": "Failed to update project",
     "deleteSuccess": "Project deleted",
+    "deleteSuccessDescription": "Project was moved to recycle bin.",
     "deleteError": "Failed to delete project",
+    "deleteErrorDescription": "Please try again later.",
     "archiveSuccess": "Project archived",
-    "archiveError": "Failed to archive project"
+    "archiveError": "Failed to archive project",
+    "undoSuccess": "Project restored",
+    "undoSuccessDescription": "{{name}} is available again.",
+    "undoError": "Failed to restore project",
+    "undoErrorDescription": "Please try again later."
   },
 
   "loading": {
@@ -159,15 +165,43 @@
 
   "panel": {
     "title": "Projects",
+    "subtitle": "Manage all your AI research projects",
     "createButton": "Create new project",
+    "actions": {
+      "ragDocuments": "RAG documents",
+      "deleteProject": "Delete project"
+    },
     "createForm": {
       "title": "Create new project",
       "nameLabel": "Project name",
       "namePlaceholder": "Project name",
       "descriptionLabel": "Project description",
       "descriptionPlaceholder": "Project description (optional)",
+      "description": "Create a new research project to start gathering insights and analysis.",
+      "sampleSizeLabel": "Target sample size",
+      "sampleSizePlaceholder": "20",
       "cancelButton": "Cancel",
       "createButton": "Create"
+    },
+    "searchPlaceholder": "Search projects...",
+    "noDescription": "No description",
+    "projectStats": {
+      "personas_one": "{{count}} persona",
+      "personas_other": "{{count}} personas",
+      "focusGroups_one": "{{count}} focus group",
+      "focusGroups_other": "{{count}} focus groups"
+    },
+    "goalLabel": "Target: {{count}}",
+    "projectStatus": {
+      "active": "Active",
+      "inProgress": "In progress",
+      "planning": "Planning"
+    },
+    "emptyState": {
+      "title": "No projects found",
+      "searchDescription": "No projects match your search criteria.",
+      "defaultDescription": "Create your first project to start working with the platform.",
+      "primaryAction": "Create your first project"
     },
     "validation": {
       "nameRequired": "Project name is required."

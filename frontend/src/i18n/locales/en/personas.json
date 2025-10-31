@@ -272,13 +272,17 @@
     "updateSuccess": "Persona updated",
     "updateError": "Failed to update persona",
     "deleteSuccess": "Persona deleted",
+    "deleteSuccessDescription": "Persona was removed successfully.",
     "deleteError": "Failed to delete persona",
+    "deleteErrorDescription": "Please try again later.",
     "exportSuccess": "Persona exported",
     "exportError": "Failed to export persona",
     "undoSuccess": "Persona restored",
     "undoSuccessDescription": "{{name}} is available again.",
     "undoError": "Failed to restore persona",
-    "undoErrorDescription": "Try again later."
+    "undoErrorDescription": "Try again later.",
+    "compareError": "Failed to compare personas",
+    "messagingError": "Failed to generate messaging"
   },
 
   "loading": {

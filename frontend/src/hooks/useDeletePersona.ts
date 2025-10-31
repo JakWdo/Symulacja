@@ -3,6 +3,7 @@ import { personasApi } from '@/lib/api';
 import { toast } from '@/components/ui/toastStore';
 import type { PersonaDeleteResponse } from '@/types';
 import { useUndoDeletePersona } from './useUndoDeletePersona';
+import { useTranslation } from 'react-i18next';
 
 interface DeletePersonaParams {
   personaId: string;
@@ -21,6 +22,8 @@ interface DeletePersonaParams {
 export function useDeletePersona() {
   const queryClient = useQueryClient();
   const undoMutation = useUndoDeletePersona();
+  const { t } = useTranslation('personas');
+  const { t: tCommon } = useTranslation('common');
 
   return useMutation<PersonaDeleteResponse, Error, DeletePersonaParams>({
     mutationFn: async ({ personaId, reason, reasonDetail }: DeletePersonaParams) => {
@@ -35,15 +38,22 @@ export function useDeletePersona() {
         queryKey: ['personas', data.persona_id, 'details']
       });
 
-      toast.success('Persona usunięta', data.message, {
-        duration: 30000,
-        actionLabel: 'Cofnij',
-        onAction: () => undoMutation.mutate({ personaId: data.persona_id }),
-      });
+      toast.success(
+        t('toast.deleteSuccess'),
+        data.message || t('toast.deleteSuccessDescription'),
+        {
+          duration: 30000,
+          actionLabel: tCommon('buttons.undo'),
+          onAction: () => undoMutation.mutate({ personaId: data.persona_id }),
+        }
+      );
     },
     onError: (error: Error) => {
       console.error('Failed to delete persona:', error);
-      toast.error(`Failed to delete persona: ${error.message}`);
+      toast.error(
+        t('toast.deleteError'),
+        error.message || t('toast.deleteErrorDescription')
+      );
     },
   });
 }

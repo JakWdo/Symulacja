@@ -32,7 +32,8 @@
     "filter": "Filtruj",
     "sort": "Sortuj",
     "view": "Wyświetl",
-    "viewDetails": "Zobacz szczegóły"
+    "viewDetails": "Zobacz szczegóły",
+    "undo": "Cofnij"
   },
   "validation": {
     "required": "To pole jest wymagane",

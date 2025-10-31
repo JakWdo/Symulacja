@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 import { toast } from '@/components/ui/toastStore';
 import type { ProjectDeleteResponse } from '@/types';
 import { useUndoDeleteProject } from './useUndoDeleteProject';
@@ -22,6 +23,8 @@ interface DeleteProjectParams {
 export function useDeleteProject() {
   const queryClient = useQueryClient();
   const undoMutation = useUndoDeleteProject();
+  const { t } = useTranslation('projects');
+  const { t: tCommon } = useTranslation('common');
 
   return useMutation<ProjectDeleteResponse, Error, DeleteProjectParams>({
     mutationFn: async ({ projectId, reason, reasonDetail }: DeleteProjectParams) => {
@@ -42,15 +45,22 @@ export function useDeleteProject() {
       queryClient.invalidateQueries({ queryKey: ['personas'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['focusGroups'], refetchType: 'all' });
 
-      toast.success('Projekt usunięty', data.message, {
-        duration: 30000, // 30 seconds to show undo button
-        actionLabel: 'Cofnij',
-        onAction: () => undoMutation.mutate({ projectId: data.project_id }),
-      });
+      toast.success(
+        t('toast.deleteSuccess'),
+        data.message || t('toast.deleteSuccessDescription'),
+        {
+          duration: 30000, // 30 seconds to show undo button
+          actionLabel: tCommon('buttons.undo'),
+          onAction: () => undoMutation.mutate({ projectId: data.project_id }),
+        }
+      );
     },
     onError: (error: Error) => {
       console.error('Failed to delete project:', error);
-      toast.error(`Nie udało się usunąć projektu: ${error.message}`);
+      toast.error(
+        t('toast.deleteError'),
+        error.message || t('toast.deleteErrorDescription')
+      );
     },
   });
 }

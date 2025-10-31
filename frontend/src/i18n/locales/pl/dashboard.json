@@ -22,7 +22,11 @@
     "launchFocusGroup": {
       "title": "Uruchom grupę fokusową",
       "description": "Rozpocznij wirtualną grupę fokusową AI"
-    }
+    },
+    "emptyState": {
+      "description": "Brak oczekujących akcji. Świetna robota! 🎉"
+    },
+    "executing": "Wykonywanie..."
   },
 
   "activeProjects": {

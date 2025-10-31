@@ -40,6 +40,7 @@ import { UsageBudgetSection } from '@/components/dashboard/UsageBudgetSection';
 import { NotificationsSection } from '@/components/dashboard/NotificationsSection';
 import { useDashboardNavigation } from '@/hooks/dashboard/useDashboardNavigation';
 import type { QuickAction } from '@/types/dashboard';
+import { useTranslation } from 'react-i18next';
 
 interface SightDashboardProps {
   onNavigate?: (view: string) => void;
@@ -48,19 +49,20 @@ interface SightDashboardProps {
 export function SightDashboard({ onNavigate }: SightDashboardProps) {
   const { data: actions, isLoading: actionsLoading } = useQuickActions(4);
   const navigateTo = useDashboardNavigation(onNavigate);
+  const { t } = useTranslation('dashboard');
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[1920px] w-full mx-auto p-4 md:p-6">
       {/* Dashboard Header */}
       <PageHeader
-        title="Panel główny"
-        subtitle="Przegląd Twoich projektów i działań badawczych"
+        title={t('header.title')}
+        subtitle={t('header.subtitle')}
       />
 
       {/* Quick Actions Section */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Szybkie akcje</h2>
+        <h2 className="text-xl font-semibold">{t('quickActions.title')}</h2>
 
         {actionsLoading ? (
           <QuickActionsSkeleton />
@@ -77,7 +79,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
         ) : (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              Brak oczekujących akcji. Świetna robota! 🎉
+              {t('quickActions.emptyState.description')}
             </CardContent>
           </Card>
         )}
@@ -128,7 +130,7 @@ export function SightDashboard({ onNavigate }: SightDashboardProps) {
 
       {/* Notifications Section */}
       <div className="space-y-6 mb-8">
-        <h2 className="text-xl font-semibold">Powiadomienia</h2>
+        <h2 className="text-xl font-semibold">{t('notifications.title')}</h2>
         <NotificationsSection />
       </div>
       </div>
@@ -146,6 +148,7 @@ function ActionCard({
   onNavigate?: (url: string) => void | Promise<void>;
 }) {
   const executeAction = useExecuteAction();
+  const { t } = useTranslation('dashboard');
 
   const priorityColors = {
     high: 'border-red-500 bg-red-50 dark:bg-red-950',
@@ -196,7 +199,7 @@ function ActionCard({
           disabled={executeAction.isPending}
           className="w-full"
         >
-          {executeAction.isPending ? 'Wykonywanie...' : action.cta_label}
+          {executeAction.isPending ? t('quickActions.executing') : action.cta_label}
         </Button>
       </CardContent>
     </Card>

@@ -32,7 +32,8 @@
     "filter": "Filter",
     "sort": "Sort",
     "view": "View",
-    "viewDetails": "View Details"
+    "viewDetails": "View Details",
+    "undo": "Undo"
   },
   "validation": {
     "required": "This field is required",

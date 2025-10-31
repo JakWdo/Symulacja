@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '@/lib/api';
 import { toast } from '@/components/ui/toastStore';
+import { useTranslation } from 'react-i18next';
 
 interface UndoDeleteParams {
   projectId: string;
@@ -8,6 +9,7 @@ interface UndoDeleteParams {
 
 export function useUndoDeleteProject() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation('projects');
 
   return useMutation({
     mutationFn: async ({ projectId }: UndoDeleteParams) => {
@@ -16,10 +18,19 @@ export function useUndoDeleteProject() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.removeQueries({ queryKey: ['projects', data.project_id] });
-      toast.success('Przywrócono projekt', `${data.name ?? 'Projekt'} ponownie dostępny.`);
+      const projectName =
+        data.name ?? t('delete.unknown');
+
+      toast.success(
+        t('toast.undoSuccess'),
+        t('toast.undoSuccessDescription', { name: projectName })
+      );
     },
     onError: (error: Error) => {
-      toast.error('Nie udało się przywrócić projektu', error.message);
+      toast.error(
+        t('toast.undoError'),
+        error.message || t('toast.undoErrorDescription')
+      );
     },
   });
 }

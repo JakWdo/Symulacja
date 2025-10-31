@@ -22,7 +22,11 @@
     "launchFocusGroup": {
       "title": "Launch focus group",
       "description": "Start an AI virtual focus group"
-    }
+    },
+    "emptyState": {
+      "description": "No pending actions. Great job! 🎉"
+    },
+    "executing": "Executing..."
   },
 
   "activeProjects": {
