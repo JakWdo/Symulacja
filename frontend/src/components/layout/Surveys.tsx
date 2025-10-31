@@ -14,6 +14,7 @@ import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useState } from 'react';
 import { toast } from '@/components/ui/toastStore';
+import { useTranslation } from 'react-i18next';
 
 interface SurveysProps {
   onCreateSurvey: () => void;
@@ -21,6 +22,7 @@ interface SurveysProps {
 }
 
 export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
+  const { t } = useTranslation('surveys');
   const { selectedProject, setSelectedProject } = useAppStore();
   const queryClient = useQueryClient();
   const [launchDialog, setLaunchDialog] = useState<{ open: boolean; survey: Survey | null }>({
@@ -82,11 +84,11 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
 
     runMutation.mutate(surveyToLaunch.id, {
       onSuccess: () => {
-        toast.success('Ankieta uruchomiona', `${surveyToLaunch.title} · ${selectedProject?.name || 'Nieznany projekt'}`);
+        toast.success(t('launch.success'), `${surveyToLaunch.title} · ${selectedProject?.name || t('launchDialog.unknownProject')}`);
       },
       onError: (error) => {
-        const message = error instanceof Error ? error.message : 'Nieznany błąd';
-        toast.error('Nie udało się uruchomić ankiety', `${surveyToLaunch.title} · ${selectedProject?.name || 'Nieznany projekt'} • ${message}`);
+        const message = error instanceof Error ? error.message : t('launch.unknownError');
+        toast.error(t('launch.error'), `${surveyToLaunch.title} · ${selectedProject?.name || t('launchDialog.unknownProject')} • ${message}`);
       },
     });
 
@@ -105,11 +107,11 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
 
     deleteMutation.mutate(surveyToDelete.id, {
       onSuccess: () => {
-        toast.success('Ankieta usunięta', `${surveyToDelete.title} · ${selectedProject?.name || 'Nieznany projekt'}`);
+        toast.success(t('delete.success'), `${surveyToDelete.title} · ${selectedProject?.name || t('deleteDialog.unknownProject')}`);
       },
       onError: (error) => {
-        const message = error instanceof Error ? error.message : 'Nieznany błąd';
-        toast.error('Nie udało się usunąć ankiety', `${surveyToDelete.title} · ${selectedProject?.name || 'Nieznany projekt'} • ${message}`);
+        const message = error instanceof Error ? error.message : t('delete.unknownError');
+        toast.error(t('delete.error'), `${surveyToDelete.title} · ${selectedProject?.name || t('deleteDialog.unknownProject')} • ${message}`);
       },
     });
 
@@ -119,18 +121,18 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
   const getStatusBadge = (status: Survey['status']) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">Zakończony</Badge>;
+        return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">{t('status.completed')}</Badge>;
       case 'running':
         return (
           <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400 flex items-center gap-1.5">
             <SpinnerLogo className="w-3.5 h-3.5" />
-            W trakcie
+            {t('status.running')}
           </Badge>
         );
       case 'draft':
-        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Szkic</Badge>;
+        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">{t('status.draft')}</Badge>;
       case 'failed':
-        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">Nieudany</Badge>;
+        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">{t('status.failed')}</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -142,7 +144,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Wszystkie ankiety</p>
+              <p className="text-sm text-muted-foreground">{t('tabs.all')}</p>
               <p className="text-2xl font-bold text-[#F27405]">{surveys.length}</p>
             </div>
             <BarChart3 className="w-8 h-8 text-[#F27405]" />
@@ -154,7 +156,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Wszystkie odpowiedzi</p>
+              <p className="text-sm text-muted-foreground">{t('tabs.allResponses')}</p>
               <p className="text-2xl font-bold text-[#F27405]">
                 {surveys.reduce((sum, survey) => sum + survey.actual_responses, 0).toLocaleString()}
               </p>
@@ -173,9 +175,9 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
       <Card className="bg-card border border-border">
         <CardContent className="py-12 text-center space-y-4">
           <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto" />
-          <h3 className="text-lg text-card-foreground">Nie wybrano projektu</h3>
+          <h3 className="text-lg text-card-foreground">{t('page.noProjectSelected')}</h3>
           <p className="text-sm text-muted-foreground">
-            Wybierz projekt z listy rozwijanej, aby przeglądać i zarządzać ankietami.
+            {t('page.selectProjectDescription')}
           </p>
         </CardContent>
       </Card>
@@ -185,10 +187,10 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
       <>
         {statsSection}
         <div className="space-y-4">
-          <h2 className="text-xl text-foreground">Twoje ankiety</h2>
+          <h2 className="text-xl text-foreground">{t('list.title')}</h2>
           <Card className="bg-card border border-border">
             <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">Ładowanie ankiet...</p>
+              <p className="text-muted-foreground">{t('list.loading')}</p>
             </CardContent>
           </Card>
         </div>
@@ -199,20 +201,20 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
       <>
         {statsSection}
         <div className="space-y-4">
-          <h2 className="text-xl text-foreground">Twoje ankiety</h2>
+          <h2 className="text-xl text-foreground">{t('list.title')}</h2>
           <Card className="bg-card border border-border">
             <CardContent className="p-12 text-center">
               <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg text-card-foreground mb-2">Nie znaleziono ankiet</h3>
+              <h3 className="text-lg text-card-foreground mb-2">{t('list.empty.title')}</h3>
               <p className="text-muted-foreground mb-4">
-                Utwórz swoją pierwszą syntetyczną ankietę, aby zacząć zbierać dane ilościowe
+                {t('list.empty.description')}
               </p>
               <Button
                 onClick={onCreateSurvey}
                 className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Utwórz pierwszą ankietę
+                {t('list.empty.action')}
               </Button>
             </CardContent>
           </Card>
@@ -224,7 +226,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
       <>
         {statsSection}
         <div className="space-y-4">
-          <h2 className="text-xl text-foreground">Twoje ankiety</h2>
+          <h2 className="text-xl text-foreground">{t('list.title')}</h2>
           <div className="grid grid-cols-1 gap-4">
             {surveys.map((survey) => {
               const progress = survey.target_responses > 0
@@ -266,13 +268,13 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                               {survey.status === 'completed' && (
                                 <DropdownMenuItem onClick={() => onSelectSurvey(survey)}>
                                   <Eye className="w-4 h-4 mr-2" />
-                                  Zobacz wyniki
+                                  {t('list.card.viewResults')}
                                 </DropdownMenuItem>
                               )}
                               {survey.status === 'draft' && (
                                 <DropdownMenuItem onClick={() => handleRunSurvey(survey)}>
                                   <Play className="w-4 h-4 mr-2" />
-                                  Uruchom ankietę
+                                  {t('list.card.launch')}
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
@@ -280,7 +282,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                                 className="text-red-600 dark:text-red-400"
                               >
                                 <Trash2 className="w-4 h-4 mr-2" />
-                                Usuń
+                                {t('list.card.delete')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -290,38 +292,38 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Postęp</span>
+                              <span className="text-muted-foreground">{t('list.card.progress')}</span>
                               <span className="text-card-foreground">
                                 {survey.actual_responses.toLocaleString()} / {survey.target_responses.toLocaleString()}
                               </span>
                             </div>
                             <Progress value={progress} className="h-2" />
                             <p className="text-xs text-muted-foreground">
-                              {Math.round(progress)}% ukończono
+                              {t('list.card.completed', { progress: Math.round(progress) })}
                             </p>
                           </div>
 
                           <div className="space-y-1">
-                            <p className="text-sm text-muted-foreground">Czas wykonania</p>
+                            <p className="text-sm text-muted-foreground">{t('list.card.executionTime')}</p>
                             <div className="space-y-1">
                               {survey.total_execution_time_ms ? (
                                 <>
                                   <p className="text-xs text-card-foreground">
-                                    Łącznie: {(survey.total_execution_time_ms / 1000).toFixed(1)}s
+                                    {t('list.card.total')}: {(survey.total_execution_time_ms / 1000).toFixed(1)}s
                                   </p>
                                   {survey.avg_response_time_ms && (
                                     <p className="text-xs text-card-foreground">
-                                      Śr.: {(survey.avg_response_time_ms / 1000).toFixed(2)}s na odpowiedź
+                                      {t('list.card.average')}: {(survey.avg_response_time_ms / 1000).toFixed(2)}s {t('list.card.perResponse')}
                                     </p>
                                   )}
                                 </>
                               ) : (
                                 <p className="text-xs text-card-foreground">
                                   {survey.status === 'running'
-                                    ? 'W trakcie...'
+                                    ? t('list.card.running')
                                     : survey.status === 'draft'
-                                    ? 'Nie rozpoczęto'
-                                    : 'N/D'}
+                                    ? t('list.card.notStarted')
+                                    : t('list.card.na')}
                                 </p>
                               )}
                             </div>
@@ -337,10 +339,10 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                               className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
                             >
                               <Eye className="w-4 h-4 mr-2" />
-                              Zobacz wyniki
+                              {t('list.card.viewResults')}
                             </Button>
                             <p className="text-xs text-muted-foreground ml-auto">
-                              Utworzono {new Date(survey.created_at).toLocaleDateString()}
+                              {t('list.card.created', { date: new Date(survey.created_at).toLocaleDateString() })}
                             </p>
                           </div>
                         ) : (
@@ -353,11 +355,11 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                                 disabled={runMutation.isPending}
                               >
                                 <Play className="w-4 h-4 mr-2" />
-                                Uruchom ankietę
+                                {t('list.card.launch')}
                               </Button>
                             )}
                             <p className="text-xs text-muted-foreground ml-auto">
-                              Utworzono {new Date(survey.created_at).toLocaleDateString()}
+                              {t('list.card.created', { date: new Date(survey.created_at).toLocaleDateString() })}
                             </p>
                           </div>
                         )}
@@ -378,8 +380,8 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
       <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
         {/* Header */}
         <PageHeader
-          title="Syntetyczne ankiety"
-          subtitle="Generuj ilościowe wnioski od wirtualnych respondentów idealnie dopasowanych do Twojej grupy docelowej"
+          title={t('page.title')}
+          subtitle={t('page.subtitle')}
           actions={
             <>
               <Select
@@ -391,7 +393,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
               >
                 <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
                   <SelectValue
-                    placeholder="Wybierz projekt"
+                    placeholder={t('page.selectProject')}
                     className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
                   />
                 </SelectTrigger>
@@ -401,7 +403,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                       <SpinnerLogo className="w-4 h-4" />
                     </div>
                   ) : projects.length === 0 ? (
-                    <div className="p-2 text-sm text-muted-foreground">Nie znaleziono projektów</div>
+                    <div className="p-2 text-sm text-muted-foreground">{t('page.noProjectsFound')}</div>
                   ) : (
                     projects.map((project) => (
                       <SelectItem
@@ -421,7 +423,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                 disabled={!selectedProject}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Utwórz nową ankietę
+                {t('page.createButton')}
               </Button>
             </>
           }
@@ -433,20 +435,20 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
       <ConfirmDialog
         open={launchDialog.open}
         onOpenChange={(open) => setLaunchDialog({ open, survey: null })}
-        title={`Uruchomić "${launchDialog.survey?.title}"?`}
-        description={`Spowoduje to zebranie odpowiedzi od wszystkich ${launchDialog.survey?.target_responses || 0} wirtualnych uczestników w Twoim projekcie.`}
-        confirmText="Uruchom ankietę"
-        cancelText="Jeszcze nie"
+        title={t('launchDialog.title', { title: launchDialog.survey?.title || '' })}
+        description={t('launchDialog.description', { count: launchDialog.survey?.target_responses || 0 })}
+        confirmText={t('launchDialog.confirmButton')}
+        cancelText={t('launchDialog.cancelText')}
         onConfirm={confirmLaunch}
       />
 
       <ConfirmDialog
         open={deleteDialog.open}
         onOpenChange={(open) => setDeleteDialog({ open, survey: null })}
-        title={`Usunąć "${deleteDialog.survey?.title}"?`}
-        description={`Spowoduje to trwałe usunięcie wszystkich danych odpowiedzi i nie można tego cofnąć.`}
-        confirmText="Usuń ankietę"
-        cancelText="Zachowaj"
+        title={t('deleteDialog.title', { title: deleteDialog.survey?.title || '' })}
+        description={t('deleteDialog.description')}
+        confirmText={t('deleteDialog.confirmButton')}
+        cancelText={t('deleteDialog.cancelText')}
         onConfirm={confirmDelete}
       />
     </div>

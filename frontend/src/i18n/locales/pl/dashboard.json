@@ -162,18 +162,25 @@
     "newProject": "Nowy projekt",
     "stats": {
       "activeProjects": "Aktywne projekty",
+      "allProjects": "Wszystkie projekty",
       "projectsChange": "+2 w ostatnim miesiącu",
       "totalPersonas": "Łącznie person",
+      "allPersonas": "Wszystkie persony",
+      "aiGeneratedPersonas": "Persony wygenerowane przez AI",
       "personasChange": "+18% w ostatnim miesiącu",
       "runningSurveys": "Aktywne ankiety",
+      "activeSurveys": "Aktywne ankiety",
+      "currentSurveys": "Bieżące ankiety",
       "surveysChange": "+5 w tym tygodniu",
       "focusGroups": "Grupy fokusowe",
+      "completedDiscussions": "Zakończone dyskusje",
       "focusGroupsChange": "+3 ukończone dzisiaj"
     },
     "charts": {
       "researchActivity": {
         "title": "Aktywność badawcza",
         "subtitle": "Miesięczny podział person, ankiet i grup fokusowych",
+        "subtitleAlt": "Miesięczny podział aktywności badawczej",
         "legend": {
           "personas": "Persony",
           "surveys": "Ankiety",
@@ -197,6 +204,7 @@
       "projectDistribution": {
         "title": "Rozkład projektów",
         "subtitle": "Alokacja zasobów według projektu",
+        "subtitleAlt": "Alokacja zasobów według projektów",
         "totalLabel": "Aktywności",
         "noData": "Brak ostatnich person, ankiet lub grup fokusowych"
       }
@@ -204,6 +212,7 @@
     "recentProjects": {
       "title": "Ostatnie projekty",
       "subtitle": "Twoje najnowsze projekty badawcze ze szczegółowymi insightami",
+      "subtitleAlt": "Twoje najnowsze projekty badawcze ze szczegółowymi informacjami",
       "viewAll": "Zobacz wszystkie",
       "view": "Zobacz",
       "personas": "Persony",
@@ -211,7 +220,9 @@
       "focusGroups": "Grupy fokusowe",
       "noProjects": {
         "title": "Brak projektów",
+        "titleAlt": "Nie masz jeszcze projektów",
         "description": "Zacznij od utworzenia swojego pierwszego projektu",
+        "descriptionAlt": "Zacznij od utworzenia swojego pierwszego projektu badawczego. Projekty pomagają organizować persony, ankiety i sesje grup fokusowych.",
         "createButton": "Utwórz swój pierwszy projekt"
       }
     },

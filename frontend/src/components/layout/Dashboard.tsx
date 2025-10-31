@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { projectsApi, personasApi, focusGroupsApi } from '@/lib/api';
 import { pieSvgPaths } from '@/lib/svg-paths';
+import { useTranslation } from 'react-i18next';
 
 interface DashboardProps {
   onNavigate?: (view: string) => void;
@@ -155,6 +156,8 @@ function CustomPieChart() {
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
+  const { t } = useTranslation('dashboard');
+
   // Fetch projects
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -224,10 +227,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">
-            Panel
+            {t('mainDashboard.title')}
           </h1>
           <p className="text-muted-foreground">
-            Przegląd Twoich działań badawczych we wszystkich projektach
+            {t('mainDashboard.subtitle')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -236,7 +239,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             onClick={() => onNavigate?.('projects')}
           >
             <Plus className="w-4 h-4 mr-2" />
-            Nowy projekt
+            {t('mainDashboard.newProject')}
           </Button>
         </div>
       </div>
@@ -246,14 +249,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">
-              Aktywne projekty
+              {t('mainDashboard.stats.activeProjects')}
             </CardTitle>
             <FolderOpen className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl brand-orange">{projects.length}</div>
             <p className="text-xs text-muted-foreground">
-              Wszystkie projekty
+              {t('mainDashboard.stats.allProjects')}
             </p>
           </CardContent>
         </Card>
@@ -261,14 +264,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">
-              Wszystkie persony
+              {t('mainDashboard.stats.allPersonas')}
             </CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl brand-orange">{allPersonas.length}</div>
             <p className="text-xs text-muted-foreground">
-              Persony wygenerowane przez AI
+              {t('mainDashboard.stats.aiGeneratedPersonas')}
             </p>
           </CardContent>
         </Card>
@@ -276,14 +279,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">
-              Aktywne ankiety
+              {t('mainDashboard.stats.activeSurveys')}
             </CardTitle>
             <BarChart3 className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl brand-orange">0</div>
             <p className="text-xs text-muted-foreground">
-              Bieżące ankiety
+              {t('mainDashboard.stats.currentSurveys')}
             </p>
           </CardContent>
         </Card>
@@ -291,14 +294,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">
-              Grupy fokusowe
+              {t('mainDashboard.stats.focusGroups')}
             </CardTitle>
             <MessageSquare className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl brand-orange">{allFocusGroups.length}</div>
             <p className="text-xs text-muted-foreground">
-              Zakończone dyskusje
+              {t('mainDashboard.stats.completedDiscussions')}
             </p>
           </CardContent>
         </Card>
@@ -311,10 +314,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <Card className="bg-card border border-border">
             <CardHeader>
               <CardTitle className="text-2xl font-bold text-foreground">
-                Aktywność badawcza
+                {t('mainDashboard.charts.researchActivity.title')}
               </CardTitle>
               <p className="text-muted-foreground">
-                Miesięczny podział person, ankiet i grup fokusowych
+                {t('mainDashboard.charts.researchActivity.subtitleAlt')}
               </p>
             </CardHeader>
             <CardContent>
@@ -327,10 +330,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <Card className="bg-card border border-border">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-foreground">
-              Rozkład projektów
+              {t('mainDashboard.charts.projectDistribution.title')}
             </CardTitle>
             <p className="text-muted-foreground">
-              Alokacja zasobów według projektu
+              {t('mainDashboard.charts.projectDistribution.subtitleAlt')}
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -357,10 +360,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <CardHeader className="flex items-center justify-between">
           <div>
             <CardTitle className="text-2xl font-bold text-foreground">
-              Ostatnie projekty
+              {t('mainDashboard.recentProjects.title')}
             </CardTitle>
             <p className="text-muted-foreground">
-              Twoje najnowsze projekty badawcze ze szczegółowymi informacjami
+              {t('mainDashboard.recentProjects.subtitleAlt')}
             </p>
           </div>
           <Button
@@ -370,7 +373,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             onClick={() => onNavigate?.('projects')}
           >
             <Eye className="w-4 h-4 mr-2" />
-            Zobacz wszystkie
+            {t('mainDashboard.recentProjects.viewAll')}
           </Button>
         </CardHeader>
         <CardContent>
@@ -401,14 +404,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                       }}
                     >
                       <Eye className="w-3 h-3 mr-1" />
-                      Zobacz
+                      {t('mainDashboard.recentProjects.view')}
                     </Button>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">
-                        Persony
+                        {t('mainDashboard.recentProjects.personas')}
                       </p>
                       <p className="text-lg text-card-foreground">
                         {project.personas}
@@ -416,7 +419,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">
-                        Ankiety
+                        {t('mainDashboard.recentProjects.surveys')}
                       </p>
                       <p className="text-lg text-card-foreground">
                         {project.surveys}
@@ -424,7 +427,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">
-                        Grupy fokusowe
+                        {t('mainDashboard.recentProjects.focusGroups')}
                       </p>
                       <p className="text-lg text-card-foreground">
                         {project.focusGroups}
@@ -437,16 +440,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           ) : (
             <div className="text-center py-12">
               <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">Nie masz jeszcze projektów</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">{t('mainDashboard.recentProjects.noProjects.titleAlt')}</h3>
               <p className="text-muted-foreground mb-4">
-                Zacznij od utworzenia swojego pierwszego projektu
+                {t('mainDashboard.recentProjects.noProjects.descriptionAlt')}
               </p>
               <Button
                 onClick={() => onNavigate?.('projects')}
                 className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Utwórz swój pierwszy projekt
+                {t('mainDashboard.recentProjects.noProjects.createButton')}
               </Button>
             </div>
           )}

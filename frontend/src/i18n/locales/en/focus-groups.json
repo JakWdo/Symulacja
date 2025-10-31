@@ -2,6 +2,29 @@
   "title": "Focus Groups",
   "subtitle": "Manage AI virtual focus groups",
 
+  "page": {
+    "title": "Focus Groups",
+    "subtitle": "Conduct in-depth qualitative research with AI-powered focus group sessions",
+    "selectProject": "Select project",
+    "noProjectsFound": "No projects found",
+    "createButton": "Create Focus Group",
+    "noProjectSelected": "No project selected",
+    "selectProjectDescription": "Select a project from the dropdown to view and manage focus groups."
+  },
+
+  "status": {
+    "completed": "Completed",
+    "running": "Running",
+    "failed": "Failed",
+    "draft": "Draft",
+    "ready": "Ready to start"
+  },
+
+  "tabs": {
+    "all": "All Groups",
+    "allParticipants": "All Participants"
+  },
+
   "header": {
     "createButton": "New focus group",
     "searchPlaceholder": "Search focus groups...",
@@ -12,16 +35,30 @@
   },
 
   "list": {
+    "title": "Your focus groups",
+    "empty": {
+      "title": "No focus groups found",
+      "description": "Create your first focus group to start in-depth qualitative research with AI personas.",
+      "action": "Create Focus Group"
+    },
     "emptyState": {
       "title": "No focus groups",
       "description": "Launch your first AI virtual focus group",
       "createButton": "Create focus group"
     },
     "card": {
+      "noDescription": "No description",
+      "viewDetails": "View Details",
+      "delete": "Delete",
       "participants": "participants",
+      "participant": "participant",
+      "participants_few": "participants",
+      "topics": "Discussion Topics",
+      "status": "Status",
+      "manage": "Manage Session",
+      "created": "Created {{date}}",
       "messages": "messages",
       "duration": "duration",
-      "status": "Status",
       "statusScheduled": "Scheduled",
       "statusActive": "Active",
       "statusCompleted": "Completed",
@@ -29,7 +66,10 @@
       "viewButton": "View discussion",
       "continueButton": "Continue",
       "analyzeButton": "Analyze",
-      "deleteButton": "Delete"
+      "deleteButton": "Delete",
+      "question": "question",
+      "questions": "questions",
+      "questions_few": "questions"
     }
   },
 
@@ -228,6 +268,16 @@
       "averageEngagement": "Average engagement",
       "topicsDiscussed": "Topics discussed"
     }
+  },
+
+  "delete": {
+    "success": "Session archived",
+    "successDescription": "Focus group discussion has been removed from the workspace.",
+    "error": "Failed to delete focus group",
+    "dialogTitle": "Delete focus group?",
+    "dialogDescription": "This will permanently delete the focus group session and all associated data. This action cannot be undone.",
+    "confirmText": "Delete session",
+    "cancelText": "Keep"
   },
 
   "deleteDialog": {

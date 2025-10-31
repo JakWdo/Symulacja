@@ -2,6 +2,29 @@
   "title": "Grupy fokusowe",
   "subtitle": "Zarządzaj wirtualnymi grupami fokusowymi AI",
 
+  "page": {
+    "title": "Grupy fokusowe",
+    "subtitle": "Przeprowadzaj dogłębne badania jakościowe z sesjami grup fokusowych opartymi na AI",
+    "selectProject": "Wybierz projekt",
+    "noProjectsFound": "Nie znaleziono projektów",
+    "createButton": "Utwórz grupę fokusową",
+    "noProjectSelected": "Nie wybrano projektu",
+    "selectProjectDescription": "Wybierz projekt z listy rozwijanej, aby przeglądać i zarządzać grupami fokusowymi."
+  },
+
+  "status": {
+    "completed": "Zakończony",
+    "running": "W trakcie",
+    "failed": "Nieudany",
+    "draft": "Szkic",
+    "ready": "Gotowy do startu"
+  },
+
+  "tabs": {
+    "all": "Wszystkie grupy",
+    "allParticipants": "Wszyscy uczestnicy"
+  },
+
   "header": {
     "createButton": "Nowa grupa fokusowa",
     "searchPlaceholder": "Szukaj grup fokusowych...",
@@ -12,16 +35,31 @@
   },
 
   "list": {
+    "title": "Twoje grupy fokusowe",
+    "empty": {
+      "title": "Nie znaleziono grup fokusowych",
+      "description": "Utwórz swoją pierwszą grupę fokusową, aby rozpocząć dogłębne badania jakościowe z personami AI.",
+      "action": "Utwórz grupę fokusową"
+    },
     "emptyState": {
       "title": "Brak grup fokusowych",
       "description": "Uruchom swoją pierwszą wirtualną grupę fokusową AI",
       "createButton": "Utwórz grupę fokusową"
     },
     "card": {
-      "participants": "uczestników",
+      "noDescription": "Brak opisu",
+      "viewDetails": "Zobacz szczegóły",
+      "delete": "Usuń",
+      "participants": "Uczestnicy",
+      "participant": "uczestnik",
+      "participants_few": "uczestników",
+      "topics": "Tematy dyskusji",
+      "status": "Status",
+      "manage": "Zarządzaj sesją",
+      "created": "Utworzono {{date}}",
+      "runningWithCount": "W trakcie ({{count}} {{count, plural, one {uczestnik} few {uczestników} other {uczestników}}})",
       "messages": "wiadomości",
       "duration": "czas trwania",
-      "status": "Status",
       "statusScheduled": "Zaplanowana",
       "statusActive": "Aktywna",
       "statusCompleted": "Zakończona",
@@ -29,7 +67,10 @@
       "viewButton": "Zobacz dyskusję",
       "continueButton": "Kontynuuj",
       "analyzeButton": "Analizuj",
-      "deleteButton": "Usuń"
+      "deleteButton": "Usuń",
+      "question": "pytanie",
+      "questions": "pytań",
+      "questions_few": "pytania"
     }
   },
 
@@ -228,6 +269,17 @@
       "averageEngagement": "Średnie zaangażowanie",
       "topicsDiscussed": "Omówione tematy"
     }
+  },
+
+  "delete": {
+    "success": "Sesja zarchiwizowana",
+    "successDescription": "Dyskusja grupy fokusowej została usunięta z obszaru roboczego.",
+    "error": "Nie udało się usunąć grupy fokusowej",
+    "unknownError": "Nieznany błąd",
+    "dialogTitle": "Usunąć \"{{name}}\"?",
+    "dialogDescription": "Spowoduje to trwałe usunięcie wszystkich danych dyskusji i nie można tego cofnąć.",
+    "confirmText": "Usuń sesję",
+    "cancelText": "Zachowaj"
   },
 
   "deleteDialog": {

@@ -2,6 +2,28 @@
   "title": "Ankiety",
   "subtitle": "Twórz i zarządzaj ankietami badawczymi",
 
+  "page": {
+    "title": "Syntetyczne ankiety",
+    "subtitle": "Generuj ilościowe wnioski od wirtualnych respondentów idealnie dopasowanych do Twojej grupy docelowej",
+    "selectProject": "Wybierz projekt",
+    "createButton": "Utwórz nową ankietę",
+    "noProjectSelected": "Nie wybrano projektu",
+    "noProjectsFound": "Nie znaleziono projektów",
+    "selectProjectDescription": "Wybierz projekt z listy rozwijanej, aby przeglądać i zarządzać ankietami."
+  },
+
+  "status": {
+    "completed": "Zakończony",
+    "running": "W trakcie",
+    "draft": "Szkic",
+    "failed": "Nieudany"
+  },
+
+  "tabs": {
+    "all": "Wszystkie ankiety",
+    "allResponses": "Wszystkie odpowiedzi"
+  },
+
   "header": {
     "createButton": "Nowa ankieta",
     "searchPlaceholder": "Szukaj ankiet...",
@@ -12,13 +34,33 @@
   },
 
   "list": {
+    "title": "Twoje ankiety",
+    "loading": "Ładowanie ankiet...",
+    "empty": {
+      "title": "Nie znaleziono ankiet",
+      "description": "Utwórz swoją pierwszą syntetyczną ankietę, aby zacząć zbierać dane ilościowe",
+      "action": "Utwórz pierwszą ankietę"
+    },
     "emptyState": {
       "title": "Brak ankiet",
       "description": "Utwórz swoją pierwszą ankietę dla projektu badawczego",
       "createButton": "Utwórz ankietę"
     },
     "card": {
+      "viewResults": "Zobacz wyniki",
+      "launch": "Uruchom ankietę",
+      "delete": "Usuń",
+      "completed": "{{progress}}% ukończono",
+      "executionTime": "Czas wykonania",
+      "total": "Łącznie",
+      "average": "Śr.",
+      "perResponse": "na odpowiedź",
+      "running": "W trakcie...",
+      "notStarted": "Nie rozpoczęto",
+      "na": "N/D",
       "questions": "pytań",
+      "question": "pytanie",
+      "questions_few": "pytania",
       "responses": "odpowiedzi",
       "status": "Status",
       "statusDraft": "Szkic",
@@ -28,7 +70,9 @@
       "viewButton": "Zobacz wyniki",
       "editButton": "Edytuj",
       "duplicateButton": "Duplikuj",
-      "deleteButton": "Usuń"
+      "deleteButton": "Usuń",
+      "progress": "Postęp",
+      "created": "Utworzono {{date}}"
     }
   },
 
@@ -133,6 +177,37 @@
   "deleteDialog": {
     "title": "Usuń ankietę",
     "description": "Czy na pewno chcesz usunąć tę ankietę? Wszystkie odpowiedzi zostaną trwale usunięte.",
+    "cancelButton": "Anuluj",
+    "deleteButton": "Usuń ankietę",
+    "deletingButton": "Usuwanie..."
+  },
+
+  "launch": {
+    "success": "Ankieta uruchomiona",
+    "error": "Nie udało się uruchomić ankiety",
+    "unknownError": "Nieznany błąd"
+  },
+
+  "launchDialog": {
+    "title": "Uruchomić \"{{title}}\"?",
+    "description": "Spowoduje to zebranie odpowiedzi od wszystkich {{count}} wirtualnych uczestników w Twoim projekcie.",
+    "confirmButton": "Uruchom ankietę",
+    "unknownProject": "Nieznany projekt",
+    "cancelText": "Jeszcze nie"
+  },
+
+  "delete": {
+    "success": "Ankieta usunięta",
+    "error": "Nie udało się usunąć ankiety",
+    "unknownError": "Nieznany błąd"
+  },
+
+  "deleteDialog": {
+    "title": "Usunąć \"{{title}}\"?",
+    "description": "Spowoduje to trwałe usunięcie wszystkich danych odpowiedzi i nie można tego cofnąć.",
+    "confirmButton": "Usuń ankietę",
+    "cancelText": "Zachowaj",
+    "unknownProject": "Nieznany projekt",
     "cancelButton": "Anuluj",
     "deleteButton": "Usuń ankietę",
     "deletingButton": "Usuwanie..."

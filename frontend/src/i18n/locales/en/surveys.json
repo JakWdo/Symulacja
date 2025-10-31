@@ -2,6 +2,28 @@
   "title": "Surveys",
   "subtitle": "Create and manage research surveys",
 
+  "page": {
+    "title": "Synthetic Surveys",
+    "subtitle": "Generate quantitative insights from virtual respondents perfectly matched to your target audience",
+    "selectProject": "Select project",
+    "createButton": "Create new survey",
+    "noProjectSelected": "No project selected",
+    "noProjectsFound": "No projects found",
+    "selectProjectDescription": "Select a project from the dropdown to view and manage surveys."
+  },
+
+  "status": {
+    "completed": "Completed",
+    "running": "Running",
+    "draft": "Draft",
+    "failed": "Failed"
+  },
+
+  "tabs": {
+    "all": "All Surveys",
+    "allResponses": "All Responses"
+  },
+
   "header": {
     "createButton": "New survey",
     "searchPlaceholder": "Search surveys...",
@@ -12,13 +34,32 @@
   },
 
   "list": {
+    "title": "Your surveys",
+    "loading": "Loading surveys...",
+    "empty": {
+      "title": "No surveys found",
+      "description": "Create your first survey to start collecting responses from virtual respondents matched to your target segment.",
+      "action": "Create your first survey"
+    },
     "emptyState": {
       "title": "No surveys",
       "description": "Create your first survey for a research project",
       "createButton": "Create survey"
     },
     "card": {
+      "viewResults": "View Results",
+      "launch": "Launch Survey",
+      "delete": "Delete",
+      "completed": "completed",
+      "executionTime": "Execution Time",
+      "total": "Total:",
+      "average": "Avg:",
+      "running": "Running...",
+      "notStarted": "Not started",
+      "na": "N/A",
       "questions": "questions",
+      "question": "question",
+      "questions_few": "questions",
       "responses": "responses",
       "status": "Status",
       "statusDraft": "Draft",
@@ -28,7 +69,8 @@
       "viewButton": "View results",
       "editButton": "Edit",
       "duplicateButton": "Duplicate",
-      "deleteButton": "Delete"
+      "deleteButton": "Delete",
+      "progress": "Progress"
     }
   },
 
@@ -130,9 +172,25 @@
     }
   },
 
+  "launch": {
+    "success": "Survey launched",
+    "error": "Failed to launch survey"
+  },
+
+  "launchDialog": {
+    "title": "Launch survey?",
+    "description": "This will collect responses from virtual respondents matched to your project's target audience. The process may take several minutes.",
+    "confirmButton": "Launch Survey",
+    "unknownProject": "Unknown project",
+    "targetResponses": "This will collect responses from all {{count}} virtual participants in your project.",
+    "cancelText": "Not yet"
+  },
+
   "deleteDialog": {
-    "title": "Delete Survey",
-    "description": "Are you sure you want to delete this survey? All responses will be permanently deleted.",
+    "title": "Delete survey?",
+    "description": "This will permanently delete all response data and cannot be undone.",
+    "confirmButton": "Delete survey",
+    "cancelText": "Keep",
     "cancelButton": "Cancel",
     "deleteButton": "Delete survey",
     "deletingButton": "Deleting..."

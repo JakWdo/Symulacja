@@ -162,18 +162,25 @@
     "newProject": "New Project",
     "stats": {
       "activeProjects": "Active Projects",
+      "allProjects": "All Projects",
       "projectsChange": "+2 from last month",
       "totalPersonas": "Total Personas",
+      "allPersonas": "All Personas",
+      "aiGeneratedPersonas": "AI Generated Personas",
       "personasChange": "+18% from last month",
       "runningSurveys": "Running Surveys",
+      "activeSurveys": "Active Surveys",
+      "currentSurveys": "Current Surveys",
       "surveysChange": "+5 this week",
       "focusGroups": "Focus Groups",
+      "completedDiscussions": "Completed Discussions",
       "focusGroupsChange": "+3 completed today"
     },
     "charts": {
       "researchActivity": {
         "title": "Research Activity",
         "subtitle": "Monthly breakdown of personas, surveys, and focus groups",
+        "subtitleAlt": "Monthly breakdown of research activity",
         "legend": {
           "personas": "Personas",
           "surveys": "Surveys",
@@ -197,6 +204,7 @@
       "projectDistribution": {
         "title": "Project Distribution",
         "subtitle": "Resource allocation by project",
+        "subtitleAlt": "Resource allocation by projects",
         "totalLabel": "Activities",
         "noData": "No recent personas, surveys, or focus groups recorded"
       }
@@ -204,6 +212,7 @@
     "recentProjects": {
       "title": "Recent Projects",
       "subtitle": "Your latest research projects with detailed insights",
+      "subtitleAlt": "Your latest research projects with detailed information",
       "viewAll": "View All",
       "view": "View",
       "personas": "Personas",
@@ -211,7 +220,9 @@
       "focusGroups": "Focus Groups",
       "noProjects": {
         "title": "No projects yet",
+        "titleAlt": "You don't have any projects yet",
         "description": "Get started by creating your first project",
+        "descriptionAlt": "Get started by creating your first research project. Projects help organize personas, surveys, and focus group sessions.",
         "createButton": "Create Your First Project"
       }
     },
