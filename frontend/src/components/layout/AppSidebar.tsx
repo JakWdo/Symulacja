@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { LanguageToggle } from '@/components/ui/language-toggle';
 import { Logo } from '@/components/ui/logo';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,7 +37,6 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
             <Logo className="w-full h-full object-cover" />
           </div>
           <div className="flex items-center gap-1">
-            <LanguageToggle />
             <ThemeToggle />
           </div>
         </div>
