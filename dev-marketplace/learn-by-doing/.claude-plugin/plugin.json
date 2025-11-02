@@ -1,0 +1,12 @@
+{
+  "name": "learn-by-doing",
+  "version": "1.0.0",
+  "description": "Inteligentny system uczenia się przez praktykę na projekcie Sight",
+  "author": {
+    "name": "Sight Team"
+  },
+  "license": "MIT",
+  "keywords": ["learning", "education", "polish"],
+  "commands": "./commands/",
+  "hooks": "./hooks/hooks.json"
+}

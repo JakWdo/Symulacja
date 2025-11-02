@@ -94,3 +94,8 @@ checkpoints/
 *.bak
 *.backup
 *.tmp
+
+# Learning plugin data (local)
+.claude/plugins/learn-by-doing/data/
+dev-marketplace/learn-by-doing/data/*.json
+dev-marketplace/learn-by-doing/data/*.jsonl

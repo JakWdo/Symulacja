@@ -1,0 +1,14 @@
+{
+  "name": "sight-dev-marketplace",
+  "description": "Local development marketplace for Sight project plugins",
+  "owner": {
+    "name": "Sight Team"
+  },
+  "plugins": [
+    {
+      "name": "learn-by-doing",
+      "source": "./learn-by-doing",
+      "description": "Inteligentny system uczenia się przez praktykę"
+    }
+  ]
+}
