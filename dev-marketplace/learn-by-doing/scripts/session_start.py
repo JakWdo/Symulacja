@@ -27,6 +27,37 @@ from data_manager import (
     ensure_data_files_exist
 )
 from domain_manager import get_active_domain, list_domains
+from course_manager import list_active_courses
+
+
+def format_active_courses(courses: list) -> str:
+    """
+    Formatuj aktywne kursy do welcome message
+
+    Args:
+        courses: Lista aktywnych kursów
+
+    Returns:
+        Sformatowany string
+    """
+    if not courses:
+        return "📭 Brak aktywnych kursów\n\nUżyj `/course start \"cel\"` aby rozpocząć naukę!"
+
+    output = ""
+    for course in courses[:3]:  # Show max 3
+        progress_pct = (course["completed_lessons"] / course["total_lessons"]) * 100 if course["total_lessons"] > 0 else 0
+        progress_bar = "█" * int(progress_pct / 10) + "░" * (10 - int(progress_pct / 10))
+
+        output += f"""**{course['title']}** (ID: `{course['id']}`)
+  {progress_bar} {progress_pct:.0f}% | Lekcja {course['current_lesson']}/{course['total_lessons']}
+  Użyj: `/course continue {course['id']}` aby kontynuować
+
+"""
+
+    if len(courses) > 3:
+        output += f"\n_...i {len(courses) - 3} więcej. Użyj `/course list` aby zobaczyć wszystkie._\n"
+
+    return output.strip()
 
 
 def generate_daily_goals(progress: dict, config: dict, active_domain: dict) -> list:
@@ -64,7 +95,8 @@ def format_welcome_message(
     to_review: list,
     learning_prompt: str,
     active_domain: dict,
-    all_domains: list
+    all_domains: list,
+    active_courses: list
 ) -> str:
     """
     Formatuj pełny welcome message (Universal Learning System v2.0)
@@ -76,6 +108,7 @@ def format_welcome_message(
         learning_prompt: String z głównym promptem uczącym
         active_domain: Dict z aktywną domeną
         all_domains: Lista wszystkich dziedzin
+        active_courses: Lista aktywnych kursów
 
     Returns:
         Sformatowany string z welcome message
@@ -119,6 +152,12 @@ def format_welcome_message(
         if len(all_domains) > 3:
             domains_section += f"\n_...i {len(all_domains) - 3} więcej. Użyj `/learn --list` aby zobaczyć wszystkie._\n"
 
+    # Active courses section (NEW - v2.3)
+    courses_section = ""
+    if active_courses:
+        courses_str = format_active_courses(active_courses)
+        courses_section = f"\n## 🎓 Aktywne Kursy ({len(active_courses)}):\n{courses_str}\n"
+
     # Build message
     message = f"""
 {learning_prompt}
@@ -135,7 +174,7 @@ _{domain_desc}_
 ## Twoje Statystyki:
 - {streak_emoji} **Passa:** {streak} dni pod rząd
 - 📊 **Globalne koncepty:** {mastered_concepts}/{total_concepts} opanowane
-
+{courses_section}
 ## Dzisiejsze Cele:
 {goals_str}
 
@@ -145,7 +184,7 @@ _{domain_desc}_
 ---
 
 **PAMIĘTAJ:** Tryb nauczania jest aktywny! Będę wyjaśniał, pozostawiał TODO(human) i pytał o zrozumienie.
-Komendy: `/learn`, `/progress`, `/review`, `/concepts`, `/quiz`
+Komendy: `/learn`, `/progress`, `/review`, `/concepts`, `/quiz`, `/course`
 
 Szczęśliwego kodowania! 🚀
 """
@@ -175,6 +214,9 @@ def main():
         active_domain = get_active_domain()
         all_domains = list_domains()
 
+        # Load active courses (NEW - v2.3)
+        active_courses = list_active_courses()
+
         # Update session count and streak
         progress = update_session_count(progress)
         save_progress(progress)
@@ -187,7 +229,7 @@ def main():
         # Format welcome message
         message = format_welcome_message(
             progress, config, to_review, learning_prompt,
-            active_domain, all_domains
+            active_domain, all_domains, active_courses
         )
 
         # Output for Claude Code hook
