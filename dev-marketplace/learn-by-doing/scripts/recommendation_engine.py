@@ -1,0 +1,325 @@
+#!/usr/bin/env python3
+"""
+Recommendation Engine - Aktywne sugestie co uczyć się dalej
+
+Funkcjonalność:
+- Priorytetyzacja next steps na podstawie kontekstu
+- Generowanie uzasadnień ("dlaczego")
+- Filtrowanie po category preference
+- Uwzględnianie ostatnich aktywności
+"""
+import logging
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+from collections import Counter
+
+logger = logging.getLogger(__name__)
+
+
+class RecommendationEngine:
+    """
+    Generuje rekomendacje co uczyć się dalej
+    """
+
+    def __init__(
+        self,
+        knowledge_base: Dict[str, Any],
+        learning_graph: Any  # LearningGraph instance
+    ):
+        """
+        Args:
+            knowledge_base: Dict z konceptami
+            learning_graph: Instance LearningGraph
+        """
+        self.knowledge_base = knowledge_base
+        self.learning_graph = learning_graph
+        self.concepts = knowledge_base.get("concepts", {})
+
+    def suggest_next_concepts(
+        self,
+        user_progress: Dict[str, Any],
+        config: Dict[str, Any],
+        max_suggestions: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Generuj sugestie co uczyć się dalej
+
+        Args:
+            user_progress: Dict z postępem użytkownika (z learning_progress.json)
+            config: Dict z konfiguracją (z config.json)
+            max_suggestions: Max liczba sugestii
+
+        Returns:
+            Lista sugestii:
+            [
+                {
+                    "concept_id": "fastapi_dependencies",
+                    "name": "FastAPI Dependencies",
+                    "category": "Backend",
+                    "difficulty": 3,
+                    "ready": True,
+                    "reason": "Opanowałeś FastAPI Routing, to naturalny następny krok",
+                    "priority": 1  # 1-5 (1=highest)
+                },
+                ...
+            ]
+        """
+        if not config.get("recommendations", {}).get("enabled", True):
+            return []
+
+        # Zbierz context
+        mastered = self._get_mastered_concepts(user_progress)
+        in_progress = self._get_in_progress_concepts(user_progress)
+
+        # Get available next steps z learning graph
+        available = self.learning_graph.get_available_next_steps(
+            mastered_concepts=mastered,
+            in_progress_concepts=in_progress,
+            max_results=max_suggestions * 3  # Get więcej żeby móc priorytetyzować
+        )
+
+        # Priorytetyzuj
+        prioritized = self._prioritize_recommendations(
+            available,
+            user_progress,
+            config
+        )
+
+        # Generate reasons
+        for rec in prioritized:
+            rec["reason"] = self._generate_reason(rec, user_progress, mastered)
+
+        return prioritized[:max_suggestions]
+
+    def _get_mastered_concepts(self, user_progress: Dict[str, Any]) -> List[str]:
+        """
+        Zwróć listę opanowanych konceptów (mastery_level >= 3)
+
+        Args:
+            user_progress: Dict z postępem
+
+        Returns:
+            Lista ID konceptów
+        """
+        concepts = user_progress.get("concepts", {})
+        return [
+            concept_id for concept_id, data in concepts.items()
+            if data.get("mastery_level", 0) >= 3
+        ]
+
+    def _get_in_progress_concepts(self, user_progress: Dict[str, Any]) -> List[str]:
+        """
+        Zwróć listę konceptów w trakcie (mastery_level 1-2)
+
+        Args:
+            user_progress: Dict z postępem
+
+        Returns:
+            Lista ID konceptów
+        """
+        concepts = user_progress.get("concepts", {})
+        return [
+            concept_id for concept_id, data in concepts.items()
+            if 1 <= data.get("mastery_level", 0) < 3
+        ]
+
+    def _prioritize_recommendations(
+        self,
+        available: List[Dict[str, Any]],
+        user_progress: Dict[str, Any],
+        config: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Priorytetyzuj rekomendacje
+
+        Kryteria (w kolejności):
+        1. Ready vs not ready (gotowe pierwsze)
+        2. Category preference (jeśli ustawione w config)
+        3. Recent activity (co robił ostatnio)
+        4. Difficulty (nie za duży skok)
+        5. Readiness score
+
+        Args:
+            available: Lista dostępnych next steps z learning_graph
+            user_progress: Dict z postępem
+            config: Dict z konfiguracją
+
+        Returns:
+            Posortowana lista z priority (1-5)
+        """
+        prefer_category = config.get("recommendations", {}).get("prefer_category")
+        current_focus = user_progress.get("current_focus", {})
+        focus_category = current_focus.get("category", prefer_category)
+
+        # Oblicz recent categories (co robił ostatnio)
+        recent_categories = self._get_recent_categories(user_progress)
+
+        # Score każdej rekomendacji
+        scored = []
+        for rec in available:
+            score = 0.0
+
+            # 1. Ready bonus (+10)
+            if rec.get("ready", False):
+                score += 10.0
+
+            # 2. Category preference (+5 jeśli pasuje do focus)
+            if focus_category and rec.get("category") == focus_category:
+                score += 5.0
+
+            # 3. Recent activity bonus (+3 jeśli w tej kategorii pracował ostatnio)
+            if recent_categories and rec.get("category") in recent_categories[:2]:
+                score += 3.0
+
+            # 4. Difficulty penalty (łatwiejsze pierwsze)
+            # Penalty: 0 dla difficulty 1-3, -1 dla 4, -2 dla 5
+            difficulty = rec.get("difficulty", 3)
+            if difficulty > 3:
+                score -= (difficulty - 3)
+
+            # 5. Readiness bonus
+            score += rec.get("readiness_score", 0.0) * 2.0
+
+            scored.append({
+                **rec,
+                "score": score
+            })
+
+        # Sortuj po score (malejąco)
+        scored.sort(key=lambda x: -x["score"])
+
+        # Assign priority (1-5)
+        for i, rec in enumerate(scored):
+            rec["priority"] = min(i + 1, 5)
+
+        return scored
+
+    def _get_recent_categories(self, user_progress: Dict[str, Any], limit: int = 5) -> List[str]:
+        """
+        Zwróć kategorie w których użytkownik pracował ostatnio
+
+        Args:
+            user_progress: Dict z postępem
+            limit: Max liczba kategorii
+
+        Returns:
+            Lista kategorii (sorted by frequency)
+        """
+        concepts = user_progress.get("concepts", {})
+
+        # Zbierz kategorie z ostatnich praktyk
+        categories = []
+        for concept_id, data in concepts.items():
+            last_practiced = data.get("last_practiced")
+            if last_practiced and concept_id in self.concepts:
+                category = self.concepts[concept_id].get("category")
+                if category:
+                    categories.append(category)
+
+        # Count frequency
+        if not categories:
+            return []
+
+        category_counts = Counter(categories)
+        return [cat for cat, count in category_counts.most_common(limit)]
+
+    def _generate_reason(
+        self,
+        recommendation: Dict[str, Any],
+        user_progress: Dict[str, Any],
+        mastered: List[str]
+    ) -> str:
+        """
+        Generuj uzasadnienie dla rekomendacji
+
+        Args:
+            recommendation: Dict z rekomendacją
+            user_progress: Dict z postępem
+            mastered: Lista opanowanych konceptów
+
+        Returns:
+            String z uzasadnieniem
+        """
+        concept_id = recommendation["concept_id"]
+        ready = recommendation.get("ready", False)
+        sources = recommendation.get("sources", [])
+        category = recommendation.get("category", "")
+
+        # Sprawdź sources
+        source_names = []
+        for source_id in sources[:2]:
+            if source_id in self.concepts:
+                source_names.append(self.concepts[source_id]["name"])
+
+        # Generuj reason na podstawie context
+        if not ready:
+            # Nie gotowy - wymaga więcej prerequisites
+            prereqs_total = recommendation.get("prerequisites_total", 0)
+            prereqs_met = recommendation.get("prerequisites_met", 0)
+            missing = prereqs_total - prereqs_met
+            return f"Wymaga {missing} więcej prerequisitów. Kontynuuj naukę podstaw."
+
+        if source_names:
+            # Ma źródła - naturalny next step
+            if len(source_names) == 1:
+                return f"Opanowałeś {source_names[0]}, to naturalny następny krok"
+            else:
+                return f"Opanowałeś {source_names[0]} i {source_names[1]}, to naturalny następny krok"
+
+        # Ogólne uzasadnienie
+        if category:
+            return f"Rozszerz swoje umiejętności w {category}"
+
+        return "Gotowe do nauki"
+
+
+# ============================================================================
+# CLI for testing
+# ============================================================================
+
+if __name__ == "__main__":
+    """Test recommendation engine"""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
+
+    from data_manager import load_knowledge_base, load_progress, load_config
+    from learning_graph import LearningGraph
+
+    print("Testing recommendation_engine.py...")
+
+    # Load data
+    kb = load_knowledge_base()
+    progress = load_progress()
+    config = load_config()
+
+    if not kb.get("concepts"):
+        print("❌ Knowledge base jest pusty")
+        sys.exit(1)
+
+    print(f"\n✅ Loaded {len(kb['concepts'])} concepts")
+
+    # Build graph
+    graph = LearningGraph(kb)
+
+    # Build engine
+    engine = RecommendationEngine(kb, graph)
+
+    # Mock progress (dla testu)
+    if not progress.get("concepts"):
+        print("\n⚠️  Brak konceptów w progress, używam mock danych")
+        progress["concepts"] = {
+            "python_basics": {"mastery_level": 5, "last_practiced": "2025-11-01T10:00:00"},
+            "fastapi_routing": {"mastery_level": 4, "last_practiced": "2025-11-02T09:00:00"},
+            "sqlalchemy_models": {"mastery_level": 3, "last_practiced": "2025-11-02T08:00:00"}
+        }
+        progress["current_focus"] = {"category": "Backend"}
+
+    # Get recommendations
+    recommendations = engine.suggest_next_concepts(progress, config, max_suggestions=5)
+
+    print(f"\n💡 Recommendations ({len(recommendations)}):")
+    for rec in recommendations:
+        ready_icon = "✅" if rec.get("ready") else "⏳"
+        print(f"  {ready_icon} P{rec['priority']} - {rec['name']} ({rec['category']})")
+        print(f"       → {rec['reason']}")

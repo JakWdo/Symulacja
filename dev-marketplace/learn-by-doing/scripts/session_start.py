@@ -1,120 +1,44 @@
 #!/usr/bin/env python3
 """
-SessionStart Hook - Ładuje kontekst uczenia się na początek sesji
+SessionStart Hook - Wyświetla welcome message i status uczenia się
+
+Funkcjonalność:
+- Podstawowy welcome message
+- Licznik sesji i streak
+- Spaced repetition (koncepty do powtórki)
+- Daily goals
+- Statystyki postępów
 """
 import json
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
 
-PLUGIN_ROOT = Path(__file__).parent.parent
-DATA_DIR = PLUGIN_ROOT / "data"
-PROMPTS_DIR = PLUGIN_ROOT / "prompts"
+# Import data_manager
+sys.path.insert(0, str(Path(__file__).parent))
+from data_manager import (
+    load_progress,
+    save_progress,
+    load_config,
+    load_learning_prompt,
+    update_session_count,
+    get_concepts_to_review,
+    format_concepts_for_review,
+    ensure_data_files_exist
+)
 
-DATA_DIR.mkdir(exist_ok=True)
 
-def load_progress():
-    """Wczytaj postęp uczenia się"""
-    progress_file = DATA_DIR / "learning_progress.json"
+def generate_daily_goals(progress: dict, config: dict) -> list:
+    """
+    Generuj cele na dzisiaj
 
-    if not progress_file.exists():
-        default_progress = {
-            "sessions": 0,
-            "total_concepts": 0,
-            "mastered_concepts": 0,
-            "current_focus": "Backend (FastAPI + PostgreSQL)",
-            "last_session": None,
-            "streak_days": 0,
-            "concepts": {},
-            "learning_paths": {
-                "backend_mastery": {
-                    "name": "Backend Mastery",
-                    "progress": 0.0,
-                    "concepts": ["fastapi_async", "sqlalchemy_async", "redis_caching"]
-                },
-                "rag_systems": {
-                    "name": "Systemy RAG",
-                    "progress": 0.0,
-                    "concepts": ["vector_search", "graph_rag", "hybrid_search"]
-                }
-            }
-        }
-        progress_file.write_text(json.dumps(default_progress, indent=2, ensure_ascii=False))
-        return default_progress
+    Args:
+        progress: Dict z postępem
+        config: Dict z konfiguracją
 
-    return json.loads(progress_file.read_text())
-
-def get_concepts_to_review(progress):
-    """Znajdź koncepty do powtórki (spaced repetition)"""
-    to_review = []
-
-    intervals = {
-        1: timedelta(days=1),
-        2: timedelta(days=3),
-        3: timedelta(days=7),
-        4: timedelta(days=14),
-        5: timedelta(days=30),
-    }
-
-    for concept_id, data in progress.get("concepts", {}).items():
-        level = data.get("mastery_level", 1)
-        last_practiced = data.get("last_practiced")
-
-        if not last_practiced:
-            continue
-
-        last_date = datetime.fromisoformat(last_practiced)
-        interval = intervals.get(level, timedelta(days=1))
-
-        if datetime.now() - last_date >= interval:
-            to_review.append({
-                "name": data.get("name", concept_id),
-                "level": level,
-                "days_ago": (datetime.now() - last_date).days
-            })
-
-    return to_review
-
-def format_concepts(concepts):
-    """Formatuj listę konceptów do przeglądu"""
-    if not concepts:
-        return "✅ Wszystko aktualne!"
-
-    lines = []
-    for c in concepts[:3]:
-        emoji = "🟢" if c["level"] < 3 else "🟡" if c["level"] < 5 else "🔴"
-        lines.append(f"  {emoji} **{c['name']}** (poziom {c['level']}, {c['days_ago']} dni temu)")
-
-    if len(concepts) > 3:
-        lines.append(f"  ... i {len(concepts) - 3} więcej (użyj /review)")
-
-    return "\n".join(lines)
-
-def update_session_count(progress):
-    """Aktualizuj licznik sesji"""
-    progress["sessions"] += 1
-
-    last = progress.get("last_session")
-    if last:
-        last_date = datetime.fromisoformat(last).date()
-        today = datetime.now().date()
-        diff = (today - last_date).days
-
-        if diff == 1:
-            progress["streak_days"] += 1
-        elif diff > 1:
-            progress["streak_days"] = 1
-    else:
-        progress["streak_days"] = 1
-
-    progress["last_session"] = datetime.now().isoformat()
-
-    progress_file = DATA_DIR / "learning_progress.json"
-    progress_file.write_text(json.dumps(progress, indent=2, ensure_ascii=False))
-
-def generate_daily_goals(progress):
-    """Generuj cele na dzisiaj"""
-    session_num = progress["sessions"]
+    Returns:
+        Lista string-ów z celami
+    """
+    session_num = progress.get("sessions", 0)
 
     goals = [
         "✍️ Pisz kod z TODO(human) - praktyka czyni mistrza",
@@ -122,67 +46,140 @@ def generate_daily_goals(progress):
         "🔗 Szukaj podobnych patternów w innych częściach Sight"
     ]
 
-    if session_num > 0 and session_num % 5 == 0:
+    # Co 5 sesji - quiz reminder
+    quiz_interval = config.get("daily_goals", {}).get("quiz_every_n_sessions", 5)
+    if session_num > 0 and session_num % quiz_interval == 0:
         goals.insert(0, "🎯 Dzisiaj: Test wiedzy (/quiz) - sprawdź co pamiętasz!")
 
     return goals
 
-def load_learning_prompt():
-    """Wczytaj główny prompt uczący"""
-    prompt_file = PROMPTS_DIR / "learning_mindset.md"
 
-    if prompt_file.exists():
-        return prompt_file.read_text()
-    return ""
+def format_welcome_message(progress: dict, config: dict, to_review: list, learning_prompt: str) -> str:
+    """
+    Formatuj pełny welcome message
 
-def main():
-    """Główna funkcja SessionStart hook"""
-    try:
-        progress = load_progress()
-        update_session_count(progress)
-        to_review = get_concepts_to_review(progress)
-        goals = generate_daily_goals(progress)
-        learning_prompt = load_learning_prompt()
+    Args:
+        progress: Dict z postępem
+        config: Dict z konfiguracją
+        to_review: Lista konceptów do powtórki
+        learning_prompt: String z głównym promptem uczącym
 
-        streak_emoji = "🔥" if progress["streak_days"] >= 3 else "⭐"
+    Returns:
+        Sformatowany string z welcome message
+    """
+    session_num = progress.get("sessions", 0)
+    streak = progress.get("streak_days", 0)
+    streak_emoji = "🔥" if streak >= 3 else "⭐" if streak > 0 else "💤"
 
-        context = f"""
+    # Statystyki
+    total_concepts = len(progress.get("concepts", {}))
+    mastered_concepts = sum(
+        1 for c in progress.get("concepts", {}).values()
+        if c.get("mastery_level", 0) >= 3
+    )
+
+    current_focus = progress.get("current_focus", {})
+    focus_category = current_focus.get("category", "Backend (FastAPI + PostgreSQL)")
+
+    # Daily goals
+    goals = generate_daily_goals(progress, config)
+    goals_str = "\n".join(f"  {goal}" for goal in goals)
+
+    # Concepts to review
+    review_str = format_concepts_for_review(to_review)
+
+    # Build message
+    message = f"""
 {learning_prompt}
 
 ---
 
-# 🎓 SESJA UCZENIA #{progress['sessions']}
+# 🎓 SESJA UCZENIA #{session_num}
 
 ## Twoje Statystyki:
-- {streak_emoji} **Passa:** {progress['streak_days']} dni pod rząd
-- 📊 **Opanowane koncepty:** {progress.get('mastered_concepts', 0)}/{progress.get('total_concepts', 0)}
-- 🎯 **Obecny focus:** {progress['current_focus']}
+- {streak_emoji} **Passa:** {streak} dni pod rząd
+- 📊 **Opanowane koncepty:** {mastered_concepts}/{total_concepts}
+- 🎯 **Obecny focus:** {focus_category}
 
 ## Dzisiejsze Cele:
-{chr(10).join(f"  {goal}" for goal in goals)}
+{goals_str}
 
 ## Do Powtórki (Spaced Repetition):
-{format_concepts(to_review)}
+{review_str}
 
 ---
 
 **PAMIĘTAJ:** Tryb nauczania jest aktywny! Będę wyjaśniał, pozostawiał TODO(human) i pytał o zrozumienie.
-Możesz używać komend: /learn, /review, /progress
+Możesz używać komend: /learn, /review, /progress, /concepts
+
+Szczęśliwego kodowania! 🚀
 """
 
+    return message.strip()
+
+
+def main():
+    """Główna funkcja SessionStart hook"""
+    try:
+        # Ensure data files exist
+        ensure_data_files_exist()
+
+        # Load data
+        progress = load_progress()
+        config = load_config()
+        learning_prompt = load_learning_prompt()
+
+        # Update session count and streak
+        progress = update_session_count(progress)
+        save_progress(progress)
+
+        # Get concepts to review (if spaced repetition enabled)
+        to_review = []
+        if config.get("spaced_repetition", {}).get("enabled", True):
+            to_review = get_concepts_to_review(progress, config)
+
+        # Format welcome message
+        message = format_welcome_message(progress, config, to_review, learning_prompt)
+
+        # Output for Claude Code hook
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "SessionStart",
-                "additionalContext": context
+                "additionalContext": message
             }
         }
 
-        print(json.dumps(output))
+        print(json.dumps(output, ensure_ascii=False))
         sys.exit(0)
 
     except Exception as e:
-        print(f"❌ Błąd w SessionStart hook: {e}", file=sys.stderr)
+        # Graceful fallback - show simple message
+        simple_message = """
+🎓 TRYB NAUCZANIA AKTYWNY - Projekt Sight
+
+Będę Ci pomagał przez:
+- 💡 Wyjaśnianie DLACZEGO coś działa (nie tylko JAK)
+- ✍️ Zostawianie TODO(human) do samodzielnej implementacji
+- 🔗 Pokazywanie powiązań między konceptami w Sight
+- 🤔 Zadawanie pytań do refleksji
+
+Dostępne komendy: /learn, /review, /progress, /concepts
+
+Szczęśliwego kodowania! 🚀
+
+⚠️ Uwaga: Wystąpił błąd przy ładowaniu pełnych statystyk. Plugin działa w trybie uproszczonym.
+"""
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": simple_message.strip()
+            }
+        }
+
+        print(json.dumps(output, ensure_ascii=False), file=sys.stderr)
+        print(f"Error details: {e}", file=sys.stderr)
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
