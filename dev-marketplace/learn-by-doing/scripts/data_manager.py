@@ -425,6 +425,7 @@ def _get_default_progress() -> Dict[str, Any]:
 def _get_default_config() -> Dict[str, Any]:
     """Zwraca domyślną konfigurację"""
     return {
+        "enabled": True,
         "auto_tracking": {
             "enabled": True,
             "run_on_session_start": True,

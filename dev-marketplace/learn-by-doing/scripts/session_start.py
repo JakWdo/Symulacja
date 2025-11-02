@@ -124,9 +124,16 @@ def main():
         # Ensure data files exist
         ensure_data_files_exist()
 
+        # Load config first to check if plugin is enabled
+        config = load_config()
+
+        # Check if plugin is enabled
+        if not config.get("enabled", True):
+            # Plugin is disabled - exit silently
+            sys.exit(0)
+
         # Load data
         progress = load_progress()
-        config = load_config()
         learning_prompt = load_learning_prompt()
 
         # Update session count and streak

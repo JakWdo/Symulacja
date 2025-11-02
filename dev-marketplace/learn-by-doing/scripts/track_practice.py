@@ -7,6 +7,10 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+# Import data_manager for config loading
+sys.path.insert(0, str(Path(__file__).parent))
+from data_manager import load_config
+
 PLUGIN_ROOT = Path(__file__).parent.parent
 DATA_DIR = PLUGIN_ROOT / "data"
 LOG_FILE = DATA_DIR / "practice_log.jsonl"
@@ -84,6 +88,12 @@ def main():
     """Główna funkcja PostToolUse hook"""
 
     try:
+        # Check if plugin is enabled
+        config = load_config()
+        if not config.get("enabled", True):
+            # Plugin is disabled - exit silently
+            sys.exit(0)
+
         hook_data = json.loads(sys.stdin.read())
 
         tool_name = hook_data.get("tool_name", "")
