@@ -5,6 +5,7 @@ import sys
 output = {
     "hook_event_name": "SessionStart",
     "hookSpecificOutput": {
+        "hookEventName": "SessionStart",
         "additionalContext": """
 🎓 TRYB NAUCZANIA AKTYWNY - Projekt Sight
 

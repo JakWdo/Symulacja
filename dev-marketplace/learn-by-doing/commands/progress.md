@@ -4,6 +4,6 @@ description: Dashboard postępów
 usage: /progress
 ---
 
-```bash
+# Wykonuje skrypt progress.py
+
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/progress.py
-```
