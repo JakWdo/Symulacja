@@ -5,7 +5,7 @@ Przegląd nauki - analiza practice log
 import json
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import Counter
 
 PLUGIN_ROOT = Path(__file__).parent.parent
@@ -36,7 +36,7 @@ def load_practice_log():
 
 def filter_logs_by_time(logs, days=1):
     """Filtruj logi według czasu"""
-    cutoff = datetime.now() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     filtered = []
     for log in logs:

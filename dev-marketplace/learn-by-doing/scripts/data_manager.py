@@ -11,9 +11,17 @@ Odpowiedzialności:
 import json
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 import logging
+
+# Import log rotator
+try:
+    from log_rotator import rotate_practice_log
+except ImportError:
+    # Fallback if log_rotator not available
+    def rotate_practice_log(data_dir, max_entries=1000):
+        return True
 
 # Setup logging
 logging.basicConfig(
@@ -434,12 +442,20 @@ def append_practice_log(log_entry: Dict[str, Any]) -> bool:
     try:
         # Dodaj timestamp jeśli nie ma
         if "timestamp" not in log_entry:
-            log_entry["timestamp"] = datetime.now().isoformat()
+            log_entry["timestamp"] = datetime.now(timezone.utc).isoformat()
 
         line = json.dumps(log_entry, ensure_ascii=False) + "\n"
 
         with log_file.open("a", encoding='utf-8') as f:
             f.write(line)
+
+        # Perform log rotation if needed
+        config = load_config()
+        log_rotation_config = config.get("log_rotation", {})
+        max_entries = log_rotation_config.get("max_practice_log_entries", 1000)
+
+        if log_rotation_config.get("archive_enabled", True):
+            rotate_practice_log(DATA_DIR, max_entries)
 
         return True
 
@@ -566,7 +582,7 @@ def _get_default_learning_domains() -> Dict[str, Any]:
             "software-engineering": {
                 "name": "Software Engineering",
                 "description": "Full-stack web development (Backend, Frontend, Database, AI/ML, DevOps, Testing)",
-                "added_at": datetime.now().isoformat(),
+                "added_at": datetime.now(timezone.utc).isoformat(),
                 "active": True,
                 "categories": ["Backend", "Frontend", "Database", "AI/ML", "DevOps", "Testing"],
                 "concepts_count": 45,  # Z obecnego knowledge_base.json
@@ -601,7 +617,7 @@ def update_session_count(progress: Dict[str, Any]) -> Dict[str, Any]:
     if last:
         try:
             last_date = datetime.fromisoformat(last).date()
-            today = datetime.now().date()
+            today = datetime.now(timezone.utc).date()
             diff = (today - last_date).days
 
             if diff == 1:
@@ -614,7 +630,7 @@ def update_session_count(progress: Dict[str, Any]) -> Dict[str, Any]:
     else:
         progress["streak_days"] = 1
 
-    progress["last_session"] = datetime.now().isoformat()
+    progress["last_session"] = datetime.now(timezone.utc).isoformat()
 
     return progress
 
@@ -664,7 +680,7 @@ def get_concepts_to_review(progress: Dict[str, Any], config: Dict[str, Any]) -> 
         try:
             last_date = datetime.fromisoformat(last_practiced)
             days_interval = intervals_dict.get(level, intervals[0])
-            days_ago = (datetime.now() - last_date).days
+            days_ago = (datetime.now(timezone.utc) - last_date).days
 
             if days_ago >= days_interval:
                 to_review.append({

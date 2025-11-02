@@ -13,7 +13,7 @@ Universal Learning System v2.0
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 
@@ -61,7 +61,7 @@ def add_domain(
         domains_data["domains"][domain_id] = {
             "name": name,
             "description": description,
-            "added_at": datetime.now().isoformat(),
+            "added_at": datetime.now(timezone.utc).isoformat(),
             "active": True,
             "categories": categories or [],
             "concepts_count": 0,
@@ -266,7 +266,7 @@ def update_domain_stats(
             domain["last_practice"] = last_practice
         elif concepts_count is not None or mastered_count is not None:
             # Auto-update last_practice when stats change
-            domain["last_practice"] = datetime.now().isoformat()
+            domain["last_practice"] = datetime.now(timezone.utc).isoformat()
 
         success = save_learning_domains(domains_data)
         return success
@@ -336,7 +336,7 @@ def format_domain_summary(domain: Dict[str, Any]) -> str:
     if last:
         try:
             last_date = datetime.fromisoformat(last)
-            days_ago = (datetime.now() - last_date).days
+            days_ago = (datetime.now(timezone.utc) - last_date).days
             if days_ago == 0:
                 last_str = "dzisiaj"
             elif days_ago == 1:

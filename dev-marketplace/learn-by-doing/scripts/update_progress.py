@@ -17,7 +17,7 @@ import json
 import sys
 import logging
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 
 # Setup logging
@@ -155,7 +155,7 @@ def update_progress(force_full_rescan: bool = False) -> Dict[str, Any]:
             )
 
             progress["recommendations"] = {
-                "generated_at": datetime.now().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "next_steps": recommendations
             }
 

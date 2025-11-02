@@ -983,6 +983,15 @@ A: Tak, wszystkie dane są lokalne w projekcie (`.claude/plugins/learn-by-doing/
 
 ## 📝 Changelog
 
+**v2.1.0 (2025-11-02)** - Bug Fixes & Improvements
+- 🔧 **Fixed:** track_practice.py - zachowuje pełne ścieżki plików (concept detection teraz działa!)
+- 🔧 **Fixed:** UTC timestamps we wszystkich logach (7 plików) - spójność między strefami czasowymi
+- ✨ **New:** System rotacji logów z archiwizacją (log_rotator.py)
+- ✨ **New:** Automatyczna archiwizacja practice_log.jsonl po 1000 wpisów
+- ✨ **New:** Testy jednostkowe (36 testów w test_track_practice.py + test_log_rotation.py)
+- 📚 **New:** CHANGELOG.md - pełna dokumentacja zmian
+- 📚 **Updated:** QUICK_START.md - dodano sekcję log rotation
+
 **v2.0 (2025-11-02)**
 - ✨ Universal auto-discovery engine
 - ✨ Tech classifier (200+ technologies)

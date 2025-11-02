@@ -11,7 +11,7 @@ import json
 import sys
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Import data_manager for config loading
 sys.path.insert(0, str(Path(__file__).parent))
@@ -82,7 +82,6 @@ def extract_context(tool_input):
         return {"type": "unknown"}
 
     path_obj = Path(file_path)
-    file_name = path_obj.name
     file_ext = path_obj.suffix
 
     # Detect file type
@@ -97,7 +96,7 @@ def extract_context(tool_input):
 
     context = {
         "type": file_type,
-        "file": file_name,
+        "file": file_path,  # Store full path for pattern matching
         "language": None,
         "detected_libraries": []
     }
@@ -162,7 +161,7 @@ def main():
 
         if is_learning_moment(action, context):
             entry = {
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "tool": tool_name,
                 "action": action,
                 "context": context

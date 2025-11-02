@@ -209,8 +209,32 @@ Plik: `~/.claude/learn-by-doing/config.json`
     "enabled": true,
     "max_suggestions": 5,
     "prefer_category": null  // Możesz ustawić "Backend", "AI/ML", etc.
+  },
+  "log_rotation": {
+    "max_practice_log_entries": 1000,  // Automatyczna archiwizacja po 1000 wpisów
+    "archive_enabled": true             // Włącz/wyłącz archiwizację
   }
 }
+```
+
+### 🗄️ Log Rotation (Nowe w v2.1.0!)
+
+Plugin automatycznie archiwizuje stare wpisy w `practice_log.jsonl`:
+- ✅ **Automatyczna rotacja** po przekroczeniu 1000 wpisów
+- 📁 **Archiwa z datą** w `archives/practice_log_archive_YYYY-MM-DD.jsonl`
+- 🚀 **Brak problemów z wydajnością** nawet przy długiej historii
+- ⚙️ **Konfigurowalne** - ustaw własny limit w config.json
+
+**Sprawdź statystyki:**
+```bash
+python3 ~/.claude/learn-by-doing/scripts/log_rotator.py
+# Output:
+# 📊 Log Statistics:
+#   Current entries: 121
+#   Max entries: 1000
+#   Needs rotation: False
+#   Total archived: 0
+#   Total entries: 121
 ```
 
 ---
@@ -222,12 +246,19 @@ Plik: `~/.claude/learn-by-doing/config.json`
 ├── config.json                      # Konfiguracja pluginu
 ├── user_learning_domains.json       # Twoje dziedziny (NEW v2.0!)
 ├── learning_progress.json            # Progress (sessions, streak, concepts)
-├── practice_log.jsonl                # Historia akcji (Write, Edit, Bash, Quiz)
+├── practice_log.jsonl                # Historia akcji (Write, Edit, Bash, Quiz) - max 1000 wpisów
 ├── knowledge_base.json               # Predefiniowane koncepty (software-engineering)
 ├── dynamic_concepts.json             # Auto-discovered koncepty
+├── archives/                         # 📦 Archiwa logów (NEW v2.1.0!)
+│   └── practice_log_archive_YYYY-MM-DD.jsonl   # Stare wpisy
 └── prompts/
     └── learning_mindset.md           # Główny prompt uczący
 ```
+
+**Nowe w v2.1.0:**
+- ✨ UTC timestamps we wszystkich logach (spójność między strefami)
+- 🗄️ Automatyczna archiwizacja `practice_log.jsonl` (katalog `archives/`)
+- 🔧 Naprawiona detect concepts pattern matching (pełne ścieżki plików)
 
 ---
 

@@ -13,7 +13,7 @@ Universal Learning System v2.0
 
 import json
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import sys
@@ -290,7 +290,7 @@ def save_quiz_result(
         True jeśli sukces
     """
     log_entry = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "type": "quiz_result",
         "quiz": {
             "domain": domain_id,
