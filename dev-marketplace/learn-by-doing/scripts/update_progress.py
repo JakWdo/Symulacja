@@ -31,9 +31,13 @@ from data_manager import (
     save_progress,
     load_config,
     load_knowledge_base,
+    load_dynamic_concepts,
+    save_dynamic_concepts,
     load_practice_log
 )
 from concept_detector import ConceptDetector
+from auto_discovery import AutoDiscoveryEngine
+from concept_manager import ConceptManager
 from learning_graph import LearningGraph
 from recommendation_engine import RecommendationEngine
 
@@ -63,16 +67,8 @@ def update_progress(force_full_rescan: bool = False) -> Dict[str, Any]:
         progress = load_progress()
         config = load_config()
         kb = load_knowledge_base()
+        dynamic_concepts = load_dynamic_concepts()
         practice_log = load_practice_log()
-
-        if not kb.get("concepts"):
-            logger.warning("Knowledge base jest pusty - skipping update")
-            return {
-                "success": False,
-                "error": "Knowledge base is empty",
-                "concepts_detected": 0,
-                "concepts_updated": 0
-            }
 
         if not practice_log:
             logger.warning("Practice log jest pusty - skipping update")
@@ -83,11 +79,37 @@ def update_progress(force_full_rescan: bool = False) -> Dict[str, Any]:
                 "concepts_updated": 0
             }
 
-        logger.info(f"  Loaded: {len(kb['concepts'])} concepts, {len(practice_log)} log entries")
+        logger.info(f"  Loaded: {len(kb.get('concepts', {}))} static concepts, {len(dynamic_concepts)} dynamic concepts, {len(practice_log)} log entries")
 
-        # 2. Detect concepts from practice log
+        # 2. Auto-discover new technologies
+        logger.info("Auto-discovering new technologies...")
+        concept_manager = ConceptManager(kb, dynamic_concepts)
+        all_existing_concepts = concept_manager.get_all_concepts()
+
+        auto_discovery = AutoDiscoveryEngine()
+        newly_discovered = auto_discovery.discover_from_practice_log(
+            practice_log,
+            all_existing_concepts
+        )
+
+        logger.info(f"  Discovered {len(newly_discovered)} new technologies")
+
+        # Merge newly discovered into dynamic_concepts
+        for tech_id, concept_def in newly_discovered.items():
+            if tech_id not in dynamic_concepts:
+                dynamic_concepts[tech_id] = concept_def
+                logger.info(f"  ⭐ New: {concept_def['name']} ({concept_def['category']})")
+
+        # Save dynamic concepts
+        save_dynamic_concepts(dynamic_concepts)
+
+        # Update concept_manager with new dynamic concepts
+        concept_manager = ConceptManager(kb, dynamic_concepts)
+        all_concepts = concept_manager.get_all_concepts()
+
+        # 3. Detect concepts from practice log (using all concepts: static + dynamic)
         logger.info("Detecting concepts from practice log...")
-        detector = ConceptDetector(kb)
+        detector = ConceptDetector({"concepts": all_concepts})
 
         min_confidence = config.get("auto_tracking", {}).get("min_confidence", 0.7)
         detected_concepts = detector.detect_from_practice_log(
@@ -95,7 +117,7 @@ def update_progress(force_full_rescan: bool = False) -> Dict[str, Any]:
             min_confidence=min_confidence
         )
 
-        logger.info(f"  Detected {len(detected_concepts)} concepts")
+        logger.info(f"  Detected {len(detected_concepts)} concepts (static + dynamic)")
 
         # 3. Update progress.concepts (merge z existing)
         logger.info("Updating progress.concepts...")
@@ -120,8 +142,10 @@ def update_progress(force_full_rescan: bool = False) -> Dict[str, Any]:
         # 6. Generate recommendations
         logger.info("Generating recommendations...")
         if config.get("recommendations", {}).get("enabled", True):
-            graph = LearningGraph(kb)
-            engine = RecommendationEngine(kb, graph)
+            # Use all concepts (static + dynamic) for graph
+            all_concepts_kb = {"concepts": all_concepts, "categories": kb.get("categories", {})}
+            graph = LearningGraph(all_concepts_kb)
+            engine = RecommendationEngine(all_concepts_kb, graph)
 
             max_suggestions = config.get("recommendations", {}).get("max_suggestions", 5)
             recommendations = engine.suggest_next_concepts(
@@ -157,6 +181,7 @@ def update_progress(force_full_rescan: bool = False) -> Dict[str, Any]:
             "success": True,
             "concepts_detected": len(detected_concepts),
             "concepts_updated": updated_count,
+            "new_discoveries": len(newly_discovered),
             "recommendations_generated": len(recommendations),
             "categories_updated": len(category_progress)
         }

@@ -32,6 +32,11 @@ def main():
         print("\n✅ Koncepty zaktualizowane!")
         print(f"   📊 Wykryte: {result.get('concepts_detected', 0)} konceptów")
         print(f"   🔄 Zaktualizowane: {result.get('concepts_updated', 0)} konceptów")
+
+        new_discoveries = result.get('new_discoveries', 0)
+        if new_discoveries > 0:
+            print(f"   ⭐ Auto-discovered: {new_discoveries} nowych technologii!")
+
         print(f"   💡 Rekomendacje: {result.get('recommendations_generated', 0)} sugestii")
         print(f"   📂 Kategorie: {result.get('categories_updated', 0)} kategorii")
         print("\nUżyj /learn aby zobaczyć szczegóły")

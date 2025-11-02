@@ -150,6 +150,59 @@ def load_knowledge_base() -> Dict[str, Any]:
         return {"concepts": {}, "categories": {}}
 
 
+def load_dynamic_concepts() -> Dict[str, Any]:
+    """
+    Wczytaj dynamicznie odkryte koncepty z dynamic_concepts.json
+
+    Returns:
+        Dict z auto-discovered concepts. W przypadku błędu zwraca pustą strukturę.
+    """
+    dynamic_file = DATA_DIR / "dynamic_concepts.json"
+
+    try:
+        if not dynamic_file.exists():
+            logger.info("dynamic_concepts.json nie istnieje (to OK)")
+            return {}
+
+        content = dynamic_file.read_text(encoding='utf-8')
+        if not content.strip():
+            return {}
+
+        dynamic = json.loads(content)
+
+        return dynamic if isinstance(dynamic, dict) else {}
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Błąd parsowania dynamic_concepts.json: {e}")
+        return {}
+
+    except Exception as e:
+        logger.error(f"Nieoczekiwany błąd w load_dynamic_concepts: {e}")
+        return {}
+
+
+def save_dynamic_concepts(dynamic_concepts: Dict[str, Any]) -> bool:
+    """
+    Zapisz dynamicznie odkryte koncepty do dynamic_concepts.json
+
+    Args:
+        dynamic_concepts: Dict z auto-discovered concepts
+
+    Returns:
+        True jeśli sukces, False jeśli błąd
+    """
+    dynamic_file = DATA_DIR / "dynamic_concepts.json"
+
+    try:
+        content = json.dumps(dynamic_concepts, indent=2, ensure_ascii=False)
+        dynamic_file.write_text(content, encoding='utf-8')
+        return True
+
+    except Exception as e:
+        logger.error(f"Błąd zapisywania dynamic_concepts.json: {e}")
+        return False
+
+
 def load_practice_log() -> List[Dict[str, Any]]:
     """
     Wczytaj logi praktyki z practice_log.jsonl

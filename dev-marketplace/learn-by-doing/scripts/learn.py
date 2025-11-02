@@ -3,20 +3,16 @@
 Status trybu nauczania - dynamiczny podgląd
 """
 import json
+import sys
 from pathlib import Path
 from datetime import datetime
 
+# Import local modules
+sys.path.insert(0, str(Path(__file__).parent))
+from data_manager import load_progress, load_dynamic_concepts
+
 PLUGIN_ROOT = Path(__file__).parent.parent
 DATA_DIR = PLUGIN_ROOT / "data"
-
-def load_progress():
-    """Wczytaj postęp uczenia się"""
-    progress_file = DATA_DIR / "learning_progress.json"
-
-    if not progress_file.exists():
-        return None
-
-    return json.loads(progress_file.read_text())
 
 def get_status_emoji(streak):
     """Pobierz emoji statusu"""
@@ -31,6 +27,7 @@ def get_status_emoji(streak):
 
 def main():
     progress = load_progress()
+    dynamic = load_dynamic_concepts()
 
     print("# 🎓 Status Trybu Nauczania")
     print()
@@ -44,13 +41,21 @@ def main():
         sessions = progress.get("sessions", 0)
         streak = progress.get("streak_days", 0)
         emoji, status_text = get_status_emoji(streak)
-        focus = progress.get("current_focus", "N/A")
+
+        current_focus = progress.get("current_focus", {})
+        focus_category = current_focus.get("category", "N/A")
 
         print(f"## {emoji} **{status_text}**")
         print()
         print(f"- **Sesja:** #{sessions}")
         print(f"- **Passa:** {streak} dni pod rząd")
-        print(f"- **Focus:** {focus}")
+        print(f"- **Focus:** {focus_category}")
+
+        # Show auto-discovered count
+        discovered_count = len(dynamic)
+        if discovered_count > 0:
+            print(f"- **Auto-discovered:** ⭐ {discovered_count} nowych technologii")
+
         print()
 
     print("## 🎯 Co robi ten plugin?")
@@ -66,6 +71,8 @@ def main():
     print("- `/learn-by-doing:learn` - Ten ekran (status)")
     print("- `/learn-by-doing:progress` - Dashboard postępów")
     print("- `/learn-by-doing:review` - Przegląd nauki")
+    print("- `/learn-by-doing:concepts` - Lista wszystkich konceptów")
+    print("- `/learn-by-doing:track-concepts` - Skanuj nowe technologie")
     print()
 
     print("## 📚 Jak działa tryb nauczania?")
