@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """
 PostToolUse Hook - Śledzi akcje użytkownika i loguje do practice_log
+
+Enhanced (Universal Learning System v2.0):
+- Import detection (Python files)
+- Code analysis support
+- Extended event types (quiz_result, learning_interaction)
 """
 import json
 import sys
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -35,34 +41,86 @@ def categorize_action(tool_name, tool_input):
     else:
         return "other"
 
+def detect_imports_from_content(content: str, language: str = "python") -> list:
+    """
+    Wykryj importy z kodu
+
+    Args:
+        content: Treść pliku
+        language: Język programowania
+
+    Returns:
+        Lista wykrytych bibliotek/modułów
+    """
+    imports = []
+
+    if language == "python":
+        # Match: import X, from X import Y
+        import_patterns = [
+            r'^import\s+([\w\.]+)',
+            r'^from\s+([\w\.]+)\s+import',
+        ]
+
+        for line in content.split('\n'):
+            line = line.strip()
+            for pattern in import_patterns:
+                match = re.match(pattern, line)
+                if match:
+                    module = match.group(1).split('.')[0]  # Get root module
+                    if module not in imports and not module.startswith('_'):
+                        imports.append(module)
+
+    return imports[:10]  # Limit to 10
+
+
 def extract_context(tool_input):
-    """Wyciągnij kontekst z tool_input"""
+    """Wyciągnij kontekst z tool_input (enhanced z import detection)"""
 
-    if "path" in tool_input:
-        path = tool_input["path"]
+    file_path = tool_input.get("file_path") or tool_input.get("path")
 
-        if "/services/" in path:
-            return {"type": "service", "file": Path(path).name}
-        elif "/api/" in path:
-            return {"type": "api_endpoint", "file": Path(path).name}
-        elif "/tests/" in path:
-            return {"type": "test", "file": Path(path).name}
-        else:
-            return {"type": "other", "file": Path(path).name}
+    if not file_path:
+        return {"type": "unknown"}
 
-    if "file_path" in tool_input:
-        path = tool_input["file_path"]
+    path_obj = Path(file_path)
+    file_name = path_obj.name
+    file_ext = path_obj.suffix
 
-        if "/services/" in path:
-            return {"type": "service", "file": Path(path).name}
-        elif "/api/" in path:
-            return {"type": "api_endpoint", "file": Path(path).name}
-        elif "/tests/" in path:
-            return {"type": "test", "file": Path(path).name}
-        else:
-            return {"type": "other", "file": Path(path).name}
+    # Detect file type
+    if "/services/" in file_path:
+        file_type = "service"
+    elif "/api/" in file_path:
+        file_type = "api_endpoint"
+    elif "/tests/" in file_path:
+        file_type = "test"
+    else:
+        file_type = "other"
 
-    return {"type": "unknown"}
+    context = {
+        "type": file_type,
+        "file": file_name,
+        "language": None,
+        "detected_libraries": []
+    }
+
+    # Detect language
+    if file_ext == ".py":
+        context["language"] = "python"
+    elif file_ext in [".js", ".jsx", ".ts", ".tsx"]:
+        context["language"] = "javascript"
+    elif file_ext in [".rs"]:
+        context["language"] = "rust"
+    elif file_ext in [".go"]:
+        context["language"] = "go"
+
+    # Import detection (tylko dla Python na razie)
+    if file_ext == ".py" and "content" in tool_input:
+        content = tool_input.get("content", "")
+        if content:
+            imports = detect_imports_from_content(content, "python")
+            if imports:
+                context["detected_libraries"] = imports
+
+    return context
 
 def is_learning_moment(action, context):
     """Sprawdź czy to moment uczący"""

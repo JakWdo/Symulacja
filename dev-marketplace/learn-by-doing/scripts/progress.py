@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
-Dynamiczny dashboard postępów - pokazuje rzeczywiste statystyki
+Dynamiczny dashboard postępów - Multi-domain view (Universal Learning System v2.0)
+
+Funkcjonalność:
+- Progress per domain
+- Global statistics
+- Recent activity
+- Category breakdown
 """
 import json
 import sys
@@ -11,10 +17,7 @@ from collections import defaultdict
 # Import local modules
 sys.path.insert(0, str(Path(__file__).parent))
 from data_manager import load_progress, load_practice_log, load_knowledge_base, load_dynamic_concepts
-from concept_manager import ConceptManager
-
-PLUGIN_ROOT = Path(__file__).parent.parent
-DATA_DIR = PLUGIN_ROOT / "data"
+from domain_manager import get_active_domain, list_domains
 
 def count_actions_by_type(logs):
     """Policz akcje według typu"""
@@ -22,21 +25,7 @@ def count_actions_by_type(logs):
     for log in logs:
         action = log.get("action", "unknown")
         counts[action] = counts.get(action, 0) + 1
-
     return counts
-
-def get_recent_activity(logs, limit=5):
-    """Pobierz ostatnie aktywności"""
-    recent = logs[-limit:] if len(logs) > limit else logs
-    return list(reversed(recent))
-
-def format_timestamp(iso_str):
-    """Formatuj timestamp"""
-    try:
-        dt = datetime.fromisoformat(iso_str)
-        return dt.strftime("%Y-%m-%d %H:%M")
-    except:
-        return iso_str
 
 def format_action(action):
     """Formatuj nazwę akcji"""
@@ -45,7 +34,9 @@ def format_action(action):
         "file_edit": "✏️ Edycja pliku",
         "test_run": "🧪 Uruchomienie testów",
         "git_operation": "🔀 Operacja Git",
-        "bash_command": "💻 Komenda Bash"
+        "bash_command": "💻 Komenda Bash",
+        "quiz_result": "🎯 Quiz",
+        "learning_interaction": "💡 Interakcja uczenia",
     }
     return action_names.get(action, f"❓ {action}")
 
@@ -62,29 +53,19 @@ def render_progress_bar(value, max_value, width=15):
     return f"{bar} {percentage}%"
 
 def main():
+    # Load data
     progress = load_progress()
     logs = load_practice_log()
-    kb = load_knowledge_base()
-    dynamic = load_dynamic_concepts()
-
-    manager = ConceptManager(kb, dynamic)
-    all_concepts = manager.get_all_concepts()
+    all_domains = list_domains()
+    active_domain = get_active_domain()
 
     if not progress:
         print("⚠️ Brak danych o postępach. Plugin dopiero się inicjalizuje!")
         return
 
-    # Statystyki
+    # Global stats
     sessions = progress.get("sessions", 0)
     streak = progress.get("streak_days", 0)
-
-    # Count mastered concepts
-    user_concepts = progress.get("concepts", {})
-    mastered = sum(1 for c in user_concepts.values() if c.get("mastery_level", 0) >= 3)
-    total = len(all_concepts)
-
-    current_focus = progress.get("current_focus", {})
-    focus_category = current_focus.get("category", "N/A")
 
     # Emoji dla passy
     if streak >= 7:
@@ -94,32 +75,60 @@ def main():
     else:
         streak_emoji = "⭐"
 
-    # Akcje
+    # Actions
     action_counts = count_actions_by_type(logs)
     total_actions = sum(action_counts.values())
 
-    # Category progress
-    categories_progress = progress.get("categories_progress", {})
-
-    print("# 📊 Dashboard Postępów")
-    print()
-    print("## 🎯 Twoje Statystyki")
-    print()
-    print(f"- **Sesje programowania:** {sessions} 📅")
-    print(f"- **Passa dni:** {streak_emoji} {streak} dni pod rząd")
-    print(f"- **Obecny focus:** {focus_category}")
-    print(f"- **Opanowane koncepty:** {mastered}/{total}")
-
-    # Auto-discovered count
-    discovered_count = len(dynamic)
-    if discovered_count > 0:
-        print(f"- **Auto-discovered:** ⭐ {discovered_count} technologii")
-
+    # Header
+    print("# 📊 DASHBOARD POSTĘPÓW - Universal Learning System v2.0")
     print()
 
-    print("## 📈 Twoja Aktywność")
+    # Active domain highlight
+    if active_domain:
+        print(f"## 🎯 Aktywna Dziedzina: **{active_domain.get('name')}**")
+        domain_concepts = active_domain.get('concepts_count', 0)
+        domain_mastered = active_domain.get('mastered_count', 0)
+        domain_progress = (domain_mastered / domain_concepts * 100) if domain_concepts > 0 else 0
+
+        print(f"**Progress:** {domain_mastered}/{domain_concepts} konceptów ({domain_progress:.0f}%)")
+        if domain_concepts > 0:
+            bar = render_progress_bar(domain_mastered, domain_concepts, 20)
+            print(f"{bar}")
+        print()
+
+    # Global stats
+    print("## 📈 Globalne Statystyki")
     print()
-    print(f"**Całkowita liczba akcji:** {total_actions}")
+    print(f"- **Sesje:** {sessions} 📅")
+    print(f"- **Passa:** {streak_emoji} {streak} dni pod rząd")
+    print(f"- **Całkowita aktywność:** {total_actions} akcji")
+    print()
+
+    # Multi-domain progress
+    if len(all_domains) > 0:
+        print("## 🎓 Postęp w Dziedzinach")
+        print()
+
+        for domain in all_domains:
+            domain_id = domain.get("id")
+            domain_name = domain.get("name")
+            concepts = domain.get("concepts_count", 0)
+            mastered = domain.get("mastered_count", 0)
+            is_active = (active_domain and domain_id == active_domain.get("id"))
+
+            marker = "➡️ " if is_active else "   "
+            print(f"{marker}**{domain_name}**")
+
+            if concepts > 0:
+                bar = render_progress_bar(mastered, concepts, 15)
+                print(f"{marker}{bar} ({mastered}/{concepts})")
+            else:
+                print(f"{marker}░░░░░░░░░░░░░░░ 0% (0/0)")
+
+            print()
+
+    # Activity breakdown
+    print("## 📊 Aktywność według typu")
     print()
 
     if action_counts:
@@ -129,53 +138,36 @@ def main():
         print("_Brak zarejestrowanych akcji_")
 
     print()
-    print("## 🎓 Postęp w Kategoriach")
-    print()
 
-    if categories_progress:
-        # Sort categories by progress (descending)
-        sorted_cats = sorted(
-            categories_progress.items(),
-            key=lambda x: x[1].get("progress", 0),
-            reverse=True
-        )
+    # Recent quizzes (if any)
+    quiz_logs = [log for log in logs if log.get("type") == "quiz_result"]
+    if quiz_logs:
+        print("## 🎯 Ostatnie Quizy")
+        print()
 
-        for category, cat_data in sorted_cats:
-            mastered_cat = cat_data.get("mastered", 0)
-            total_cat = cat_data.get("total_concepts", 0)
-            progress_val = cat_data.get("progress", 0.0)
+        for quiz_log in quiz_logs[-3:]:  # Last 3 quizzes
+            quiz_data = quiz_log.get("quiz", {})
+            domain = quiz_data.get("domain", "Unknown")
+            score = quiz_data.get("score", 0.0)
+            num_questions = quiz_data.get("num_questions", 0)
 
-            if total_cat > 0:
-                bar = render_progress_bar(mastered_cat, total_cat, 15)
-                print(f"### {category}")
-                print(f"{bar} ({mastered_cat}/{total_cat} mastered)")
-                print()
-    else:
-        print("_Brak danych o kategoriach_")
-        print("_Uruchom `/track-concepts` aby zaktualizować_")
+            score_pct = int(score * 100)
+            timestamp = quiz_log.get("timestamp", "")
 
-    print()
-    print("## ⏱️ Ostatnia Aktywność")
-    print()
+            emoji = "🏆" if score >= 0.8 else "✅" if score >= 0.6 else "📚"
+            print(f"{emoji} **{domain}**: {score_pct}% ({int(score * num_questions)}/{num_questions}) - {timestamp[:10]}")
 
-    recent = get_recent_activity(logs, 5)
-    if recent:
-        for log in recent:
-            timestamp = format_timestamp(log.get("timestamp", ""))
-            action = format_action(log.get("action", "unknown"))
-            context = log.get("context", {})
-            file_name = context.get("file", "N/A")
+        print()
 
-            print(f"- **{timestamp}** - {action} → `{file_name}`")
-    else:
-        print("_Brak aktywności_")
-
-    print()
+    # Footer
     print("---")
     print()
-    print("💪 **Trzymaj tempo!** Każda sesja to krok w stronę mistrzostwa.")
+    print("**Dostępne komendy:**")
+    print("- `/learn` - Zarządzaj dziedzinami")
+    print("- `/quiz` - Sprawdź wiedzę")
+    print("- `/review` - Przegląd nauki")
+    print("- `/concepts` - Lista konceptów")
     print()
-    print("_Użyj `/concepts` aby zobaczyć wszystkie koncepty_")
 
 
 if __name__ == "__main__":
