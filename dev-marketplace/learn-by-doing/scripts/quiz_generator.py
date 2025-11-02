@@ -106,33 +106,100 @@ def get_practiced_concepts(progress: Dict[str, Any], domain_id: Optional[str] = 
 
 def generate_multiple_choice_question(concept: Dict[str, Any], knowledge_base: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Generuj pytanie multiple choice
+    Generuj pytanie multiple choice z knowledge_base
 
     Args:
         concept: Dict z konceptem
-        knowledge_base: Knowledge base (dla similar concepts jako distractors)
+        knowledge_base: Knowledge base (dla podobnych konceptów jako distractors)
 
     Returns:
         Dict z pytaniem
     """
     concept_name = concept["name"]
+    concept_id = concept["id"]
     category = concept["category"]
 
-    # Simple template-based question
-    template = random.choice(QUESTION_TEMPLATES["multiple_choice"])
+    # Pobierz pełne dane z knowledge_base
+    kb_concept = knowledge_base.get("concepts", {}).get(concept_id, {})
 
-    question_text = template["question"].format(concept=concept_name)
+    # Wybierz typ pytania
+    question_types = ["prerequisites", "next_steps", "category", "use_case"]
+    q_type = random.choice(question_types)
 
-    # Generate options (1 correct + 3 distractors)
-    correct_answer = f"Poprawna odpowiedź o {concept_name}"  # Simplified
+    if q_type == "prerequisites" and kb_concept.get("prerequisites"):
+        # Pytanie o prerequisites
+        question_text = f"Co powinieneś znać PRZED nauką {concept_name}?"
+        correct_prereqs = kb_concept.get("prerequisites", [])
 
-    # Distractors (simplified - in real scenario, use similar concepts from KB)
-    distractors = [
-        f"Niepoprawna odpowiedź A",
-        f"Niepoprawna odpowiedź B",
-        f"Niepoprawna odpowiedź C",
-    ]
+        if correct_prereqs:
+            # Znajdź nazwę pierwszego prerequisite
+            correct_prereq_id = correct_prereqs[0]
+            correct_prereq = knowledge_base.get("concepts", {}).get(correct_prereq_id, {})
+            correct_answer = correct_prereq.get("name", correct_prereq_id)
 
+            # Distractors - inne koncepty z tej samej kategorii
+            distractors = []
+            for c_id, c_data in knowledge_base.get("concepts", {}).items():
+                if c_data.get("category") == category and c_id not in correct_prereqs and c_id != concept_id:
+                    distractors.append(c_data.get("name", c_id))
+
+            distractors = distractors[:3] if len(distractors) >= 3 else distractors + ["Żadne z powyższych"]
+        else:
+            correct_answer = "Żadne szczególne wymagania"
+            distractors = ["Zaawansowana matematyka", "5 lat doświadczenia", "Certyfikat AWS"]
+
+    elif q_type == "next_steps" and kb_concept.get("next_steps"):
+        # Pytanie o next_steps
+        question_text = f"Co powinieneś uczyć się PO opanowaniu {concept_name}?"
+        next_steps = kb_concept.get("next_steps", [])
+
+        if next_steps:
+            correct_next_id = next_steps[0]
+            correct_next = knowledge_base.get("concepts", {}).get(correct_next_id, {})
+            correct_answer = correct_next.get("name", correct_next_id)
+
+            # Distractors
+            distractors = []
+            for c_id, c_data in knowledge_base.get("concepts", {}).items():
+                if c_data.get("category") == category and c_id not in next_steps and c_id != concept_id:
+                    distractors.append(c_data.get("name", c_id))
+
+            distractors = distractors[:3] if len(distractors) >= 3 else distractors + ["Nic więcej"]
+        else:
+            correct_answer = "Możesz przejść do dowolnego tematu"
+            distractors = ["Musisz zacząć od początku", "Certyfikacja", "Praktyka 100h"]
+
+    elif q_type == "category":
+        # Pytanie o kategorię
+        question_text = f"Do jakiej kategorii należy {concept_name}?"
+        correct_answer = category
+
+        # Distractors - inne kategorie
+        all_categories = set()
+        for c_data in knowledge_base.get("concepts", {}).values():
+            if c_data.get("category"):
+                all_categories.add(c_data["category"])
+
+        all_categories.discard(category)
+        distractors = list(all_categories)[:3]
+
+    else:  # use_case
+        # Pytanie ogólne
+        subcategory = kb_concept.get("subcategory", "rozwoju oprogramowania")
+        question_text = f"Do czego służy {concept_name}?"
+        correct_answer = f"Do {subcategory}"
+
+        # Distractors - inne subcategories
+        distractors = []
+        for c_data in knowledge_base.get("concepts", {}).values():
+            if c_data.get("category") == category and c_data.get("subcategory") != subcategory:
+                distractors.append(f"Do {c_data.get('subcategory', 'programowania')}")
+
+        distractors = list(set(distractors))[:3]
+        if len(distractors) < 3:
+            distractors += ["Do testowania sprzętu", "Do zarządzania projektami"][:3 - len(distractors)]
+
+    # Stwórz opcje
     options = [correct_answer] + distractors[:3]
     random.shuffle(options)
 
@@ -143,7 +210,7 @@ def generate_multiple_choice_question(concept: Dict[str, Any], knowledge_base: D
         "question": question_text,
         "options": options,
         "correct_answer": correct_index,
-        "concept_id": concept["id"],
+        "concept_id": concept_id,
         "concept_name": concept_name,
         "category": category,
         "difficulty": concept["mastery_level"],

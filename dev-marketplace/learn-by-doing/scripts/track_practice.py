@@ -70,6 +70,37 @@ def detect_imports_from_content(content: str, language: str = "python") -> list:
                     if module not in imports and not module.startswith('_'):
                         imports.append(module)
 
+    elif language == "javascript":
+        # JavaScript/TypeScript import patterns
+        # ES6: import React from 'react'
+        # Named: import { useState } from 'react'
+        # CommonJS: require('express')
+        # Namespace: import * as fs from 'fs'
+        import_patterns = [
+            r'^import\s+.*\s+from\s+[\'"]([^/\'"]+)',  # import X from 'module'
+            r'^import\s+[\'"]([^/\'"]+)[\'"]',         # import 'module'
+            r'^import\s*\{[^}]+\}\s*from\s+[\'"]([^/\'"]+)',  # import { X } from 'module'
+            r'^import\s*\*\s*as\s+\w+\s+from\s+[\'"]([^/\'"]+)',  # import * as X from 'module'
+            r'require\s*\(\s*[\'"]([^/\'"]+)[\'"]',   # require('module')
+        ]
+
+        for line in content.split('\n'):
+            line = line.strip()
+            for pattern in import_patterns:
+                match = re.search(pattern, line)
+                if match:
+                    module = match.group(1)
+                    # Wyciągnij root package name (np. '@testing-library/react' → '@testing-library/react')
+                    if module.startswith('@'):
+                        # Scoped package
+                        if module not in imports:
+                            imports.append(module)
+                    else:
+                        # Regular package
+                        root_module = module.split('/')[0]
+                        if root_module not in imports and not root_module.startswith('.'):
+                            imports.append(root_module)
+
     return imports[:10]  # Limit to 10
 
 
@@ -111,13 +142,18 @@ def extract_context(tool_input):
     elif file_ext in [".go"]:
         context["language"] = "go"
 
-    # Import detection (tylko dla Python na razie)
-    if file_ext == ".py" and "content" in tool_input:
+    # Import detection (Python + JavaScript/TypeScript)
+    if "content" in tool_input:
         content = tool_input.get("content", "")
         if content:
-            imports = detect_imports_from_content(content, "python")
-            if imports:
-                context["detected_libraries"] = imports
+            if file_ext == ".py":
+                imports = detect_imports_from_content(content, "python")
+                if imports:
+                    context["detected_libraries"] = imports
+            elif file_ext in [".js", ".jsx", ".ts", ".tsx"]:
+                imports = detect_imports_from_content(content, "javascript")
+                if imports:
+                    context["detected_libraries"] = imports
 
     return context
 
