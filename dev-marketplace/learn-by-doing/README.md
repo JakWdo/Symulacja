@@ -1,359 +1,197 @@
-# 🎓 Learn-by-Doing - Inteligentny System Nauki przez Praktykę
+# 🎓 Learn-by-Doing Plugin
 
-**Universal Learning System v2.3** - Plugin dla Claude Code z **Interactive Course Planning**! Claude tworzy spersonalizowane kursy, prowadzi Cię krok po kroku (teoria + TODO(human)) i stopniowo dochodzisz do celu.
-
-> 💡 **Filozofia:** Wszystko przez komunikację z Claude. Używaj `/learn`, `/course`, `/progress`, `/quiz`
+**AI-asystent nauczania** - ucz się przez praktykę z kursami generowanymi przez Claude'a. Zorganizowany w **dziedziny** (Backend, Frontend, AI/ML, itd.)
 
 ---
 
-## 🚀 Szybki Start
+## 🚀 Quick Start (3 kroki)
 
-### 1. Rozpocznij Kurs
-```
-"Chcę dodać Redis caching do projektu"
-```
-lub
-```bash
-/course start "Dodaj Redis caching"
-```
-
-### 2. Claude Pyta
-- Poziom? (beginner/intermediate/advanced)
-- Czas? (quick 2-3h / standard 8-10h / deep 20-30h)
-- Styl? (theory-first / practice-first / balanced)
-
-### 3. Claude Tworzy Plan
-```
-Kurs: Redis Caching (5 lekcji, ~8h)
-Lekcja 1: Redis Basics
-Lekcja 2: Cache Key Design
-Lekcja 3: Implementation
-Lekcja 4: TTL & Expiration
-Lekcja 5: Testing
-```
-
-### 4. Claude Prowadzi
-Każda lekcja = **Teoria** + **TODO(human)** → wykonujesz → `/course done`
+1. **Wybierz dziedzinę**: `/learn --domains`
+2. **Rozpocznij kurs**: `/learn "Redis caching w FastAPI"`
+3. **Sprawdź wiedzę**: `/quiz`
 
 ---
 
-## 📚 Główne Funkcje
-
-### 🎓 Interactive Course Planning (v2.3)
-
-**Claude jako aktywny nauczyciel!**
+## 📚 Przykłady
 
 ```bash
-/course start "cel"       # Rozpocznij kurs (interactive)
-/course list              # Lista aktywnych kursów
-/course continue <id>     # Następna lekcja
-/course done <id>         # Oznacz jako ukończoną
-/course progress <id>     # Szczegółowy postęp
-```
-
-**Przykład lekcji:**
-```
-💡 Teoria: Redis to in-memory store dla cache'owania...
-🛠️ TODO(human): Połącz się z Redis, test ping/set/get
-   Oczekiwane: ~15 linii, 30 min
-   Plik: app/core/redis_test.py
+/learn "Docker multi-stage builds"    # Rozpocznij kurs Docker
+/learn "GraphQL z Apollo Server"      # Kurs GraphQL
+/learn --domain backend               # Zmień aktywną dziedzinę
+/learn --domains                      # Pokaż wszystkie dziedziny
+/progress                             # Dashboard postępów
+/quiz                                 # Quiz z ostatniej lekcji
 ```
 
 ---
 
-### 📊 Zarządzanie Dziedzinami
+## 🎯 Dziedziny
 
-**6 szablonów + custom:**
+Twoja nauka jest zorganizowana w 7 dziedzin:
 
-```bash
-/learn software-engineering  # 45 konceptów (Backend, Frontend, AI/ML, DevOps)
-/learn data-science         # pandas, numpy, matplotlib, sklearn
-/learn machine-learning     # supervised, deep-learning, transformers
-/learn system-design        # scalability, caching, microservices
-/learn algorithms           # sorting, graphs, dynamic-programming
-/learn mathematics          # linear-algebra, calculus, statistics
-```
+| Icon | Dziedzina | Opis |
+|------|-----------|------|
+| 🔧 | **Backend** | API, databases, async patterns |
+| 🎨 | **Frontend** | React, UI/UX, state management |
+| 🤖 | **AI/ML** | LLMs, RAG, embeddings |
+| 💾 | **Databases** | SQL, NoSQL, optimization |
+| 🚀 | **DevOps** | Docker, CI/CD, cloud |
+| ✅ | **Testing** | Unit tests, integration, E2E |
+| 🏗️ | **System Design** | Architecture, scalability, patterns |
 
-**Zarządzanie:**
-```bash
-/learn                      # Status wszystkich dziedzin
-/learn --list               # Lista
-/learn --active <id>        # Zmień aktywną
-/learn --remove <id>        # Usuń
-```
+Każda dziedzina ma:
+- **Własne koncepty** (40-50 na dziedzinę)
+- **Ścieżki nauki** (prerequisites → next steps)
+- **Tracking postępów** (mastered concepts)
 
 ---
 
-### 🔍 Automatyczne Wykrywanie
+## 📖 Komendy
 
-Plugin automatycznie wykrywa co robisz:
+### `/learn [goal|--domain|--domains]`
+Główna komenda - kursy AI, zarządzanie dziedzinami
 
-**Python:**
-```python
-from fastapi import FastAPI          # → FastAPI Routing
-import pandas as pd                  # → pandas basics
-```
-
-**JavaScript/TypeScript:**
-```typescript
-import React from 'react'            // → React Components
-import { useState } from 'react'     // → React Hooks
-```
-
-**Pliki:**
-```
-app/api/*.py        → FastAPI endpoints
-*.tsx               → React components
-docker-compose.yml  → Docker Compose
-```
-
-**Bash:**
 ```bash
-pytest              # → pytest testing
-docker-compose up   # → Docker Compose
+/learn                          # Welcome screen + dziedziny
+/learn "cel nauki"              # Rozpocznij kurs AI-generowany
+/learn --domain <id>            # Zmień aktywną dziedzinę
+/learn --domains                # Pokaż wszystkie dziedziny
+/learn continue                 # Kontynuuj ostatni kurs (TODO)
 ```
 
----
+### `/progress`
+Dashboard postępów
 
-### 📈 Monitoring Postępów
-
-**Dashboard:**
 ```bash
-/progress
+/progress                       # Postępy w aktywnej dziedzinie
 ```
 
 Pokazuje:
-- Progress per dziedzina (10/45 konceptów)
-- Breakdown per kategoria (Backend 60%, Frontend 50%)
-- Mastery levels (Level 1-5, Level 3+ = MASTERED)
-- Passa (streak days)
-- Ostatnia aktywność
+- Aktywną dziedzinę z progress bar
+- Przegląd wszystkich dziedzin
+- Aktywne kursy (jeśli są)
 
-**Lista konceptów:**
-```bash
-/concepts
-```
-
-34 koncepty w 6 kategoriach (AI/ML, Backend, Database, DevOps, Frontend, Testing)
-
-**Przegląd:**
-```bash
-/review
-```
-
-Co robiłeś dzisiaj/tydzień/miesiąc
-
----
-
-### 🧠 System Quizów
+### `/quiz [concept]`
+Quiz wiedzy
 
 ```bash
-/quiz                      # Quiz z aktywnej dziedziny
-/quiz software-engineering # Quiz z konkretnej dziedziny
-```
-
-Generuje pytania z **practiced concepts** (4 typy: multiple choice, true/false, kategoria, next steps)
-
----
-
-### 💡 Smart Recommendations
-
-System analizuje:
-1. Co już opanowałeś (mastery >= 3)
-2. Dependency graph (prerequisites)
-3. Ostatnie praktyki
-4. Category balance
-
-I sugeruje co uczyć się dalej z **readiness score** (100% = wszystkie prerequisites gotowe)
-
----
-
-## 📋 Spaced Repetition
-
-System przypomina o powtórkach:
-- Level 1 → Powtórz po **1 dniu**
-- Level 2 → Powtórz po **3 dniach**
-- Level 3 → Powtórz po **7 dniach** (MASTERED!)
-- Level 4 → Powtórz po **14 dniach**
-- Level 5 → Powtórz po **30 dniach**
-
-Claude wyświetla przy starcie sesji:
-```
-Do Powtórki:
-📅 pandas basics (7 dni temu) - czas powtórzyć!
+/quiz                           # Quiz z ostatniej lekcji
+/quiz "async patterns"          # Quiz na konkretny temat
 ```
 
 ---
 
-## 🎯 Przykład: Pełny Flow
+## 💡 Jak to działa?
 
-```bash
-# 1. Start kursu
-"Chcę dodać ML recommendations do Sight"
+1. **Podajesz cel nauki** - "Chcę nauczyć się X"
+2. **Claude generuje kurs** - 3-7 lekcji dostosowanych do Ciebie
+3. **Wykonujesz TODO(human)** - praktyczne zadania
+4. **Quiz sprawdza wiedzę** - po każdej lekcji
+5. **System śledzi postęp** - w kontekście dziedziny
 
-# 2. Claude pyta → tworzy plan 5 lekcji
+### Przykładowy flow:
 
-# 3. Lekcja 1: Teoria + TODO
-# Wykonujesz zadanie...
+```
+You: /learn "Redis caching w FastAPI"
 
-# 4. Done
-/course done ml-recommendations
+Claude:
+📚 Kurs: Redis Caching w FastAPI (5 lekcji, ~3h)
+🔧 Dziedzina: Backend Development
 
-# 5. Następna lekcja
-/course continue ml-recommendations
+Lekcja 1: Redis Basics & Installation
+  - Instalacja Redis
+  - Podstawowe komendy (GET, SET, EXPIRE)
+  - TODO(human) 🟢: Zainstaluj Redis lokalnie, przetestuj komendy
 
-# Repeat dla lekcji 2, 3, 4, 5...
+Lekcja 2: FastAPI Integration
+  ...
 
-# 6. Ukończenie
-🎉 GRATULACJE! Kurs ukończony!
+Rozpocząć? [y/n]
 ```
 
 ---
 
-## 📁 Architektura (dla zaawansowanych)
+## 🔄 Czym to się różni od starej wersji?
 
-**Storage:** `~/.claude/learn-by-doing/`
+| Feature | Stara wersja (v2.x) | Nowa wersja (v3.0) |
+|---------|---------------------|---------------------|
+| **Śledzenie** | Pasywne (PostToolUse hooks) | Brak - focus na kursy |
+| **Główny flow** | Automatyczne wykrywanie konceptów | Kursy AI na żądanie |
+| **Komendy** | 6 komend (`/concepts`, `/review`, itd.) | 3 komendy (`/learn`, `/progress`, `/quiz`) |
+| **Dziedziny** | 11 (z kodem) | 7 (predefiniowane) |
+| **Output** | Długi (~40 linii) | Krótki (max 15 linii) |
+| **Kod** | ~7400 linii | ~2200 linii (-70%) |
 
-```
-config.json                   # Konfiguracja
-user_learning_domains.json    # Dziedziny
-learning_progress.json         # Postęp (sessions, streak, mastery)
-practice_log.jsonl             # Historia akcji (max 1000)
-courses.json                   # Aktywne kursy (NEW v2.3)
-knowledge_base.json            # 45 predefiniowanych konceptów
-dynamic_concepts.json          # Auto-discovered
-archives/                      # Archiwum
-```
-
-**Moduły:**
-- `course_planner.py` - Tworzenie kursów
-- `course_manager.py` - CRUD kursów
-- `lesson_conductor.py` - Prowadzenie lekcji
-- `concept_detector.py` - Wykrywanie konceptów
-- `learning_graph.py` - Dependency graph
-- `recommendation_engine.py` - Sugestie
-- `quiz_generator.py` - Quizy
-
----
-
-## ⚙️ Konfiguracja
-
-**Plik:** `~/.claude/learn-by-doing/config.json`
-
-```json
-{
-  "enabled": true,
-  "auto_tracking": {
-    "enabled": true,
-    "min_confidence": 0.7
-  },
-  "spaced_repetition": {
-    "enabled": true,
-    "intervals_days": [1, 3, 7, 14, 30]
-  },
-  "recommendations": {
-    "enabled": true,
-    "max_suggestions": 5,
-    "prefer_category": null
-  }
-}
-```
-
-**Zmiana przez Claude:**
-```
-Chcę priorytetować Backend w rekomendacjach
-```
+**Główna zmiana:** Plugin **nie śledzi** Twoich akcji. Zamiast tego **aktywnie pomaga** poprzez AI-generowane kursy.
 
 ---
 
 ## ❓ FAQ
 
-**Q: Jak plugin wie czego się uczę?**
-A: Wykrywa z practice: `import pandas` → pandas basics, `app/api/*.py` → FastAPI
+### **Q: Jak zacząć?**
+A: Uruchom `/learn --domains`, wybierz dziedzinę, potem `/learn "co chcesz się nauczyć"`
 
-**Q: Mogę uczyć się kilku dziedzin naraz?**
-A: Tak! Software Engineering + Data Science + System Design równocześnie
+### **Q: Czy muszę ręcznie dodawać koncepty?**
+A: Nie. Koncepty są automatycznie wykrywane z ukończonych lekcji kursów.
 
-**Q: Co to mastery level?**
-A: Poziom 1-5. Level 3+ = MASTERED (opanowane)
+### **Q: Jak zmienić dziedzinę?**
+A: `/learn --domain <id>` (np. `/learn --domain ai_ml`)
 
-**Q: Jak działa spaced repetition?**
-A: System przypomina w odstępach 1, 3, 7, 14, 30 dni
+### **Q: Co jeśli chcę uczyć się wielu dziedzin jednocześnie?**
+A: Możesz - każda dziedzina ma własny tracking. Zmień aktywną przez `/learn --domain`.
 
-**Q: Dane synchronizowane między projektami?**
-A: Tak! `~/.claude/learn-by-doing/` - działa globalnie
-
-**Q: Jak wyłączyć plugin?**
-A: Powiedz Claude: "Wyłącz plugin" → ustawia `enabled: false`
-
-**Q: Jak dodać koncepty do dziedziny?**
-A: Opcja 1 (zalecana): Po prostu pracuj, system wykryje
-   Opcja 2: Powiedz Claude: "Dodaj kategorie do Statistics: descriptive-stats, regression..."
-
-**Q: Wiele kursów równocześnie?**
-A: Tak! Możesz mieć 3-5 aktywnych kursów, `/course list` aby zobaczyć wszystkie
+### **Q: Czy mogę dodać własną dziedzinę?**
+A: W v3.0 dziedziny są predefiniowane (7 głównych). Custom dziedziny będą w przyszłych wersjach.
 
 ---
 
-## 🎓 Dlaczego Learn-by-Doing?
+## 🛠️ Techniczne Detale
 
-❌ **Stary sposób:**
-- Claude tylko notuje co robisz
-- Brak struktury
-- Nie wiesz co dalej
-
-✅ **Nowy sposób (v2.3):**
-- Claude planuje ścieżkę nauki (kursy!)
-- Prowadzi krok po kroku (teoria + TODO)
-- Stopniowo dochodzisz do celu
-- Jasna struktura (Lekcja 1 → 2 → 3...)
-
----
-
-## 📦 Changelog
-
-**v2.3.0 (2025-11-02)** - Interactive Course Planning 🎓
-- ✨ **NEW:** Course Planner - spersonalizowane kursy
-- ✨ **NEW:** `/course` command (7 subkomend)
-- ✨ **NEW:** Guided lessons (teoria + TODO)
-- ✨ **NEW:** Multiple active courses
-- 🎯 Focus shift: passive tracking → active teaching
-
-**v2.2.0 (2025-11-02)** - Final Improvements
-- ✨ Quiz generator z knowledge_base
-- ✨ JS/TS import detection
-- 📝 Kompletny README
-
-**v2.0 (2025-11-02)** - Universal Learning System
-- ✨ Auto-discovery (200+ technologii)
-- ✨ Multi-domain support (6 szablonów)
-- ✨ Spaced repetition
-- ✨ Smart recommendations
-- 📊 Dashboard per domena
-
----
-
-## 🚀 Rozpocznij Naukę!
-
-```bash
-# 1. Sprawdź status
-/learn
-
-# 2. Rozpocznij kurs
-/course start "Dodaj ML do projektu"
-
-# 3. Claude prowadzi przez lekcje
-# Teoria → TODO → done → next → ... → 🎉
-
-# 4. Sprawdzaj postęp
-/progress
-
-# 5. Testuj wiedzę
-/quiz
+**Struktura plików:**
+```
+learn-by-doing/
+├── commands/
+│   ├── learn.md           # Główna komenda
+│   ├── progress.md        # Dashboard
+│   └── quiz.md            # Quizy
+├── data/
+│   ├── domains.json       # 7 dziedzin
+│   ├── knowledge_base.json # 47 konceptów
+│   ├── active_courses.json # Aktywne kursy
+│   └── config.json        # Konfiguracja
+├── scripts/
+│   ├── learn.py           # Entry point
+│   ├── progress.py        # Dashboard
+│   ├── progress_tracker.py # Tracking kursów
+│   ├── quiz.py            # Quizy
+│   ├── domain_manager.py  # CRUD dziedzin
+│   ├── learning_graph.py  # Graf zależności
+│   ├── recommendation_engine.py # Sugestie
+│   ├── course_manager.py  # Zarządzanie kursami
+│   └── course_planner.py  # AI-generowanie kursów
+└── README.md
 ```
 
-**Happy Learning! 🎓**
+**Zależności:** Python stdlib only (json, pathlib, datetime)
 
-Plugin działa globalnie we wszystkich projektach. Ucz się przez praktykę!
+---
 
-**Pytania? Zapytaj Claude!** 💬
+## 📝 Changelog
+
+**v3.0.0 (2025-11-02)** - Simplification Release
+- ❌ Usunięto pasywne śledzenie (70% kodu mniej)
+- ✅ Focus na AI-kursy na żądanie
+- ✅ System dziedzin z ikonami
+- ✅ Uproszczony knowledge base (120→47 konceptów)
+
+**v2.3.0** - Interactive Course Planning
+**v2.0.0** - Universal Learning System
+**v1.0.0** - Initial Release
+
+---
+
+## 🤝 Wsparcie
+
+Masz pytania? Otwórz issue na GitHub lub zapytaj Claude'a bezpośrednio!
+
+**Made with ❤️ by Claude & Human**

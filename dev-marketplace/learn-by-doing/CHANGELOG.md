@@ -6,6 +6,142 @@ Format bazuje na [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.0.0] - 2025-11-02 - **Simplification Release**
+
+### 🎯 Major Changes
+
+**Filozofia:** Od pasywnego trackera do aktywnego AI-asystenta nauczania
+
+- **❌ Usunięto pasywne śledzenie** - brak SessionStart/PostToolUse hooks
+- **✅ Focus na AI-kursy na żądanie** - główny flow: `/learn "cel"` → kurs
+- **✅ System dziedzin z ikonami** - 7 predefiniowanych dziedzin
+- **✅ Uproszczony knowledge base** - 120→47 core concepts
+- **✅ Krótkie outputy** - max 15 linii (było ~40)
+
+### ✅ Added (Dodano)
+
+**Nowe pliki:**
+- `data/domains.json` - 7 predefiniowanych dziedzin z ikonami (Backend, Frontend, AI/ML, Databases, DevOps, Testing, System Design)
+- `scripts/progress_tracker.py` - Lightweight tracking tylko kursów (bez practice_log)
+- `data/active_courses.json` - Tracking aktywnych kursów
+
+**Nowe funkcje:**
+- Domain filtering w recommendation_engine
+- Uproszczony dashboard (`/progress`) - dziedziny + kursy
+- Welcome screen z ikonami dziedzin (`/learn`)
+
+### ❌ Removed (Usunięto) - **65% redukcja kodu**
+
+**Pliki Python (12 skryptów):**
+- `track_practice.py` - Pasywne śledzenie akcji
+- `concept_detector.py` - Pattern matching
+- `auto_discovery.py` - Autodiscovery technologii
+- `update_progress.py` - Złożony orchestrator
+- `session_start.py` - Gadatliwy welcome screen
+- `session_start_wrapper.sh` - Hook wrapper
+- `log_rotator.py` - Archiwizacja logów
+- `tech_classifier.py` - Klasyfikacja technologii
+- `track_concepts.py`, `concepts.py`, `review.py`, `concept_manager.py`
+
+**Pliki danych:**
+- `practice_log.jsonl` - Event log akcji
+- `dynamic_concepts.json` - Odkryte koncepty
+
+**Komendy (3 usunięte):**
+- `/concepts` - Lista konceptów
+- `/review` - Przegląd nauki
+- `/track-concepts` - Ręczne trackowanie
+
+**Testy (2 pliki):**
+- `test_track_practice.py`
+- `test_log_rotation.py`
+
+**Hooki:**
+- SessionStart hook - usunięty z `hooks.json`
+- PostToolUse hook - usunięty z `hooks.json`
+
+### 🔄 Refactored (Zrefaktoryzowano)
+
+**learn.py** (337→215 linii, -36%)
+- Usunięto: `add_new_domain()`, `add_domain_from_template()`, `remove_domain_command()`, legacy commands (on/off/status)
+- Uproszczono: `show_domains_status()` → `show_welcome()` (krótszy output)
+- Dodano: Integrację z course_planner dla głównego flow
+
+**progress.py** (175→140 linii, -20%)
+- Usunięto: `load_practice_log()`, `load_dynamic_concepts()`, `count_actions_by_type()`, recent quizzes section
+- Zachowano: `render_progress_bar()`, domain progress overview
+- Uproszczono: Dashboard do max 15 linii outputu
+
+**recommendation_engine.py** (+50 linii, nowa funkcjonalność)
+- Zmieniono: `category` → `domain` w całym pliku
+- Dodano: `domain_id` parameter w `suggest_next_concepts()`
+- Dodano: Domain filtering w rekomendacjach
+- Zaktualizowano: `_get_recent_categories()` → `_get_recent_domains()`
+
+**knowledge_base.json** (843→340 linii, -60%)
+- Uproszczono: 120→47 konceptów (najważniejsze)
+- Usunięto: Pattern matching (`patterns` field)
+- Zmieniono: `category` → `domain`
+- Struktura: Tylko `name`, `domain`, `difficulty`, `description`, `prerequisites`, `next_steps`
+
+### 📝 Documentation (Dokumentacja)
+
+**README.md** - Całkowicie przepisany (1 strona)
+- Quick Start (3 kroki)
+- Tabela 7 dziedzin z ikonami
+- Przykładowy flow kursu
+- Porównanie v2.x vs v3.0
+- FAQ (5 pytań)
+- Techniczne detale
+
+**Command descriptions:**
+- `learn.md` - Zaktualizowany opis usage
+- `progress.md` - Nowy krótki opis
+- `quiz.md` - Zaktualizowany format
+
+### 📊 Metrics (Metryki)
+
+| Metryka | v2.3 (przed) | v3.0 (po) | Zmiana |
+|---------|--------------|-----------|---------|
+| **Linie kodu (scripts)** | ~7400 | ~2200 | **-70%** |
+| **Pliki Python** | 26 | 9 | **-65%** |
+| **Komendy** | 6 | 3 | **-50%** |
+| **knowledge_base** | 120 | 47 | **-61%** |
+| **Dziedziny** | 11 (z kodem) | 7 (config) | Uproszczone |
+| **Session start output** | ~40 linii | 0 (brak hooka) | **-100%** |
+| **learn.py** | 337 | 215 | **-36%** |
+| **progress.py** | 175 | 140 | **-20%** |
+
+### 🐛 Fixes (Naprawione)
+
+- Usunięto dependency na usunięte moduły (track_practice, concept_detector, etc.)
+- Naprawiono hooki blokujące wykonanie narzędzi
+- Usunięto duplikację logowania danych
+
+### ⚠️ Breaking Changes
+
+1. **Brak pasywnego śledzenia** - plugin nie śledzi automatycznie akcji użytkownika
+2. **Nowe komendy** - stare komendy `/concepts`, `/review`, `/track-concepts` nie działają
+3. **Nowa struktura danych** - `practice_log.jsonl` i `dynamic_concepts.json` nie są używane
+4. **Dziedziny** - custom dziedziny nie są wspierane w v3.0 (7 predefiniowanych)
+
+### 🔮 Migration Guide
+
+**Z v2.x do v3.0:**
+
+1. **Dane postępów są zachowane** - `learning_progress.json` jest kompatybilny
+2. **Hooki są wyłączone** - usuń konfigurację SessionStart/PostToolUse jeśli masz własną
+3. **Nowy workflow:**
+   - Zamiast: Plugin automatycznie wykrywa → `/progress` → `/review`
+   - Teraz: `/learn "cel"` → pracuj nad TODO(human) → `/quiz` → `/progress`
+
+4. **Stare komendy:**
+   - `/learn status` → `/learn` (welcome screen)
+   - `/concepts` → `/learn --domains` (dziedziny)
+   - `/review` → `/progress` (dashboard)
+
+---
+
 ## [2.1.0] - 2025-11-02
 
 ### 🔧 Fixed (Naprawiono)

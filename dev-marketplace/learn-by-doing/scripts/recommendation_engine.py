@@ -39,6 +39,7 @@ class RecommendationEngine:
         self,
         user_progress: Dict[str, Any],
         config: Dict[str, Any],
+        domain_id: Optional[str] = None,
         max_suggestions: int = 5
     ) -> List[Dict[str, Any]]:
         """
@@ -47,6 +48,7 @@ class RecommendationEngine:
         Args:
             user_progress: Dict z postępem użytkownika (z learning_progress.json)
             config: Dict z konfiguracją (z config.json)
+            domain_id: Opcjonalne - filtruj tylko do tej dziedziny
             max_suggestions: Max liczba sugestii
 
         Returns:
@@ -55,7 +57,7 @@ class RecommendationEngine:
                 {
                     "concept_id": "fastapi_dependencies",
                     "name": "FastAPI Dependencies",
-                    "category": "Backend",
+                    "domain": "backend",
                     "difficulty": 3,
                     "ready": True,
                     "reason": "Opanowałeś FastAPI Routing, to naturalny następny krok",
@@ -78,11 +80,19 @@ class RecommendationEngine:
             max_results=max_suggestions * 3  # Get więcej żeby móc priorytetyzować
         )
 
+        # Filtruj po dziedzinie jeśli podana
+        if domain_id:
+            available = [
+                rec for rec in available
+                if self.concepts.get(rec['concept_id'], {}).get('domain') == domain_id
+            ]
+
         # Priorytetyzuj
         prioritized = self._prioritize_recommendations(
             available,
             user_progress,
-            config
+            config,
+            domain_id
         )
 
         # Generate reasons
@@ -127,14 +137,15 @@ class RecommendationEngine:
         self,
         available: List[Dict[str, Any]],
         user_progress: Dict[str, Any],
-        config: Dict[str, Any]
+        config: Dict[str, Any],
+        domain_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Priorytetyzuj rekomendacje
 
         Kryteria (w kolejności):
         1. Ready vs not ready (gotowe pierwsze)
-        2. Category preference (jeśli ustawione w config)
+        2. Domain preference (jeśli podana)
         3. Recent activity (co robił ostatnio)
         4. Difficulty (nie za duży skok)
         5. Readiness score
@@ -143,16 +154,13 @@ class RecommendationEngine:
             available: Lista dostępnych next steps z learning_graph
             user_progress: Dict z postępem
             config: Dict z konfiguracją
+            domain_id: Opcjonalne - preferowana dziedzina
 
         Returns:
             Posortowana lista z priority (1-5)
         """
-        prefer_category = config.get("recommendations", {}).get("prefer_category")
-        current_focus = user_progress.get("current_focus", {})
-        focus_category = current_focus.get("category", prefer_category)
-
-        # Oblicz recent categories (co robił ostatnio)
-        recent_categories = self._get_recent_categories(user_progress)
+        # Oblicz recent domains (co robił ostatnio)
+        recent_domains = self._get_recent_domains(user_progress)
 
         # Score każdej rekomendacji
         scored = []
@@ -163,12 +171,13 @@ class RecommendationEngine:
             if rec.get("ready", False):
                 score += 10.0
 
-            # 2. Category preference (+5 jeśli pasuje do focus)
-            if focus_category and rec.get("category") == focus_category:
+            # 2. Domain preference (+5 jeśli pasuje do focus)
+            rec_domain = self.concepts.get(rec['concept_id'], {}).get('domain')
+            if domain_id and rec_domain == domain_id:
                 score += 5.0
 
-            # 3. Recent activity bonus (+3 jeśli w tej kategorii pracował ostatnio)
-            if recent_categories and rec.get("category") in recent_categories[:2]:
+            # 3. Recent activity bonus (+3 jeśli w tej dziedzinie pracował ostatnio)
+            if recent_domains and rec_domain in recent_domains[:2]:
                 score += 3.0
 
             # 4. Difficulty penalty (łatwiejsze pierwsze)
@@ -182,7 +191,8 @@ class RecommendationEngine:
 
             scored.append({
                 **rec,
-                "score": score
+                "score": score,
+                "domain": rec_domain
             })
 
         # Sortuj po score (malejąco)
@@ -194,34 +204,34 @@ class RecommendationEngine:
 
         return scored
 
-    def _get_recent_categories(self, user_progress: Dict[str, Any], limit: int = 5) -> List[str]:
+    def _get_recent_domains(self, user_progress: Dict[str, Any], limit: int = 5) -> List[str]:
         """
-        Zwróć kategorie w których użytkownik pracował ostatnio
+        Zwróć dziedziny w których użytkownik pracował ostatnio
 
         Args:
             user_progress: Dict z postępem
-            limit: Max liczba kategorii
+            limit: Max liczba dziedzin
 
         Returns:
-            Lista kategorii (sorted by frequency)
+            Lista dziedzin (sorted by frequency)
         """
         concepts = user_progress.get("concepts", {})
 
-        # Zbierz kategorie z ostatnich praktyk
-        categories = []
+        # Zbierz dziedziny z ostatnich praktyk
+        domains = []
         for concept_id, data in concepts.items():
             last_practiced = data.get("last_practiced")
             if last_practiced and concept_id in self.concepts:
-                category = self.concepts[concept_id].get("category")
-                if category:
-                    categories.append(category)
+                domain = self.concepts[concept_id].get("domain")
+                if domain:
+                    domains.append(domain)
 
         # Count frequency
-        if not categories:
+        if not domains:
             return []
 
-        category_counts = Counter(categories)
-        return [cat for cat, count in category_counts.most_common(limit)]
+        domain_counts = Counter(domains)
+        return [dom for dom, count in domain_counts.most_common(limit)]
 
     def _generate_reason(
         self,
@@ -243,7 +253,7 @@ class RecommendationEngine:
         concept_id = recommendation["concept_id"]
         ready = recommendation.get("ready", False)
         sources = recommendation.get("sources", [])
-        category = recommendation.get("category", "")
+        domain = recommendation.get("domain", "")
 
         # Sprawdź sources
         source_names = []
@@ -267,8 +277,18 @@ class RecommendationEngine:
                 return f"Opanowałeś {source_names[0]} i {source_names[1]}, to naturalny następny krok"
 
         # Ogólne uzasadnienie
-        if category:
-            return f"Rozszerz swoje umiejętności w {category}"
+        if domain:
+            domain_names = {
+                "backend": "Backend Development",
+                "frontend": "Frontend Development",
+                "ai_ml": "AI & Machine Learning",
+                "databases": "Databases",
+                "devops": "DevOps",
+                "testing": "Testing",
+                "system_design": "System Design"
+            }
+            domain_name = domain_names.get(domain, domain)
+            return f"Rozszerz swoje umiejętności w {domain_name}"
 
         return "Gotowe do nauki"
 

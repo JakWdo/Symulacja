@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 """
-Universal Learning Command - Dodawanie dziedzin nauki
+AI Learning Assistant - Główna komenda
 
-NEW Semantics (v2.0):
-    /learn                     # Show domains + active domain status
-    /learn data-science        # Add 'data-science' domain (from template or custom)
-    /learn "System Design"     # Add custom domain with quoted name
-    /learn --list              # List all domains
-    /learn --active <domain>   # Set active domain
-    /learn --remove <domain>   # Remove domain (with confirmation)
-
-OLD Semantics (deprecated but still supported):
-    /learn status              # Show status
-    /learn on/off              # Enable/disable plugin
-
-Universal Learning System v2.0
+Usage:
+    /learn                         # Pokaż welcome screen + dziedziny
+    /learn "quantum computing"     # Rozpocznij kurs AI-generowany
+    /learn --domain backend        # Zmień aktywną dziedzinę
+    /learn --domains               # Pokaż wszystkie dziedziny
+    /learn continue                # Kontynuuj ostatni kurs
 """
 
 import json
@@ -24,312 +17,197 @@ from datetime import datetime
 
 # Import local modules
 sys.path.insert(0, str(Path(__file__).parent))
-from data_manager import load_progress, load_config, save_config, load_learning_domains
+from data_manager import load_config, save_config
 from domain_manager import (
-    add_domain, add_domain_from_template, remove_domain, set_active_domain,
-    get_active_domain, get_domain_summary, list_domains, DOMAIN_TEMPLATES
+    get_active_domain, set_active_domain, list_domains, get_domain
 )
 
 
-# ============================================================================
-# NEW COMMANDS (v2.0)
-# ============================================================================
-
-def show_domains_status():
+def show_welcome():
     """
-    Wyświetl status wszystkich dziedzin (NEW default dla /learn)
+    Wyświetl welcome screen z krótkim przeglądem dziedzin
     """
-    print("# 🎓 Tryb Uczenia - Twoje Dziedziny")
+    print("# 🎓 Learn-by-Doing - AI Learning Assistant")
     print()
 
-    # Show active domain
+    # Active domain
     active = get_active_domain()
     if active:
-        print(f"## 🎯 Aktywna Dziedzina: **{active.get('name')}**")
-        print()
-        print(f"_{active.get('description', '')}_")
+        domain_id = active.get('id', '')
+        domain_name = active.get('name', '')
+        domain_icon = active.get('icon', '📚')
+        concepts_count = active.get('concepts_count', 0)
+        mastered_count = active.get('mastered_count', 0)
+        progress_pct = (mastered_count / concepts_count * 100) if concepts_count > 0 else 0
+
+        print(f"## {domain_icon} Aktywna Dziedzina: **{domain_name}**")
+        print(f"Progress: {mastered_count}/{concepts_count} konceptów ({progress_pct:.0f}%)")
         print()
 
-        # Stats
-        concepts = active.get('concepts_count', 0)
-        mastered = active.get('mastered_count', 0)
-        progress_pct = (mastered / concepts * 100) if concepts > 0 else 0
-        print(f"**Progress:** {mastered}/{concepts} konceptów ({progress_pct:.0f}%)")
-        print()
-
-    # Show all domains
-    print(get_domain_summary())
-
-    # Instructions
+    # Dostępne dziedziny
+    print("## 📚 Dostępne Dziedziny:")
     print()
-    print("## 💡 Jak zacząć uczyć się nowej dziedziny?")
+
+    domains = list_domains()
+    for domain in domains:
+        icon = domain.get('icon', '📚')
+        name = domain.get('name', '')
+        description = domain.get('description', '')
+        is_active = active and domain.get('id') == active.get('id')
+        marker = "➡️ " if is_active else "   "
+
+        print(f"{marker}{icon} **{name}** - {description}")
+
+    print()
+    print("## 💡 Jak zacząć?")
     print()
     print("```")
-    print("/learn data-science      # Dodaj Data Science")
-    print("/learn system-design     # Dodaj System Design")
-    print("/learn \"Your Domain\"     # Dodaj custom dziedzinę")
+    print('/learn "Redis caching w FastAPI"    # Rozpocznij kurs')
+    print("/learn --domain ai_ml               # Zmień dziedzinę")
+    print("/learn --domains                    # Pokaż szczegóły")
     print("```")
     print()
 
-    # Show available templates
-    print("## 📚 Dostępne Szablony:")
-    print()
-    for template_id, template in DOMAIN_TEMPLATES.items():
-        print(f"- `{template_id}` - {template['name']}")
-    print()
 
-    # Available commands
-    print("## 🛠️ Wszystkie Komendy:")
-    print()
-    print("- `/learn` - Ten ekran (domains status)")
-    print("- `/learn <domain>` - Dodaj dziedzinę")
-    print("- `/learn --list` - Lista wszystkich dziedzin")
-    print("- `/learn --active <domain>` - Ustaw aktywną dziedzinę")
-    print("- `/learn --remove <domain>` - Usuń dziedzinę")
-    print("- `/progress` - Dashboard postępów")
-    print("- `/review` - Przegląd nauki")
-    print("- `/concepts` - Lista konceptów")
-    print()
-
-
-def add_new_domain(domain_input: str):
+def list_domains_brief():
     """
-    Dodaj nową dziedzinę (z template lub custom)
-
-    Args:
-        domain_input: Nazwa dziedziny (np. "data-science" lub "System Design")
+    Pokaż wszystkie dziedziny z progress bars
     """
-    # Normalize domain_id (slug format)
-    domain_id = domain_input.lower().replace(" ", "-").replace("_", "-")
-
-    # Check if it's a template
-    if domain_id in DOMAIN_TEMPLATES:
-        print(f"# ✅ Dodaję dziedzinę z szablonu: **{DOMAIN_TEMPLATES[domain_id]['name']}**")
-        print()
-
-        success = add_domain_from_template(domain_id)
-
-        if success:
-            template = DOMAIN_TEMPLATES[domain_id]
-            print(f"**Opis:** {template['description']}")
-            print()
-            print(f"**Kategorie:** {', '.join(template['categories'])}")
-            print()
-            print("---")
-            print()
-            print("## 🎯 Co dalej?")
-            print()
-            print("1. **Zacznij pracować** nad zadaniami z tej dziedziny")
-            print("2. System **automatycznie wykryje** używane koncepty")
-            print("3. Użyj `/progress` aby zobaczyć postęp")
-            print("4. Użyj `/quiz` aby sprawdzić wiedzę")
-            print()
-            print(f"_Aktywna dziedzina: **{template['name']}**_")
-        else:
-            print("❌ **Błąd:** Nie udało się dodać dziedziny (może już istnieje?)")
-
-    else:
-        # Custom domain
-        domain_name = domain_input.title()
-        print(f"# ✅ Dodaję custom dziedzinę: **{domain_name}**")
-        print()
-
-        # Ask for description (in real scenario, this would be interactive)
-        # For now, auto-generate
-        description = f"Custom learning domain: {domain_name}"
-
-        success = add_domain(
-            domain_id=domain_id,
-            name=domain_name,
-            description=description,
-            categories=[],
-            custom=True
-        )
-
-        if success:
-            print(f"**ID:** `{domain_id}`")
-            print()
-            print("## 🎯 Co dalej?")
-            print()
-            print("1. **Rozpocznij pracę** nad zadaniami z tej dziedziny")
-            print("2. System **automatycznie wykryje** używane technologie i koncepty")
-            print("3. Użyj `/progress` aby zobaczyć postęp")
-            print()
-            print("💡 **Tip:** Możesz dodać kategorie ręcznie w `user_learning_domains.json`")
-            print()
-            print(f"_Aktywna dziedzina: **{domain_name}**_")
-        else:
-            print("❌ **Błąd:** Nie udało się dodać dziedziny (może już istnieje?)")
-
-
-def list_all_domains():
-    """Lista wszystkich dziedzin"""
     print("# 📚 Wszystkie Dziedziny Nauki")
     print()
-    print(get_domain_summary())
+
+    domains = list_domains()
+
+    for domain in domains:
+        icon = domain.get('icon', '📚')
+        name = domain.get('name', '')
+        description = domain.get('description', '')
+        concepts_count = domain.get('concepts_count', 0)
+        mastered_count = domain.get('mastered_count', 0)
+
+        print(f"## {icon} {name}")
+        print(f"_{description}_")
+        print()
+
+        if concepts_count > 0:
+            progress_pct = (mastered_count / concepts_count * 100)
+            bar_length = 15
+            filled = int((mastered_count / concepts_count) * bar_length)
+            bar = "█" * filled + "░" * (bar_length - filled)
+            print(f"**Progress:** {bar} {progress_pct:.0f}% ({mastered_count}/{concepts_count})")
+        else:
+            print(f"**Progress:** ░░░░░░░░░░░░░░░ 0% (0/0)")
+
+        print()
+
+    print("**Zmień aktywną:** `/learn --domain <id>`")
     print()
 
 
 def set_domain_active(domain_id: str):
-    """Ustaw aktywną dziedzinę"""
+    """
+    Ustaw aktywną dziedzinę
+
+    Args:
+        domain_id: ID dziedziny (np. "backend", "ai_ml")
+    """
     success = set_active_domain(domain_id)
 
     if success:
-        from domain_manager import get_domain
         domain = get_domain(domain_id)
+        icon = domain.get('icon', '📚')
+        name = domain.get('name', '')
+        description = domain.get('description', '')
 
-        print(f"# 🎯 Aktywna Dziedzina: **{domain.get('name')}**")
+        print(f"# {icon} Aktywna Dziedzina: **{name}**")
         print()
-        print(f"_{domain.get('description', '')}_")
+        print(f"_{description}_")
         print()
-        print("Od teraz system będzie priorytetowo śledzić tę dziedzinę.")
+        print("System będzie priorytetowo śledzić tę dziedzinę.")
         print()
-        print(f"Użyj `/progress` aby zobaczyć postęp w **{domain.get('name')}**")
+        print(f"Użyj `/learn \"cel\"` aby rozpocząć kurs w dziedzinie **{name}**")
     else:
         print(f"❌ **Błąd:** Nie znaleziono dziedziny `{domain_id}`")
         print()
-        print("Dostępne dziedziny:")
+        print("Dostępne:")
         for domain in list_domains():
             print(f"  - `{domain['id']}` - {domain['name']}")
 
 
-def remove_domain_command(domain_id: str):
-    """Usuń dziedzinę (z potwierdzeniem)"""
-    from domain_manager import get_domain
+def start_course_planning(goal: str):
+    """
+    Rozpocznij planowanie kursu AI
 
-    domain = get_domain(domain_id)
-    if not domain:
-        print(f"❌ **Błąd:** Nie znaleziono dziedziny `{domain_id}`")
-        return
-
-    print(f"# ⚠️ Usuwanie Dziedziny: **{domain.get('name')}**")
-    print()
-    print(f"**Progress:** {domain.get('mastered_count', 0)}/{domain.get('concepts_count', 0)} konceptów")
+    Args:
+        goal: Cel nauki (np. "Redis caching w FastAPI")
+    """
+    print(f"# 📚 Planuję kurs: **{goal}**")
     print()
 
-    # In real scenario, ask for confirmation
-    # For now, auto-confirm if no progress
-    if domain.get('mastered_count', 0) > 0:
-        print("❌ **Nie można usunąć:** Dziedzina ma postęp!")
-        print()
-        print("Użyj `--force` aby wymusić usunięcie (dane postępu zostaną utracone)")
-        return
-
-    success = remove_domain(domain_id)
-    if success:
-        print(f"✅ Dziedzina **{domain.get('name')}** została usunięta.")
-    else:
-        print("❌ Błąd podczas usuwania.")
-
-
-# ============================================================================
-# OLD COMMANDS (deprecated but still supported)
-# ============================================================================
-
-def show_status_legacy(enabled: bool):
-    """Legacy: Wyświetl status pluginu (stary format)"""
-    print("# 🎓 Status Trybu Nauczania (Legacy)")
-    print()
-    print("⚠️ **Ta komenda jest deprecated.** Użyj `/learn` zamiast `/learn status`")
-    print()
-
-    progress = load_progress()
-
-    if not progress:
-        print("⚠️ **Plugin dopiero się inicjalizuje...**")
-        print()
-    else:
-        sessions = progress.get("sessions", 0)
-        streak = progress.get("streak_days", 0)
-
-        print(f"- **Sesja:** #{sessions}")
-        print(f"- **Passa:** {streak} dni pod rząd")
+    # Get active domain
+    active = get_active_domain()
+    if active:
+        domain_icon = active.get('icon', '📚')
+        domain_name = active.get('name', '')
+        print(f"{domain_icon} **Dziedzina:** {domain_name}")
         print()
 
-    status_emoji = "✅" if enabled else "❌"
-    status_text = "Aktywny" if enabled else "Wyłączony"
-    print(f"**Status:** {status_emoji} {status_text}")
+    print("🤖 **Claude generuje plan kursu...**")
     print()
-
-    print("Użyj `/learn` aby zobaczyć nowy interfejs dziedzin.")
-
-
-def enable_plugin_legacy():
-    """Legacy: Włącz plugin"""
-    config = load_config()
-    config["enabled"] = True
-    save_config(config)
-
-    print("# ✅ Tryb Nauczania Włączony")
+    print("_(To wymaga interakcji z course_planner.py - zostanie zaimplementowane)_")
     print()
-    print("Plugin **learn-by-doing** jest aktywny!")
+    print("💡 **Tymczasowo:** Użyj normalnej konwersacji z Claude:")
+    print(f'   "Chcę nauczyć się: {goal}"')
     print()
 
 
-def disable_plugin_legacy():
-    """Legacy: Wyłącz plugin"""
-    config = load_config()
-    config["enabled"] = False
-    save_config(config)
-
-    print("# ❌ Tryb Nauczania Wyłączony")
+def continue_last_course():
+    """
+    Kontynuuj ostatni aktywny kurs
+    """
+    print("# 📖 Kontynuuj Naukę")
     print()
-    print("Plugin został dezaktywowany (dane zachowane).")
+    print("_(Funkcja zostanie zaimplementowana po integracji z course_manager)_")
+    print()
+    print("💡 **Tymczasowo:** Zapytaj Claude:")
+    print('   "Kontynuujmy ostatnią lekcję"')
     print()
 
-
-# ============================================================================
-# MAIN
-# ============================================================================
 
 def main():
     """Główna funkcja"""
-    # Parse arguments
     args = sys.argv[1:]
 
     if not args:
-        # NEW: /learn bez argumentów = show domains status
-        show_domains_status()
+        # /learn bez argumentów = welcome screen
+        show_welcome()
         return
 
     command = args[0].lower()
 
-    # NEW COMMANDS (v2.0)
-    if command == "--list":
-        list_all_domains()
+    # Commands
+    if command == "--domains":
+        list_domains_brief()
 
-    elif command == "--active":
+    elif command == "--domain":
         if len(args) < 2:
             print("❌ **Błąd:** Podaj ID dziedziny")
             print()
-            print("Usage: `/learn --active <domain-id>`")
+            print("Usage: `/learn --domain <domain-id>`")
+            print()
+            print("Dostępne:")
+            for domain in list_domains():
+                print(f"  - `{domain['id']}`")
         else:
             set_domain_active(args[1])
 
-    elif command == "--remove":
-        if len(args) < 2:
-            print("❌ **Błąd:** Podaj ID dziedziny")
-            print()
-            print("Usage: `/learn --remove <domain-id>`")
-        else:
-            remove_domain_command(args[1])
+    elif command == "continue":
+        continue_last_course()
 
-    # LEGACY COMMANDS (deprecated)
-    elif command in ["on", "enable"]:
-        enable_plugin_legacy()
-
-    elif command in ["off", "disable"]:
-        disable_plugin_legacy()
-
-    elif command == "status":
-        config = load_config()
-        show_status_legacy(config.get("enabled", True))
-
-    # NEW: Add domain (template or custom)
     else:
-        # Join all args (for domains with spaces like "System Design")
-        domain_input = " ".join(args)
-        add_new_domain(domain_input)
+        # Main: start new course
+        goal = " ".join(args)
+        start_course_planning(goal)
 
 
 if __name__ == "__main__":

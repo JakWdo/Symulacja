@@ -1,9 +1,9 @@
 ---
 name: learn
-description: Status trybu nauczania (on/off do włączania/wyłączania)
-usage: /learn [on|off|status]
+description: AI-asystent nauczania - kursy, dziedziny, rekomendacje
+usage: /learn [goal|--domain|--domains|continue]
 ---
 
-# Wykonuje skrypt learn.py z opcjonalnymi argumentami
+# Wykonuje skrypt learn.py z argumentami
 
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/learn.py $ARGS

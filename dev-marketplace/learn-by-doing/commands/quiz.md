@@ -1,5 +1,9 @@
 ---
-description: Sprawdź swoją wiedzę - quiz z practiced concepts
+name: quiz
+description: Quiz wiedzy z ostatniej lekcji
+usage: /quiz [concept]
 ---
 
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/quiz.py
+# Wykonuje skrypt quiz.py
+
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/quiz.py $ARGS
