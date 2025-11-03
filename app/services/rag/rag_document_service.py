@@ -26,13 +26,13 @@ from langchain_experimental.graph_transformers.llm import LLMGraphTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.core.config import get_settings
-from app.core.prompts.rag_prompts import (
+from app.core.rag_config import (
     GRAPH_TRANSFORMER_ALLOWED_NODES,
     GRAPH_TRANSFORMER_ALLOWED_RELATIONSHIPS,
     GRAPH_TRANSFORMER_NODE_PROPERTIES,
     GRAPH_TRANSFORMER_RELATIONSHIP_PROPERTIES,
-    GRAPH_TRANSFORMER_ADDITIONAL_INSTRUCTIONS,
 )
+from config import prompts
 from app.models.rag_document import RAGDocument
 from app.services.shared.clients import build_chat_model
 from app.services.rag.rag_clients import get_graph_store, get_vector_store
@@ -150,13 +150,23 @@ class RAGDocumentService:
                         "Generuję strukturę grafową na podstawie uniwersalnego modelu.",
                         extra={"doc_id": str(doc_id), "chunk_count": len(chunks)}
                     )
+
+                    # Get graph transformer instructions from YAML config
+                    graph_instructions_prompt = prompts.get("rag.graph_transformer_instructions")
+                    # Extract system message content
+                    additional_instructions = ""
+                    for msg in graph_instructions_prompt.messages:
+                        if msg.role == "system":
+                            additional_instructions = msg.content
+                            break
+
                     transformer = LLMGraphTransformer(
                         llm=self.llm,
                         allowed_nodes=GRAPH_TRANSFORMER_ALLOWED_NODES,
                         allowed_relationships=GRAPH_TRANSFORMER_ALLOWED_RELATIONSHIPS,
                         node_properties=GRAPH_TRANSFORMER_NODE_PROPERTIES,
                         relationship_properties=GRAPH_TRANSFORMER_RELATIONSHIP_PROPERTIES,
-                        additional_instructions=GRAPH_TRANSFORMER_ADDITIONAL_INSTRUCTIONS,
+                        additional_instructions=additional_instructions,
                     )
                     graph_documents = await transformer.aconvert_to_graph_documents(chunks)
 

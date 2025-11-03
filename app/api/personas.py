@@ -62,20 +62,8 @@ from app.services.personas import (
     PersonaAuditService,
 )
 from app.services.personas.persona_generator_langchain import DemographicDistribution
-from app.core.demographics.polish_constants import (
-    POLISH_LOCATIONS,
-    POLISH_INCOME_BRACKETS,
-    POLISH_EDUCATION_LEVELS,
-    POLISH_VALUES,
-    POLISH_INTERESTS,
-    POLISH_OCCUPATIONS,
-)
-from app.core.demographics.international_constants import (
-    DEFAULT_AGE_GROUPS,
-    DEFAULT_GENDERS,
-    DEFAULT_OCCUPATIONS,
-)
 from app.core.config import get_settings
+from config import demographics
 from app.services.dashboard.cache_invalidation import invalidate_project_cache
 
 # Get settings instance
@@ -178,7 +166,7 @@ _POLISH_CHARACTERS = set("ąćęłńóśźż")
 _POLISH_CITY_LOOKUP = {
     # Normalizujemy nazwy miast aby móc dopasować różne warianty zapisu
     "".join(ch for ch in unicodedata.normalize("NFD", city) if not unicodedata.combining(ch)).lower(): city
-    for city in POLISH_LOCATIONS.keys()
+    for city in demographics.poland.locations.keys()
 }
 
 _EN_TO_PL_GENDER = {
@@ -290,7 +278,7 @@ def _ensure_polish_location(location: str | None, story: str | None) -> str:
     story_city = _extract_polish_location_from_story(story)
     if story_city:
         return story_city
-    fallback = _select_weighted(POLISH_LOCATIONS) or "Warszawa"
+    fallback = _select_weighted(demographics.poland.locations) or "Warszawa"
     return fallback
 
 
@@ -307,7 +295,7 @@ def _polishify_education(raw_education: str | None) -> str:
         return _EN_TO_PL_EDUCATION[normalized]
     if raw_education:
         return raw_education
-    return _select_weighted(POLISH_EDUCATION_LEVELS) or "Średnie ogólnokształcące"
+    return _select_weighted(demographics.poland.education_levels) or "Średnie ogólnokształcące"
 
 
 def _polishify_income(raw_income: str | None) -> str:
@@ -319,7 +307,7 @@ def _polishify_income(raw_income: str | None) -> str:
             return _EN_TO_PL_INCOME[normalized]
         if normalized_key in _EN_TO_PL_INCOME:
             return _EN_TO_PL_INCOME[normalized_key]
-    return raw_income if raw_income else (_select_weighted(POLISH_INCOME_BRACKETS) or "5 000 - 7 500 zł")
+    return raw_income if raw_income else (_select_weighted(demographics.poland.income_brackets) or "5 000 - 7 500 zł")
 
 
 _SEGMENT_GENDER_LABELS = {
@@ -599,12 +587,12 @@ def _infer_polish_occupation(
                     return _format_job_title(job)
 
     # Jeżeli AI nie zwróciło spójnego polskiego zawodu – losuj realistyczny zawód z rozkładu
-    occupation = _select_weighted(POLISH_OCCUPATIONS)
+    occupation = _select_weighted(demographics.poland.occupations)
     if occupation:
         return occupation
 
     # Fallback na wylosowaną angielską listę (ostatnia linia obrony)
-    return random.choice(DEFAULT_OCCUPATIONS) if DEFAULT_OCCUPATIONS else "Specjalista"
+    return random.choice(demographics.international.occupations) if demographics.international.occupations else "Specjalista"
 
 
 def _fallback_polish_list(source: list[str] | None, fallback_pool: list[str]) -> list[str]:
@@ -977,7 +965,7 @@ def _extract_polish_cities_from_description(description: str | None) -> list[str
     normalized_desc = _normalize_text(description)  # Istniejąca funkcja (usuwa diakrytyki)
 
     # POLISH_LOCATIONS to dict z nazwami miast - używamy keys()
-    for city_name in POLISH_LOCATIONS.keys():
+    for city_name in demographics.poland.locations.keys():
         # Normalizuj nazwę miasta (usuń diakrytyki dla matching)
         normalized_city = _normalize_text(city_name)
 
@@ -1296,12 +1284,12 @@ async def _generate_personas_task(
 
             target_demographics = project.target_demographics or {}
             distribution = DemographicDistribution(
-                age_groups=_normalize_distribution(target_demographics.get("age_group", {}), DEFAULT_AGE_GROUPS),
-                genders=_normalize_distribution(target_demographics.get("gender", {}), DEFAULT_GENDERS),
+                age_groups=_normalize_distribution(target_demographics.get("age_group", {}), demographics.common.age_groups),
+                genders=_normalize_distribution(target_demographics.get("gender", {}), demographics.common.genders),
                 # Używaj POLSKICH wartości domyślnych dla lepszej realistyczności
-                education_levels=_normalize_distribution(target_demographics.get("education_level", {}), POLISH_EDUCATION_LEVELS),
-                income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), POLISH_INCOME_BRACKETS),
-                locations=_normalize_distribution(target_demographics.get("location", {}), POLISH_LOCATIONS),
+                education_levels=_normalize_distribution(target_demographics.get("education_level", {}), demographics.poland.education_levels),
+                income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), demographics.poland.income_brackets),
+                locations=_normalize_distribution(target_demographics.get("location", {}), demographics.poland.locations),
             )
 
             # === ADVANCED OPTIONS PROCESSING (AI Wizard kafle) ===
@@ -1813,14 +1801,14 @@ async def _generate_personas_task(
                             extra={"project_id": str(project_id), "index": idx}
                         )
 
-                    values = _fallback_polish_list(personality.get("values"), POLISH_VALUES)
+                    values = _fallback_polish_list(personality.get("values"), demographics.poland.values)
                     if not personality.get("values"):
                         logger.warning(
                             f"Missing values for persona {idx}, using Polish defaults",
                             extra={"project_id": str(project_id), "index": idx},
                         )
 
-                    interests = _fallback_polish_list(personality.get("interests"), POLISH_INTERESTS)
+                    interests = _fallback_polish_list(personality.get("interests"), demographics.poland.interests)
                     if not personality.get("interests"):
                         logger.warning(
                             f"Missing interests for persona {idx}, using Polish defaults",

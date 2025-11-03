@@ -9,6 +9,11 @@ project_name: "Sight"
 api_version: "v1"
 api_prefix: "/api/v1"
 
+# Environment
+# Values: development / staging / production
+environment: "development"
+debug: true
+
 # CORS
 allowed_origins:
   - "http://localhost:5173"
@@ -19,15 +24,18 @@ secret_key_env: "SECRET_KEY"  # Klucz z env (ZMIEŃ W PRODUKCJI!)
 algorithm: "HS256"
 access_token_expire_minutes: 30
 
-# Database
-database_url_env: "DATABASE_URL"
-postgres_user_env: "POSTGRES_USER"
-postgres_password_env: "POSTGRES_PASSWORD"
-postgres_db_env: "POSTGRES_DB"
+# Database (PostgreSQL)
+database:
+  url_env: "DATABASE_URL"
+  default_url: "postgresql+asyncpg://sight:password@localhost:5432/sight_db"
+  user_env: "POSTGRES_USER"
+  password_env: "POSTGRES_PASSWORD"
+  db_env: "POSTGRES_DB"
 
 # Cache (Redis)
-redis_url_env: "REDIS_URL"
 redis:
+  url_env: "REDIS_URL"
+  default_url: "redis://localhost:6379/0"
   max_connections: 50
   socket_timeout: 5
   socket_keepalive: true
@@ -37,10 +45,22 @@ redis:
   retry_backoff: 0.5
 
 # Knowledge Graph (Neo4j)
-neo4j_uri_env: "NEO4J_URI"
-neo4j_user_env: "NEO4J_USER"
-neo4j_password_env: "NEO4J_PASSWORD"
+neo4j:
+  uri_env: "NEO4J_URI"
+  default_uri: "bolt://localhost:7687"
+  user_env: "NEO4J_USER"
+  password_env: "NEO4J_PASSWORD"
+  # Connection pool settings for Cloud Run optimization
+  max_pool_size: 50
+  connection_timeout: 10  # seconds
+  max_retry_time: 30      # seconds
+
+# Task Queue (optional Celery)
+celery:
+  broker_url_env: "CELERY_BROKER_URL"
+  result_backend_env: "CELERY_RESULT_BACKEND"
 
 # Document storage
-document_storage_path: "data/documents"
-max_document_size_mb: 50
+document_storage:
+  path: "data/documents"
+  max_size_mb: 50

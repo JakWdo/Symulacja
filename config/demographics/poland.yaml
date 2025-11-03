@@ -412,12 +412,12 @@ surnames:
   - Mucha
 
 income_brackets:
-  < 3 000 zł: 0.15      # Najniższe zarobki, minimalna krajowa ~2800 zł netto
-  3 000 - 5 000 zł: 0.25  # Poniżej średniej krajowej
-  5 000 - 7 500 zł: 0.25  # Wokół średniej krajowej (~6500 zł netto)
-  7 500 - 10 000 zł: 0.18  # Powyżej średniej
-  10 000 - 15 000 zł: 0.12  # Wyższe zarobki (specjaliści, menedżerowie)
-  > 15 000 zł: 0.05     # Najwyższe zarobki (kadra zarządzająca, eksperci IT)
+  "< 3 000 zł": 0.15      # Najniższe zarobki, minimalna krajowa ~2800 zł netto
+  "3 000 - 5 000 zł": 0.25  # Poniżej średniej krajowej
+  "5 000 - 7 500 zł": 0.25  # Wokół średniej krajowej (~6500 zł netto)
+  "7 500 - 10 000 zł": 0.18  # Powyżej średniej
+  "10 000 - 15 000 zł": 0.12  # Wyższe zarobki (specjaliści, menedżerowie)
+  "> 15 000 zł": 0.05     # Najwyższe zarobki (kadra zarządzająca, eksperci IT)
 
 education_levels:
   Podstawowe: 0.08                    # Wykształcenie podstawowe

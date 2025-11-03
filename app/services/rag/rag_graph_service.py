@@ -265,53 +265,24 @@ class GraphRAGService:
         if not self.graph_store:
             raise RuntimeError("Graph RAG nie jest dostępny – brak połączenia z Neo4j Graph.")
 
+        # Pobierz prompt z config/prompts/rag/cypher_generation.yaml
+        from config import prompts
+        cypher_prompt_template = prompts.get("rag.cypher_generation")
+
+        # Renderuj prompt ze zmiennymi
         graph_schema = self.graph_store.get_schema()
-        cypher_prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    """
-                    Analityk badań społecznych. Pytanie → Cypher na grafie.
-
-                    === WĘZŁY (5) ===
-                    Obserwacja, Wskaznik, Demografia, Trend, Lokalizacja
-
-                    === RELACJE (5) ===
-                    OPISUJE, DOTYCZY, POKAZUJE_TREND, ZLOKALIZOWANY_W, POWIAZANY_Z (przyczynowość)
-
-                    === PROPERTIES WĘZŁÓW (polskie!) ===
-                    • streszczenie (max 150 znaków)
-                    • skala (np. "78.4%")
-                    • pewnosc ("wysoka"|"srednia"|"niska")
-                    • okres_czasu (YYYY lub YYYY-YYYY)
-                    • kluczowe_fakty (max 3, semicolons)
-
-                    === PROPERTIES RELACJI ===
-                    • sila ("silna"|"umiarkowana"|"slaba")
-
-                    === ZASADY ===
-                    1. ZAWSZE zwracaj streszczenie + kluczowe_fakty
-                    2. Filtruj: pewnosc dla pewnych faktów, sila dla silnych zależności
-                    3. Sortuj: skala (toFloat) dla największych
-                    4. POWIAZANY_Z dla przyczyn/skutków
-
-                    === PRZYKŁADY ===
-                    // Największe wskaźniki
-                    MATCH (n:Wskaznik) WHERE n.skala IS NOT NULL
-                    RETURN n.streszczenie, n.skala ORDER BY toFloat(split(n.skala,'%')[0]) DESC LIMIT 10
-
-                    // Pewne fakty
-                    MATCH (n:Obserwacja) WHERE n.pewnosc='wysoka' RETURN n.streszczenie, n.kluczowe_fakty
-
-                    Schema: {graph_schema}
-                    """.strip(),
-                ),
-                ("human", "Pytanie: {question}"),
-            ]
+        rendered_messages = cypher_prompt_template.render(
+            question=question,
+            graph_schema=graph_schema
         )
 
+        # Buduj LangChain prompt z renderowanych wiadomości
+        cypher_prompt = ChatPromptTemplate.from_messages([
+            (msg["role"], msg["content"]) for msg in rendered_messages
+        ])
+
         chain = cypher_prompt | self.llm.with_structured_output(GraphRAGQuery)
-        return chain.invoke({"question": question, "graph_schema": graph_schema})
+        return chain.invoke({})
 
     async def answer_question(self, question: str) -> dict[str, Any]:
         """Realizuje pełen przepływ Graph RAG i zwraca ustrukturyzowaną odpowiedź."""
@@ -344,23 +315,18 @@ class GraphRAGService:
         for doc in vector_context_docs:
             final_context += f"- {doc.page_content}\n"
 
-        answer_prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    """
-                    Jesteś ekspertem od analiz społecznych. Odpowiadasz wyłącznie na
-                    podstawie dostarczonego kontekstu z grafu i dokumentów. Udzielaj
-                    precyzyjnych, zweryfikowalnych odpowiedzi po polsku.
-                    """.strip(),
-                ),
-                ("human", "Pytanie: {question}\n\nKontekst:\n{context}"),
-            ]
+        # Pobierz prompt z config/prompts/rag/graph_rag_answer.yaml
+        from config import prompts
+        answer_prompt_template = prompts.get("rag.graph_rag_answer")
+
+        # Renderuj prompt ze zmiennymi
+        rendered_messages = answer_prompt_template.render(
+            question=question,
+            context=final_context
         )
 
-        response = await (answer_prompt | self.llm).ainvoke(
-            {"question": question, "context": final_context}
-        )
+        # Wywołaj LLM z renderowanymi wiadomościami
+        response = await self.llm.ainvoke(rendered_messages)
 
         return {
             "answer": response.content,

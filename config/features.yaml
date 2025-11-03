@@ -27,6 +27,22 @@ segment_cache:
   # TTL dla segment cache w Redis (dni)
   ttl_days: 7
 
+orchestration:
+  # Feature flag: Enable persona orchestration with Gemini 2.5 Pro
+  # Benefits:
+  #   - Długie briefe (900-1200 chars) dla każdego demographic group
+  #   - Graph RAG insights (3-5 insights per group)
+  #   - Segment characteristics (4-6 kluczowych cech)
+  #   - Allocation reasoning (dlaczego tyle person w grupie)
+  # Trade-off: ~10-20s latency z cachingiem (vs 2-5s basic generation)
+  # Rollback: Ustaw na False aby wrócić do basic generation
+  enabled: true
+
+  # Orchestration timeout (seconds)
+  # With Redis caching + optimized queries: should complete in 10-20s
+  # Without caching (cold start): may take up to 60s
+  timeout: 90  # Safety margin for Cloud Run
+
 performance:
   # Maksymalny czas odpowiedzi pojedynczej persony (sekundy)
   max_response_time_per_persona: 3

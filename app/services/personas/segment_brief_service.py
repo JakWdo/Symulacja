@@ -23,16 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.prompts.persona_prompts import (
-    SEGMENT_BRIEF_PROMPT_TEMPLATE,
-    PERSONA_UNIQUENESS_PROMPT_TEMPLATE,
-)
-from app.core.prompts.system_prompts import (
-    POLISH_SOCIETY_EXPERT_PROMPT,
-    CONVERSATIONAL_TONE_PROMPT,
-    STORYTELLING_PROMPT,
-    build_system_prompt,
-)
+from config import prompts
 from app.models.persona import Persona
 from app.schemas.segment_brief import (
     SegmentBrief,
@@ -578,15 +569,24 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         location = demographics.get("location", "unknown")
         income = demographics.get("income") or demographics.get("income_bracket", "unknown")
 
-        # System prompt z storytelling approach
-        system_prompt = build_system_prompt(
-            POLISH_SOCIETY_EXPERT_PROMPT,
-            STORYTELLING_PROMPT,
-            CONVERSATIONAL_TONE_PROMPT
-        )
+        # Get prompts from YAML config
+        polish_expert = prompts.get("system.polish_society_expert")
+        storytelling = prompts.get("system.storytelling")
+        conversational = prompts.get("system.conversational_tone")
+        segment_brief_prompt = prompts.get("personas.segment_brief")
 
-        # User prompt (SEGMENT_BRIEF_PROMPT_TEMPLATE z persona_prompts.py)
-        user_prompt = SEGMENT_BRIEF_PROMPT_TEMPLATE.format(
+        # Build system prompt by combining multiple system prompts
+        system_messages = []
+        for prompt in [polish_expert, storytelling, conversational]:
+            # Extract system messages from each prompt
+            for msg in prompt.messages:
+                if msg.role == "system":
+                    system_messages.append(msg.content)
+
+        combined_system_prompt = "\n\n".join(system_messages)
+
+        # Render segment brief prompt with variables
+        rendered_brief = segment_brief_prompt.render(
             segment_name=segment_name,
             age_range=age_range,
             gender=gender,
@@ -597,7 +597,10 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
             example_personas=example_personas
         )
 
-        return f"{system_prompt}\n\n{user_prompt}"
+        # Extract system content from segment_brief_prompt (it's already in messages format)
+        segment_brief_content = rendered_brief[0].content if rendered_brief else ""
+
+        return f"{combined_system_prompt}\n\n{segment_brief_content}"
 
     async def _generate_social_context(
         self,
@@ -720,8 +723,11 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         # segment_brief.segment_name może być inne (generowane dynamicznie przez LLM)
         segment_name_to_use = persona.segment_name or segment_brief.segment_name
 
-        # Prompt (PERSONA_UNIQUENESS_PROMPT_TEMPLATE z persona_prompts.py)
-        prompt = PERSONA_UNIQUENESS_PROMPT_TEMPLATE.format(
+        # Get persona uniqueness prompt from YAML config
+        uniqueness_prompt = prompts.get("personas.persona_uniqueness")
+
+        # Render prompt with persona data
+        rendered_messages = uniqueness_prompt.render(
             persona_name=persona.full_name or "Ta osoba",
             segment_name=segment_name_to_use,
             age=persona.age,
@@ -731,6 +737,9 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
             interests=interests_str,
             segment_brief_summary=brief_summary
         )
+
+        # Convert to string prompt (combine all messages)
+        prompt = "\n\n".join(msg.content for msg in rendered_messages)
 
         try:
             # Gemini Flash dla szybkiego generowania

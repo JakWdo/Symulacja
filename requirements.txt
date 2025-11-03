@@ -45,9 +45,6 @@ langchain-experimental>=0.3.0,<0.4.0  # CRITICAL: 0.3.0+ has additional_instruct
 # LangChain Neo4j Integration (replaces deprecated Neo4jVector/Neo4jGraph from langchain-community)
 langchain-neo4j>=0.1.0,<0.2.0
 
-# LangGraph (for complex workflows)
-langgraph>=0.2.0,<0.3.0
-
 # Legacy LLM Integration (optional fallback)
 openai
 anthropic
@@ -59,10 +56,6 @@ numpy
 pandas
 scikit-learn
 scipy
-nltk  # Polish NLP support for stopwords and tokenization
-
-# Statistical Testing
-statsmodels
 
 # API & Web
 httpx
@@ -96,16 +89,10 @@ black
 flake8
 mypy
 
-# Monitoring
-prometheus-client
-
 # Report Generation
-reportlab
 jinja2
-openpyxl
 
 # RAG System - Document Processing
-docling>=2.0.0
 pypdf
 python-docx
 sentence-transformers==2.7.0

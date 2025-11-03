@@ -8,7 +8,6 @@ Zawiera routery FastAPI dla wszystkich zasobów platformy:
 - focus_groups.py: Tworzenie i uruchamianie grup fokusowych (dyskusje AI)
 - surveys.py: Ankiety syntetyczne (4 typy pytań: single/multiple choice, rating, open text)
 - analysis.py: Analizy AI i podsumowania wyników (Gemini Pro/Flash)
-- graph_analysis.py: Analiza grafu wiedzy Neo4j (kontrowersyjne tematy, wpływowe persony)
 
 Wszystkie endpointy używają:
 - Pydantic schemas do walidacji

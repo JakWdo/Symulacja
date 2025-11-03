@@ -12,6 +12,13 @@ level: "DEBUG"  # CRITICAL, ERROR, WARNING, INFO, DEBUG
 # Auto-enable w production (STRUCTURED_LOGGING env var ma precedence)
 structured: false
 
+# Environment-specific settings (overridden by env/*.yaml)
+# Values: development / staging / production
+environment: "development"
+
+# Debug mode (enables detailed error logs)
+debug: true
+
 # Format dla development (human-readable)
 format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 

@@ -442,6 +442,54 @@ performance:
   random_seed: 42
 ```
 
+## 🔄 Migration Guide
+
+### Quick replacements (old → new)
+
+```python
+# Config (old)
+from app.core.config import get_settings
+settings = get_settings()
+model = settings.PERSONA_GENERATION_MODEL
+rag_enabled = settings.RAG_ENABLED
+
+# Config (new)
+from config import models, features
+model = models.get("personas", "generation").model
+rag_enabled = features.rag.enabled
+
+# Prompts (old)
+from app.core.prompts.persona_prompts import JTBD_ANALYSIS_PROMPT
+prompt_text = JTBD_ANALYSIS_PROMPT.format(age=25, occupation="Engineer")
+
+# Prompts (new)
+from config import prompts
+messages = prompts.get("personas.jtbd").render(age=25, occupation="Engineer")
+
+# Demographics (old)
+from app.core.constants import DEFAULT_AGE_GROUPS
+from app.core.demographics import POLISH_LOCATIONS
+
+# Demographics (new)
+from config import demographics
+age_groups = demographics.common.age_groups
+locations = demographics.poland.locations
+```
+
+### Migration Timeline
+
+- **v1.0**: Both old and new approaches work ✅ (current)
+- **v1.1**: Deprecation warnings added for old imports ⚠️
+- **v2.0**: Old modules removed (planned)
+
+### Benefits of Migration
+
+1. ✅ **Single Source of Truth** - All config in YAML
+2. ✅ **Hot Reloadable** - Update YAML without code changes
+3. ✅ **Type Safe** - Full type annotations and validation
+4. ✅ **Developer Friendly** - Clear structure, easy to find settings
+5. ✅ **Version Controlled** - Track config changes in git
+
 ## 📚 Przykład Migracji
 
 **Przed** (hardcode):

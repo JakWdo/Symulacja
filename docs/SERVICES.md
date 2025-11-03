@@ -91,6 +91,67 @@ from app.services.surveys import SurveyResponseGenerator
 
 ---
 
+## ⚙️ Configuration in Services
+
+**All services now use centralized configuration from `config/`:**
+
+```python
+# Import configuration modules
+from config import models, prompts, rag, demographics, features
+
+# 1. LLM Models (with fallback chain)
+model_config = models.get("personas", "generation")  # domain, subdomain
+llm = build_chat_model(**model_config.params)
+
+# 2. Prompts (YAML-based, versioned)
+jtbd_prompt = prompts.get("personas.jtbd")
+rendered_messages = jtbd_prompt.render(
+    age=persona.age,
+    occupation=persona.occupation
+)
+
+# 3. RAG Settings
+chunk_size = rag.chunking.chunk_size  # 1000
+use_hybrid = rag.retrieval.use_hybrid_search  # True
+
+# 4. Demographics
+locations = demographics.poland.locations  # {city: probability}
+age_groups = demographics.common.age_groups  # {range: probability}
+
+# 5. Feature Flags
+if features.rag.enabled:
+    # Use RAG system
+    context = rag_service.get_context(query)
+
+if features.orchestration.enabled:
+    # Use orchestration service
+    result = orchestration_service.orchestrate(project_id)
+```
+
+**Migration from app.core.config:**
+
+```python
+# OLD (deprecated, but still works via adapter)
+from app.core.config import get_settings
+settings = get_settings()
+model = settings.PERSONA_GENERATION_MODEL
+
+# NEW (recommended)
+from config import models
+model_config = models.get("personas", "generation")
+model = model_config.model
+```
+
+**Benefits:**
+- ✅ Single Source of Truth (all config in YAML)
+- ✅ Hot Reloadable (update YAML without code changes)
+- ✅ Type Safe (full type annotations)
+- ✅ Version Controlled (track changes in git)
+
+**See:** `config/README.md` for complete configuration guide.
+
+---
+
 ## 🔄 Backward Compatibility
 
 **Wszystkie stare importy działają:**
@@ -105,22 +166,30 @@ from app.services.focus_groups import FocusGroupServiceLangChain
 
 ---
 
-## 📦 Nowa Centralizacja (2025-10-20)
+## 📦 Centralizacja Konfiguracji (2025-11-03)
 
-### Prompty → `app/core/prompts/`
-- `persona_prompts.py` - JTBD, segment, brief, uniqueness
-- `focus_group_prompts.py` - Persona responses, summaries
-- `rag_prompts.py` - Cypher, Graph RAG
-- `system_prompts.py` - Wspólne prompty
+### Prompty → `config/prompts/` (YAML)
+- `personas/` - JTBD, segment, brief, uniqueness
+- `focus_groups/` - Persona responses, summaries
+- `rag/` - Cypher, Graph RAG, graph transformer
+- Pełna dokumentacja: `config/README.md`
 
-### Stałe Demograficzne → `app/core/demographics/`
-- `polish_constants.py` - POLISH_* (imiona, miasta, zawody)
-- `international_constants.py` - DEFAULT_* (międzynarodowe)
+### Stałe Demograficzne → `config/demographics/` (YAML)
+- `poland.yaml` - Polskie dane (imiona, miasta, zawody)
+- `international.yaml` - Międzynarodowe dane
+- `common.yaml` - Wspólne kategorie (age_groups, education_levels)
 
-**Import:**
+**Import (nowy sposób):**
 ```python
-from app.core.prompts.persona_prompts import JTBD_ANALYSIS_PROMPT_TEMPLATE
-from app.core.demographics.polish_constants import POLISH_MALE_NAMES
+from config import prompts, demographics
+
+# Prompty
+jtbd_prompt = prompts.get("personas.jtbd")
+rendered_messages = jtbd_prompt.render(age=30, occupation="Engineer")
+
+# Demografia
+poland_locations = demographics.poland.locations
+age_groups = demographics.common.age_groups
 ```
 
 ---

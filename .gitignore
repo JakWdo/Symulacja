@@ -32,6 +32,10 @@ ENV/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
+.env.prod
+.env.stage
 
 # IDE
 .vscode/

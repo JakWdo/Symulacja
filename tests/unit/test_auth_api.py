@@ -303,63 +303,6 @@ class TestJWT:
         assert payload is None
 
 
-class TestAuthEndpoints:
-    """Testy integracyjne endpointów autentykacji."""
-
-    @pytest.mark.skip(reason="Requires full database setup")
-    def test_register_endpoint_success(self):
-        """Test pomyślnej rejestracji przez API."""
-        payload = {
-            "email": "newuser@example.com",
-            "password": "SecurePass123",
-            "full_name": "New User",
-            "company": "Startup Inc"
-        }
-
-        # response = client.post("/api/v1/auth/register", json=payload)
-        # assert response.status_code == 201
-        # data = response.json()
-        # assert "access_token" in data
-        # assert data["user"]["email"] == "newuser@example.com"
-
-
-    @pytest.mark.skip(reason="Requires full database setup")
-    def test_register_endpoint_duplicate_email(self):
-        """Test rejestracji z istniejącym emailem."""
-        # First registration
-        # Second registration with same email should fail with 400
-
-
-    @pytest.mark.skip(reason="Requires full database setup")
-    def test_login_endpoint_success(self):
-        """Test pomyślnego logowania."""
-        # Register user first, then login
-
-
-    @pytest.mark.skip(reason="Requires full database setup")
-    def test_login_endpoint_wrong_password(self):
-        """Test logowania z błędnym hasłem."""
-        # Should return 401 Unauthorized
-
-
-    @pytest.mark.skip(reason="Requires full database setup")
-    def test_login_endpoint_nonexistent_user(self):
-        """Test logowania nieistniejącego użytkownika."""
-        # Should return 401 Unauthorized
-
-
-    @pytest.mark.skip(reason="Requires full database setup")
-    def test_me_endpoint_authenticated(self):
-        """Test pobierania danych zalogowanego użytkownika."""
-        # Login, get token, call /auth/me with token
-
-
-    @pytest.mark.skip(reason="Requires full database setup")
-    def test_me_endpoint_unauthenticated(self):
-        """Test dostępu do /auth/me bez tokenu."""
-        # Should return 401 Unauthorized
-
-
 class TestAuthDependencies:
     """Testy zależności autentykacyjnych."""
 

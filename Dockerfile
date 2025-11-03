@@ -60,10 +60,6 @@ COPY config/ /app/config/
 # Dzięki .dockerignore, nie skopiujemy __pycache__, venv, node_modules, etc.
 COPY . .
 
-# Download NLTK data (Polish stopwords, tokenizers)
-# Potrzebne dla ekstrakcji koncepcji z tekstów po polsku
-RUN python scripts/download_nltk_data.py
-
 # Kopiuj i ustaw entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

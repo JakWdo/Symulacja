@@ -1,0 +1,63 @@
+# Common Demographics - Shared between Poland and International
+#
+# Ta konfiguracja definiuje wspólne dane demograficzne używane
+# przez zarówno polski jak i międzynarodowy system generacji person.
+#
+# Użycie:
+#   from config import demographics
+#   age_groups = demographics.common.age_groups
+#   genders = demographics.common.genders
+
+# ═════════════════════════════════════════════════════════════════════════════
+# AGE GROUPS
+# ═════════════════════════════════════════════════════════════════════════════
+# Standardowa segmentacja wiekowa dla rynków zachodnich i polskiego
+# Rozkład oparty na medianach populacji dla krajów rozwiniętych
+
+age_groups:
+  "18-24": 0.15
+  "25-34": 0.25
+  "35-44": 0.20
+  "45-54": 0.18
+  "55-64": 0.12
+  "65+": 0.10
+
+# ═════════════════════════════════════════════════════════════════════════════
+# GENDER DISTRIBUTION
+# ═════════════════════════════════════════════════════════════════════════════
+# Rozkład płci uwzględniający różnorodność
+
+genders:
+  male: 0.49
+  female: 0.49
+  non-binary: 0.02
+
+# ═════════════════════════════════════════════════════════════════════════════
+# FAMILY SITUATIONS
+# ═════════════════════════════════════════════════════════════════════════════
+# Uniwersalne sytuacje rodzinne (różnią się od life_situations w international)
+
+family_situations:
+  - single
+  - married_no_children
+  - married_with_children
+  - divorced
+  - widowed
+  - cohabitating
+
+# ═════════════════════════════════════════════════════════════════════════════
+# UNIVERSAL TRAITS
+# ═════════════════════════════════════════════════════════════════════════════
+# Cechy osobowości uniwersalne kulturowo (Big Five)
+
+personality_traits:
+  - extraverted
+  - introverted
+  - conscientious
+  - spontaneous
+  - agreeable
+  - assertive
+  - emotionally_stable
+  - anxious
+  - open_to_experience
+  - traditional

@@ -22,16 +22,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
 from app.core.config import get_settings
-from app.core.constants import (
-    DEFAULT_AGE_GROUPS,
-    DEFAULT_GENDERS,
-    POLISH_LOCATIONS,
-    POLISH_INCOME_BRACKETS,
-    POLISH_EDUCATION_LEVELS,
-    POLISH_MALE_NAMES,
-    POLISH_FEMALE_NAMES,
-    POLISH_SURNAMES,
-)
 from app.services.shared.clients import build_chat_model
 from app.services.dashboard.usage_logging import (
     UsageLogContext,
@@ -76,7 +66,10 @@ class PersonaGeneratorLangChain:
         self.settings = settings
         self._rng = np.random.default_rng(self.settings.RANDOM_SEED)
 
-        from config import models, prompts
+        from config import models, prompts, demographics
+
+        # Store demographics reference for later use
+        self.demographics = demographics
 
         # Model config z centralnego registry
         model_config = models.get("personas", "generation")
@@ -140,17 +133,17 @@ class PersonaGeneratorLangChain:
         for _ in range(n_samples):
             # Normalizuj każdy rozkład lub użyj wartości domyślnych (polskich)
             age_groups = self._prepare_distribution(
-                distribution.age_groups, DEFAULT_AGE_GROUPS
+                distribution.age_groups, self.demographics.common.age_groups
             )
-            genders = self._prepare_distribution(distribution.genders, DEFAULT_GENDERS)
+            genders = self._prepare_distribution(distribution.genders, self.demographics.common.genders)
             education_levels = self._prepare_distribution(
-                distribution.education_levels, POLISH_EDUCATION_LEVELS
+                distribution.education_levels, self.demographics.poland.education_levels
             )
             income_brackets = self._prepare_distribution(
-                distribution.income_brackets, POLISH_INCOME_BRACKETS
+                distribution.income_brackets, self.demographics.poland.income_brackets
             )
             locations = self._prepare_distribution(
-                distribution.locations, POLISH_LOCATIONS
+                distribution.locations, self.demographics.poland.locations
             )
 
             # Losuj wartość z każdej kategorii zgodnie z wagami
@@ -613,10 +606,10 @@ class PersonaGeneratorLangChain:
         # Losuj polskie imię i nazwisko dla większej różnorodności
         gender_lower = demographic.get('gender', 'male').lower()
         if 'female' in gender_lower or 'kobieta' in gender_lower:
-            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
+            suggested_first_name = self._rng.choice(self.demographics.poland.female_names)
         else:
-            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
-        suggested_surname = self._rng.choice(POLISH_SURNAMES)
+            suggested_first_name = self._rng.choice(self.demographics.poland.male_names)
+        suggested_surname = self._rng.choice(self.demographics.poland.surnames)
 
         if demographic.get('age'):
             headline_age_rule = f"• HEADLINE: Musi zawierać liczbę {demographic['age']} lat i realną motywację tej osoby.\n"
@@ -1004,10 +997,10 @@ WYŁĄCZNIE JSON (bez markdown):
         # Suggest Polish name
         gender_lower = demographic.get('gender', 'kobieta').lower()
         if 'female' in gender_lower or 'kobieta' in gender_lower:
-            suggested_first_name = self._rng.choice(POLISH_FEMALE_NAMES)
+            suggested_first_name = self._rng.choice(self.demographics.poland.female_names)
         else:
-            suggested_first_name = self._rng.choice(POLISH_MALE_NAMES)
-        suggested_surname = self._rng.choice(POLISH_SURNAMES)
+            suggested_first_name = self._rng.choice(self.demographics.poland.male_names)
+        suggested_surname = self._rng.choice(self.demographics.poland.surnames)
 
         age = demographic.get('age', 30)
 

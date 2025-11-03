@@ -400,7 +400,7 @@ async def test_create_persona(db_session):
 
 ### 2. Adding a New LLM Feature
 
-1. **Create prompt** in `app/core/prompts/` (or inline)
+1. **Create prompt** in `config/prompts/` as YAML (see `config/README.md` for format)
 2. **Build LLM chain** using LangChain
 3. **Add retry logic** with `tenacity` or LangChain built-in
 4. **Cache results** in Redis if appropriate
@@ -502,6 +502,65 @@ export function PersonaCard({ persona }: { persona: Persona }) {
 const { t } = useTranslation();
 <p>{t('persona.greeting', { name: persona.name })}</p>
 ```
+
+### 6. Using Centralized Configuration
+
+All configuration (prompts, models, RAG settings, demographics, features, app settings) is centralized in `config/`.
+
+**Using Configuration:**
+
+```python
+# Import all config modules
+from config import prompts, models, rag, demographics, features, app
+
+# 1. Prompts
+jtbd_prompt = prompts.get("personas.jtbd")
+rendered_messages = jtbd_prompt.render(
+    age=30,
+    occupation="Software Engineer"
+)
+
+# 2. Models (with fallback chain)
+model_config = models.get("personas", "generation")  # domain, subdomain
+llm = build_chat_model(**model_config.params)
+
+# 3. RAG Configuration
+chunk_size = rag.chunking.chunk_size  # 1000
+use_hybrid = rag.retrieval.use_hybrid_search  # True
+
+# 4. Demographics
+poland_locations = demographics.poland.locations  # {city: probability}
+age_groups = demographics.common.age_groups  # {range: probability}
+international_values = demographics.international.values  # [value1, value2, ...]
+
+# 5. Features (feature flags)
+if features.rag.enabled:
+    node_props = features.rag.node_properties_enabled
+
+if features.segment_cache.enabled:
+    ttl_days = features.segment_cache.ttl_days
+
+# 6. App Settings
+redis_url = app.redis.url
+db_url = app.database.url
+max_connections = app.redis.max_connections
+```
+
+**Migration from Old Approach:**
+
+```python
+# OLD (deprecated, but still works with adapter)
+from app.core.config import get_settings
+settings = get_settings()
+model = settings.PERSONA_GENERATION_MODEL
+
+# NEW (recommended)
+from config import models
+model_config = models.get("personas", "generation")
+model = model_config.model
+```
+
+**See:** `config/README.md` for complete configuration guide and migration instructions.
 
 ---
 

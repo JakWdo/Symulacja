@@ -60,8 +60,8 @@ try:
         _POLISH_STOPWORDS_NLTK = set(stopwords.words('polish'))
         _ENGLISH_STOPWORDS_NLTK = set(stopwords.words('english'))
     except LookupError:
-        # NLTK data not downloaded yet
-        logger.warning("NLTK stopwords data not found. Run: python scripts/download_nltk_data.py")
+        # NLTK data not downloaded - NLTK dependency removed
+        logger.warning("NLTK stopwords data not found (NLTK dependency removed)")
         _NLTK_AVAILABLE = False
         _POLISH_STOPWORDS_NLTK = set()
         _ENGLISH_STOPWORDS_NLTK = set()
@@ -288,25 +288,13 @@ class DiscussionSummarizerService:
         self.settings = settings
 
         # Dobieramy model do jakości i czasu wykonania
-        from config import models, prompts
+        from config import models
 
         # Model config z centralnego registry
         model_config = models.get("focus_groups", "summarization")
         self.llm = build_chat_model(**model_config.params)
 
         self.str_parser = StrOutputParser()
-
-        # System prompt z centralnego registry (bez zmiennych, renderuje się od razu)
-        summary_prompt_template = prompts.get("focus_groups.discussion_summary_system")
-        rendered_messages = summary_prompt_template.render()
-
-        # Budujemy wzorzec promptu dla podsumowania
-        # User message będzie przekazany dynamicznie przez _create_summary_prompt()
-        self.summary_prompt = ChatPromptTemplate.from_messages([
-            (msg["role"], msg["content"]) for msg in rendered_messages
-        ] + [("user", "{prompt}")])
-
-        self.chain = self.summary_prompt | self.llm | self.str_parser
 
     async def generate_discussion_summary(
         self,
@@ -408,16 +396,20 @@ class DiscussionSummarizerService:
             len(sample_text),
         )
 
-        # Generujemy podsumowanie przez model AI (z wykrytym językiem)
-        prompt_text = self._create_summary_prompt(
+        # Budujemy zmienne do promptu (z YAML)
+        prompt_variables = self._prepare_prompt_variables(
             discussion_data,
             include_recommendations,
             language=target_language,
         )
 
-        # Call LLM via prompt (returns AIMessage with metadata)
-        prompt_messages = await self.summary_prompt.ainvoke({"prompt": prompt_text})
-        ai_message = await self.llm.ainvoke(prompt_messages)
+        # Renderujemy prompt z config/prompts/focus_groups/discussion_summary.yaml
+        from config import prompts
+        summary_prompt_template = prompts.get("focus_groups.discussion_summary")
+        rendered_messages = summary_prompt_template.render(**prompt_variables)
+
+        # Call LLM (returns AIMessage with metadata)
+        ai_message = await self.llm.ainvoke(rendered_messages)
 
         # Extract string content from AIMessage
         ai_response = self.str_parser.invoke(ai_message)
@@ -464,6 +456,11 @@ class DiscussionSummarizerService:
         focus_group.ai_summary = parsed_summary
 
         # Persist insights to InsightEvidence table
+        # Zbuduj prompt_text dla celów auditowych (serializacja zmiennych promptu)
+        prompt_text = "\n".join([
+            f"{msg['role'].upper()}: {msg['content']}"
+            for msg in rendered_messages
+        ])
         created_insights = await self._store_insights_from_summary(
             db=db,
             focus_group=focus_group,
@@ -569,14 +566,14 @@ class DiscussionSummarizerService:
             "total_responses": len(responses),
         }
 
-    def _create_summary_prompt(
+    def _prepare_prompt_variables(
         self,
         discussion_data: dict[str, Any],
         include_recommendations: bool,
         language: str = 'pl',
-    ) -> str:
+    ) -> dict[str, str]:
         """
-        Tworzy szczegółowy prompt do podsumowania AI.
+        Przygotowuje zmienne do renderowania promptu z YAML.
 
         Formatuje pytania, odpowiedzi, sentiment i demografię.
         Parametryzuje język dla treści AI output (nagłówki sekcji pozostają po angielsku).
@@ -587,7 +584,7 @@ class DiscussionSummarizerService:
             language: Język dla treści podsumowania ('pl' lub 'en')
 
         Returns:
-            Prompt dla LLM z instrukcjami językowymi
+            Słownik zmiennych do podstawienia w prompt template
         """
 
         topic = discussion_data["topic"]
@@ -638,64 +635,7 @@ Use proper markdown bold syntax: **text** (two asterisks on both sides).
 Tie each recommendation to evidence from the discussion.
 """
 
-        prompt = f"""Analyze this focus group discussion and generate a comprehensive strategic summary.
-
-**FOCUS GROUP TOPIC:** {topic}
-**DESCRIPTION:** {description}
-
-{demo_context}
-
-**DISCUSSION TRANSCRIPT:**
-{discussion_text}
-
----
-
-Please provide a detailed analysis in the following structure:
-
-## 1. EXECUTIVE SUMMARY (90-120 words)
-Synthesize the core findings into a high-level overview that answers:
-- What was the overall reception to the concept/topic?
-- What are the most critical takeaways?
-- What is the strategic implication?
-
-## 2. KEY INSIGHTS (3-5 bullet points, ≤25 words each)
-Surface the most important patterns and themes from the discussion.
-Structure every bullet as: **Insight label**: implication grounded in evidence.
-Use proper markdown bold syntax: **text** (two asterisks on both sides).
-Prioritize by business impact.
-
-## 3. SURPRISING FINDINGS (1-2 bullet points, ≤20 words each)
-Highlight unexpected or counterintuitive discoveries that challenge assumptions.
-These could be:
-- Contradictions between what participants say vs. underlying sentiment
-- Minority opinions that reveal edge cases
-- Demographic differences that weren't anticipated
-
-## 4. SEGMENT ANALYSIS
-Break down how different demographic segments (age, gender, occupation) responded differently.
-Structure as:
-**Segment name**: Key differentiator with quote/evidence (≤25 words)
-Use proper markdown bold syntax: **text** (two asterisks on both sides).
-
-{recommendations_section}
-
-## 6. SENTIMENT NARRATIVE (40-60 words)
-Describe the emotional journey of the discussion:
-- How did sentiment evolve across questions?
-- Were there polarizing topics?
-- What drove positive vs. negative reactions?
-
----
-
-**IMPORTANT:**
-- Use specific quotes and data points as evidence
-- Avoid generic marketing jargon
-- Be honest about weaknesses or concerns raised
-- Consider both explicit feedback and implicit patterns
-- Format using Markdown for readability (## headings, **bold** emphasis)
-"""
-
-        # Dodaj instrukcję językową (nagłówki po angielsku, treść w wybranym języku)
+        # Instrukcja językowa (nagłówki po angielsku, treść w wybranym języku)
         language_instruction_map = {
             'pl': (
                 "\n\n**CRITICAL LANGUAGE INSTRUCTION:**\n"
@@ -718,9 +658,14 @@ Describe the emotional journey of the discussion:
             language_instruction_map['pl']
         )
 
-        prompt += language_instruction
-
-        return prompt
+        return {
+            "topic": topic,
+            "description": description,
+            "demo_context": demo_context,
+            "discussion_text": discussion_text,
+            "recommendations_section": recommendations_section,
+            "language_instruction": language_instruction,
+        }
 
     def _parse_ai_response(self, ai_response: str) -> dict[str, Any]:
         """

@@ -178,17 +178,6 @@ async def polish_society_rag_with_mocks(mock_vector_store, mock_embeddings):
 
 
 @pytest_asyncio.fixture
-async def graph_service_with_mocks(mock_neo4j_driver, mock_llm):
-    """Return GraphService wired to mocked Neo4j driver and LLM."""
-    from app.services.archived.graph_service import GraphService
-
-    service = GraphService()
-    service.driver = mock_neo4j_driver
-    service.llm = mock_llm
-    yield service
-
-
-@pytest_asyncio.fixture
 async def persona_orchestration_with_mocks(mock_gemini_2_5_pro, polish_society_rag_with_mocks):
     """Return PersonaOrchestrationService with mocked Gemini and RAG dependencies."""
     from app.services.personas.persona_orchestration import PersonaOrchestrationService

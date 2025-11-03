@@ -19,13 +19,3 @@ def reset_singletons():
     get_settings.cache_clear()
 
 
-@pytest.fixture(autouse=True)
-def clear_graph_cache():
-    """Clear in-memory graph caches maintained by GraphService."""
-    yield
-    from app.services.archived.graph_service import GraphService
-
-    GraphService._memory_graph_cache = {}
-    GraphService._memory_stats_cache = {}
-    GraphService._memory_metrics_cache = {}
-

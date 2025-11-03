@@ -39,12 +39,12 @@ education_levels:
   Other: 0.05
 
 income_brackets:
-  < $25k: 0.15
-  $25k-$50k: 0.20
-  $50k-$75k: 0.22
-  $75k-$100k: 0.18
-  $100k-$150k: 0.15
-  > $150k: 0.10
+  "< $25k": 0.15
+  "$25k-$50k": 0.20
+  "$50k-$75k": 0.22
+  "$75k-$100k": 0.18
+  "$100k-$150k": 0.15
+  "> $150k": 0.10
 
 occupations:
   # Technologie i inżynieria
