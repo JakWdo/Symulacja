@@ -71,7 +71,7 @@ def build_chat_model(
     return ChatGoogleGenerativeAI(**params)
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=5)  # Limit to 5 most recent embedding models (prevent unlimited growth)
 def get_embeddings(model: str | None = None) -> GoogleGenerativeAIEmbeddings:
     """
     Zwraca współdzieloną instancję embeddingów Google Gemini.

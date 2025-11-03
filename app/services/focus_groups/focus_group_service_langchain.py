@@ -195,7 +195,11 @@ class FocusGroupServiceLangChain:
         Returns:
             Lista obiektów Persona
         """
-        result = await db.execute(select(Persona).where(Persona.id.in_(persona_ids)))
+        result = await db.execute(
+            select(Persona)
+            .options(selectinload(Persona.project))  # Prevent N+1 queries
+            .where(Persona.id.in_(persona_ids))
+        )
         return result.scalars().all()
 
     async def _get_concurrent_responses(
