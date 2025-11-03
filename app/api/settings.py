@@ -17,7 +17,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
-from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.focus_group import FocusGroup
 from app.models.persona import Persona
@@ -68,7 +67,6 @@ def _open_async(path: str | Path, mode: str, *args, **kwargs):
         return aiofiles.open(path, mode, *args, **kwargs)
     return _AsyncFileWrapper(path, mode, *args, **kwargs)
 
-settings = get_settings()
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
 # Konfiguracja upload avatarów

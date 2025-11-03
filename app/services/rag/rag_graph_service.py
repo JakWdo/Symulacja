@@ -21,12 +21,11 @@ import redis.asyncio as redis
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 
-from app.core.config import get_settings
+from config import app
 from app.schemas.rag import GraphRAGQuery
 from app.services.shared.clients import build_chat_model
 from app.services.rag.rag_clients import get_graph_store, get_vector_store
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
@@ -64,7 +63,7 @@ class GraphRAGService:
         self.redis_client = None
         try:
             self.redis_client = redis.from_url(
-                settings.REDIS_URL,
+                app.redis.url,
                 encoding="utf-8",
                 decode_responses=True,
             )

@@ -22,10 +22,9 @@ from typing import Any
 import redis.asyncio as redis
 from langchain_core.documents import Document
 
-from app.core.config import get_settings
+from config import rag, app
 from app.services.rag.rag_clients import get_vector_store
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +46,7 @@ class PolishSocietyRAG:
         self.redis_client = None
         try:
             self.redis_client = redis.from_url(
-                settings.REDIS_URL,
+                app.redis.url,
                 encoding="utf-8",
                 decode_responses=True,
             )
@@ -73,16 +72,16 @@ class PolishSocietyRAG:
 
             # Inicjalizuj cross-encoder dla reranking (opcjonalny)
             self.reranker = None
-            if settings.RAG_USE_RERANKING:
+            if rag.retrieval.reranking.enabled:
                 try:
                     from sentence_transformers import CrossEncoder
                     self.reranker = CrossEncoder(
-                        settings.RAG_RERANKER_MODEL,
+                        rag.retrieval.reranking.model,
                         max_length=512
                     )
                     logger.info(
                         "Cross-encoder reranker zainicjalizowany: %s",
-                        settings.RAG_RERANKER_MODEL
+                        rag.retrieval.reranking.model
                     )
                 except ImportError:
                     logger.warning(
@@ -268,7 +267,7 @@ class PolishSocietyRAG:
             return []
 
         # Lazy initialization fulltext index przy pierwszym użyciu
-        if settings.RAG_USE_HYBRID_SEARCH and not self._fulltext_index_initialized:
+        if rag.retrieval.use_hybrid_search and not self._fulltext_index_initialized:
             await self._ensure_fulltext_index()
             self._fulltext_index_initialized = True
 
@@ -761,9 +760,9 @@ class PolishSocietyRAG:
             search_start = time.perf_counter()
 
             # HYBRID SEARCH (Vector + Keyword)
-            if settings.RAG_USE_HYBRID_SEARCH:
+            if rag.retrieval.use_hybrid_search:
                 # Zwiększamy k aby mieć więcej candidates dla reranking
-                candidates_k = settings.RAG_RERANK_CANDIDATES if settings.RAG_USE_RERANKING else top_k * 2
+                candidates_k = rag.retrieval.reranking.candidates if rag.retrieval.reranking.enabled else top_k * 2
 
                 # Vector search (timing)
                 vector_start = time.perf_counter()
@@ -786,16 +785,16 @@ class PolishSocietyRAG:
                 fused_results = self._rrf_fusion(
                     vector_results,
                     keyword_results,
-                    k=settings.RAG_RRF_K,
+                    k=rag.retrieval.rrf_k,
                 )
                 rrf_duration = time.perf_counter() - rrf_start
 
                 # Optional reranking
-                if settings.RAG_USE_RERANKING and self.reranker:
+                if rag.retrieval.reranking.enabled and self.reranker:
                     logger.info("Applying cross-encoder reranking")
                     final_results = await self._rerank_with_cross_encoder(
                         query=query,
-                        candidates=fused_results[:settings.RAG_RERANK_CANDIDATES],
+                        candidates=fused_results[:rag.retrieval.reranking.candidates],
                         top_k=top_k
                     )
                 else:
@@ -941,9 +940,9 @@ class PolishSocietyRAG:
                 graph_nodes = []  # Explicitly reset
 
             # 2. HYBRID SEARCH (Vector + Keyword) - Pobierz chunki tekstowe
-            if settings.RAG_USE_HYBRID_SEARCH:
+            if rag.retrieval.use_hybrid_search:
                 # Zwiększamy k aby mieć więcej candidates dla reranking
-                candidates_k = settings.RAG_RERANK_CANDIDATES if settings.RAG_USE_RERANKING else settings.RAG_TOP_K * 2
+                candidates_k = rag.retrieval.reranking.candidates if rag.retrieval.reranking.enabled else rag.retrieval.top_k * 2
 
                 vector_results = await self.vector_store.asimilarity_search_with_score(
                     query,
@@ -956,25 +955,25 @@ class PolishSocietyRAG:
                 fused_results = self._rrf_fusion(
                     vector_results,
                     keyword_results,
-                    k=settings.RAG_RRF_K,
+                    k=rag.retrieval.rrf_k,
                 )
 
                 # 2b. RERANKING (opcjonalne) - Precyzyjny re-scoring z cross-encoder
-                if settings.RAG_USE_RERANKING and self.reranker:
+                if rag.retrieval.reranking.enabled and self.reranker:
                     logger.info("Applying cross-encoder reranking on top %s candidates", len(fused_results))
                     final_results = await self._rerank_with_cross_encoder(
                         query=query,
-                        candidates=fused_results[:settings.RAG_RERANK_CANDIDATES],
-                        top_k=settings.RAG_TOP_K
+                        candidates=fused_results[:rag.retrieval.reranking.candidates],
+                        top_k=rag.retrieval.top_k
                     )
                     search_type = "hybrid+rerank+graph" if graph_nodes else "hybrid+rerank"
                 else:
-                    final_results = fused_results[:settings.RAG_TOP_K]
+                    final_results = fused_results[:rag.retrieval.top_k]
                     search_type = "hybrid+graph" if graph_nodes else "hybrid"
             else:
                 final_results = await self.vector_store.asimilarity_search_with_score(
                     query,
-                    k=settings.RAG_TOP_K,
+                    k=rag.retrieval.top_k,
                 )
                 search_type = "vector_only+graph" if graph_nodes else "vector_only"
 
@@ -1026,8 +1025,8 @@ class PolishSocietyRAG:
                 )
 
             context = "\n\n---\n\n".join(context_chunks)
-            if len(context) > settings.RAG_MAX_CONTEXT_CHARS:
-                context = context[: settings.RAG_MAX_CONTEXT_CHARS] + "\n\n[... kontekst obcięty]"
+            if len(context) > rag.retrieval.max_context_chars:
+                context = context[: rag.retrieval.max_context_chars] + "\n\n[... kontekst obcięty]"
 
             return {
                 "context": context,

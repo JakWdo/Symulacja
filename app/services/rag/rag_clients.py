@@ -16,10 +16,8 @@ from collections.abc import Callable
 
 from langchain_neo4j import Neo4jGraph, Neo4jVector
 
-from app.core.config import get_settings
+from config import app
 from app.services.shared.clients import get_embeddings
-
-settings = get_settings()
 
 T = TypeVar("T")
 
@@ -71,11 +69,12 @@ def get_vector_store(logger: logging.Logger) -> Neo4jVector | None:
     global _VECTOR_STORE
     if _VECTOR_STORE is None:
         embeddings = get_embeddings()
+        neo4j_config = app.neo4j
         _VECTOR_STORE = _connect_with_retry(
             lambda: Neo4jVector(
-                url=settings.NEO4J_URI,
-                username=settings.NEO4J_USER,
-                password=settings.NEO4J_PASSWORD,
+                url=neo4j_config.uri,
+                username=neo4j_config.user,
+                password=neo4j_config.password,
                 embedding=embeddings,
                 index_name="rag_document_embeddings",
                 node_label="RAGChunk",
@@ -103,17 +102,18 @@ def get_graph_store(logger: logging.Logger) -> Neo4jGraph | None:
     """
     global _GRAPH_STORE
     if _GRAPH_STORE is None:
+        neo4j_config = app.neo4j
         _GRAPH_STORE = _connect_with_retry(
             lambda: Neo4jGraph(
-                url=settings.NEO4J_URI,
-                username=settings.NEO4J_USER,
-                password=settings.NEO4J_PASSWORD,
+                url=neo4j_config.uri,
+                username=neo4j_config.user,
+                password=neo4j_config.password,
                 # Connection pooling configuration (Cloud Run optimization)
                 driver_config={
-                    "max_connection_pool_size": getattr(settings, 'NEO4J_MAX_POOL_SIZE', 50),
-                    "connection_acquisition_timeout": getattr(settings, 'NEO4J_CONNECTION_TIMEOUT', 60),
-                    "max_transaction_retry_time": getattr(settings, 'NEO4J_MAX_RETRY_TIME', 30),
-                    "connection_timeout": getattr(settings, 'NEO4J_CONNECTION_TIMEOUT', 30),
+                    "max_connection_pool_size": neo4j_config.max_pool_size,
+                    "connection_acquisition_timeout": neo4j_config.connection_timeout,
+                    "max_transaction_retry_time": neo4j_config.max_retry_time,
+                    "connection_timeout": neo4j_config.connection_timeout,
                     "keep_alive": True,  # Prevent connection drops (Cloud Run)
                 },
             ),

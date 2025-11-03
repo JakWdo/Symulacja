@@ -17,9 +17,8 @@ from jose import JWTError, jwt
 from cryptography.fernet import Fernet
 import hashlib
 import base64
-from app.core.config import get_settings
-
-settings = get_settings()
+import os
+from config import app as app_config
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -95,7 +94,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.utcnow() + timedelta(minutes=app_config.access_token_expire_minutes)
 
     to_encode.update({
         "exp": expire,  # Moment wygaśnięcia
@@ -103,10 +102,11 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     })
 
     # Koduj JWT używając SECRET_KEY i algorytmu z settings
+    secret_key = os.getenv("SECRET_KEY", app_config.secret_key)
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM
+        secret_key,
+        algorithm=app_config.algorithm
     )
     return encoded_jwt
 
@@ -128,10 +128,11 @@ def decode_access_token(token: str) -> dict | None:
         'user-123'
     """
     try:
+        secret_key = os.getenv("SECRET_KEY", app_config.secret_key)
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
+            secret_key,
+            algorithms=[app_config.algorithm]
         )
         return payload
     except JWTError:
@@ -142,7 +143,8 @@ def decode_access_token(token: str) -> dict | None:
 # === SZYFROWANIE KLUCZY API ===
 # Generuj klucz szyfrowania z SECRET_KEY (Fernet wymaga klucza base64 o długości 32 bajtów przed kodowaniem)
 # Używamy SHA256 żeby mieć deterministyczne 32 bajty, następnie kodujemy url-safe base64
-cipher_key_bytes = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+secret_key = os.getenv("SECRET_KEY", app_config.secret_key)
+cipher_key_bytes = hashlib.sha256(secret_key.encode()).digest()
 cipher_key_encoded = base64.urlsafe_b64encode(cipher_key_bytes)
 cipher_suite = Fernet(cipher_key_encoded)
 

@@ -23,7 +23,7 @@ from typing import Any
 from redis.asyncio import Redis, ConnectionPool
 from redis.exceptions import ConnectionError, TimeoutError, RedisError
 
-from app.core.config import get_settings
+from config import app
 
 logger = logging.getLogger(__name__)
 
@@ -45,31 +45,29 @@ def _create_connection_pool() -> ConnectionPool:
     Returns:
         ConnectionPool: Configured connection pool dla Redis
     """
-    settings = get_settings()
-
     # Parsuj REDIS_URL dla SSL detection
     # rediss:// (z dwoma 's') = SSL enabled
     # redis:// (jedno 's') = no SSL
-    is_ssl = settings.REDIS_URL.startswith("rediss://")
+    is_ssl = app.redis.url.startswith("rediss://")
 
     logger.info(
         f"Creating Redis ConnectionPool: SSL={is_ssl}, "
-        f"max_connections={settings.REDIS_MAX_CONNECTIONS}, "
-        f"socket_keepalive={settings.REDIS_SOCKET_KEEPALIVE}"
+        f"max_connections={app.redis.max_connections}, "
+        f"socket_keepalive={app.redis.socket_keepalive}"
     )
 
     pool = ConnectionPool.from_url(
-        settings.REDIS_URL,
+        app.redis.url,
         # Connection pool settings
-        max_connections=settings.REDIS_MAX_CONNECTIONS,
+        max_connections=app.redis.max_connections,
         # Socket settings (Upstash optimization)
-        socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
-        socket_keepalive=settings.REDIS_SOCKET_KEEPALIVE,
+        socket_timeout=app.redis.socket_timeout,
+        socket_keepalive=app.redis.socket_keepalive,
         socket_keepalive_options={},  # Use OS defaults
         # Retry settings
-        retry_on_timeout=settings.REDIS_RETRY_ON_TIMEOUT,
+        retry_on_timeout=app.redis.retry_on_timeout,
         # Health check interval (ping co N sekund)
-        health_check_interval=settings.REDIS_HEALTH_CHECK_INTERVAL,
+        health_check_interval=app.redis.health_check_interval,
         # Encoding
         encoding="utf-8",
         decode_responses=True,
@@ -103,9 +101,8 @@ async def get_redis_client() -> Redis:
 
     # Health check co REDIS_HEALTH_CHECK_INTERVAL sekund
     # Nie pingujemy przy każdym request (overhead), tylko co N sekund
-    settings = get_settings()
     current_time = time.time()
-    if current_time - _last_health_check > settings.REDIS_HEALTH_CHECK_INTERVAL:
+    if current_time - _last_health_check > app.redis.health_check_interval:
         try:
             await client.ping()
             _last_health_check = current_time
@@ -194,14 +191,13 @@ async def redis_get_json(key: str) -> Any | None:
     """
     try:
         client = await get_redis_client()
-        settings = get_settings()
 
         # Retry z exponential backoff dla transient failures
         raw = await _retry_with_backoff(
             client.get,
             key,
-            max_retries=settings.REDIS_MAX_RETRIES,
-            backoff=settings.REDIS_RETRY_BACKOFF,
+            max_retries=app.redis.max_retries,
+            backoff=app.redis.retry_backoff,
         )
 
         if raw is None:
@@ -247,7 +243,6 @@ async def redis_set_json(key: str, value: Any, ttl_seconds: int | None = None) -
     """
     try:
         client = await get_redis_client()
-        settings = get_settings()
         payload = json.dumps(value)
 
         # Retry z exponential backoff dla transient failures
@@ -257,16 +252,16 @@ async def redis_set_json(key: str, value: Any, ttl_seconds: int | None = None) -
                 key,
                 payload,
                 ex=ttl_seconds,
-                max_retries=settings.REDIS_MAX_RETRIES,
-                backoff=settings.REDIS_RETRY_BACKOFF,
+                max_retries=app.redis.max_retries,
+                backoff=app.redis.retry_backoff,
             )
         else:
             await _retry_with_backoff(
                 client.set,
                 key,
                 payload,
-                max_retries=settings.REDIS_MAX_RETRIES,
-                backoff=settings.REDIS_RETRY_BACKOFF,
+                max_retries=app.redis.max_retries,
+                backoff=app.redis.retry_backoff,
             )
 
         return True
@@ -294,14 +289,13 @@ async def redis_delete(key: str) -> bool:
     """
     try:
         client = await get_redis_client()
-        settings = get_settings()
 
         # Retry z exponential backoff dla transient failures
         await _retry_with_backoff(
             client.delete,
             key,
-            max_retries=settings.REDIS_MAX_RETRIES,
-            backoff=settings.REDIS_RETRY_BACKOFF,
+            max_retries=app.redis.max_retries,
+            backoff=app.redis.retry_backoff,
         )
 
         return True
@@ -330,7 +324,6 @@ async def redis_delete_pattern(pattern: str) -> int:
     """
     try:
         client = await get_redis_client()
-        settings = get_settings()
 
         deleted_count = 0
         cursor = 0
@@ -342,8 +335,8 @@ async def redis_delete_pattern(pattern: str) -> int:
                 cursor=cursor,
                 match=pattern,
                 count=100,  # Scan 100 keys per iteration
-                max_retries=settings.REDIS_MAX_RETRIES,
-                backoff=settings.REDIS_RETRY_BACKOFF,
+                max_retries=app.redis.max_retries,
+                backoff=app.redis.retry_backoff,
             )
 
             if keys:
@@ -351,8 +344,8 @@ async def redis_delete_pattern(pattern: str) -> int:
                 await _retry_with_backoff(
                     client.delete,
                     *keys,
-                    max_retries=settings.REDIS_MAX_RETRIES,
-                    backoff=settings.REDIS_RETRY_BACKOFF,
+                    max_retries=app.redis.max_retries,
+                    backoff=app.redis.retry_backoff,
                 )
                 deleted_count += len(keys)
 

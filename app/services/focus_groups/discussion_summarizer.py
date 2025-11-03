@@ -24,14 +24,12 @@ from langchain_core.output_parsers import StrOutputParser
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.models import FocusGroup, PersonaResponse, Persona, Project
 from app.services.shared.clients import build_chat_model
 from app.services.dashboard.insight_traceability_service import InsightTraceabilityService
 from app.services.dashboard.usage_logging import log_usage_from_metadata, UsageLogContext
 from app.services.dashboard.cache_invalidation import invalidate_dashboard_cache
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 # Słowa kluczowe do analizy sentymentu

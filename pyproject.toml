@@ -4,15 +4,38 @@ version = "1.0.0"
 description = "AI-powered virtual focus group platform"
 
 [project.optional-dependencies]
+# Multi-provider LLM support (OpenAI, Anthropic)
+# Install with: pip install -e ".[llm-providers]"
+llm-providers = [
+    "langchain-openai>=0.2.0,<0.3.0",
+    "langchain-anthropic>=0.2.0,<0.3.0",
+    "openai",
+    "anthropic",
+    "tiktoken>=0.5.0",  # OpenAI tokenizer
+]
+
+# Document processing for RAG (PDF, DOCX upload feature)
+# Install with: pip install -e ".[document-processing]"
+document-processing = [
+    "pypdf",
+    "python-docx",
+]
+
 # Experimental dependencies (currently unused, may be needed in future)
+# Install with: pip install -e ".[experimental]"
 experimental = [
-    "tiktoken>=0.5.0",
     "websockets>=12.0",
     "tenacity>=8.0.0",
     "pandas>=2.0.0",
 ]
 
-# Install with: pip install -e ".[experimental]"
+# All optional dependencies
+# Install with: pip install -e ".[all]"
+all = [
+    "sight[llm-providers]",
+    "sight[document-processing]",
+    "sight[experimental]",
+]
 
 [tool.ruff]
 line-length = 240

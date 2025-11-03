@@ -1,9 +1,12 @@
 """
-Pakiet skryptów pomocniczych
+Utility scripts for Sight.
 
-Ten katalog zawiera skrypty pomocnicze do zarządzania aplikacją:
-- init_db.py - inicjalizacja bazy danych (tabele + rozszerzenie pgvector)
+Active helpers live directly in ``scripts/`` (Neo4j indeksy, walidacja konfiguracji,
+backup/cleanup grafu, setup sekretów GCP).
+Jednorazowe / legacy narzędzia znajdują się w ``scripts.archive``.
 
-Skrypty można uruchamiać jako moduły Pythona:
-    python -m scripts.init_db
+Nie importuj bezpośrednio – skrypty uruchamiaj jako moduły CLI, np.:
+
+    python scripts/init_neo4j_indexes.py
+    python scripts/config_validate.py --check-placeholders
 """

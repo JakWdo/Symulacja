@@ -14,48 +14,40 @@ Kluczowe endpointy:
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Request, status, HTTPException, Response, Depends
-from fastapi.exceptions import RequestValidationError, ResponseValidationError
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.config import get_settings
+from config import app as app_config
 from app.core.logging_config import configure_logging
+from app.core.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
 from app.api import projects, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard
-from app.db import get_db
+from app.api.dependencies import get_current_admin_user, get_db
+from app.api.exception_handlers import register_exception_handlers
 from app.services.maintenance.cleanup_service import CleanupService
 import logging
 import os
 import mimetypes
-import traceback
 
 # Configure structured logging BEFORE creating any loggers
-settings = get_settings()
 configure_logging(
-    structured=settings.structured_logging_enabled,
-    level=settings.LOG_LEVEL,
+    structured=app_config.ENVIRONMENT == "production",
+    level=os.getenv("LOG_LEVEL", "DEBUG" if app_config.debug else "INFO"),
 )
 
 logger = logging.getLogger(__name__)
-
-# Global scheduler instance
-scheduler = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager - inicjalizacja/cleanup zasobów przy starcie/stopie aplikacji."""
-    global scheduler
-
     # Startup
-    print("🚀 LIFESPAN: Inicjalizacja aplikacji...")
     logger.info("🚀 LIFESPAN: Inicjalizacja aplikacji...")
 
     # DISABLED: Eager initialization RAG services (causes crash in Cloud Run with Google API)
@@ -66,105 +58,35 @@ async def lifespan(app: FastAPI):
     logger.info("✓ LIFESPAN: RAG services skonfigurowane (lazy initialization)")
 
     # Initialize APScheduler for background jobs
-    try:
-        scheduler = AsyncIOScheduler(timezone='UTC')
+    init_scheduler()
 
-        # Schedule cleanup job (daily at 2 AM UTC)
-        async def run_cleanup_job():
-            """
-            Scheduled cleanup job - uruchamiany codziennie o 2:00 AM UTC.
-
-            Usuwa (hard delete) soft-deleted entities starsze niż 7 dni:
-            - Projects (CASCADE usuwa personas, focus_groups, surveys)
-            - Personas (orphaned)
-            - Focus Groups (orphaned)
-            - Surveys (orphaned)
-            """
-            logger.info("⏰ Cleanup job started (scheduled)")
-
-            try:
-                # Get DB session from dependency
-                async for db in get_db():
-                    try:
-                        service = CleanupService(retention_days=7)
-                        stats = await service.cleanup_old_deleted_entities(db)
-
-                        logger.info(
-                            f"✅ Cleanup job completed successfully: {stats['total_deleted']} entities deleted",
-                            extra={
-                                "job": "cleanup_deleted_entities",
-                                "stats": stats,
-                                "retention_days": 7,
-                            }
-                        )
-                    finally:
-                        # DB session cleanup handled by get_db() context manager
-                        pass
-                    break  # Exit after first (and only) iteration
-
-            except Exception as exc:
-                logger.error(
-                    f"❌ Cleanup job failed: {exc}",
-                    extra={
-                        "job": "cleanup_deleted_entities",
-                        "error": str(exc),
-                    },
-                    exc_info=True,
-                )
-
-        scheduler.add_job(
-            run_cleanup_job,
-            trigger='cron',
-            hour=2,
-            minute=0,
-            timezone='UTC',
-            id='cleanup_deleted_entities',
-            name='Cleanup Old Deleted Entities',
-            replace_existing=True,
-            max_instances=1,  # Prevent overlapping executions
-        )
-
-        scheduler.start()
-        logger.info("✓ LIFESPAN: APScheduler started - cleanup job scheduled daily at 2:00 AM UTC")
-
-    except Exception as exc:
-        logger.error(f"❌ LIFESPAN: Failed to start APScheduler: {exc}", exc_info=True)
-        # Don't fail startup if scheduler fails - app can run without it
-        scheduler = None
-
-    print("✓ LIFESPAN: Aplikacja gotowa do obsługi żądań")
     logger.info("✓ LIFESPAN: Aplikacja gotowa do obsługi żądań")
 
     yield
 
     # Shutdown
-    print("👋 LIFESPAN: Zamykanie aplikacji...")
     logger.info("👋 LIFESPAN: Zamykanie aplikacji...")
 
     # Shutdown scheduler gracefully
-    if scheduler:
-        try:
-            scheduler.shutdown(wait=True)
-            logger.info("✓ LIFESPAN: APScheduler stopped gracefully")
-        except Exception as exc:
-            logger.error(f"❌ LIFESPAN: Error stopping scheduler: {exc}", exc_info=True)
+    shutdown_scheduler(wait=True)
 
 # Walidacja krytycznych ustawień w produkcji
-if settings.ENVIRONMENT == "production":
+if app_config.ENVIRONMENT == "production":
     # Security: Walidacja SECRET_KEY
-    if settings.SECRET_KEY == "change-me":
+    secret_key = os.getenv("SECRET_KEY", app_config.secret_key)
+    if secret_key == "change-me":
         raise ValueError(
             "SECRET_KEY must be changed in production! "
             "Generate a secure key with: openssl rand -hex 32"
         )
-    if len(settings.SECRET_KEY) < 32:
+    if len(secret_key) < 32:
         raise ValueError(
             "SECRET_KEY must be at least 32 characters in production! "
-            f"Current length: {len(settings.SECRET_KEY)}. "
+            f"Current length: {len(secret_key)}. "
             "Generate a secure key with: openssl rand -hex 32"
         )
     # Warn jeśli SECRET_KEY wygląda słabo (tylko alfanumeryczne znaki)
-    if settings.SECRET_KEY.isalnum():
+    if secret_key.isalnum():
         logger.warning(
             "SECRET_KEY appears weak (only alphanumeric). "
             "Consider using special characters for better security. "
@@ -172,14 +94,15 @@ if settings.ENVIRONMENT == "production":
         )
 
     # Security: Walidacja database passwords
-    if "password" in settings.DATABASE_URL.lower() or "dev_password" in settings.DATABASE_URL.lower():
+    db_url = os.getenv("DATABASE_URL", app_config.database.url)
+    if "password" in db_url.lower() or "dev_password" in db_url.lower():
         raise ValueError(
             "Default database password detected in production! "
             "Please use secure passwords."
         )
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
+    title=app_config.project_name,
     description="AI-powered market research platform with synthetic personas",
     version="1.0.0",
     docs_url="/docs",
@@ -204,7 +127,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 #
 # CORS jest potrzebny TYLKO w development, gdy frontend dev server (localhost:5173)
 # robi requesty do backend (localhost:8000) - to są cross-origin requests.
-if settings.ENVIRONMENT == "development":
+if app_config.ENVIRONMENT == "development":
     # Development: frontend na localhost:5173, backend na localhost:8000
     # To są cross-origin requests, wymagają CORS
     allowed_origins = [
@@ -233,26 +156,26 @@ app.add_middleware(RequestIDMiddleware)
 
 # Security Headers Middleware
 # Dodaje OWASP-recommended headers: X-Frame-Options, CSP, X-Content-Type-Options, etc.
-enable_hsts = settings.ENVIRONMENT == "production"  # HSTS tylko na HTTPS w produkcji
+enable_hsts = app_config.ENVIRONMENT == "production"  # HSTS tylko na HTTPS w produkcji
 app.add_middleware(SecurityHeadersMiddleware, enable_hsts=enable_hsts)
 
 # Podpinamy katalog plików statycznych (avatary)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Podłącz routery z poszczególnych modułów
-# Prefix: /api/v1 (z settings.API_V1_PREFIX)
+# Prefix: /api/v1 (z app_config.api_prefix)
 # Endpointy autoryzacyjne jako pierwsze (publiczne)
-app.include_router(auth.router, prefix=settings.API_V1_PREFIX, tags=["Auth"])
+app.include_router(auth.router, prefix=app_config.api_prefix, tags=["Auth"])
 
 # Chronione endpointy (wymagają uwierzytelnienia)
-app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["Projects"])
-app.include_router(personas.router, prefix=settings.API_V1_PREFIX, tags=["Personas"])
-app.include_router(focus_groups.router, prefix=settings.API_V1_PREFIX, tags=["Focus Groups"])
-app.include_router(surveys.router, prefix=settings.API_V1_PREFIX, tags=["Surveys"])
-app.include_router(analysis.router, prefix=settings.API_V1_PREFIX, tags=["Analysis"])
-app.include_router(rag.router, prefix=settings.API_V1_PREFIX)  # RAG już ma prefix="/rag" i tags w routerze
-app.include_router(settings_router.router, prefix=settings.API_V1_PREFIX, tags=["Settings"])
-app.include_router(dashboard.router, prefix=settings.API_V1_PREFIX, tags=["Dashboard"])
+app.include_router(projects.router, prefix=app_config.api_prefix, tags=["Projects"])
+app.include_router(personas.router, prefix=app_config.api_prefix, tags=["Personas"])
+app.include_router(focus_groups.router, prefix=app_config.api_prefix, tags=["Focus Groups"])
+app.include_router(surveys.router, prefix=app_config.api_prefix, tags=["Surveys"])
+app.include_router(analysis.router, prefix=app_config.api_prefix, tags=["Analysis"])
+app.include_router(rag.router, prefix=app_config.api_prefix)  # RAG już ma prefix="/rag" i tags w routerze
+app.include_router(settings_router.router, prefix=app_config.api_prefix, tags=["Settings"])
+app.include_router(dashboard.router, prefix=app_config.api_prefix, tags=["Dashboard"])
 
 
 # Root endpoint removed - SPA catch-all route handles "/" in production
@@ -283,13 +206,16 @@ async def health_check():
 
     return {
         "status": "healthy",
-        "environment": settings.ENVIRONMENT,
+        "environment": app_config.ENVIRONMENT,
         "rag_services": rag_status
     }
 
 
 @app.post("/admin/cleanup", tags=["Admin"])
-async def manual_cleanup(db: AsyncSession = Depends(get_db)):
+async def manual_cleanup(
+    db: AsyncSession = Depends(get_db),
+    _current_admin=Depends(get_current_admin_user),
+):
     """
     Manual cleanup trigger endpoint - dla testowania i emergency cleanup.
 
@@ -379,8 +305,11 @@ async def startup_probe():
         def test_neo4j_connection():
             """Test Neo4j connection with quick timeout."""
             driver = GraphDatabase.driver(
-                settings.NEO4J_URI,
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+                os.getenv("NEO4J_URI", app_config.neo4j.uri),
+                auth=(
+                    os.getenv("NEO4J_USER", app_config.neo4j.user),
+                    os.getenv("NEO4J_PASSWORD", app_config.neo4j.password)
+                ),
                 max_connection_lifetime=5,
             )
             driver.verify_connectivity()
@@ -431,149 +360,8 @@ async def startup_probe():
     }
 
 
-# Globalny handler wyjątków - łapie wszystkie nieobsłużone błędy
-@app.exception_handler(RequestValidationError)
-async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
-    """
-    Obsłuż błędy walidacji REQUEST (422 Unprocessable Entity)
-
-    Loguje pełne szczegóły błędów walidacji dla debugowania w GCP Logs.
-    """
-    errors = exc.errors()
-    error_details = []
-    for error in errors:
-        error_details.append({
-            "loc": error.get("loc"),
-            "msg": error.get("msg"),
-            "type": error.get("type"),
-            "input": error.get("input"),
-        })
-
-    logger.error(
-        f"Request validation error: {request.method} {request.url.path}",
-        extra={
-            "request_method": request.method,
-            "request_url": str(request.url),
-            "request_path": request.url.path,
-            "validation_errors": error_details,
-            "error_count": len(errors),
-            "body": exc.body if hasattr(exc, 'body') else None,
-        },
-        exc_info=False,
-    )
-
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "detail": "Validation error",
-            "errors": error_details,
-        },
-    )
-
-
-@app.exception_handler(ResponseValidationError)
-async def response_validation_exception_handler(request: Request, exc: ResponseValidationError):
-    """
-    Obsłuż błędy walidacji RESPONSE (500 Internal Server Error)
-
-    To jest KRYTYCZNY błąd - znaczy że endpoint zwrócił response niezgodny ze schematem.
-    Loguje pełne szczegóły dla debugowania.
-    """
-    errors = exc.errors()
-    error_details = []
-    for error in errors:
-        error_details.append({
-            "loc": error.get("loc"),
-            "msg": error.get("msg"),
-            "type": error.get("type"),
-        })
-
-    logger.critical(
-        f"RESPONSE VALIDATION ERROR: {request.method} {request.url.path} - Schema mismatch!",
-        extra={
-            "request_method": request.method,
-            "request_url": str(request.url),
-            "request_path": request.url.path,
-            "validation_errors": error_details,
-            "error_count": len(errors),
-            "response_body": str(exc.body)[:500] if hasattr(exc, 'body') else None,  # First 500 chars
-        },
-        exc_info=True,
-    )
-
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "detail": "Internal server error - Response validation failed",
-            "errors": error_details if settings.DEBUG else None,
-        },
-    )
-
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """
-    Obsłuż HTTPException (4xx, 5xx) z detailed logging
-
-    Loguje szczegóły HTTP errors (404, 401, 403, etc.) dla debugowania.
-    """
-    logger.warning(
-        f"HTTP {exc.status_code}: {request.method} {request.url.path} - {exc.detail}",
-        extra={
-            "request_method": request.method,
-            "request_url": str(request.url),
-            "request_path": request.url.path,
-            "status_code": exc.status_code,
-            "detail": exc.detail,
-            "headers": dict(exc.headers) if exc.headers else None,
-        },
-        exc_info=False,
-    )
-
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail},
-        headers=exc.headers,
-    )
-
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """
-    Obsłuż wszystkie nieobsłużone wyjątki
-
-    Zapobiega wyciekom szczegółów błędów w produkcji.
-    W development zwraca pełny stack trace, w production tylko ogólny komunikat.
-
-    Args:
-        request: FastAPI Request
-        exc: Wyjątek który nie został obsłużony
-
-    Returns:
-        JSONResponse z kodem 500 i bezpiecznym komunikatem błędu
-    """
-    tb = traceback.format_exc()
-    logger.error(
-        f"Unhandled exception: {request.method} {request.url.path} - {exc}",
-        extra={
-            "request_method": request.method,
-            "request_url": str(request.url),
-            "request_path": request.url.path,
-            "exception_type": type(exc).__name__,
-            "exception_message": str(exc),
-            "traceback": tb,
-        },
-        exc_info=True,
-    )
-
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "detail": "Internal server error",
-            # W DEBUG pokazuj szczegóły, w produkcji ukryj
-            "error": str(exc) if settings.DEBUG else "An unexpected error occurred",
-        },
-    )
+# Register exception handlers
+register_exception_handlers(app)
 
 
 # ============================================================================

@@ -37,17 +37,17 @@ langchain-community>=0.3.0,<0.4.0
 langchain-text-splitters>=0.3.0,<0.4.0
 
 # LangChain LLM Providers
-langchain-google-genai>=2.0.0,<3.0.0
-langchain-openai>=0.2.0,<0.3.0
-langchain-anthropic>=0.2.0,<0.3.0
+langchain-google-genai>=2.0.0,<3.0.0  # PRIMARY LLM PROVIDER
+# langchain-openai - moved to pyproject.toml [project.optional-dependencies] llm-providers
+# langchain-anthropic - moved to pyproject.toml [project.optional-dependencies] llm-providers
 langchain-experimental>=0.3.0,<0.4.0  # CRITICAL: 0.3.0+ has additional_instructions for LLMGraphTransformer
 
 # LangChain Neo4j Integration (replaces deprecated Neo4jVector/Neo4jGraph from langchain-community)
 langchain-neo4j>=0.1.0,<0.2.0
 
-# Legacy LLM Integration (optional fallback)
-openai
-anthropic
+# Legacy LLM Integration - moved to pyproject.toml [project.optional-dependencies] llm-providers
+# openai
+# anthropic
 # tiktoken - moved to pyproject.toml [project.optional-dependencies] experimental
 # google-generativeai - installed automatically by langchain-google-genai
 
@@ -90,9 +90,9 @@ flake8
 mypy
 
 # Report Generation
-jinja2
+jinja2  # Used by config/loader.py for prompt templates
 
 # RAG System - Document Processing
-pypdf
-python-docx
-sentence-transformers==2.7.0
+# pypdf - moved to pyproject.toml [project.optional-dependencies] document-processing
+# python-docx - moved to pyproject.toml [project.optional-dependencies] document-processing
+sentence-transformers==2.7.0  # Used for RAG reranking

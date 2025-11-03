@@ -444,33 +444,37 @@ performance:
 
 ## 🔄 Migration Guide
 
+### Migration Status: COMPLETED ✅
+
+As of **PR4 (2025-11-03)**, all code has been migrated to the centralized `config/*` system. The `get_settings()` adapter has been removed from `app/core/config.py`.
+
 ### Quick replacements (old → new)
 
 ```python
-# Config (old)
+# Config (old - REMOVED, will fail)
 from app.core.config import get_settings
 settings = get_settings()
 model = settings.PERSONA_GENERATION_MODEL
 rag_enabled = settings.RAG_ENABLED
 
-# Config (new)
+# Config (new - CURRENT STANDARD)
 from config import models, features
 model = models.get("personas", "generation").model
 rag_enabled = features.rag.enabled
 
-# Prompts (old)
+# Prompts (old - REMOVED, will fail)
 from app.core.prompts.persona_prompts import JTBD_ANALYSIS_PROMPT
 prompt_text = JTBD_ANALYSIS_PROMPT.format(age=25, occupation="Engineer")
 
-# Prompts (new)
+# Prompts (new - CURRENT STANDARD)
 from config import prompts
 messages = prompts.get("personas.jtbd").render(age=25, occupation="Engineer")
 
-# Demographics (old)
+# Demographics (old - REMOVED, will fail)
 from app.core.constants import DEFAULT_AGE_GROUPS
 from app.core.demographics import POLISH_LOCATIONS
 
-# Demographics (new)
+# Demographics (new - CURRENT STANDARD)
 from config import demographics
 age_groups = demographics.common.age_groups
 locations = demographics.poland.locations
@@ -478,9 +482,75 @@ locations = demographics.poland.locations
 
 ### Migration Timeline
 
-- **v1.0**: Both old and new approaches work ✅ (current)
-- **v1.1**: Deprecation warnings added for old imports ⚠️
-- **v2.0**: Old modules removed (planned)
+- **v1.0 (PR3)**: Both old and new approaches worked (adapter present)
+- **v1.1 (PR4)**: Migration completed, adapter removed ✅ **← CURRENT**
+- **Future**: Old modules (app/core/prompts/, app/core/demographics/) may be deleted
+
+### Complete Migration Examples
+
+#### Example 1: Persona Generation Service
+
+**Before (PR3 and earlier):**
+```python
+from app.core.config import get_settings
+
+class PersonaGeneratorLangChain:
+    def __init__(self, db: AsyncSession):
+        settings = get_settings()
+        self.model_name = settings.PERSONA_GENERATION_MODEL
+        self.temperature = settings.PERSONA_GENERATION_TEMPERATURE
+```
+
+**After (PR4+):**
+```python
+from config import models
+
+class PersonaGeneratorLangChain:
+    def __init__(self, db: AsyncSession):
+        model_config = models.get("personas", "generation")
+        self.model_name = model_config.model
+        self.temperature = model_config.temperature
+```
+
+#### Example 2: RAG Service
+
+**Before:**
+```python
+from app.core.config import get_settings
+
+settings = get_settings()
+if settings.RAG_ENABLED:
+    chunk_size = settings.CHUNK_SIZE
+```
+
+**After:**
+```python
+from config import features, rag
+
+if features.rag.enabled:
+    chunk_size = rag.chunking.chunk_size
+```
+
+#### Example 3: API Endpoint
+
+**Before:**
+```python
+from app.core.config import get_settings
+
+@router.get("/settings")
+async def get_api_settings():
+    settings = get_settings()
+    return {"environment": settings.ENVIRONMENT}
+```
+
+**After:**
+```python
+from config import app as app_config
+
+@router.get("/settings")
+async def get_api_settings():
+    return {"environment": app_config.environment}
+```
 
 ### Benefits of Migration
 
@@ -489,6 +559,7 @@ locations = demographics.poland.locations
 3. ✅ **Type Safe** - Full type annotations and validation
 4. ✅ **Developer Friendly** - Clear structure, easy to find settings
 5. ✅ **Version Controlled** - Track config changes in git
+6. ✅ **No Runtime Overhead** - No adapter function calls
 
 ## 📚 Przykład Migracji
 
@@ -607,9 +678,35 @@ Solution: Models.get() will fallback to defaults.chat + WARNING
 Check models.yaml for correct domain/subdomain structure
 ```
 
+**Problem: `ImportError: cannot import name 'get_settings'`**
+```
+Solution: The get_settings() adapter was removed in PR4.
+Migrate to: from config import models, features, app, demographics
+See Migration Guide above for complete examples.
+```
+
+**Problem: `AttributeError: module 'app.core.config' has no attribute 'Settings'`**
+```
+Solution: The Settings class was removed in PR4.
+Use config modules directly instead of Pydantic settings.
+Example: config.app.database.url instead of settings.DATABASE_URL
+```
+
+**Problem: Old code using `settings.SOME_CONSTANT`**
+```
+Solution: Check migration mapping:
+- settings.PERSONA_GENERATION_MODEL → models.get("personas", "generation").model
+- settings.RAG_ENABLED → features.rag.enabled
+- settings.DATABASE_URL → app.database.url
+- settings.REDIS_URL → app.redis.url
+See "Complete Migration Examples" section above.
+```
+
 ## 📞 Support
 
+- **Migration issues:** See "Complete Migration Examples" section above
 - **Validation errors:** Run `python scripts/config_validate.py --check-placeholders`
 - **Prompt issues:** Check YAML syntax in config/prompts/
 - **Model issues:** Verify fallback chain in config/models.yaml
 - **Environment:** Check `ENVIRONMENT` env var and env/*.yaml overrides
+- **Import errors:** Verify you're using `from config import ...` (not `from app.core.config`)

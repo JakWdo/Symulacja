@@ -331,7 +331,7 @@ journeys = await asyncio.gather(*tasks)
    - Parallel processing via asyncio.gather()
 
 ### Testing & Validation
-7. **`scripts/test_persona_details_performance.py`** (NEW)
+7. **`scripts/archive/test_persona_details_performance.py`** (archiwum)
    - Automated performance validation
    - Checks all services against targets
    - Exit code 0 if all pass, 1 if any fail
@@ -345,7 +345,7 @@ journeys = await asyncio.gather(*tasks)
 
 ```bash
 # Run automated performance tests
-python scripts/test_persona_details_performance.py
+python scripts/archive/test_persona_details_performance.py
 
 # Expected output:
 # === Testing PersonaJourneyService ===

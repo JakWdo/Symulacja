@@ -11,9 +11,7 @@ Używa async SQLAlchemy dla wydajności (non-blocking I/O).
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
-from app.core.config import get_settings
-
-settings = get_settings()
+from config import app
 
 # Tworzenie silnika async z connection poolingiem
 # Engine to główny punkt wejścia do bazy danych
@@ -25,12 +23,12 @@ settings = get_settings()
 # - SQLite (używany w Cloud Build unit tests)
 #
 # Dlatego budujemy engine_kwargs conditionally:
-use_null_pool = settings.ENVIRONMENT == "test"
-is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+use_null_pool = app.environment == "test"
+is_sqlite = app.database.url.startswith("sqlite")
 
 engine_kwargs = {
-    "url": settings.DATABASE_URL,
-    "echo": settings.DEBUG,
+    "url": app.database.url,
+    "echo": app.debug,
 }
 
 # Dodaj parametry poolingu TYLKO dla PostgreSQL w production/development

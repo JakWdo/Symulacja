@@ -1165,19 +1165,34 @@ class Settings(BaseSettings):
         extra = "ignore"  # Pydantic v2: ignore extra fields from env
 
 
-@lru_cache()
-def get_settings() -> Settings:
-    """
-    Pobierz instancję ustawień (cache'owana).
-
-    BACKWARD COMPATIBILITY: Function preserved for existing code (34+ files).
-    New code should use: from config import models, features, app
-
-    Używa @lru_cache() żeby stworzyć tylko jedną instancję Settings
-    dla całej aplikacji (singleton pattern). To zapewnia że wszystkie
-    części aplikacji używają tych samych ustawień.
-
-    Returns:
-        Settings: Obiekt z wszystkimi ustawieniami aplikacji
-    """
-    return Settings()
+# ═══════════════════════════════════════════════════════════════════════════
+# DEPRECATED: get_settings() ADAPTER REMOVED
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# The get_settings() adapter has been REMOVED as part of the migration to
+# the centralized config/* system (PR4).
+#
+# Migration completed:
+#   ✅ app/api/personas/generation.py
+#   ✅ app/main.py
+#   ✅ app/api/auth.py
+#   ✅ app/api/rag.py
+#   ✅ app/api/settings.py
+#   ✅ app/models/persona_events.py
+#   ✅ app/api/exception_handlers.py
+#
+# All code now uses the new config system:
+#
+#   OLD (deprecated):
+#       from app.core.config import get_settings
+#       settings = get_settings()
+#       db_url = settings.DATABASE_URL
+#
+#   NEW (current):
+#       from config import app, features, models
+#       db_url = app.database.url
+#       rag_enabled = features.rag.enabled
+#       model_config = models.get("personas", "generation")
+#
+# See config/README.md for complete migration guide.
+# ═══════════════════════════════════════════════════════════════════════════

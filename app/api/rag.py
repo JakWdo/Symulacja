@@ -21,7 +21,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user, get_db
-from app.core.config import get_settings
+from config import app as app_config
 from app.db.session import AsyncSessionLocal
 from app.models.rag_document import RAGDocument
 from app.models.user import User
@@ -37,7 +37,6 @@ from app.services.rag.rag_document_service import RAGDocumentService
 from app.services.rag.rag_graph_service import GraphRAGService
 from app.services.shared import get_polish_society_rag
 
-settings = get_settings()
 router = APIRouter(prefix="/rag", tags=["RAG Knowledge Base"])
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
@@ -134,7 +133,7 @@ async def upload_document(
         )
 
     # Security: File size limit (50MB default)
-    max_size_bytes = settings.MAX_DOCUMENT_SIZE_MB * 1024 * 1024
+    max_size_bytes = app_config.document_storage.max_size_mb * 1024 * 1024
     file.file.seek(0, 2)  # Seek to end
     file_size = file.file.tell()
     file.file.seek(0)  # Seek back to start
@@ -142,10 +141,10 @@ async def upload_document(
     if file_size > max_size_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Plik za duży. Maksymalny rozmiar: {settings.MAX_DOCUMENT_SIZE_MB}MB (plik ma {file_size / 1024 / 1024:.1f}MB)",
+            detail=f"Plik za duży. Maksymalny rozmiar: {app_config.document_storage.max_size_mb}MB (plik ma {file_size / 1024 / 1024:.1f}MB)",
         )
 
-    storage_path = Path(settings.DOCUMENT_STORAGE_PATH)
+    storage_path = Path(app_config.document_storage.path)
     storage_path.mkdir(parents=True, exist_ok=True)
 
     # UUID w nazwie zapewnia unikalność i chroni przed path traversal

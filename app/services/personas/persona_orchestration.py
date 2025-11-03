@@ -19,10 +19,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.core.config import get_settings
+# Removed: from app.core.config import get_settings
 from app.services.shared import build_chat_model, get_polish_society_rag
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
@@ -773,7 +772,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
         try:
             # Use Gemini Flash for quick naming (cheap, fast)
             llm_flash = build_chat_model(
-                model=settings.DEFAULT_MODEL,
+                model=models._registry.config.get("defaults", {}).get("chat", {}).get("model", "gemini-2.5-flash"),
                 temperature=0.7,
                 max_tokens=50,
                 timeout=10,

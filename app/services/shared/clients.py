@@ -7,14 +7,13 @@ embeddingów Google, aby uniknąć duplikacji konfiguracji w serwisach.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import Any
 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
-from app.core.config import get_settings
-
-settings = get_settings()
+from config import models
 
 
 def build_chat_model(
@@ -32,9 +31,9 @@ def build_chat_model(
     Tworzy instancję ChatGoogleGenerativeAI z uwspólnioną konfiguracją.
 
     Args:
-        model: Nazwa modelu Gemini (domyślnie settings.DEFAULT_MODEL)
-        temperature: Temperatura próbkująca (domyślnie settings.TEMPERATURE)
-        max_tokens: Limit tokenów (domyślnie settings.MAX_TOKENS)
+        model: Nazwa modelu Gemini (domyślnie z config.models.defaults.chat.model)
+        temperature: Temperatura próbkująca (domyślnie z config.models.defaults.chat.temperature)
+        max_tokens: Limit tokenów (domyślnie z config.models.defaults.chat.max_tokens)
         top_p: Parametr nucleus sampling (opcjonalny)
         top_k: Parametr top-k sampling (opcjonalny)
         timeout: Timeout zapytania w sekundach (opcjonalny)
@@ -51,12 +50,14 @@ def build_chat_model(
         - Retry 3: 4s delay
         LangChain automatycznie obsługuje ResourceExhausted exceptions.
     """
+    # Get defaults from config.models
+    defaults = models._registry.config.get("defaults", {}).get("chat", {})
 
     params: dict[str, Any] = {
-        "model": model or settings.DEFAULT_MODEL,
-        "google_api_key": settings.GOOGLE_API_KEY,
-        "temperature": temperature if temperature is not None else settings.TEMPERATURE,
-        "max_tokens": max_tokens if max_tokens is not None else settings.MAX_TOKENS,
+        "model": model or defaults.get("model", "gemini-2.5-flash"),
+        "google_api_key": os.getenv("GOOGLE_API_KEY"),
+        "temperature": temperature if temperature is not None else defaults.get("temperature", 0.7),
+        "max_tokens": max_tokens if max_tokens is not None else defaults.get("max_tokens", 6000),
         "max_retries": max_retries,
     }
 
@@ -77,13 +78,16 @@ def get_embeddings(model: str | None = None) -> GoogleGenerativeAIEmbeddings:
     Zwraca współdzieloną instancję embeddingów Google Gemini.
 
     Args:
-        model: Nazwa modelu embeddingowego (domyślnie settings.EMBEDDING_MODEL)
+        model: Nazwa modelu embeddingowego (domyślnie z config.models.rag.embedding)
 
     Returns:
         Instancja GoogleGenerativeAIEmbeddings (cache'owana).
     """
-    model_name = model or settings.EMBEDDING_MODEL
+    # Get embedding model from config.models
+    embedding_config = models.get("rag", "embedding")
+    model_name = model or embedding_config.model
+
     return GoogleGenerativeAIEmbeddings(
         model=model_name,
-        google_api_key=settings.GOOGLE_API_KEY,
+        google_api_key=os.getenv("GOOGLE_API_KEY"),
     )

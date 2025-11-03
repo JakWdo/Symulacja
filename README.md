@@ -5,11 +5,12 @@
 ## 🚀 Quick Start
 
 ```bash
-# 1. Przygotuj .env z kluczem Gemini + embedding model
-cat > .env << EOF
-GOOGLE_API_KEY=your_gemini_api_key
-EMBEDDING_MODEL=models/gemini-embedding-001
-EOF
+# 1. Skopiuj template .env i uzupełnij wartości
+cp .env.example .env
+# Edytuj .env i ustaw:
+# - GOOGLE_API_KEY (wymagany)
+# - SECRET_KEY (generuj: openssl rand -hex 32)
+# Pozostałe wartości domyślne działają z docker-compose
 
 # 2. Uruchom cały stack
 docker-compose up -d
@@ -17,6 +18,18 @@ docker-compose up -d
 # 3. Otwórz interfejsy
 open http://localhost:5173      # Frontend
 open http://localhost:8000/docs # API Docs
+```
+
+**Opcjonalne zależności:**
+```bash
+# Dla multi-provider LLM (OpenAI, Anthropic)
+pip install -e ".[llm-providers]"
+
+# Dla upload PDF/DOCX do RAG
+pip install -e ".[document-processing]"
+
+# Wszystkie opcjonalne
+pip install -e ".[all]"
 ```
 
 ## 📋 Kluczowe Funkcje
@@ -94,11 +107,20 @@ Szczegółowe dokumenty techniczne:
 
 ## 🆕 Najnowsza Aktualizacja
 
+### Code Organization Refactoring (2025-11-03)
+
+**Zmiany (PR1-PR4):**
+- Split `personas.py` (1694 linie) → 5 modułów
+- Refaktoryzacja `main.py` (629 → 410 linii, -35%)
+- Migracja do centralized config system (`config/*`)
+- Opcjonalne zależności w `pyproject.toml` (extras)
+- `.env.example` template dla łatwiejszego setupu
+
 ### Segment-Based Persona Architecture (2025-10-15)
 
-**Kluczowe zmiany:**
+**Architektura:**
 - Każda persona należy do demograficznego segmentu
-- WymuszoneConstrainty demograficzne
+- Wymuszone constrainty demograficzne
 - Indywidualny kontekst społeczny
 - Walidacja spójności danych
 

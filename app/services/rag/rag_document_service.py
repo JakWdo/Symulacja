@@ -25,7 +25,7 @@ from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader
 from langchain_experimental.graph_transformers.llm import LLMGraphTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from app.core.config import get_settings
+from config import rag, app
 from app.core.rag_config import (
     GRAPH_TRANSFORMER_ALLOWED_NODES,
     GRAPH_TRANSFORMER_ALLOWED_RELATIONSHIPS,
@@ -37,7 +37,6 @@ from app.models.rag_document import RAGDocument
 from app.services.shared.clients import build_chat_model
 from app.services.rag.rag_clients import get_graph_store, get_vector_store
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
@@ -115,8 +114,8 @@ class RAGDocumentService:
 
             # 2. SPLIT – dzielenie tekstu na fragmenty z kontrolowanym overlapem.
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=settings.RAG_CHUNK_SIZE,
-                chunk_overlap=settings.RAG_CHUNK_OVERLAP,
+                chunk_size=rag.chunking.chunk_size,
+                chunk_overlap=rag.chunking.chunk_overlap,
                 separators=["\n\n", "\n", ". ", " ", ""],
                 length_function=len,
             )
@@ -126,8 +125,8 @@ class RAGDocumentService:
             logger.info(
                 "Podzielono dokument na %s fragmentów (chunk_size=%s, overlap=%s)",
                 len(chunks),
-                settings.RAG_CHUNK_SIZE,
-                settings.RAG_CHUNK_OVERLAP,
+                rag.chunking.chunk_size,
+                rag.chunking.chunk_overlap,
             )
 
             # 3. METADATA – wzbogacenie każdego chunku o metadane identyfikujące.

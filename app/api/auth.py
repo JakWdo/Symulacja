@@ -14,12 +14,10 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from app.models.user import User
 from app.core.security import verify_password, get_password_hash, create_access_token
-from app.core.config import get_settings
 from app.db.session import get_db
 from app.api.dependencies import get_current_user
 import re
 
-settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 logger = logging.getLogger(__name__)
 

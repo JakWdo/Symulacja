@@ -22,7 +22,6 @@ from uuid import UUID
 from app.models import FocusGroup, Persona, PersonaResponse
 from app.services.focus_groups.memory_service_langchain import MemoryServiceLangChain
 from app.db import AsyncSessionLocal
-from app.core.config import get_settings
 from app.services.shared.clients import build_chat_model
 from app.services.dashboard.usage_logging import (
     UsageLogContext,
@@ -30,7 +29,6 @@ from app.services.dashboard.usage_logging import (
     schedule_usage_logging,
 )
 
-settings = get_settings()
 
 
 class FocusGroupServiceLangChain:

@@ -1,17 +1,28 @@
 """
 Moduł Core - Konfiguracja Aplikacji
 
-Zawiera:
-- Settings: Klasa z konfiguracją aplikacji (zmienne środowiskowe, API keys, parametry LLM)
-- get_settings(): Singleton dostarczający instancję Settings z cache'owaniem
-- constants.py: Stałe używane w całej aplikacji (demografia, lokalizacje, rozkłady)
+⚠️ DEPRECATION NOTICE ⚠️
 
-Użycie:
+The get_settings() adapter has been REMOVED (PR4).
+
+OLD (deprecated):
     from app.core import get_settings
     settings = get_settings()
     api_key = settings.GOOGLE_API_KEY
+
+NEW (current):
+    from config import app, features, models
+    api_key = os.getenv("GOOGLE_API_KEY")
+    db_url = app.database.url
+    rag_enabled = features.rag.enabled
+
+See config/README.md for complete migration guide.
+
+Zawiera:
+- Settings: DEPRECATED adapter class (kept for internal use by config/app_loader.py)
+- constants.py: Stałe używane w całej aplikacji (demografia, lokalizacje, rozkłady)
 """
 
-from .config import get_settings, Settings
+from .config import Settings
 
-__all__ = ["get_settings", "Settings"]
+__all__ = ["Settings"]

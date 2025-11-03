@@ -22,7 +22,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from config import models, app
 from config import prompts
 from app.models.persona import Persona
 from app.schemas.segment_brief import (
@@ -32,7 +32,6 @@ from app.schemas.segment_brief import (
 )
 from app.services.shared import build_chat_model, get_polish_society_rag
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
@@ -75,7 +74,7 @@ class SegmentBriefService:
         try:
             import redis.asyncio as redis
             self.redis_client = redis.from_url(
-                settings.REDIS_URL,
+                app.redis.url,
                 encoding="utf-8",
                 decode_responses=True,
             )
@@ -531,7 +530,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         try:
             # Gemini Flash dla szybkiego naming
             llm_flash = build_chat_model(
-                model=settings.DEFAULT_MODEL,
+                model=models._registry.config.get("defaults", {}).get("chat", {}).get("model", "gemini-2.5-flash"),
                 temperature=0.7,
                 max_tokens=50,
                 timeout=10,
@@ -744,7 +743,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         try:
             # Gemini Flash dla szybkiego generowania
             llm_flash = build_chat_model(
-                model=settings.DEFAULT_MODEL,
+                model=models._registry.config.get("defaults", {}).get("chat", {}).get("model", "gemini-2.5-flash"),
                 temperature=0.7,
                 max_tokens=600,  # 3-4 akapity (250-400 słów)
                 timeout=20,

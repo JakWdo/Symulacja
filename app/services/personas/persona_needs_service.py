@@ -25,10 +25,9 @@ from app.models.persona import Persona
 from app.models.persona_events import PersonaResponse
 from app.schemas.persona_details import NeedsAndPains
 from app.services.shared.clients import build_chat_model
-from app.core.config import get_settings
+from config import models
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
 class PersonaNeedsService:
@@ -89,7 +88,7 @@ class PersonaNeedsService:
         # Convert Pydantic model to dict and add metadata
         needs_data = result.model_dump(mode="json")
         needs_data["generated_at"] = datetime.now(timezone.utc).isoformat()
-        needs_data["generated_by"] = settings.ANALYSIS_MODEL
+        needs_data["generated_by"] = models.get("personas", "needs").model
 
         elapsed_ms = int((time.time() - start_time) * 1000)
         logger.info(
@@ -97,7 +96,7 @@ class PersonaNeedsService:
             extra={
                 "persona_id": str(persona.id),
                 "duration_ms": elapsed_ms,
-                "model": settings.ANALYSIS_MODEL,
+                "model": models.get("personas", "needs").model,
                 "num_focus_group_responses": len(responses),
             }
         )

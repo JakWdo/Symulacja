@@ -1,1066 +1,654 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Ten plik zawiera wskazówki dla Claude Code (claude.ai/code) podczas pracy z kodem w tym repozytorium.
 
----
+## ⚠️ WAŻNE: Język Komunikacji
 
-## Overview
+**Claude ZAWSZE komunikuje się PO POLSKU** podczas pracy z tym projektem. Wszystkie odpowiedzi, komentarze, commity i dokumentacja powinny być w języku polskim.
 
-**Sight** is an AI-powered virtual focus group platform that uses Google Gemini to generate realistic personas and simulate market research discussions. The system combines FastAPI backend, React frontend, and a sophisticated AI stack with RAG (Retrieval-Augmented Generation), Graph Knowledge Base (Neo4j), and vector search capabilities.
+**Nie twórz te zbędnych plików .md!**
 
-**Key Features:**
-- AI-generated personas with demographic constraints
-- Asynchronous AI-driven focus group discussions
-- Synthetic surveys with 4 question types
-- Graph analysis and concept extraction
-- Hybrid search (vector + keyword with RRF fusion)
-- Multi-language support (Polish/English) with i18n
+Wyjątki:
+- Kod (nazwy zmiennych, funkcji, klas) - angielski
+- Dokumentacja techniczna specyficzna dla bibliotek - może być po angielsku
+- Commity mogą zawierać angielskie słowa techniczne, ale główny opis po polsku
 
----
-
-## Quick Start Commands
-
-### Development Environment
+## Szybkie Komendy
 
 ```bash
-# Start all services (PostgreSQL, Redis, Neo4j, API, Frontend)
+# Setup środowiska
+cp .env.example .env
+# Edytuj .env - ustaw GOOGLE_API_KEY i SECRET_KEY (openssl rand -hex 32)
+
+# Uruchom cały stack
 docker-compose up -d
 
-# View logs
-docker-compose logs -f api          # Backend logs
-docker-compose logs -f frontend     # Frontend logs
+# Uruchom testy
+pytest -v                                    # Wszystkie testy
+pytest tests/unit -v                        # Tylko testy jednostkowe (~90s)
+pytest -v -m "not slow"                     # Tylko szybkie testy
+pytest --cov=app --cov-report=html          # Z pokryciem kodu
 
-# Stop services
-docker-compose down
+# Sprawdź jakość kodu
+ruff check app/                             # Linting
 
-# Access interfaces
-# Frontend:     http://localhost:5173
-# API Docs:     http://localhost:8000/docs
-# Neo4j Browser: http://localhost:7474
-```
+# Migracje bazy danych
+docker-compose exec api alembic upgrade head    # Zastosuj migracje
+docker-compose exec api alembic revision --autogenerate -m "opis"  # Utwórz migrację
 
-### Database Operations
-
-```bash
-# Run migrations (inside container)
-docker-compose exec api alembic upgrade head
-
-# Create new migration
-docker-compose exec api alembic revision --autogenerate -m "description"
-
-# Initialize Neo4j indexes
-docker-compose exec api python scripts/init_neo4j_indexes.py
-
-# Or outside container (if Python env is set up)
+# Setup indeksów Neo4j
 python scripts/init_neo4j_indexes.py
+
+# Dostęp do usług
+# Frontend: http://localhost:5173
+# API Docs: http://localhost:8000/docs
+# Neo4j Browser: http://localhost:7474
+# PostgreSQL: localhost:5433
+# Redis: localhost:6379
 ```
 
-### Testing
+## Architektura Wysokiego Poziomu
 
-```bash
-# Run all tests
-pytest tests/ -v
+### Przegląd Systemu
 
-# Run specific test categories
-pytest tests/unit/ -v                    # Unit tests only
-pytest tests/integration/ -v             # Integration tests
-pytest tests/e2e/ -v                     # End-to-end tests
-pytest -m "not slow" -v                  # Skip slow tests
+**Sight** to platforma wirtualnych grup fokusowych wykorzystująca Google Gemini 2.5 do generowania realistycznych person i symulacji dyskusji badawczych. System łączy:
 
-# Run with coverage
-pytest tests/ --cov=app --cov-report=html
+1. **Generacja person opartą na segmentach** - Persony AI z ograniczeniami demograficznymi
+2. **Asynchroniczne grupy fokusowe** - Równoległe wywołania LLM dla realistycznych rozmów
+3. **Hybrydowy system RAG** - Wyszukiwanie wektorowe + słownikowe z wiedzą grafową Neo4j
+4. **Śledzenie użycia** - Monitoring kosztów i zarządzanie budżetem operacji LLM
 
-# Run single test file
-pytest tests/unit/services/test_persona_generator.py -v
+### Główne Wzorce Architektoniczne
 
-# Run with timeout (prevents hanging tests in CI)
-pytest tests/ -v --timeout=300
+#### 1. Wzorzec Warstwy Serwisowej
+
+Cała logika biznesowa znajduje się w `app/services/` zorganizowanej według domeny:
+
+```
+app/services/
+├── personas/           # Generacja person, orkiestracja, analiza potrzeb
+├── focus_groups/       # Zarządzanie dyskusjami, podsumowania, pamięć
+├── surveys/            # Generacja odpowiedzi na ankiety
+├── rag/               # Wyszukiwanie hybrydowe, transformacje grafowe, zarządzanie dokumentami
+├── dashboard/         # Śledzenie użycia, logowanie
+├── shared/            # Współdzielone klienty LLM, narzędzia
+└── maintenance/       # Zadania czyszczące, zaplanowane zadania
 ```
 
-### Frontend Development
+**Kluczowa zasada:** Endpointy API (`app/api/`) są cienkimi wrapperami, które delegują do serwisów. Logika biznesowa, wywołania LLM i transformacje danych odbywają się w serwisach.
 
-```bash
-cd frontend
+#### 2. Scentralizowany System Konfiguracji
 
-# Install dependencies
-npm install
+**KRYTYCZNE:** Wszystkie prompty, modele i ustawienia są w `config/` (bazowane na YAML):
 
-# Development server with hot reload
-npm run dev
-
-# Type checking + build
-npm run build:check
-
-# Build only
-npm run build
-
-# Linting
-npm run lint
+```
+config/
+├── models.yaml         # Rejestr modeli z łańcuchem fallback
+├── features.yaml       # Flagi funkcji, cele wydajnościowe
+├── app.yaml           # Ustawienia infrastruktury (DB, Redis, Neo4j)
+├── prompts/           # 25+ promptów zorganizowanych według domeny
+│   ├── personas/      # Prompty generacji person
+│   ├── focus_groups/  # Prompty dyskusji
+│   ├── surveys/       # Prompty odpowiedzi na ankiety
+│   └── rag/          # Prompty zapytań RAG
+└── rag/              # Konfiguracja RAG (chunking, retrieval)
 ```
 
-### Production Deployment
+**Użycie:**
+```python
+# Modele
+from config import models
+model_config = models.get("personas", "generation")  # Łańcuch fallback: domain.subdomain → domain.default → global.default
+llm = build_chat_model(**model_config.params)
 
-```bash
-# Deploy to Google Cloud Run (via cloudbuild.yaml)
-git push origin main
+# Prompty (Jinja2 z delimitatorami ${var})
+from config import prompts
+template = prompts.get("personas.jtbd")
+messages = template.render(age=25, occupation="Engineer")
 
-# Manual production build test
-docker-compose -f docker-compose.prod.yml up -d
-
-# Check production logs
-docker-compose -f docker-compose.prod.yml logs -f api
+# Funkcje
+from config import features
+if features.rag.enabled:
+    chunk_size = features.rag.chunk_size
 ```
 
----
+**Uwaga migracyjna:** Stary wzorzec `get_settings()` został usunięty w PR4. Zawsze używaj `from config import models, features, app`. Zobacz `config/README.md` dla przewodnika migracji.
 
-## Architecture
+#### 3. Projekt Async-First
 
-### Tech Stack
+Wszystkie operacje bazodanowe, wywołania LLM i zewnętrzne serwisy używają `async/await`:
+
+```python
+# Baza danych
+from app.db.session import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+
+async def my_endpoint(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Persona))
+
+# Wywołania LLM (równoległe dla wydajności)
+import asyncio
+tasks = [generate_persona(seg) for seg in segments]
+personas = await asyncio.gather(*tasks)
+```
+
+#### 4. Hybrydowy System RAG
+
+Dwuwarstwowy system pozyskiwania dla polskiego kontekstu demograficznego:
+
+**Warstwa 1: Hybrid Search** (`app/services/rag/rag_hybrid_search_service.py`)
+- Wyszukiwanie wektorowe: Embeddingi Google Gemini (768 wymiarów) + podobieństwo cosinusowe
+- Wyszukiwanie słownikowe: Indeks pełnotekstowy Neo4j (bazowany na Lucene)
+- RRF Fusion: Łączy oba używając reciprocal rank fusion
+
+**Warstwa 2: Graph RAG** (`app/services/rag/rag_graph_service.py`)
+- Generacja zapytań Cypher wspierana przez LLM
+- Strukturalna ekstrakcja wiedzy (węzły: Obserwacja, Wskaźnik, Trend, Demografia)
+- Bogate metadane: summary, key_facts, confidence, time_period
+
+**Kiedy używać:**
+- Generacja person odpytuje polskie dane demograficzne dla realistycznego kontekstu
+- Orkiestracja używa graph RAG dla głębszych insightów i relacji
+
+#### 5. Event Sourcing dla Person
+
+Persony używają wzorca event sourcingu dla ścieżki audytu i reprodukowalności:
+
+```python
+# app/models/persona_events.py
+class PersonaEvent(Base):
+    __tablename__ = "persona_events"
+    event_type: str  # "generated", "validated", "updated"
+    event_data: dict  # Kompletna migawka
+    triggered_by: str
+```
+
+Wszystkie zmiany stanu persony są logowane jako zdarzenia, umożliwiając:
+- Ścieżkę audytu dla zgodności
+- Cofnięcie do poprzednich stanów
+- Debugowanie problemów generacji person
+- Odtworzenie tworzenia persony z tymi samymi inputami
+
+#### 6. Generacja Person Oparta na Segmentach
+
+**Architektura:** Persony są generowane per segment demograficzny (nie indywidualnie):
+
+1. **Orkiestracja** (`persona_orchestration.py`) → Tworzy segmenty z docelowych demograficznych
+2. **Segment Brief** (`segment_brief_service.py`) → Generuje kontekst społeczny per segment (cache'owany)
+3. **Generacja** (`persona_generator_langchain.py`) → Równoległa generacja z ograniczeniami demograficznymi
+4. **Walidacja** → Test chi-kwadrat dla statystycznej reprezentatywności
+
+**Korzyści:**
+- Wymusza rozkład demograficzny
+- Redukuje wywołania LLM (przetwarzanie wsadowe)
+- Spójne persony w segmentach
+- Wbudowana walidacja statystyczna
+
+### Stack Technologiczny
 
 **Backend:**
 - FastAPI (async Python web framework)
-- PostgreSQL + pgvector (relational database with vector extensions)
-- Redis (caching, rate limiting)
-- Neo4j (graph database for knowledge graphs)
-- LangChain + Google Gemini 2.5 (AI orchestration)
 - SQLAlchemy 2.0 (async ORM)
-- Alembic (database migrations)
+- PostgreSQL z rozszerzeniem pgvector
+- Redis (cache'owanie, rate limiting)
+- Neo4j (grafowa baza danych dla RAG)
+- LangChain (orkiestracja LLM)
+- Google Gemini 2.5 (Flash dla generacji, Pro dla złożonego rozumowania)
 
 **Frontend:**
 - React 18 + TypeScript
-- Vite (build tool)
-- TanStack Query (server state management)
-- Zustand (UI state management)
-- shadcn/ui + Radix UI (component library)
-- Tailwind CSS (styling)
-- i18next (internationalization)
+- Vite (narzędzie do budowania)
+- TanStack Query (stan serwera)
+- Zustand (stan UI)
+- Tailwind CSS
 
-**AI Stack:**
-- Google Gemini Flash (fast generation)
-- Google Gemini Pro (complex analysis)
-- LangChain (LLM abstraction)
-- LangGraph (complex workflows - optional)
-- Google Gemini Embeddings (vector embeddings)
+**Infrastruktura:**
+- Docker Compose (lokalne developowanie)
+- Google Cloud Run (produkcyjny deployment)
+- Cloud Build (CI/CD)
+- Alembic (migracje bazy danych)
 
-**Infrastructure:**
-- Docker + Docker Compose (containerization)
-- Google Cloud Run (production deployment)
-- Google Cloud Build (CI/CD)
-- Multi-stage Dockerfile (84% size reduction)
+## Wzorce Developmentu
 
-### Project Structure
+### Dodawanie Nowego Endpointu API
 
-```
-sight/
-├── app/                          # Backend (FastAPI)
-│   ├── api/                     # REST API endpoints
-│   │   ├── projects.py          # Project management
-│   │   ├── personas.py          # Persona CRUD + generation
-│   │   ├── focus_groups.py      # Focus group orchestration
-│   │   ├── surveys.py           # Survey management
-│   │   ├── analysis.py          # AI analysis endpoints
-│   │   ├── rag.py               # RAG document management
-│   │   ├── dashboard.py         # Dashboard metrics
-│   │   ├── settings.py          # User settings + preferences
-│   │   └── auth.py              # Authentication
-│   ├── core/                    # Configuration & constants
-│   │   ├── config.py            # Settings (Pydantic BaseSettings)
-│   │   ├── security.py          # JWT, password hashing
-│   │   ├── redis.py             # Redis client + utilities
-│   │   ├── logging_config.py    # Structured logging
-│   │   ├── constants.py         # App-wide constants
-│   │   ├── demographics/        # Demographic constants (Polish + international)
-│   │   └── prompts/             # LLM prompts (system, focus group, RAG)
-│   ├── db/                      # Database session management
-│   ├── models/                  # SQLAlchemy ORM models
-│   │   ├── project.py
-│   │   ├── persona.py
-│   │   ├── focus_group.py
-│   │   ├── survey.py
-│   │   ├── dashboard.py
-│   │   └── user.py
-│   ├── schemas/                 # Pydantic validation schemas
-│   ├── services/                # Business logic (Service Layer Pattern)
-│   │   ├── shared/              # Shared utilities + LLM clients
-│   │   ├── personas/            # Persona generation + orchestration
-│   │   │   ├── persona_generator_langchain.py   # Main generator
-│   │   │   ├── persona_orchestration_service.py # Orchestration
-│   │   │   ├── persona_validator.py             # Validation
-│   │   │   ├── persona_details_service.py       # Detail generation
-│   │   │   ├── persona_needs_service.py         # Needs analysis
-│   │   │   ├── persona_audit_service.py         # Audit logging
-│   │   │   └── segment_brief_service.py         # Segment briefs
-│   │   ├── focus_groups/        # Focus group services
-│   │   │   ├── focus_group_service_langchain.py # Main orchestration
-│   │   │   ├── discussion_summarizer.py         # AI summaries
-│   │   │   └── memory_service_langchain.py      # Event sourcing + semantic search
-│   │   ├── rag/                 # RAG system
-│   │   │   ├── rag_document_service.py          # Document management
-│   │   │   ├── graph_rag_service.py             # Graph RAG
-│   │   │   └── polish_society_rag.py            # Polish context RAG
-│   │   ├── surveys/             # Survey response generation
-│   │   ├── dashboard/           # Dashboard metrics calculation
-│   │   └── maintenance/         # Cleanup services
-│   ├── middleware/              # Custom middleware
-│   │   ├── security.py          # Security headers
-│   │   ├── request_id.py        # Request ID tracking
-│   │   └── locale.py            # i18n locale detection
-│   ├── tasks/                   # Background tasks (APScheduler)
-│   └── main.py                  # FastAPI app initialization
-├── frontend/                     # Frontend (React + TypeScript)
-│   └── src/
-│       ├── components/          # React components (shadcn/ui)
-│       ├── hooks/               # Custom React hooks
-│       ├── lib/                 # API client + utilities
-│       ├── store/               # Zustand stores
-│       ├── types/               # TypeScript type definitions
-│       ├── i18n/                # i18next translations
-│       ├── contexts/            # React contexts (Auth)
-│       └── App.tsx              # Main app component
-├── tests/                        # Test suite (380+ tests)
-│   ├── unit/                    # ~240 tests, <90s
-│   ├── integration/             # ~70 tests, 10-30s
-│   ├── e2e/                     # ~5 tests, 2-5 min
-│   ├── performance/             # ~3 tests, 5-10 min
-│   ├── error_handling/          # ~9 tests, 5-10s
-│   ├── manual/                  # Manual test scripts
-│   └── fixtures/                # Shared pytest fixtures
-├── alembic/                      # Database migrations
-│   └── versions/                # Migration files
-├── scripts/                      # Utility scripts
-│   ├── init_db.py               # Database initialization
-│   └── init_neo4j_indexes.py    # Neo4j index setup
-├── docs/                         # Technical documentation
-│   ├── README.md                # Documentation index
-│   ├── INFRASTRUCTURE.md        # Docker, CI/CD, Cloud Run
-│   ├── TESTING.md               # Test suite details
-│   ├── RAG.md                   # RAG system architecture
-│   ├── AI_ML.md                 # AI/ML system details
-│   ├── SERVICES.md              # Service structure
-│   └── PERSONA_DETAILS.md       # Persona Details feature
-├── docker-compose.yml            # Development environment
-├── docker-compose.prod.yml       # Production environment
-├── Dockerfile                    # Multi-stage backend Dockerfile
-├── requirements.txt              # Python dependencies (unpinned)
-├── pyproject.toml                # Python tooling config (ruff)
-├── cloudbuild.yaml               # Google Cloud Build CI/CD
-├── PLAN.md                       # Strategic roadmap (20-30 tasks)
-└── README.md                     # User-facing documentation
-```
-
-### Core Architecture Patterns
-
-#### 1. Service Layer Pattern
-
-All business logic is encapsulated in service classes in `app/services/`. API endpoints are thin controllers that delegate to services.
-
-**Example:**
+1. Utwórz endpoint w `app/api/{domain}.py`:
 ```python
-# API endpoint (thin controller)
-@router.post("/projects/{project_id}/personas/generate")
-async def generate_personas(
-    project_id: UUID,
-    request: PersonaGenerationRequest,
-    db: AsyncSession = Depends(get_db),
+from fastapi import APIRouter, Depends, HTTPException
+from app.db.session import get_db
+from app.services.{domain}.{service} import MyService
+
+router = APIRouter()
+
+@router.post("/{domain}/action")
+async def perform_action(
+    request: ActionRequest,
+    db: AsyncSession = Depends(get_db)
 ):
-    service = PersonaGeneratorLangChain(db)
-    personas = await service.generate_personas(project_id, request.num_personas)
-    return personas
-
-# Service (business logic)
-class PersonaGeneratorLangChain:
-    async def generate_personas(self, project_id: UUID, num_personas: int):
-        # Complex logic: RAG retrieval, LLM generation, validation, DB writes
-        ...
-```
-
-#### 2. Domain-Organized Services
-
-Services are organized by functional domain (not by technical layer):
-
-- `personas/` - All persona-related services
-- `focus_groups/` - All focus group services
-- `rag/` - All RAG services
-- `surveys/` - Survey services
-- `dashboard/` - Dashboard metric services
-
-**Benefits:** Cohesion, discoverability, easier refactoring
-
-#### 3. Async/Await Throughout
-
-The entire backend uses async/await for I/O operations:
-
-- FastAPI endpoints: `async def`
-- SQLAlchemy: `AsyncSession`, `asyncpg` driver
-- LangChain: Async methods (`ainvoke`, `ainvoke_with_retry`)
-- Redis: `aioredis` (via `redis` package)
-- Neo4j: Async driver
-
-**Important:** Always use async variants. Don't mix sync/async code.
-
-#### 4. LangChain Abstraction
-
-All LLM interactions go through LangChain abstractions:
-
-```python
-from app.services.shared import build_chat_model
-
-# Build model (supports Gemini, OpenAI, Anthropic)
-llm = build_chat_model(
-    model_name="gemini-2.0-flash",  # or "gpt-4", "claude-3-5-sonnet"
-    temperature=0.7,
-    timeout=60,
-)
-
-# Invoke
-response = await llm.ainvoke(messages)
-```
-
-**Benefits:** Provider flexibility, unified interface, built-in retries
-
-#### 5. Segment-Based Personas
-
-Personas are generated in **segments** (demographic groups), not individually:
-
-1. Project defines target demographics (age, gender, etc.)
-2. System creates demographic segments (e.g., "Males 25-34")
-3. Personas are generated within each segment
-4. **Constraint enforcement:** Each persona MUST match its segment demographics
-5. Individual social context for realism
-
-**Why:** Ensures demographic distribution, prevents drift, improves statistical validity
-
-#### 6. Event Sourcing (Memory Service)
-
-Focus group discussions use event sourcing for complete audit trail:
-
-```python
-# Every action is an event
-await memory_service.add_event(
-    focus_group_id=fg_id,
-    event_type="discussion_started",
-    event_data={"question": "What do you think?"},
-)
-
-# Query events
-events = await memory_service.get_events(fg_id, event_type="response")
-
-# Semantic search over events
-results = await memory_service.semantic_search(
-    query="pricing feedback",
-    focus_group_id=fg_id,
-)
-```
-
-**Benefits:** Complete history, semantic search, time-travel debugging
-
----
-
-## Development Workflow
-
-### 1. Adding a New API Endpoint
-
-1. **Define Pydantic schema** in `app/schemas/`
-2. **Create/update service** in `app/services/<domain>/`
-3. **Add API endpoint** in `app/api/`
-4. **Write tests** in `tests/unit/`, `tests/integration/`
-5. **Update API docs** (FastAPI auto-generates from docstrings)
-
-**Example:**
-```python
-# 1. Schema (app/schemas/persona.py)
-class PersonaCreateRequest(BaseModel):
-    name: str
-    age: int
-    background: str
-
-# 2. Service (app/services/personas/persona_service.py)
-class PersonaService:
-    async def create_persona(self, data: PersonaCreateRequest) -> Persona:
-        # Business logic here
-        ...
-
-# 3. API endpoint (app/api/personas.py)
-@router.post("/personas")
-async def create_persona(
-    data: PersonaCreateRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a new persona."""
-    service = PersonaService(db)
-    return await service.create_persona(data)
-
-# 4. Test (tests/unit/services/test_persona_service.py)
-async def test_create_persona(db_session):
-    service = PersonaService(db_session)
-    data = PersonaCreateRequest(name="Test", age=25, background="...")
-    persona = await service.create_persona(data)
-    assert persona.name == "Test"
-```
-
-### 2. Adding a New LLM Feature
-
-1. **Create prompt** in `config/prompts/` as YAML (see `config/README.md` for format)
-2. **Build LLM chain** using LangChain
-3. **Add retry logic** with `tenacity` or LangChain built-in
-4. **Cache results** in Redis if appropriate
-5. **Add structured output** using Pydantic models
-6. **Write tests** with mocked LLM responses
-
-**Example:**
-```python
-from app.services.shared import build_chat_model
-from langchain_core.messages import SystemMessage, HumanMessage
-
-async def analyze_sentiment(text: str) -> str:
-    llm = build_chat_model(model_name="gemini-2.0-flash", temperature=0)
-
-    messages = [
-        SystemMessage(content="You are a sentiment analysis expert."),
-        HumanMessage(content=f"Analyze sentiment of: {text}"),
-    ]
-
-    response = await llm.ainvoke(messages)
-    return response.content
-```
-
-### 3. Database Schema Changes
-
-1. **Update SQLAlchemy model** in `app/models/`
-2. **Generate migration**: `alembic revision --autogenerate -m "description"`
-3. **Review migration** in `alembic/versions/`
-4. **Test migration**: `alembic upgrade head`
-5. **Update Pydantic schemas** in `app/schemas/`
-6. **Update tests**
-
-**Important:** Always review auto-generated migrations. Alembic may miss:
-- Index changes
-- Enum changes
-- Complex constraint modifications
-
-### 4. Frontend Component Development
-
-1. **Create component** in `frontend/src/components/`
-2. **Use shadcn/ui primitives** from `components/ui/`
-3. **Add i18n keys** in `frontend/src/i18n/locales/`
-4. **Use TanStack Query** for API calls
-5. **Add TypeScript types** in `frontend/src/types/`
-6. **Test in browser** with hot reload
-
-**Example:**
-```tsx
-// frontend/src/components/PersonaCard.tsx
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useTranslation } from 'react-i18next';
-
-export function PersonaCard({ persona }: { persona: Persona }) {
-  const { t } = useTranslation();
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{persona.name}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p>{t('persona.age')}: {persona.age}</p>
-        <p>{t('persona.background')}: {persona.background}</p>
-      </CardContent>
-    </Card>
-  );
-}
-```
-
-### 5. Adding i18n Translations
-
-1. **Add keys** to both `frontend/src/i18n/locales/pl.json` and `en.json`
-2. **Use `useTranslation` hook** in components
-3. **Pass variables** for dynamic content
-4. **Test both languages** with language switcher
-
-**Example:**
-```json
-// pl.json
-{
-  "persona": {
-    "age": "Wiek",
-    "background": "Tło",
-    "greeting": "Witaj, {{name}}!"
-  }
-}
-
-// en.json
-{
-  "persona": {
-    "age": "Age",
-    "background": "Background",
-    "greeting": "Hello, {{name}}!"
-  }
-}
-```
-
-```tsx
-const { t } = useTranslation();
-<p>{t('persona.greeting', { name: persona.name })}</p>
-```
-
-### 6. Using Centralized Configuration
-
-All configuration (prompts, models, RAG settings, demographics, features, app settings) is centralized in `config/`.
-
-**Using Configuration:**
-
-```python
-# Import all config modules
-from config import prompts, models, rag, demographics, features, app
-
-# 1. Prompts
-jtbd_prompt = prompts.get("personas.jtbd")
-rendered_messages = jtbd_prompt.render(
-    age=30,
-    occupation="Software Engineer"
-)
-
-# 2. Models (with fallback chain)
-model_config = models.get("personas", "generation")  # domain, subdomain
-llm = build_chat_model(**model_config.params)
-
-# 3. RAG Configuration
-chunk_size = rag.chunking.chunk_size  # 1000
-use_hybrid = rag.retrieval.use_hybrid_search  # True
-
-# 4. Demographics
-poland_locations = demographics.poland.locations  # {city: probability}
-age_groups = demographics.common.age_groups  # {range: probability}
-international_values = demographics.international.values  # [value1, value2, ...]
-
-# 5. Features (feature flags)
-if features.rag.enabled:
-    node_props = features.rag.node_properties_enabled
-
-if features.segment_cache.enabled:
-    ttl_days = features.segment_cache.ttl_days
-
-# 6. App Settings
-redis_url = app.redis.url
-db_url = app.database.url
-max_connections = app.redis.max_connections
-```
-
-**Migration from Old Approach:**
-
-```python
-# OLD (deprecated, but still works with adapter)
-from app.core.config import get_settings
-settings = get_settings()
-model = settings.PERSONA_GENERATION_MODEL
-
-# NEW (recommended)
-from config import models
-model_config = models.get("personas", "generation")
-model = model_config.model
-```
-
-**See:** `config/README.md` for complete configuration guide and migration instructions.
-
----
-
-## Code Conventions
-
-### Python (Backend)
-
-- **Style Guide:** PEP 8 (enforced via `ruff`)
-- **Line Length:** 240 characters (configured in `pyproject.toml`)
-- **Type Hints:** Required for all function signatures
-- **Docstrings:** Polish language (project convention)
-- **Async:** Use `async def` for all I/O operations
-- **Imports:** Absolute imports from `app.` root
-- **Error Handling:** Raise `HTTPException` from FastAPI
-
-**Example:**
-```python
-from app.models.persona import Persona
-from app.schemas.persona import PersonaResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import HTTPException, status
-
-async def get_persona(db: AsyncSession, persona_id: UUID) -> Persona:
-    """
-    Pobiera personę z bazy danych.
-
-    Args:
-        db: Async database session
-        persona_id: UUID persony
-
-    Returns:
-        Persona object
-
-    Raises:
-        HTTPException: Jeśli persona nie istnieje (404)
-    """
-    result = await db.execute(
-        select(Persona).where(Persona.id == persona_id)
-    )
-    persona = result.scalar_one_or_none()
-
-    if not persona:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Persona {persona_id} not found"
-        )
-
-    return persona
-```
-
-### TypeScript (Frontend)
-
-- **Style Guide:** ESLint + TypeScript strict mode
-- **Components:** Functional components with hooks
-- **State Management:**
-  - **Server state:** TanStack Query
-  - **UI state:** Zustand
-- **Styling:** Tailwind CSS utility classes
-- **Types:** Explicit types for all props and state
-- **API Calls:** Use TanStack Query hooks
-
-**Example:**
-```tsx
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import type { Persona } from '@/types';
-
-interface PersonaListProps {
-  projectId: string;
-}
-
-export function PersonaList({ projectId }: PersonaListProps) {
-  const { data: personas, isLoading, error } = useQuery({
-    queryKey: ['personas', projectId],
-    queryFn: () => api.personas.list(projectId),
-  });
-
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {personas?.map((persona: Persona) => (
-        <PersonaCard key={persona.id} persona={persona} />
-      ))}
-    </div>
-  );
-}
-```
-
-### Testing
-
-- **Framework:** pytest + pytest-asyncio
-- **Coverage Target:** 80%+ overall, 85%+ for services
-- **Test Organization:**
-  - `tests/unit/` - Fast, isolated tests (<5s per test)
-  - `tests/integration/` - DB + API tests (10-30s)
-  - `tests/e2e/` - Full workflows (2-5 min)
-  - `tests/performance/` - Benchmarks (5-10 min)
-- **Fixtures:** Shared in `tests/fixtures/conftest.py`
-- **Markers:** `@pytest.mark.integration`, `@pytest.mark.e2e`, `@pytest.mark.slow`
-- **Mocking:** Use `pytest-mock` for external services (LLM, Redis)
-
-**Example:**
-```python
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-
-@pytest.mark.asyncio
-async def test_generate_persona(db_session, mock_llm):
-    """Test persona generation with mocked LLM."""
-    # Arrange
-    mock_llm.ainvoke.return_value = MagicMock(
-        content='{"name": "Jan Kowalski", "age": 30}'
-    )
-    service = PersonaGeneratorLangChain(db_session)
-
-    # Act
-    persona = await service.generate_single_persona(
-        demographics={"age_group": "25-34", "gender": "Male"}
-    )
-
-    # Assert
-    assert persona.name == "Jan Kowalski"
-    assert persona.age == 30
-    mock_llm.ainvoke.assert_called_once()
-```
-
----
-
-## Common Patterns & Best Practices
-
-### 1. Error Handling
-
-```python
-from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
-import logging
-
-logger = logging.getLogger(__name__)
-
-async def create_project(db: AsyncSession, data: ProjectCreate):
-    try:
-        project = Project(**data.dict())
-        db.add(project)
-        await db.commit()
-        await db.refresh(project)
-        return project
-    except IntegrityError as e:
-        await db.rollback()
-        logger.error(f"Integrity error creating project: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Project with this name already exists"
-        )
-    except Exception as e:
-        await db.rollback()
-        logger.exception(f"Unexpected error creating project: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create project"
-        )
-```
-
-### 2. Redis Caching
-
-```python
-from app.core.redis import get_redis_client
-import json
-
-async def get_cached_or_compute(key: str, compute_fn, ttl: int = 3600):
-    """Get from cache or compute and cache."""
-    redis = await get_redis_client()
-
-    # Try cache first
-    cached = await redis.get(key)
-    if cached:
-        return json.loads(cached)
-
-    # Compute and cache
-    result = await compute_fn()
-    await redis.setex(key, ttl, json.dumps(result))
+    service = MyService(db)
+    result = await service.perform_action(request)
     return result
 ```
 
-### 3. LLM with Retry Logic
+2. Utwórz serwis w `app/services/{domain}/{service}.py` z logiką biznesową
 
-```python
-from tenacity import retry, stop_after_attempt, wait_exponential
+3. Dodaj schematy Pydantic w `app/schemas/{domain}.py` dla walidacji request/response
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-)
-async def generate_with_retry(llm, messages):
-    """Generate with automatic retry on transient failures."""
-    return await llm.ainvoke(messages)
+4. Napisz testy w `tests/unit/services/test_{service}.py`
+
+### Dodawanie Nowego Promptu LLM
+
+1. Utwórz plik YAML w `config/prompts/{domain}/{name}.yaml`:
+```yaml
+id: domain.name
+version: "1.0.0"
+description: "Jasny opis co robi ten prompt"
+messages:
+  - role: system
+    content: |
+      Instrukcje systemowe tutaj...
+  - role: user
+    content: |
+      Prompt użytkownika ze zmiennymi ${placeholder}
 ```
 
-### 4. Database Query Optimization
+2. Użyj w kodzie:
+```python
+from config import prompts
+from langchain_core.prompts import ChatPromptTemplate
+
+template = prompts.get("domain.name")
+rendered = template.render(placeholder="wartość")
+prompt = ChatPromptTemplate.from_messages([
+    (msg["role"], msg["content"]) for msg in rendered
+])
+```
+
+3. Waliduj: `python scripts/config_validate.py`
+
+### Dodawanie Nowej Konfiguracji Modelu
+
+Edytuj `config/models.yaml`:
+```yaml
+domains:
+  twoja_domena:
+    twoje_zadanie:
+      model: "gemini-2.5-flash"      # lub gemini-2.5-pro
+      temperature: 0.7                # 0.0-1.0
+      max_tokens: 6000
+      timeout: 60
+      retries: 3
+```
+
+Użyj w kodzie:
+```python
+from config import models
+from app.services.shared.clients import build_chat_model
+
+model_config = models.get("twoja_domena", "twoje_zadanie")
+llm = build_chat_model(**model_config.params)
+```
+
+### Migracje Bazy Danych
+
+```bash
+# Auto-generuj migrację ze zmian w modelach
+docker-compose exec api alembic revision --autogenerate -m "Dodaj nowe pole do personas"
+
+# Przejrzyj wygenerowaną migrację w alembic/versions/
+
+# Zastosuj migrację
+docker-compose exec api alembic upgrade head
+
+# Cofnij jedną migrację
+docker-compose exec api alembic downgrade -1
+```
+
+**Ważne:** Zawsze przeglądaj auto-generowane migracje. Alembic może pominąć:
+- Zmiany indeksów
+- Niestandardowe operacje SQL
+- Migracje danych
+
+### Śledzenie Użycia dla Wywołań LLM
+
+Opakowuj wywołania LLM kontekstem logowania użycia:
 
 ```python
-from sqlalchemy.orm import selectinload
+from app.services.dashboard.usage_logging import context_with_model, schedule_usage_logging
 
-# BAD: N+1 query problem
+# Ustaw kontekst modelu
+with context_with_model("gemini-2.5-flash", "personas.generation"):
+    # Wywołanie LLM
+    result = await llm.ainvoke(messages)
+
+    # Zaplanuj asynchroniczne logowanie użycia
+    await schedule_usage_logging(
+        user_id=user_id,
+        project_id=project_id,
+        operation="persona_generation",
+        metadata={"num_personas": 20}
+    )
+```
+
+To śledzi:
+- Użycie tokenów (input/output)
+- Koszty modelu (z `config/pricing.yaml`)
+- Typ operacji i metadane
+- Atrybucję użytkownika/projektu
+
+## Zarządzanie Dokumentacją
+
+**WAŻNE**: Priorytetyzuj aktualizację istniejących plików nad tworzeniem nowych!
+
+### Zasady dla Wszystkich (Claude + Agentów):
+
+**1. ZAWSZE sprawdzaj istniejące pliki PRZED utworzeniem nowego**
+- Dokumentacja żyje w `docs/` z płaską strukturą plików tematycznych
+- Sprawdź czy nie możesz dodać sekcji do istniejącego pliku
+- Twórz nowy plik tylko gdy naprawdę nie ma gdzie dodać treści
+
+**2. Limit długości: 700 linii per plik**
+- Jeśli plik przekracza 700 linii → podziel na mniejsze pliki
+- Używaj naturalnego ciągłego języka z podziałem na sekcje
+- Unikaj nadmiernych bullet points - pisz jak eseje techniczne
+
+**3. Grafy ASCII - używaj rozsądnie**
+- Dodawaj TYLKO gdy znacząco pomagają zrozumieć koncepcję
+- Dobre przypadki: system architecture, data flows, business model canvas
+- Złe przypadki: proste listy, relacje które można opisać słowami
+
+### Kiedy Aktualizować Istniejące Pliki:
+
+**Zmiany w architekturze/kodzie:**
+- Backend (API, serwisy, DB) → `docs/BACKEND.md`
+- AI/ML (LLM, RAG, prompty) → `docs/AI_ML.md`
+- Frontend (komponenty, state) → `docs/FRONTEND.md` (jeśli istnieje)
+- Infrastructure (Docker, CI/CD) → `docs/INFRASTRUKTURA.md`
+
+**Zmiany w strategii/biznesie:**
+- Roadmap, priorytety → `docs/ROADMAP.md`
+- Model biznesowy, GTM, pricing → `docs/BIZNES.md`
+- Metryki, KPIs → Zaktualizuj sekcje w BIZNES.md
+
+**Zmiany w operacjach:**
+- Testy, coverage, benchmarki → `docs/QA.md`
+- DevOps, deployment, monitoring → `docs/INFRASTRUKTURA.md`
+- Security, compliance → `docs/SECURITY.md` (jeśli istnieje)
+
+### Kiedy Tworzyć Nowe Pliki:
+
+**Rzadkie przypadki kiedy nowy plik jest OK:**
+1. **Całkowicie nowy obszar** bez istniejącej dokumentacji
+2. **User wyraźnie poprosi** o nowy dokument
+3. **Istniejący plik przekroczyłby 700 linii** po dodaniu
+4. **Raporty czasowe** → `docs/REPORTS_YYYY_MM.md`
+
+### Struktura Folderów docs/:
+
+```
+docs/
+├── README.md                          # Indeks dokumentacji (aktualizuj!)
+├── BACKEND.md                         # API, Services, Database
+├── AI_ML.md                           # LLM, RAG, Prompts
+├── INFRASTRUKTURA.md                  # Docker, CI/CD, Cloud Run, DevOps
+├── FRONTEND.md                        # React, komponenty, state (jeśli istnieje)
+├── BIZNES.md                          # Model biznesowy, GTM, pricing
+├── ROADMAP.md                         # Priorytety, milestones, strateg
+├── QA.md                              # Testowanie, coverage, benchmarki
+├── SECURITY.md                        # Bezpieczeństwo, compliance (jeśli istnieje)
+└── archive/                           # Archiwalne dokumenty
+    └── [old_docs].md
+```
+
+### Agenci z Prawem Regularnego Pisania:
+
+**Ci agenci często tworzą dokumentację** (ale nadal: najpierw aktualizuj!):
+- `technical-writer` - Dokumentacja techniczna, user guides, API docs
+- `business-analyst` - Analizy biznesowe, modele finansowe
+- `product-manager` - PRDy, specs, roadmapy
+- `growth-marketer` - Campaign briefs, GTM strategy
+- `team-orchestrator` - Coordination plans, ADRs
+
+**Pozostali agenci**: Mogą tworzyć .md, ale TYLKO gdy konieczne (update first!)
+
+### Przykłady Decyzji:
+
+```
+❌ NIE: Zmiana auth system → Tworzę docs/AUTH_SYSTEM.md
+✅ TAK: Zmiana auth system → Aktualizuję docs/BACKEND.md (dodaję sekcję "Authentication")
+
+❌ NIE: Nowa feature Journey Mapping → Tworzę docs/JOURNEY_MAPPING.md
+✅ TAK: Nowa feature Journey Mapping → Aktualizuję docs/ROADMAP.md (dodaję do roadmapu)
+      + Jeśli szczegóły feature są obszerne → Aktualizuję docs/BACKEND.md lub docs/AI_ML.md
+
+❌ NIE: Zmiana deployment → Tworzę docs/NEW_DEPLOYMENT.md
+✅ TAK: Zmiana deployment → Aktualizuję docs/INFRASTRUKTURA.md (sekcja "Deployment" lub "CI/CD")
+
+✅ TAK: Raport miesięczny → docs/REPORTS_2024_11.md (nowy plik OK, to raport)
+```
+
+### Aktualizacja docs/README.md:
+
+**Kiedy dodajesz nowy plik**, zaktualizuj `docs/README.md`:
+- Dodaj link w odpowiedniej sekcji dokumentacji
+- Dodaj krótki opis (1 zdanie)
+- Zachowaj alfabetyczny porządek
+
+**Nie zapomnij**: Dokumentacja bez linku w README jest jak nieodkryta wyspa!
+
+## Strategia Testowania
+
+### Kategorie Testów
+
+```bash
+# Testy jednostkowe (~240 testów, <90s) - Izolowana logika serwisów
+pytest tests/unit -v
+
+# Testy integracyjne (~70 testów, 10-30s) - API + DB + Zewnętrzne serwisy
+pytest tests/integration -v
+
+# Testy E2E (~5 testów, 2-5 min) - Pełne przepływy użytkownika
+pytest tests/e2e -v
+
+# Testy wydajnościowe (~3 testy, 5-10 min) - Benchmarki i testy obciążeniowe
+pytest tests/performance -v
+
+# Testy obsługi błędów (~9 testów, 5-10s) - Przypadki brzegowe
+pytest tests/error_handling -v
+
+# Tylko szybkie testy (wyklucza markery slow)
+pytest -v -m "not slow"
+```
+
+### Cele Pokrycia
+
+- Ogólnie: 80%+
+- Serwisy: 85%+
+- Ścieżki krytyczne (generacja person, grupy fokusowe): 90%+
+
+```bash
+pytest --cov=app --cov-report=html
+open htmlcov/index.html
+```
+
+### Fixtury Testowe
+
+Współdzielone fixtury w `tests/conftest.py` i `tests/fixtures/`:
+- `db_session`: Asynchroniczna sesja bazodanowa z rollbackiem transakcji
+- `test_project`: Projekt z demograficznymi celami
+- `test_personas`: 20 wygenerowanych person
+- `mock_llm`: Mock LLM do testowania bez wywołań API
+
+### Pisanie Testów
+
+```python
+import pytest
+from httpx import AsyncClient
+from app.main import app
+
+@pytest.mark.asyncio
+async def test_generate_personas(db_session, test_project):
+    """Test generacji person z ograniczeniami demograficznymi."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        response = await client.post(
+            f"/api/v1/projects/{test_project.id}/personas/generate",
+            json={"num_personas": 20}
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["personas"]) == 20
+
+    # Weryfikuj rozkład demograficzny
+    ages = [p["age"] for p in data["personas"]]
+    assert min(ages) >= 18
+    assert max(ages) <= 65
+```
+
+## Częste Pułapki i Rozwiązania
+
+### 1. Problemy z Kontekstem Async
+
+**Problem:** Mieszanie kodu sync i async powoduje błędy runtime.
+
+**Rozwiązanie:** Używaj async wszędzie w endpointach FastAPI:
+```python
+# ✅ Dobrze
+async def my_endpoint(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Persona))
+
+# ❌ Źle
+def my_endpoint(db: AsyncSession = Depends(get_db)):
+    result = db.execute(select(Persona))  # Brakuje await
+```
+
+### 2. Problem N+1 Zapytań
+
+**Problem:** Pobieranie powiązanych danych w pętlach powoduje nadmierne zapytania do DB.
+
+**Rozwiązanie:** Używaj `selectinload` lub `joinedload`:
+```python
+# ✅ Dobrze (1 zapytanie)
+stmt = select(Persona).options(selectinload(Persona.focus_groups))
+personas = await db.execute(stmt)
+
+# ❌ Źle (N+1 zapytań)
 personas = await db.execute(select(Persona))
 for persona in personas:
-    project = await db.execute(select(Project).where(Project.id == persona.project_id))
-
-# GOOD: Eager loading
-result = await db.execute(
-    select(Persona)
-    .options(selectinload(Persona.project))
-    .where(Persona.project_id == project_id)
-)
-personas = result.scalars().all()
+    focus_groups = await db.execute(
+        select(FocusGroup).where(FocusGroup.persona_id == persona.id)
+    )
 ```
 
-### 5. Frontend API Error Handling
+### 3. Błędy Importu Konfiguracji
 
-```tsx
-import { useMutation } from '@tanstack/react-query';
-import { toast } from 'sonner';
+**Problem:** Używanie starego wzorca `get_settings()` (usunięty w PR4).
 
-const mutation = useMutation({
-  mutationFn: api.personas.create,
-  onSuccess: () => {
-    toast.success('Persona created successfully');
-    queryClient.invalidateQueries(['personas']);
-  },
-  onError: (error) => {
-    toast.error(`Failed to create persona: ${error.message}`);
-  },
-});
-```
-
----
-
-## Environment Variables
-
-Required `.env` file for local development:
-
-```bash
-# Google Gemini API Key (required)
-GOOGLE_API_KEY=your_gemini_api_key
-
-# Embedding model
-EMBEDDING_MODEL=models/gemini-embedding-001
-
-# Database (defaults work with docker-compose)
-DATABASE_URL=postgresql+asyncpg://sight:dev_password_change_in_prod@localhost:5433/sight_db
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# Neo4j
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=dev_password_change_in_prod
-
-# Security (generate with: openssl rand -hex 32)
-SECRET_KEY=your_secret_key_here
-
-# Optional: Other LLM providers
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
----
-
-## Troubleshooting
-
-### Backend Issues
-
-**Problem:** `ModuleNotFoundError: No module named 'apscheduler'`
-**Solution:** Install dependencies inside container or locally:
-```bash
-docker-compose exec api pip install -r requirements.txt
-# or locally:
-pip install -r requirements.txt
-```
-
-**Problem:** Database connection errors
-**Solution:** Check PostgreSQL is running and migrations are applied:
-```bash
-docker-compose up postgres -d
-docker-compose exec api alembic upgrade head
-```
-
-**Problem:** Neo4j connection timeouts
-**Solution:** Increase timeout or check Neo4j is ready:
-```bash
-docker-compose logs neo4j
-# Wait for "Started" message before starting API
-```
-
-**Problem:** LLM API errors (rate limits, timeouts)
-**Solution:** Check API key, quotas, and retry logic. Consider using exponential backoff:
+**Rozwiązanie:** Migruj do scentralizowanej konfiguracji:
 ```python
-from tenacity import retry, stop_after_attempt, wait_exponential
+# ❌ Stare (nie zadziała)
+from app.core.config import get_settings
+settings = get_settings()
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential())
-async def call_llm():
-    ...
+# ✅ Nowe
+from config import models, features, app
+model = models.get("personas", "generation")
 ```
 
-### Frontend Issues
+### 4. Inicjalizacja Serwisów RAG
 
-**Problem:** `VITE_API_URL` not set
-**Solution:** Frontend defaults to `http://localhost:8000`. Set in `.env`:
-```bash
-VITE_API_URL=http://localhost:8000
-```
+**Problem:** Serwisy RAG crashują przy starcie w Cloud Run z błędami "503 Illegal metadata".
 
-**Problem:** i18n keys missing or not updating
-**Solution:** Check both `pl.json` and `en.json`, restart dev server
+**Rozwiązanie:** Serwisy RAG używają leniwej inicjalizacji (inicjalizowane przy pierwszym użyciu, nie przy starcie aplikacji). Nie inicjalizuj eager w kontekście `lifespan`.
 
-**Problem:** Type errors in TypeScript
-**Solution:** Run type check and fix errors:
-```bash
-cd frontend
-npm run build:check
-```
+### 5. Rate Limiting LLM
 
-### Testing Issues
+**Problem:** Uderzanie w limity rate Gemini API z równoległymi requestami.
 
-**Problem:** Tests fail with database errors
-**Solution:** Ensure test database is clean:
-```bash
-pytest tests/ --create-db
-```
-
-**Problem:** Tests hang indefinitely
-**Solution:** Use timeout marker or flag:
-```bash
-pytest tests/ --timeout=300
-```
-
----
-
-## Performance Guidelines
-
-### Backend
-
-- **Use async/await** for all I/O operations
-- **Eager load relationships** to avoid N+1 queries
-- **Cache expensive operations** in Redis (LLM results, computations)
-- **Use connection pooling** for PostgreSQL, Neo4j, Redis
-- **Batch operations** where possible (bulk inserts, parallel LLM calls)
-- **Index database columns** used in WHERE clauses
-
-### Frontend
-
-- **Use TanStack Query** for automatic caching and deduplication
-- **Implement pagination** for large lists
-- **Lazy load components** with React.lazy()
-- **Optimize images** (use WebP, lazy loading)
-- **Debounce search inputs** to reduce API calls
-- **Use React.memo** for expensive components
-
-### LLM Optimization
-
-- **Use Gemini Flash** for fast generation (personas, responses)
-- **Use Gemini Pro** for complex analysis (summaries, insights)
-- **Parallelize LLM calls** when independent (multiple personas)
-- **Cache LLM results** in Redis with TTL
-- **Use structured output** (JSON mode) to reduce parsing errors
-- **Set timeouts** to prevent hanging requests
-
-**Performance Targets:**
-- 20 personas: <60s (currently ~45s)
-- Focus group 20 personas × 4 questions: <3 min (currently ~2 min)
-- API response time: <500ms (p95)
-
----
-
-## Security Considerations
-
-- **JWT tokens** for authentication (configured in `app/core/security.py`)
-- **Password hashing** with bcrypt
-- **Rate limiting** with SlowAPI
-- **CORS configuration** in `app/main.py`
-- **Security headers** via `SecurityHeadersMiddleware`
-- **SQL injection protection** via SQLAlchemy (use parameterized queries)
-- **Input validation** via Pydantic schemas
-- **Environment secrets** never committed to git (use `.env`)
-
-**Production checklist:**
-- [ ] Change all default passwords
-- [ ] Rotate `SECRET_KEY`
-- [ ] Enable HTTPS (Cloud Run does this automatically)
-- [ ] Set up proper CORS origins
-- [ ] Enable structured logging
-- [ ] Configure Redis with TLS (Upstash)
-- [ ] Set resource limits (Cloud Run)
-- [ ] Monitor error rates and latency
-
----
-
-## Important Notes
-
-### Language Preferences
-
-- **Backend code:** English (variables, functions, comments when technical)
-- **Backend docstrings:** Polish (project convention)
-- **Frontend code:** English
-- **Frontend UI:** i18n (Polish + English)
-- **User-facing strings:** Always use i18n keys
-- **AI prompts:** Polish for Polish context, English for general prompts
-
-### AI Summary Language
-
-When generating AI summaries (focus groups, insights), the system uses the **user's preferred language** stored in their settings. Check `UserSettings.preferred_language` before generating summaries:
-
+**Rozwiązanie:** Używaj `asyncio.Semaphore` aby limitować równoległe wywołania:
 ```python
-# CORRECT: Use user's preferred language
-user_settings = await db.execute(
-    select(UserSettings).where(UserSettings.user_id == user_id)
-)
-preferred_lang = user_settings.preferred_language  # "pl" or "en"
+import asyncio
 
-# Pass to LLM prompt
-system_message = f"Generate summary in {preferred_lang}..."
+semaphore = asyncio.Semaphore(5)  # Maks 5 równoległych wywołań
+
+async def generate_with_limit(data):
+    async with semaphore:
+        return await llm.ainvoke(data)
 ```
 
-### Backward Compatibility
+### 6. Problemy z Pamięcią przy Dużych Grupach Fokusowych
 
-The service reorganization (2025-10-20) maintains backward compatibility via aliases:
+**Problem:** Generowanie odpowiedzi dla 20+ person powoduje OOM.
 
+**Rozwiązanie:** Przetwarzaj w partiach:
 ```python
-# OLD (still works)
-from app.services import PersonaGenerator
-
-# NEW (preferred)
-from app.services import PersonaGeneratorLangChain
+batch_size = 5
+for i in range(0, len(personas), batch_size):
+    batch = personas[i:i+batch_size]
+    tasks = [generate_response(p) for p in batch]
+    responses = await asyncio.gather(*tasks)
 ```
 
-**Rule:** Use full names in new code, but don't break existing imports.
+## Checklist Gotowości Produkcyjnej
 
-### Database Migrations
+Przed deploymentem:
 
-- **Always review** auto-generated migrations
-- **Test migrations** in development before production
-- **Backup production DB** before running migrations
-- **Handle data migrations** separately if needed
+- [ ] Wszystkie testy przechodzą: `pytest -v`
+- [ ] Pokrycie spełnia cele: `pytest --cov=app --cov-report=term`
+- [ ] Linting przechodzi: `ruff check app/`
+- [ ] Migracje zastosowane: `alembic upgrade head`
+- [ ] Indeksy Neo4j utworzone: `python scripts/init_neo4j_indexes.py`
+- [ ] Zmienne środowiskowe ustawione:
+  - [ ] `SECRET_KEY` (min 32 znaki, użyj `openssl rand -hex 32`)
+  - [ ] `GOOGLE_API_KEY`
+  - [ ] `DATABASE_URL` z produkcyjnymi credentials
+  - [ ] `ENVIRONMENT=production`
+- [ ] Walidacja bezpieczeństwa przechodzi (sprawdzane w `app/main.py` przy starcie)
+- [ ] Pliki konfiguracyjne zwalidowane: `python scripts/config_validate.py`
+- [ ] Brak sekretów w kodzie lub historii git
+- [ ] Origin CORS ograniczone (lub wyłączone dla same-origin deployment)
+- [ ] Rate limiting skonfigurowany
+- [ ] Śledzenie użycia włączone dla monitoringu kosztów
 
-### LLM Provider Flexibility
+## Referencja Kluczowych Plików
 
-The system supports multiple LLM providers via LangChain:
+- `app/main.py` - Punkt wejścia aplikacji FastAPI, middleware, zarządzanie lifespan
+- `app/db/session.py` - Zarządzanie sesją bazodanową (async)
+- `config/README.md` - Kompletny przewodnik po scentralizowanym systemie konfiguracji
+- `config/PROMPTS_INDEX.md` - Katalog wszystkich 25 promptów z parametrami
+- `docs/README.md` - Indeks dokumentacji
+- `docs/BACKEND.md` - API, serwisy, architektura bazodanowej
+- `docs/AI_ML.md` - LLM, RAG, prompty, system generacji person
+- `docs/INFRASTRUKTURA.md` - Docker, CI/CD, deployment Cloud Run, DevOps
+- `docs/QA.md` - Testowanie, pokrycie kodu, benchmarki
+- `docs/BIZNES.md` - Model biznesowy, GTM, pricing, KPIs
+- `docs/ROADMAP.md` - Priorytety, milestones, strategia produktu
+- `requirements.txt` - Zależności Python (core)
+- `pyproject.toml` - Opcjonalne zależności (llm-providers, document-processing, itp.)
 
-- Google Gemini (default, recommended)
-- OpenAI (GPT-4, GPT-3.5)
-- Anthropic (Claude 3.5)
+## Cele Wydajnościowe
 
-**Switching providers:**
-```python
-# Change model_name in build_chat_model()
-llm = build_chat_model(
-    model_name="gpt-4",  # or "claude-3-5-sonnet-20241022"
-    temperature=0.7,
-)
-```
+- Generacja person: 20 person < 60s (obecnie ~45s)
+- Dyskusja grupy fokusowej: 20 person × 4 pytania < 3 min (obecnie ~2 min)
+- Zapytanie Hybrid RAG: < 350ms per zapytanie
+- Czas odpowiedzi API: < 500ms (90. percentyl)
+- Czas zapytania do bazy: < 100ms (95. percentyl)
 
-**Note:** Ensure corresponding API key is set in `.env`
+## Uzyskiwanie Pomocy
 
----
+1. Sprawdź `docs/README.md` dla indeksu dokumentacji
+2. Sprawdź `config/README.md` dla problemów z konfiguracją
+3. Uruchom `pytest -v` aby zweryfikować setup
+4. Sprawdź logi: `docker-compose logs -f api`
+5. Weryfikuj bazę danych: `docker-compose exec postgres psql -U sight -d sight_db`
+6. Weryfikuj Neo4j: http://localhost:7474
 
-## Documentation
+## Dodatkowe Uwagi
 
-Full technical documentation is in `docs/`:
-
-- **docs/README.md** - Documentation index
-- **docs/INFRASTRUCTURE.md** - Docker, CI/CD, Cloud Run (all-in-one guide)
-- **docs/TESTING.md** - Test suite details (380+ tests)
-- **docs/RAG.md** - Hybrid Search + GraphRAG architecture
-- **docs/AI_ML.md** - AI/ML system, persona generation, LangChain
-- **docs/SERVICES.md** - Service structure (domain folders)
-- **docs/PERSONA_DETAILS.md** - Persona Details MVP feature
-- **PLAN.md** - Strategic roadmap (20-30 active tasks)
-- **README.md** - User-facing quick start
-
-**When to update docs:**
-- Architecture changes → Update this file (CLAUDE.md)
-- Infrastructure changes → Update docs/INFRASTRUCTURE.md
-- New test categories → Update docs/TESTING.md
-- RAG system changes → Update docs/RAG.md
-- Strategic decisions → Update PLAN.md
-
----
-
-## Contact & Support
-
-**Issues:** Open a GitHub issue
-**Documentation:** See `docs/README.md` for full index
-**CI/CD:** Check `cloudbuild.yaml` for pipeline details
-**Production:** Google Cloud Run deployment (automatic on `main` push)
-
----
-
-**Last Updated:** 2025-10-31
-**Version:** 1.0
-**Test Count:** 380+
-**Documentation Style:** Narrative (continuous text, not bullet lists)
+- To jest polska platforma badań rynkowych - UI i dane są po polsku
+- Domyślne dane demograficzne dla Polski są w `config/demographics/poland.yaml`
+- Prompty używają delimitatorów `${variable}` (nie `{{variable}}`) dla kompatybilności Jinja2 z zapytaniami Cypher
+- Wszystkie docstringi są po polsku (konwencja projektu)
+- Platforma używa wzorca soft-delete - encje są oznaczane `deleted_at` zamiast twardego usunięcia
+- Zadanie czyszczące w tle uruchamia się codziennie aby twardo usunąć soft-deleted encje po 7 dniach retencji
+- **Claude ZAWSZE odpowiada i komunikuje się PO POLSKU** przy pracy z tym projektem

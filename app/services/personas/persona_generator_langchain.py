@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
-from app.core.config import get_settings
+from config import models, features
 from app.services.shared.clients import build_chat_model
 from app.services.dashboard.usage_logging import (
     UsageLogContext,
@@ -29,10 +29,8 @@ from app.services.dashboard.usage_logging import (
     schedule_usage_logging,
 )
 
-settings = get_settings()
 
 # Import RAG service singleton
-_rag_service_available = settings.RAG_ENABLED
 
 
 @dataclass
@@ -63,8 +61,8 @@ class PersonaGeneratorLangChain:
         import logging
         logger = logging.getLogger(__name__)
 
-        self.settings = settings
-        self._rng = np.random.default_rng(self.settings.RANDOM_SEED)
+        # Removed: self.settings = settings
+        self._rng = np.random.default_rng(features.performance.random_seed)
 
         from config import models, prompts, demographics
 
@@ -97,7 +95,7 @@ class PersonaGeneratorLangChain:
 
         # Inicjalizuj RAG service (singleton - opcjonalnie, tylko jeśli włączony)
         self.rag_service = None
-        if _rag_service_available and settings.RAG_ENABLED:
+        if _rag_service_available and features.rag.enabled:
             try:
                 from app.services.shared import get_polish_society_rag
                 self.rag_service = get_polish_society_rag()
@@ -774,7 +772,7 @@ WYŁĄCZNIE JSON (bez markdown):
         # Ogólna walidacja - wszystkie p-wartości powinny być > 0.05
         all_p_values = [r["p_value"] for r in results.values() if "p_value" in r]
         results["overall_valid"] = all(
-            p > settings.STATISTICAL_SIGNIFICANCE_THRESHOLD for p in all_p_values
+            p > features.performance.statistical_significance_threshold for p in all_p_values
         ) if all_p_values else True
 
         return results

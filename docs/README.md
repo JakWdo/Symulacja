@@ -1,77 +1,224 @@
-# 📚 Dokumentacja Techniczna - Sight
+# Dokumentacja Techniczna - Sight
 
-Indeks dokumentacji technicznej dla deweloperów.
+Indeks dokumentacji dla platformy Sight - wirtualnych grup fokusowych napędzanych sztuczną inteligencją. Dokumentacja jest zorganizowana w 6 głównych plikach, każdy ~800 linii, napisany w naturalnym, narracyjnym stylu.
 
-## 📖 Przegląd Dokumentacji
+## Dokumentacja Główna
 
 | Dokument | Opis | Rozmiar |
 |----------|------|---------|
-| [../README.md](../README.md) | User-facing docs, quick start, features | ~800 linii |
-| [../CLAUDE.md](../CLAUDE.md) | **Instrukcje dla Claude Code** (architecture, patterns, checklist) | ~390 linii |
-| [../PLAN.md](../PLAN.md) | **Strategic Roadmap** (27 aktywnych zadań + 9 completed) | ~350 linii |
-| [../BIZNES.md](../BIZNES.md) | **Business Analysis** (model biznesowy, ROI, GTM strategy, monetyzacja) | ~1200 linii |
-| [INFRASTRUCTURE.md](INFRASTRUCTURE.md) | **Docker, CI/CD, Cloud Run** (narracyjny styl, all-in-one) | ~700 linii |
-| [TESTING.md](TESTING.md) | Test suite (380 testów), fixtures, performance | ~110 linii |
-| [RAG.md](RAG.md) | System RAG: Hybrid Search + GraphRAG | ~123 linie |
-| [AI_ML.md](AI_ML.md) | AI/LLM system, persona generation, LangChain | ~200 linii |
-| [SERVICES.md](SERVICES.md) | Struktura serwisów (domain folders) | ~123 linie |
-| [PERSONA_DETAILS.md](PERSONA_DETAILS.md) | Persona Details MVP feature (dokumentacja feature) | ~1057 linii |
+| [AI_ML.md](AI_ML.md) | Architektura AI/ML: LLM, RAG, prompty, optymalizacje, SLA | ~750 linii |
+| [BACKEND.md](BACKEND.md) | Architektura backendu: API, serwisy, baza danych, autentykacja | ~850 linii |
+| [BIZNES.md](BIZNES.md) | Model biznesowy, ROI, GTM strategy, roadmap i priorytety | ~810 linii |
+| [INFRASTRUKTURA.md](INFRASTRUKTURA.md) | Docker, CI/CD, Cloud Run, monitoring, logowanie | ~850 linii |
+| [QA.md](QA.md) | Testowanie: piramida testów, fixtures, metryki, troubleshooting | ~710 linii |
+| [ROADMAP.md](ROADMAP.md) | Strategiczny roadmap na 2025: Q1-Q4, priorytety, milestones | ~550 linii |
+
+**Uwaga:** Każdy plik jest skondensowany do ~800 linii dla czytelności. Zawiera sekcje omówienia, wzorce i kluczowe szczegóły bez powtórzeń między plikami.
 
 ---
 
-## 🚀 Quick Links
+## Quick Links
 
 ### Dla Nowych Deweloperów
-1. [../README.md](../README.md) - Setup środowiska
-2. [INFRASTRUCTURE.md](INFRASTRUCTURE.md) - Docker, CI/CD, Cloud Run
-3. [../CLAUDE.md](../CLAUDE.md) - Architektura i konwencje
-4. [TESTING.md](TESTING.md) - Uruchom testy dla weryfikacji
+
+1. **[../CLAUDE.md](../CLAUDE.md)** - Setup środowiska, komendy, architektura wysokiego poziomu (zacznij tutaj!)
+2. **[BACKEND.md](BACKEND.md)** - Jak działa backend: API, serwisy, baza danych
+3. **[INFRASTRUKTURA.md](INFRASTRUKTURA.md)** - Docker, uruchamianie lokalnie, deployment
+4. **[QA.md](QA.md)** - Jak uruchomić testy i zweryfikować setup
 
 ### Dla Doświadczonych Deweloperów
-- **Architektura:** [../CLAUDE.md#architektura](../CLAUDE.md)
-- **Infrastructure:** [INFRASTRUCTURE.md](INFRASTRUCTURE.md) - Docker, CI/CD, Cloud Run
-- **API Docs:** http://localhost:8000/docs (Swagger UI)
-- **Testowanie:** [TESTING.md](TESTING.md)
-- **RAG System:** [RAG.md](RAG.md)
-- **AI/ML:** [AI_ML.md](AI_ML.md)
-- **Roadmap:** [../PLAN.md](../PLAN.md)
-- **Business Analysis:** [../BIZNES.md](../BIZNES.md)
+
+**Architektura Techniczna:**
+- [BACKEND.md](BACKEND.md) - API, serwisy, database, auth, events
+- [AI_ML.md](AI_ML.md) - LLM, RAG, prompty, optimizations, SLA targets
+- [INFRASTRUKTURA.md](INFRASTRUKTURA.md) - Docker, Cloud Run, CI/CD, monitoring
+
+**Strategia i Biznes:**
+- [BIZNES.md](BIZNES.md) - Model biznesowy, GTM, finansowe projekcje
+- [ROADMAP.md](ROADMAP.md) - Priorytety na 2025, completed tasks, blocked items
+
+**Operacje i Jakość:**
+- [QA.md](QA.md) - Test suite overview, metryki pokrycia, troubleshooting
+
+**API i Tools:**
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+- Neo4j Browser: http://localhost:7474
 
 ---
 
-## 📂 Struktura Projektu
+## Przegląd Dokumentacji
+
+### AI_ML.md - Architektura AI/ML
+
+Kompletna dokumentacja systemu AI/ML platformy (~750 linii).
+
+**Sekcje:**
+- Model Selection Strategy (Flash vs Pro, kiedy użyć każdego)
+- LLM Infrastructure (LangChain, retries, error handling)
+- RAG System Architecture (Hybrid Search + Graph RAG)
+- Prompt Engineering (patterns, validation, optimization)
+- Performance Optimizations (parallel calls, caching, compression)
+- Token Usage & Cost Management (tracking, budgeting)
+- Monitoring & Observability (SLA targets, metrics)
+
+**Performance SLA Targets:**
+- Generacja person: <60s (20 osób) ✅
+- Dyskusja grupy fokusowej: <3min (20×4 pytania) ✅
+- Zapytania RAG: <5s (Graph RAG) ✅
+- Odpowiedzi API: <500ms (p90)
+
+---
+
+### BACKEND.md - Architektura Backendu
+
+Dokumentacja całego backendu FastAPI (~850 linii).
+
+**Sekcje:**
+- API Layer (REST endpoints, routing, validation, error handling)
+- Service Layer (Business logic, domain services)
+  - Personas (generacja, orkiestracja, potrzeby)
+  - Focus Groups (dyskusje, podsumowania, pamięć)
+  - Surveys (generacja odpowiedzi)
+  - RAG (wyszukiwanie hybrydowe, transformacje grafowe)
+- Database Layer (PostgreSQL, pgvector, SQLAlchemy async)
+- Authentication & Authorization (JWT, hashing)
+- Event Sourcing (persona events, audit trail)
+- Background Jobs (cleanup, scheduled tasks)
+- Integration Points (LLM, Neo4j, Redis)
+
+**Kluczowe wzorce:**
+- Service Layer Pattern dla separacji logiki biznesowej
+- Event Sourcing dla ścieżki audytu
+- Async-first design z SQLAlchemy 2.0
+- Dependency Injection przez FastAPI
+
+---
+
+### BIZNES.md - Model Biznesowy
+
+Analiza biznesowa i strategia platformy (~810 linii).
+
+**Sekcje:**
+- Value Proposition (problem, rozwiązanie, USP)
+- Market Analysis (TAM/SAM/SOM, konkurencja, positioning)
+- Business Model (revenue streams, pricing tiers, unit economics)
+- GTM Strategy (customer acquisition, channels, partnerships)
+- Financial Projections (ROI analysis, costs, revenue forecast)
+- Risk Analysis (mitigation strategies, dependencies)
+- KPIs i Success Metrics
+
+**Kluczowe metryki:**
+- LTV:CAC ratio targets
+- Customer acquisition cost breakdown
+- Revenue per customer projections
+- Market penetration strategy
+
+---
+
+### INFRASTRUKTURA.md - Infrastruktura
+
+Dokumentacja deploymetu, CI/CD i monitoringu (~850 linii).
+
+**Sekcje:**
+- Docker Architecture (multi-stage builds, serwisy, resource limits)
+- Local Development (quick start, hot reload, debugging)
+- Cloud Run Production (GCP deployment, secrets management)
+- CI/CD Pipeline (GitHub → Cloud Build → Cloud Run)
+- Monitoring & Logging (Cloud Logging, error tracking)
+- Performance Optimizations (image size, build time, deployment time)
+
+**Performance Wins:**
+- Build time: -67% (layer caching)
+- Deployment: 7-12 min (GitHub push → running app)
+- Image size: -84% (multi-stage builds)
+
+---
+
+### QA.md - Testowanie
+
+Dokumentacja strategii testowania i QA (~710 linii).
+
+**Sekcje:**
+- Piramida Testów (80% unit, 14% integration, 3% E2E)
+- Test Suite Overview (444 testy w 5 kategoriach)
+- Shared Fixtures (setup, teardown, mock data)
+- Coverage Metrics (87% overall, targets per module)
+- Performance Benchmarks (SLA targets, current results)
+- Running Tests (komendy, CI/CD integration)
+- Troubleshooting (Top 5 common issues)
+- Roadmap QA na 2025
+
+**Test Suite Stats:**
+- 444 testy (355 unit, 63 integration, 12 E2E, 5 performance, 9 error handling)
+- Pokrycie: 87% overall, 92% personas, 89% focus groups
+- Czas: <90s fast tests, 5-10 min full suite
+
+---
+
+### ROADMAP.md - Strategiczny Roadmap
+
+Roadmap platformy na rok 2025 (~550 linii).
+
+**Struktura:**
+- Q1 2025 - MVP features, core infrastructure
+- Q2 2025 - Advanced features, integrations
+- Q3 2025 - Scale & optimization
+- Q4 2025 - Enterprise features
+
+**Śledzenie postępów:**
+- Completed tasks (completed, z datami)
+- In-progress tasks (status,% completion)
+- Blocked tasks (reason, mitigation)
+- Upcoming priorities (quarterly)
+
+---
+
+## Struktura Projektu
 
 ```
 sight/
 ├── README.md              # User-facing documentation
-├── CLAUDE.md              # Claude Code instructions (architecture, patterns)
-├── PLAN.md                # Roadmap & task tracking (używany przez Claude)
-├── BIZNES.md              # Business analysis (model biznesowy, ROI, GTM)
+├── CLAUDE.md              # Claude Code instructions (architektura, wzorce)
 │
 ├── docs/                  # Technical documentation
 │   ├── README.md         # Ten plik - indeks dokumentacji
-│   ├── INFRASTRUCTURE.md # Docker, CI/CD, Cloud Run (narracyjny)
-│   ├── TESTING.md        # Test suite (380 testów)
-│   ├── RAG.md            # RAG system: Hybrid Search + GraphRAG
-│   ├── AI_ML.md          # AI/LLM system, persona generation
-│   ├── SERVICES.md       # Struktura serwisów (domain folders)
-│   └── PERSONA_DETAILS.md # Persona Details MVP feature
+│   ├── AI_ML.md          # AI/ML architecture (~750 linii)
+│   ├── BACKEND.md        # Backend architecture (~850 linii)
+│   ├── BIZNES.md         # Business model & strategy (~810 linii)
+│   ├── INFRASTRUKTURA.md # Infrastructure & CI/CD (~850 linii)
+│   ├── QA.md             # Testing & QA (~710 linii)
+│   ├── ROADMAP.md        # Strategic roadmap 2025 (~550 linii)
+│   │
+│   └── archive/          # Zarchiwizowana dokumentacja
+│       └── persona_details_v3.md
 │
 ├── app/                   # Backend (FastAPI)
 │   ├── api/              # REST API endpoints
-│   ├── core/             # Configuration & constants
-│   ├── db/               # Database session & base
-│   ├── models/           # SQLAlchemy ORM models
-│   ├── schemas/          # Pydantic validation schemas
-│   └── services/         # Business logic layer (Service Pattern)
+│   ├── core/             # Configuration & security
+│   ├── db/               # Database session
+│   ├── models/           # SQLAlchemy models
+│   ├── schemas/          # Pydantic validation
+│   ├── services/         # Business logic (Service Layer)
+│   │   ├── personas/     # Persona generation
+│   │   ├── focus_groups/ # Focus group discussions
+│   │   ├── surveys/      # Survey responses
+│   │   ├── rag/          # RAG & search
+│   │   └── dashboard/    # Usage tracking
+│   └── tasks/            # Background jobs
 │
-├── tests/                 # Test suite (208 testów)
-│   ├── unit/             # Unit tests (~150, <5s)
-│   ├── integration/      # Integration tests (~35, 10-30s)
-│   ├── e2e/              # End-to-end tests (~4, 2-5 min)
-│   ├── performance/      # Performance tests (~5, 5-10 min)
-│   ├── error_handling/   # Error tests (~9, 5-10s)
-│   └── manual/           # Manual test scripts
+├── tests/                 # Test suite
+│   ├── unit/             # Unit tests (~240)
+│   ├── integration/      # Integration tests (~70)
+│   ├── e2e/              # End-to-end tests (~5)
+│   ├── performance/      # Performance tests (~3)
+│   └── error_handling/   # Error tests (~9)
+│
+├── config/                # Centralized configuration (YAML)
+│   ├── models.yaml       # Model registry & fallback
+│   ├── features.yaml     # Feature flags & targets
+│   ├── prompts/          # 25+ prompts by domain
+│   └── rag/              # RAG configuration
 │
 ├── frontend/              # Frontend (React + TypeScript)
 │   └── src/
@@ -81,133 +228,59 @@ sight/
 │       └── types/        # TypeScript types
 │
 ├── scripts/               # Utility scripts
-│   ├── init_db.py        # Database initialization
-│   └── init_neo4j_indexes.py  # Neo4j index setup
+│   ├── init_neo4j_indexes.py  # Neo4j setup
+│   └── archive/               # Legacy scripts
 │
 ├── alembic/               # Database migrations
 ├── docker-compose.yml     # Development environment
-├── docker-compose.prod.yml # Production environment
-└── Dockerfile             # Backend multi-stage Dockerfile
+└── Dockerfile             # Backend Dockerfile
 ```
 
 ---
 
-## 🔍 Szczegóły Dokumentacji
+## Archiwum
 
-### CLAUDE.md - Instrukcje dla Claude
-
-**Plik główny** dla Claude Code podczas pracy z projektem.
-
-**Zawiera:**
-- Quick start commands
-- Architektura (Service Layer, Event Sourcing, Hybrid Search)
-- Konwencje kodu (Python, TypeScript, testy)
-- Workflow deweloperski (typowe operacje)
-- Zasady production-ready code
-- Architecture patterns (6 głównych patternów)
-- Common pitfalls & solutions
-- Production checklist
-
-**Kiedy czytać:** Zawsze przed rozpoczęciem pracy z projektem.
+| Dokument | Opis | Status |
+|----------|------|--------|
+| [archive/persona_details_v3.md](archive/persona_details_v3.md) | Stara dokumentacja Persona Details MVP | Zarchiwizowany |
 
 ---
 
-### INFRASTRUCTURE.md - Docker, CI/CD, Cloud Run
+## Konwencje Kodowania
 
-**Nowy plik** (2025-10-21) - konsolidacja DEPLOYMENT.md + DEVOPS.md w narracyjny styl.
+### Backend (Python)
+- **Style Guide:** PEP 8
+- **Type Hints:** Wymagane dla wszystkich funkcji
+- **Docstrings:** Język polski (konwencja projektu)
+- **Async:** Wszędzie gdzie możliwe (FastAPI + SQLAlchemy async)
+- **Abstrakcje:** LangChain dla LLM operations
 
-**Sekcje:**
-- **Architektura Docker** - Multi-stage builds, serwisy, resource limits (84% redukcja rozmiaru)
-- **Local Development** - Quick start, hot reload, debugging
-- **Cloud Run Production** - GCP setup, secrets, single service architecture
-- **CI/CD Pipeline** - cloudbuild.yaml (7 kroków), quality gates, monitoring
-- **Troubleshooting** - Top 5 problemów + rozwiązania
-- **Koszty** - Monthly breakdown (~$16-30), optimization tips
+### Frontend (TypeScript)
+- **Components:** Functional components + hooks
+- **State Management:** React Query (server) + Zustand (UI)
+- **Styling:** Tailwind CSS
 
-**Performance:**
-- Build time: -67% (dzięki layer caching)
-- Deployment: 7-12 min (GitHub push → running app)
-- Automated: migrations, Neo4j indexes, smoke tests
-
----
-
-### TESTING.md - Test Suite
-
-**380 testów** pokrywających wszystkie warstwy (narracyjny styl).
-
-**Kategorie:**
-- **Unit** (~240, <90s) - Services, utilities, models (w CI/CD)
-- **Integration** (~70, 10-30s) - API + DB + External services
-- **E2E** (~5, 2-5 min) - Full workflows
-- **Performance** (~3, 5-10 min) - Benchmarks i stress tests
-- **Error Handling** (~9, 5-10s) - Edge cases & failures
-
-**Coverage:** 80%+ overall, 85%+ dla services
-
-**Cele Wydajnościowe:**
-- 20 person < 60s (currently ~45s)
-- Focus group 20×4 < 3 min (currently ~2 min)
-- Parallelization speedup >= 3x
+### Testy
+- **Framework:** pytest + pytest-asyncio
+- **Coverage Target:** 80%+ overall, 85%+ dla services
+- **Fixtures:** Shared w conftest.py
+- **Markery:** `@pytest.mark.integration`, `@pytest.mark.e2e`, `@pytest.mark.slow`
 
 ---
 
-### RAG.md - System RAG
+## API i Narzędzia
 
-**Hybrid Search:**
-- Vector search (Google Gemini embeddings)
-- Keyword search (Neo4j fulltext index)
-- RRF Fusion łączy oba wyniki
+**API Documentation:**
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+- OpenAPI Schema: http://localhost:8000/openapi.json
 
-**GraphRAG:**
-- Ekstraktuje wiedzę z dokumentów (węzły + relacje)
-- Bogate metadane: description, summary, key_facts, confidence
-- LLM-generated Cypher queries
+**Databases:**
+- PostgreSQL + pgvector: localhost:5433
+- Redis: localhost:6379
+- Neo4j Browser: http://localhost:7474
 
-**Użycie:**
-- Generator person pobiera kontekst o polskim społeczeństwie
-- Graph RAG queries dla analiz
-
----
-
-### PLAN.md - Strategic Roadmap
-
-**WAŻNE:** Strategiczny roadmap projektu (20-30 najważniejszych zadań).
-
-**Struktura:**
-- Infrastructure & CI/CD (8 zadań)
-- Backend & API (6 zadań)
-- AI & RAG (6 zadań)
-- Frontend (5 zadań)
-- Testing & Quality (4 zadania)
-- Documentation (3 zadania)
-- Priorities (High/Medium/Low - MoSCoW)
-
-**Current Status:**
-- 27 aktywnych zadań
-- 9 completed (last 30 days)
-- Next Sprint Focus: Integration tests w CI/CD, RBAC enforcement, Semantic chunking RAG, Coverage 85%+
-
-**Gdy Claude wprowadza zmiany:**
-1. Aktualizuje PLAN.md - zaznacza zrealizowane (data)
-2. Dodaje nowe zadania według priorytetu
-3. Grupuje według obszaru
-4. Usuwa completed >30 dni
-
----
-
-## 🛠️ Dodatkowe Zasoby
-
-### API Documentation
-- **Swagger UI:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
-- **OpenAPI Schema:** http://localhost:8000/openapi.json
-
-### Databases
-- **PostgreSQL + pgvector:** localhost:5433
-- **Redis:** localhost:6379
-- **Neo4j Browser:** http://localhost:7474
-
-### Monitoring & Debugging
+**Monitoring & Debugging:**
 ```bash
 # Backend logs
 docker-compose logs -f api
@@ -227,35 +300,12 @@ python tests/manual/test_hybrid_search.py
 
 ---
 
-## 📝 Konwencje Kodowania
-
-### Backend (Python)
-- **Style Guide:** PEP 8
-- **Type Hints:** Wymagane dla wszystkich funkcji
-- **Docstrings:** Język polski (konwencja projektu)
-- **Async:** Wszędzie gdzie możliwe (FastAPI + SQLAlchemy async)
-- **Abstrakcje:** LangChain dla LLM operations
-
-### Frontend (TypeScript)
-- **Components:** Functional components + hooks
-- **State Management:** React Query (server) + Zustand (UI)
-- **Styling:** Tailwind CSS
-- **API Client:** React Query (TanStack Query)
-
-### Testy
-- **Framework:** pytest + pytest-asyncio
-- **Coverage Target:** 80%+ overall, 85%+ dla services
-- **Fixtures:** Shared w conftest.py
-- **Markery:** `@pytest.mark.integration`, `@pytest.mark.e2e`, `@pytest.mark.slow`
-
----
-
-## 🤝 Contributing
+## Contributing
 
 ### Przed Pull Requestem
 1. ✅ Testy: `pytest tests/ -v -m "not slow"`
 2. ✅ Coverage: `pytest tests/ --cov=app --cov-report=html`
-3. ✅ Linting (opcjonalnie): `ruff check app/`
+3. ✅ Linting: `ruff check app/`
 
 ### Struktura Commita
 ```
@@ -271,17 +321,17 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
-## 📞 Kontakt i Wsparcie
+## Problemy?
 
-**Problemy?**
-1. Sprawdź [TESTING.md#rozwiązywanie-problemów](TESTING.md)
-2. Przeczytaj [../CLAUDE.md#rozwiązywanie-problemów](../CLAUDE.md)
-3. Sprawdź logi: `docker-compose logs`
-4. Otwórz issue na GitHubie
+1. Sprawdź [QA.md](QA.md) - Troubleshooting testów (Top 5 problemów)
+2. Sprawdź [INFRASTRUKTURA.md](INFRASTRUKTURA.md) - Troubleshooting infrastruktury
+3. Przeczytaj [../CLAUDE.md](../CLAUDE.md) - Częste pułapki i rozwiązania
+4. Sprawdź logi: `docker-compose logs`
+5. Otwórz issue na GitHubie
 
 ---
 
-**Ostatnia aktualizacja:** 2025-10-21
-**Wersja dokumentacji:** 4.0
-**Liczba testów:** 380
-**Struktura:** Narracyjna (ciągły tekst)
+**Ostatnia aktualizacja:** 2025-11-03
+**Wersja dokumentacji:** 6.0
+**Struktura:** Płaska (6 głównych plików)
+**Całkowita liczba linii:** ~4,520 linii dokumentacji

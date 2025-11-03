@@ -13,11 +13,9 @@ from datetime import datetime, timezone
 import numpy as np
 
 from app.models import PersonaEvent
-from app.core.config import get_settings
 from app.services.shared.clients import get_embeddings
 from app.utils.math_utils import cosine_similarity
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
