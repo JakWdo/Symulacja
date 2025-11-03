@@ -48,18 +48,18 @@ langchain-neo4j>=0.1.0,<0.2.0
 # Legacy LLM Integration (optional fallback)
 openai
 anthropic
-tiktoken
+# tiktoken - moved to pyproject.toml [project.optional-dependencies] experimental
 # google-generativeai - installed automatically by langchain-google-genai
 
 # ML & Data Science
 numpy
-pandas
+# pandas - moved to pyproject.toml [project.optional-dependencies] experimental (currently unused)
 scikit-learn
 scipy
 
 # API & Web
 httpx
-websockets
+# websockets - moved to pyproject.toml [project.optional-dependencies] experimental (currently unused)
 python-multipart
 
 # Auth & Security
@@ -73,7 +73,7 @@ slowapi  # Rate limiting for FastAPI
 # Utilities
 python-dateutil
 pytz
-tenacity
+# tenacity - moved to pyproject.toml [project.optional-dependencies] experimental (currently unused)
 aiofiles
 Pillow
 
