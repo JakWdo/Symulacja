@@ -13,18 +13,21 @@ Usage:
 import json
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Import local modules
 sys.path.insert(0, str(Path(__file__).parent))
 from data_manager import load_config, save_config
 from domain_manager import (
-    get_active_domain, set_active_domain, list_domains, get_domain
+    get_active_domain, set_active_domain, list_domains, get_domain, add_domain
 )
 from course_planner import (
     extract_concepts_from_goal, create_course_plan, format_course_preview
 )
-from course_manager import create_course, list_active_courses, load_course_library, start_library_course
+from course_manager import (
+    create_course, list_active_courses, load_course_library, start_library_course,
+    get_course, get_course_library_dir
+)
 
 
 def show_welcome():
@@ -66,9 +69,11 @@ def show_welcome():
     print("## 💡 Jak zacząć?")
     print()
     print("```")
-    print('/learn "Redis caching w FastAPI"    # Rozpocznij kurs')
+    print('/learn "Redis caching w FastAPI"    # Rozpocznij kurs AI-generowany')
+    print("/learn --library                    # Zobacz gotowe kursy")
     print("/learn --domain ai_ml               # Zmień dziedzinę")
-    print("/learn --domains                    # Pokaż szczegóły")
+    print("/learn --domains                    # Pokaż szczegóły dziedzin")
+    print("/learn --add-domain                 # Dodaj nową dziedzinę")
     print("```")
     print()
 
@@ -334,6 +339,162 @@ def continue_last_course():
     print()
 
 
+def add_new_domain():
+    """
+    Interaktywnie dodaje nową dziedzinę
+    """
+    print("# ➕ Dodaj Nową Dziedzinę")
+    print()
+    print("**Wypełnij poniższe pola:**")
+    print()
+
+    # ID (slug format)
+    domain_id = input("ID dziedziny (slug format, np. 'mobile-dev'): ").strip().lower()
+    if not domain_id:
+        print("❌ ID nie może być puste")
+        return
+
+    # Name
+    name = input("Nazwa dziedziny (np. 'Mobile Development'): ").strip()
+    if not name:
+        print("❌ Nazwa nie może być pusta")
+        return
+
+    # Icon
+    icon = input("Ikona (emoji, np. '📱'): ").strip()
+    if not icon:
+        icon = "📚"  # default
+
+    # Description
+    description = input("Opis dziedziny (opcjonalny): ").strip()
+
+    # Categories
+    categories_input = input("Kategorie (przez przecinek, opcjonalne): ").strip()
+    categories = [c.strip() for c in categories_input.split(",")] if categories_input else []
+
+    print()
+    print("**Podsumowanie:**")
+    print(f"- ID: `{domain_id}`")
+    print(f"- Nazwa: {name}")
+    print(f"- Ikona: {icon}")
+    print(f"- Opis: {description or '(brak)'}")
+    print(f"- Kategorie: {', '.join(categories) if categories else '(brak)'}")
+    print()
+
+    confirm = input("Czy dodać tę dziedzinę? (tak/nie): ").strip().lower()
+
+    if confirm not in ['tak', 't', 'yes', 'y']:
+        print("❌ Anulowano")
+        return
+
+    # Add domain with icon
+    success = add_domain(
+        domain_id=domain_id,
+        name=name,
+        description=description,
+        categories=categories,
+        custom=True
+    )
+
+    # Manually add icon (domain_manager doesn't support it directly)
+    if success:
+        # Load and update with icon
+        from data_manager import DATA_DIR
+        import json
+
+        domains_file = DATA_DIR / "user_learning_domains.json"
+        try:
+            with open(domains_file, 'r', encoding='utf-8') as f:
+                domains_data = json.load(f)
+
+            if domain_id in domains_data.get("domains", {}):
+                domains_data["domains"][domain_id]["icon"] = icon
+
+            with open(domains_file, 'w', encoding='utf-8') as f:
+                json.dump(domains_data, f, indent=2, ensure_ascii=False)
+        except:
+            pass
+
+        print()
+        print(f"✅ **Dziedzina dodana!** {icon} {name}")
+        print()
+        print(f"**Ustaw jako aktywną:** `/learn --domain {domain_id}`")
+        print(f"**Rozpocznij kurs:** `/learn \"cel w dziedzinie {name}\"`")
+        print()
+    else:
+        print()
+        print(f"❌ **Błąd:** Nie udało się dodać dziedziny (może już istnieje?)")
+        print()
+
+
+def save_course_to_library(course_id: str):
+    """
+    Zapisuje aktywny kurs do course library
+
+    Args:
+        course_id: ID kursu do zapisania
+    """
+    print(f"# 💾 Zapisywanie kursu do library...")
+    print()
+
+    # Get course
+    course = get_course(course_id)
+
+    if not course:
+        print(f"❌ **Błąd:** Nie znaleziono kursu `{course_id}`")
+        print()
+        print("Dostępne kursy: `/progress` (sekcja Aktywne Kursy)")
+        return
+
+    # Create library course format
+    library_course = {
+        "id": course_id,
+        "title": course.get("title", "Unnamed Course"),
+        "description": f"Kurs zapisany z aktywnego kursu {course_id}",
+        "level": course.get("level", "intermediate"),
+        "time_budget": course.get("time_budget", "standard"),
+        "estimated_hours": course.get("estimated_hours", 0),
+        "domain_id": course.get("domain_id", "software-engineering"),
+        "tags": ["custom", "saved"],
+        "icon": "💾",
+        "lessons": course.get("lessons", []),
+        "total_lessons": course.get("total_lessons", 0),
+        "prerequisites": [],
+        "learning_outcomes": [
+            f"Ukończenie kursu: {course.get('title')}"
+        ],
+        "difficulty": 3,
+        "popularity": 5,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    # Save to course_library/
+    library_dir = get_course_library_dir()
+    library_dir.mkdir(parents=True, exist_ok=True)
+
+    course_file = library_dir / f"{course_id}.json"
+
+    try:
+        with open(course_file, 'w', encoding='utf-8') as f:
+            json.dump(library_course, f, indent=2, ensure_ascii=False)
+
+        print(f"✅ **Kurs zapisany do library!**")
+        print()
+        print(f"**Lokalizacja:** `{course_file}`")
+        print(f"**ID:** `{course_id}`")
+        print()
+        print("**Użyj go ponownie:**")
+        print(f"   `/learn --start {course_id}`")
+        print()
+        print("**Zobacz w library:**")
+        print("   `/learn --library`")
+        print()
+
+    except Exception as e:
+        print(f"❌ **Błąd zapisu:** {e}")
+        print()
+
+
 def main():
     """Główna funkcja"""
     args = sys.argv[1:]
@@ -389,6 +550,22 @@ def main():
                 print()
                 print("Zobacz dostępne: `/learn --library`")
                 print()
+
+    elif command == "--add-domain":
+        add_new_domain()
+
+    elif command == "--save-course":
+        if len(args) < 2:
+            print("❌ **Błąd:** Podaj ID kursu do zapisania")
+            print()
+            print("Usage: `/learn --save-course <course-id>`")
+            print()
+            print("**Znajdź course ID:**")
+            print("   `/progress` - zobacz aktywne kursy")
+            print()
+        else:
+            course_id = args[1]
+            save_course_to_library(course_id)
 
     elif command == "continue":
         continue_last_course()

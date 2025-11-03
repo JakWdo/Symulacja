@@ -237,6 +237,12 @@ Claude wygeneruje quiz z practiced concepts (multiple choice, true/false, fill-i
 
 # Pokaż wszystkie dziedziny
 /learn --domains
+
+# Dodaj nową dziedzinę (interaktywnie)
+/learn --add-domain
+
+# Zapisz kurs do library (reusable)
+/learn --save-course <course-id>
 ```
 
 ### `/progress` - Dashboard postępów
@@ -261,6 +267,82 @@ Pokazuje:
 /quiz backend
 /quiz frontend
 ```
+
+---
+
+## 🔧 Tworzenie Własnych Dziedzin i Kursów
+
+### Dodawanie Nowej Dziedziny
+
+Chcesz dodać własną dziedzinę nauki? (np. "Mobile Development", "Cloud Architecture")
+
+```bash
+/learn --add-domain
+```
+
+Plugin zapyta cię o:
+1. **ID dziedziny** (slug format, np. `mobile-dev`)
+2. **Nazwa** (wyświetlana, np. "Mobile Development")
+3. **Ikona** (emoji, np. 📱)
+4. **Opis** (opcjonalny)
+5. **Kategorie** (przez przecinek, opcjonalne)
+
+**Przykład:**
+
+```
+/learn --add-domain
+
+ID dziedziny: mobile-dev
+Nazwa: Mobile Development
+Ikona: 📱
+Opis: iOS, Android, React Native, Flutter
+Kategorie: ios, android, react-native, flutter
+
+✅ Dziedzina dodana! 📱 Mobile Development
+
+Ustaw jako aktywną: /learn --domain mobile-dev
+```
+
+Po utworzeniu dziedziny:
+- Pojawi się w `/learn --domains`
+- Możesz ją ustawić jako aktywną
+- Kursy w tej dziedzinie będą śledzone oddzielnie
+
+### Zapisywanie Kursu do Library
+
+Ukończyłeś kurs i chcesz go wykorzystać ponownie lub udostępnić?
+
+```bash
+/learn --save-course <course-id>
+```
+
+**Jak znaleźć course ID:**
+1. Uruchom `/progress`
+2. Zobacz sekcję "📚 Aktywne Kursy"
+3. Course ID to zazwyczaj slug z tytułu (np. `redis-caching-w-fastapi`)
+
+**Przykład:**
+
+```bash
+# Zapisz ukończony kurs
+/learn --save-course redis-caching-w-fastapi
+
+✅ Kurs zapisany do library!
+Lokalizacja: data/course_library/redis-caching-w-fastapi.json
+ID: redis-caching-w-fastapi
+
+Użyj go ponownie: /learn --start redis-caching-w-fastapi
+```
+
+Zapisany kurs:
+- Pojawi się w `/learn --library`
+- Możesz go rozpocząć ponownie przez `/learn --start <id>`
+- Jest reusable - możesz go użyć wiele razy
+
+**Use cases:**
+- **Onboarding** - stwórz kurs dla nowych członków zespołu, zapisz go, używaj dla każdego
+- **Best practices** - zapisz kursy które sprawdziły się w praktyce
+- **Własne ścieżki** - buduj custom learning paths dla swojego zespołu
 
 ---
 
