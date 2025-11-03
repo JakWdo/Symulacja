@@ -62,6 +62,9 @@ from app.services.personas import (
     PersonaAuditService,
 )
 from app.services.personas.persona_generator_langchain import DemographicDistribution
+from app.services.personas.demographics_formatter import DemographicsFormatter
+from app.services.personas.distribution_builder import DistributionBuilder
+from app.services.personas.segment_constructor import SegmentConstructor
 from app.core.config import get_settings
 from config import demographics
 from app.services.dashboard.cache_invalidation import invalidate_project_cache
@@ -148,1012 +151,6 @@ def _calculate_concurrency_limit(num_personas: int, adversarial_mode: bool) -> i
     return base_limit
 
 
-_NAME_FROM_STORY_PATTERN = re.compile(
-    r"^(?P<name>[A-Z][a-z]+(?: [A-Z][a-z]+){0,2})\s+is\s+(?:an|a)\s",
-)
-_AGE_IN_STORY_PATTERN = re.compile(r"(?P<age>\d{1,3})-year-old")
-# Wzorce do ekstrakcji wieku z polskiego tekstu
-# WAŻNE: Negative lookahead (?!\s+doświadczenia) zapobiega matchowaniu "10 lat doświadczenia"
-_POLISH_AGE_PATTERNS = [
-    re.compile(r"(?:ma|mam)\s+(?P<age>\d{1,2})\s+lat(?!\s+doświadczenia)", re.IGNORECASE),  # "ma 32 lata" ale NIE "ma 10 lat doświadczenia"
-    re.compile(r"(?P<age>\d{1,2})-letni[aey]?(?!\s+doświadczeni)", re.IGNORECASE),  # "32-letnia" ale NIE "10-letni doświadczeniem"
-    re.compile(r"(?P<age>\d{1,2})\s+lat(?!\s+(?:doświadczenia|pracy|stażu|w))", re.IGNORECASE),  # "32 lat" ale NIE "10 lat doświadczenia/pracy/stażu/w firmie"
-]
-
-
-# Mapowania i pomocnicze słowniki dla polonizacji danych
-_POLISH_CHARACTERS = set("ąćęłńóśźż")
-_POLISH_CITY_LOOKUP = {
-    # Normalizujemy nazwy miast aby móc dopasować różne warianty zapisu
-    "".join(ch for ch in unicodedata.normalize("NFD", city) if not unicodedata.combining(ch)).lower(): city
-    for city in demographics.poland.locations.keys()
-}
-
-_EN_TO_PL_GENDER = {
-    "female": "Kobieta",
-    "kobieta": "Kobieta",
-    "male": "Mężczyzna",
-    "mężczyzna": "Mężczyzna",
-    "man": "Mężczyzna",
-    "woman": "Kobieta",
-    "non-binary": "Osoba niebinarna",
-    "nonbinary": "Osoba niebinarna",
-    "other": "Osoba niebinarna",
-}
-
-_EN_TO_PL_EDUCATION = {
-    "high school": "Średnie ogólnokształcące",
-    "some college": "Policealne",
-    "bachelor's degree": "Wyższe licencjackie",
-    "masters degree": "Wyższe magisterskie",
-    "master's degree": "Wyższe magisterskie",
-    "doctorate": "Doktorat",
-    "phd": "Doktorat",
-    "technical school": "Średnie techniczne",
-    "trade school": "Zasadnicze zawodowe",
-    "vocational": "Zasadnicze zawodowe",
-}
-
-_EN_TO_PL_INCOME = {
-    "< $25k": "< 3 000 zł",
-    "$25k-$50k": "3 000 - 5 000 zł",
-    "$50k-$75k": "5 000 - 7 500 zł",
-    "$75k-$100k": "7 500 - 10 000 zł",
-    "$100k-$150k": "10 000 - 15 000 zł",
-    "> $150k": "> 15 000 zł",
-    "$150k+": "> 15 000 zł",
-}
-
-_ADDITIONAL_CITY_ALIASES = {
-    "warsaw": "Warszawa",
-    "krakow": "Kraków",
-    "wroclaw": "Wrocław",
-    "poznan": "Poznań",
-    "lodz": "Łódź",
-    "gdansk": "Gdańsk",
-    "gdynia": "Gdynia",
-    "szczecin": "Szczecin",
-    "lublin": "Lublin",
-    "bialystok": "Białystok",
-    "bydgoszcz": "Bydgoszcz",
-    "katowice": "Katowice",
-    "czestochowa": "Częstochowa",
-    "torun": "Toruń",
-    "radom": "Radom",
-}
-
-
-def _normalize_text(value: str | None) -> str:
-    """Usuń diakrytyki i sprowadź tekst do małych liter – pomocne przy dopasowaniach."""
-    if not value:
-        return ""
-    normalized = unicodedata.normalize("NFD", value)
-    stripped = "".join(ch for ch in normalized if not unicodedata.combining(ch))
-    return stripped.lower().strip()
-
-
-def _select_weighted(distribution: dict[str, float]) -> str | None:
-    """Wybierz losowy element z podanego rozkładu prawdopodobieństwa."""
-    if not distribution:
-        return None
-    options = list(distribution.keys())
-    weights = list(distribution.values())
-    return random.choices(options, weights=weights, k=1)[0]
-
-
-def _extract_polish_location_from_story(story: str | None) -> str | None:
-    """Spróbuj znaleźć polską lokalizację wewnątrz historii tła persony."""
-    if not story:
-        return None
-    normalized_story = _normalize_text(story)
-    for normalized_city, original_city in _POLISH_CITY_LOOKUP.items():
-        if normalized_city and normalized_city in normalized_story:
-            return original_city
-        # Obsługa odmian fleksyjnych (np. Wrocławiu, Gdańsku)
-        if normalized_city.endswith("a") and normalized_city + "ch" in normalized_story:
-            return original_city
-        if normalized_city + "iu" in normalized_story or normalized_city + "u" in normalized_story:
-            return original_city
-        if normalized_city + "ie" in normalized_story:
-            return original_city
-    return None
-
-
-def _ensure_polish_location(location: str | None, story: str | None) -> str:
-    """Zadbaj aby lokalizacja była polska – użyj historii lub losowania z listy."""
-    normalized = _normalize_text(location)
-    if normalized:
-        if normalized in _POLISH_CITY_LOOKUP:
-            return _POLISH_CITY_LOOKUP[normalized]
-        if normalized in _ADDITIONAL_CITY_ALIASES:
-            return _ADDITIONAL_CITY_ALIASES[normalized]
-        # Usuń przyrostki typu ", ca" itp.
-        stripped_parts = re.split(r"[,/\\]", normalized)
-        for part in stripped_parts:
-            part = part.strip()
-            if part in _POLISH_CITY_LOOKUP:
-                return _POLISH_CITY_LOOKUP[part]
-            if part in _ADDITIONAL_CITY_ALIASES:
-                return _ADDITIONAL_CITY_ALIASES[part]
-    story_city = _extract_polish_location_from_story(story)
-    if story_city:
-        return story_city
-    fallback = _select_weighted(demographics.poland.locations) or "Warszawa"
-    return fallback
-
-
-def _polishify_gender(raw_gender: str | None) -> str:
-    """Przekonwertuj nazwy płci na polskie odpowiedniki."""
-    normalized = _normalize_text(raw_gender)
-    return _EN_TO_PL_GENDER.get(normalized, raw_gender.title() if raw_gender else "Kobieta")
-
-
-def _polishify_education(raw_education: str | None) -> str:
-    """Przekonwertuj poziom wykształcenia na polską etykietę."""
-    normalized = _normalize_text(raw_education)
-    if normalized in _EN_TO_PL_EDUCATION:
-        return _EN_TO_PL_EDUCATION[normalized]
-    if raw_education:
-        return raw_education
-    return _select_weighted(demographics.poland.education_levels) or "Średnie ogólnokształcące"
-
-
-def _polishify_income(raw_income: str | None) -> str:
-    """Przekonwertuj przedział dochodowy na złotówki."""
-    normalized = raw_income.strip() if isinstance(raw_income, str) else None
-    if normalized:
-        normalized_key = normalized.replace(" ", "")
-        if normalized in _EN_TO_PL_INCOME:
-            return _EN_TO_PL_INCOME[normalized]
-        if normalized_key in _EN_TO_PL_INCOME:
-            return _EN_TO_PL_INCOME[normalized_key]
-    return raw_income if raw_income else (_select_weighted(demographics.poland.income_brackets) or "5 000 - 7 500 zł")
-
-
-_SEGMENT_GENDER_LABELS = {
-    "kobieta": "Kobiety",
-    "kobiety": "Kobiety",
-    "female": "Kobiety",
-    "mężczyzna": "Mężczyźni",
-    "mezczyzna": "Mężczyźni",
-    "mężczyzni": "Mężczyźni",
-    "mężczyźni": "Mężczyźni",
-    "male": "Mężczyźni",
-}
-
-
-def _segment_gender_label(raw_gender: str | None) -> str:
-    normalized = _normalize_text(raw_gender)
-    return _SEGMENT_GENDER_LABELS.get(normalized, "Osoby")
-
-
-def _format_age_segment(raw_age: str | None) -> str | None:
-    if raw_age is None:
-        return None
-    age_str = str(raw_age).strip()
-    if not age_str:
-        return None
-    if age_str.replace("+", "").isdigit() or "-" in age_str:
-        if age_str.endswith("lat"):
-            return age_str
-        return f"{age_str} lat"
-    return age_str
-
-
-def _format_education_phrase(raw_education: str | None) -> str | None:
-    if not raw_education:
-        return None
-    value = str(raw_education).strip()
-    lower = value.lower()
-    if "wyższ" in lower:
-        return "z wyższym wykształceniem"
-    if "średn" in lower:
-        return "ze średnim wykształceniem"
-    if "zawod" in lower:
-        return "z wykształceniem zawodowym"
-    if "podstaw" in lower:
-        return "z wykształceniem podstawowym"
-    if value:
-        return f"z wykształceniem {value}"
-    return None
-
-
-def _format_income_phrase(raw_income: str | None) -> str | None:
-    if not raw_income:
-        return None
-    value = str(raw_income).strip()
-    if not value:
-        return None
-    if any(char.isdigit() for char in value):
-        return f"osiągające dochody około {value}"
-    return f"o dochodach {value}"
-
-
-def _format_location_phrase(raw_location: str | None) -> str | None:
-    if not raw_location:
-        return None
-    value = str(raw_location).strip()
-    if not value:
-        return None
-    normalized = _normalize_text(value)
-    if normalized in {"polska", "kraj", "calapolska", "całapolska", "cała polska"}:
-        return "rozproszone w całej Polsce"
-    return f"mieszkające w {value}"
-
-
-def _slugify_segment(name: str) -> str:
-    normalized = unicodedata.normalize("NFKD", name)
-    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
-    ascii_text = re.sub(r"[^a-zA-Z0-9]+", "-", ascii_text.lower()).strip("-")
-    return ascii_text
-
-
-def _sanitize_brief_text(text: str | None, max_length: int = 900) -> str | None:
-    if not text:
-        return None
-    cleaned = re.sub(r"[`*_#>\[\]]+", "", text)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    if not cleaned:
-        return None
-    if max_length and len(cleaned) > max_length:
-        truncated = cleaned[:max_length].rsplit(" ", 1)[0]
-        return f"{truncated}..."
-    return cleaned
-
-
-def _segment_subject_descriptor(gender_label: str, age_phrase: str | None) -> str:
-    base = gender_label.lower() if gender_label and gender_label != "Osoby" else "osoby"
-    if age_phrase:
-        return f"{base} w wieku {age_phrase}"
-    return base
-
-
-def _compose_segment_description(
-    demographics: dict[str, Any],
-    segment_name: str,
-) -> str:
-    gender_label = _segment_gender_label(demographics.get("gender"))
-    age_phrase = _format_age_segment(demographics.get("age") or demographics.get("age_group"))
-    education_phrase = _format_education_phrase(
-        demographics.get("education") or demographics.get("education_level")
-    )
-    income_phrase = _format_income_phrase(
-        demographics.get("income") or demographics.get("income_bracket")
-    )
-    location_phrase = _format_location_phrase(demographics.get("location"))
-
-    subject = _segment_subject_descriptor(gender_label, age_phrase)
-    segment_label = segment_name or "Ten segment"
-
-    sentences = [f"{segment_label} obejmuje {subject}."]
-    details = [phrase for phrase in [education_phrase, income_phrase, location_phrase] if phrase]
-    if details:
-        detail_sentence = ", ".join(details)
-        sentences.append(f"W tej grupie dominują osoby {detail_sentence}.")
-
-    return " ".join(sentences)
-
-
-def _compose_segment_name(
-    demographics: dict[str, Any],
-    group_index: int,
-) -> str:
-    gender_label = _segment_gender_label(demographics.get("gender"))
-    age_value = demographics.get("age") or demographics.get("age_group")
-    location = demographics.get("location")
-    education_raw = demographics.get("education") or demographics.get("education_level")
-
-    age_component = None
-    if age_value:
-        age_component = str(age_value).replace("lat", "").strip()
-
-    education_component = None
-    if education_raw:
-        value = str(education_raw).strip()
-        lower = value.lower()
-        if "wyższ" in lower:
-            education_component = "wyższe wykształcenie"
-        elif "średn" in lower:
-            education_component = "średnie wykształcenie"
-        elif "zawod" in lower:
-            education_component = "zawodowe wykształcenie"
-
-    location_component = None
-    if location:
-        normalized_loc = _normalize_text(location)
-        if normalized_loc not in {"polska", "kraj", "calapolska", "całapolska"}:
-            location_component = str(location).strip()
-
-    parts = []
-    if gender_label and gender_label != "Osoby":
-        parts.append(gender_label)
-    else:
-        parts.append("Osoby")
-    if age_component:
-        parts.append(age_component)
-    if education_component:
-        parts.append(education_component)
-    if location_component:
-        parts.append(location_component)
-
-    name = " ".join(parts).strip()
-    if not name:
-        name = f"Segment {group_index + 1}"
-    if len(name) > 60:
-        name = name[:57].rstrip() + "..."
-    return name
-
-
-def _build_segment_metadata(
-    demographics: dict[str, Any],
-    brief: str | None,
-    allocation_reasoning: str | None,
-    group_index: int,
-    segment_characteristics: list[str] | None = None,
-) -> dict[str, str | None]:
-    """Buduje metadata segmentu z chwytliwą nazwą (jeśli dostępna).
-
-    Priorytet nazw:
-    1. segment_characteristics[0] - chwytliwa nazwa z orchestration (np. "Młodzi Prekariusze")
-    2. _compose_segment_name() - generyczna nazwa (fallback)
-
-    Args:
-        demographics: Cechy demograficzne
-        brief: Brief segmentu
-        allocation_reasoning: Reasoning alokacji
-        group_index: Indeks grupy
-        segment_characteristics: Kluczowe cechy segmentu z orchestration (opcjonalne)
-
-    Returns:
-        Dict z segment_name, segment_id, segment_description, segment_social_context
-    """
-    # PRIORYTET 1: Użyj pierwszej charakterystyki jako chwytliwej nazwy (jeśli istnieje i wygląda jak nazwa)
-    catchy_segment_name = None
-    if segment_characteristics and len(segment_characteristics) > 0:
-        first_char = segment_characteristics[0].strip()
-        # Validate: krótka nazwa (2-6 słów, <60 znaków), nie pełne zdanie
-        word_count = len(first_char.split())
-        if 2 <= word_count <= 6 and len(first_char) < 60 and not first_char.endswith('.'):
-            catchy_segment_name = first_char
-            logger.info(f"✨ Using catchy segment name from orchestration: '{catchy_segment_name}'")
-
-    # FALLBACK: Generyczna nazwa
-    segment_name = catchy_segment_name or _compose_segment_name(demographics, group_index)
-
-    slug = _slugify_segment(segment_name)
-    if not slug:
-        slug = f"segment-{group_index + 1}"
-
-    description = _compose_segment_description(demographics, segment_name)
-    social_context = _sanitize_brief_text(brief)
-    if not social_context:
-        social_context = _sanitize_brief_text(allocation_reasoning)
-    if not social_context:
-        social_context = description
-
-    return {
-        "segment_name": segment_name,
-        "segment_id": slug,
-        "segment_description": description,
-        "segment_social_context": social_context,
-    }
-
-
-def _looks_polish_phrase(text: str | None) -> bool:
-    """Sprawdź heurystycznie czy tekst wygląda na polski (znaki diakrytyczne, słowa kluczowe)."""
-    if not text:
-        return False
-    lowered = text.strip().lower()
-    if any(char in text for char in _POLISH_CHARACTERS):
-        return True
-    keywords = ["specjalista", "menedżer", "koordynator", "student", "uczeń", "właściciel", "kierownik", "logistyk"]
-    return any(keyword in lowered for keyword in keywords)
-
-
-def _format_job_title(job: str) -> str:
-    """Ujednolicenie formatowania tytułu zawodowego."""
-    job = job.strip()
-    if not job:
-        return job
-    return job[0].upper() + job[1:]
-
-
-_BACKGROUND_JOB_PATTERNS = [
-    re.compile(r"pracuje jako (?P<job>[^\.,]+)", re.IGNORECASE),
-    re.compile(r"jest (?P<job>[^\.,]+) w", re.IGNORECASE),
-    re.compile(r"na stanowisku (?P<job>[^\.,]+)", re.IGNORECASE),
-    re.compile(r"pełni funkcję (?P<job>[^\.,]+)", re.IGNORECASE),
-]
-
-
-def _infer_polish_occupation(
-    education_level: str | None,
-    income_bracket: str | None,
-    age: int,
-    personality: dict[str, Any],
-    background_story: str | None,
-) -> str:
-    """Ustal możliwie polski tytuł zawodowy bazując na dostępnych danych."""
-    candidate = personality.get("persona_title") or personality.get("occupation")
-    if candidate and _looks_polish_phrase(candidate):
-        return _format_job_title(candidate)
-
-    if background_story:
-        for pattern in _BACKGROUND_JOB_PATTERNS:
-            match = pattern.search(background_story)
-            if match:
-                job = match.group("job").strip()
-                if job:
-                    return _format_job_title(job)
-
-    # Jeżeli AI nie zwróciło spójnego polskiego zawodu – losuj realistyczny zawód z rozkładu
-    occupation = _select_weighted(demographics.poland.occupations)
-    if occupation:
-        return occupation
-
-    # Fallback na wylosowaną angielską listę (ostatnia linia obrony)
-    return random.choice(demographics.international.occupations) if demographics.international.occupations else "Specjalista"
-
-
-def _fallback_polish_list(source: list[str] | None, fallback_pool: list[str]) -> list[str]:
-    """Zapewnij, że listy wartości i zainteresowań mają polskie elementy."""
-    if source:
-        return [item for item in source if isinstance(item, str) and item.strip()]
-    if not fallback_pool:
-        return []
-    sample_size = min(5, len(fallback_pool))
-    return random.sample(fallback_pool, k=sample_size)
-
-
-def _infer_full_name(background_story: str | None) -> str | None:
-    if not background_story:
-        return None
-    match = _NAME_FROM_STORY_PATTERN.match(background_story.strip())
-    if match:
-        return match.group('name')
-    return None
-
-
-def _extract_age_from_story(background_story: str | None) -> int | None:
-    """
-    Ekstraktuj wiek z background_story (wspiera polski i angielski tekst)
-
-    Args:
-        background_story: Historia życiowa persony
-
-    Returns:
-        Wyekstraktowany wiek lub None jeśli nie znaleziono
-    """
-    if not background_story:
-        return None
-
-    # Spróbuj angielski wzorzec "32-year-old"
-    match = _AGE_IN_STORY_PATTERN.search(background_story)
-    if match:
-        try:
-            return int(match.group('age'))
-        except (ValueError, AttributeError):
-            pass
-
-    # Spróbuj polskie wzorce
-    for pattern in _POLISH_AGE_PATTERNS:
-        match = pattern.search(background_story)
-        if match:
-            try:
-                age = int(match.group('age'))
-                if 10 <= age <= 100:  # Sanity check
-                    return age
-            except (ValueError, AttributeError):
-                continue
-
-    return None
-
-
-def _fallback_full_name(gender: str | None, age: int) -> str:
-    gender_label = (gender or "Persona").split()[0].capitalize()
-    return f"{gender_label} {age}"
-
-
-def _compose_headline(
-    full_name: str,
-    persona_title: str | None,
-    occupation: str | None,
-    location: str | None,
-) -> str:
-    primary_role = persona_title or occupation
-    name_root = full_name.split()[0]
-    if primary_role and location:
-        return f"{primary_role} based in {location}"
-    if primary_role:
-        return primary_role
-    if location:
-        return f"{name_root} from {location}"
-    return f"{name_root}'s persona profile"
-
-
-def _get_consistent_occupation(
-    education_level: str | None,
-    income_bracket: str | None,
-    age: int,
-    personality: dict[str, Any],
-    background_story: str | None,
-) -> str:
-    """Zapewnij polski, spójny zawód bazując na danych kontekstowych."""
-    return _infer_polish_occupation(education_level, income_bracket, age, personality, background_story)
-
-
-def _ensure_story_alignment(
-    story: str | None,
-    age: int,
-    occupation: str | None,
-) -> str | None:
-    if not story:
-        return story
-    text = story.strip()
-    match = _AGE_IN_STORY_PATTERN.search(text)
-    if match and match.group('age') != str(age):
-        text = _AGE_IN_STORY_PATTERN.sub(f"{age}-year-old", text, count=1)
-    return text
-
-
-def _normalize_weights(weights: dict[str, float]) -> dict[str, float]:
-    total = sum(value for value in weights.values() if value > 0)
-    if total <= 0:
-        return weights
-    return {key: value / total for key, value in weights.items() if value > 0}
-
-
-def _coerce_distribution(raw: dict[str, Any] | None) -> dict[str, float] | None:
-    if not raw:
-        return None
-    cleaned: dict[str, float] = {}
-    for key, value in raw.items():
-        try:
-            numeric = float(value)
-        except (TypeError, ValueError):
-            continue
-        if numeric > 0:
-            cleaned[str(key)] = numeric
-    return _normalize_weights(cleaned) if cleaned else None
-
-
-def _apply_demographic_preset(
-    distribution: DemographicDistribution,
-    preset: str | None
-) -> DemographicDistribution:
-    """Nadpisuje rozkłady demograficzne na podstawie demographic preset.
-
-    Presets są mapowane na realistyczne rozkłady demograficzne dla Polski:
-    - gen_z: 18-27 lat, duże miasta uniwersyteckie, niższe dochody
-    - millennials: 28-43 lata, duże miasta, średnie/wysokie dochody
-    - gen_x: 44-59 lat, stabilność, średnie miasta
-    - boomers: 60+ lat, małe miasta, wysokie dochody
-    - urban_professionals: Duże miasta, wyższe wykształcenie, wysokie dochody
-    - suburban_families: Przedmieścia, średnie dochody
-    - rural_communities: Małe miejscowości, niższe dochody
-
-    Args:
-        distribution: Bazowy rozkład demograficzny
-        preset: Preset demograficzny (gen_z, millennials, etc.)
-
-    Returns:
-        DemographicDistribution z nadpisanymi rozkładami dla preset
-    """
-    if not preset:
-        return distribution
-
-    # Normalizuj preset ID (obsługa myślników i wielkości liter)
-    preset = preset.replace('-', '_').lower()
-
-    if preset == "gen_z":
-        # Gen Z (18-27): Digitalni natywni, duże miasta, studia/pierwsze prace
-        distribution.age_groups = {"18-24": 0.6, "25-34": 0.4}
-        distribution.locations = {
-            "Warszawa": 0.25,
-            "Kraków": 0.15,
-            "Wrocław": 0.15,
-            "Gdańsk": 0.10,
-            "Poznań": 0.10,
-            "Łódź": 0.08,
-            "Katowice": 0.07,
-            "Trójmiasto": 0.05,
-            "Lublin": 0.05,
-        }
-        distribution.education_levels = {
-            "Wyższe licencjackie": 0.35,
-            "W trakcie studiów": 0.25,
-            "Wyższe magisterskie": 0.20,
-            "Średnie": 0.20,
-        }
-        distribution.income_brackets = {
-            "< 3 000 zł": 0.30,
-            "3 000 - 5 000 zł": 0.40,
-            "5 000 - 7 500 zł": 0.20,
-            "7 500 - 10 000 zł": 0.08,
-            "> 10 000 zł": 0.02,
-        }
-        logger.info("🎯 Applied preset: gen_z (18-27, duże miasta, entry-level)")
-
-    elif preset == "millennials":
-        # Millennials (28-43): Established professionals, rodziny, kariera
-        distribution.age_groups = {"25-34": 0.50, "35-44": 0.50}
-        distribution.locations = {
-            "Warszawa": 0.30,
-            "Kraków": 0.15,
-            "Wrocław": 0.15,
-            "Poznań": 0.10,
-            "Gdańsk": 0.08,
-            "Trójmiasto": 0.07,
-            "Katowice": 0.07,
-            "Łódź": 0.05,
-            "Szczecin": 0.03,
-        }
-        distribution.education_levels = {
-            "Wyższe magisterskie": 0.50,
-            "Wyższe licencjackie": 0.30,
-            "Policealne": 0.10,
-            "Średnie": 0.10,
-        }
-        distribution.income_brackets = {
-            "5 000 - 7 500 zł": 0.25,
-            "7 500 - 10 000 zł": 0.30,
-            "10 000 - 15 000 zł": 0.25,
-            "> 15 000 zł": 0.15,
-            "3 000 - 5 000 zł": 0.05,
-        }
-        logger.info("🎯 Applied preset: millennials (28-43, profesjonaliści)")
-
-    elif preset == "gen_x":
-        # Gen X (44-59): Doświadczeni liderzy, stabilność, średnie miasta
-        distribution.age_groups = {"45-54": 0.60, "55-64": 0.40}
-        distribution.locations = {
-            "Warszawa": 0.20,
-            "Kraków": 0.12,
-            "Wrocław": 0.10,
-            "Poznań": 0.10,
-            "Gdańsk": 0.08,
-            "Katowice": 0.08,
-            "Łódź": 0.08,
-            "Lublin": 0.06,
-            "Szczecin": 0.06,
-            "Inne miasta": 0.12,
-        }
-        distribution.education_levels = {
-            "Wyższe magisterskie": 0.40,
-            "Wyższe licencjackie": 0.25,
-            "Średnie": 0.20,
-            "Policealne": 0.10,
-            "Podstawowe": 0.05,
-        }
-        distribution.income_brackets = {
-            "7 500 - 10 000 zł": 0.30,
-            "10 000 - 15 000 zł": 0.30,
-            "> 15 000 zł": 0.25,
-            "5 000 - 7 500 zł": 0.15,
-        }
-        logger.info("🎯 Applied preset: gen_x (44-59, doświadczeni liderzy)")
-
-    elif preset == "boomers":
-        # Baby Boomers (60+): Emeryci, tradycyjne wartości, małe miasta
-        distribution.age_groups = {"55-64": 0.40, "65+": 0.60}
-        distribution.locations = {
-            "Warszawa": 0.15,
-            "Kraków": 0.10,
-            "Wrocław": 0.08,
-            "Poznań": 0.08,
-            "Łódź": 0.08,
-            "Gdańsk": 0.08,
-            "Katowice": 0.08,
-            "Inne miasta": 0.20,
-            "Małe miasta": 0.15,
-        }
-        distribution.education_levels = {
-            "Średnie": 0.35,
-            "Wyższe magisterskie": 0.25,
-            "Wyższe licencjackie": 0.15,
-            "Zawodowe": 0.15,
-            "Podstawowe": 0.10,
-        }
-        distribution.income_brackets = {
-            "3 000 - 5 000 zł": 0.35,
-            "5 000 - 7 500 zł": 0.30,
-            "7 500 - 10 000 zł": 0.15,
-            "> 10 000 zł": 0.10,
-            "< 3 000 zł": 0.10,
-        }
-        logger.info("🎯 Applied preset: boomers (60+, tradycyjne wartości)")
-
-    elif preset == "urban_professionals":
-        # Urban Professionals: Duże miasta, wysokie wykształcenie, wysokie dochody
-        distribution.age_groups = {"25-34": 0.40, "35-44": 0.40, "45-54": 0.20}
-        distribution.locations = {
-            "Warszawa": 0.40,
-            "Kraków": 0.18,
-            "Wrocław": 0.15,
-            "Poznań": 0.12,
-            "Gdańsk": 0.10,
-            "Trójmiasto": 0.05,
-        }
-        distribution.education_levels = {
-            "Wyższe magisterskie": 0.60,
-            "Wyższe licencjackie": 0.30,
-            "MBA/Doktorat": 0.10,
-        }
-        distribution.income_brackets = {
-            "10 000 - 15 000 zł": 0.30,
-            "> 15 000 zł": 0.35,
-            "7 500 - 10 000 zł": 0.25,
-            "5 000 - 7 500 zł": 0.10,
-        }
-        logger.info("🎯 Applied preset: urban_professionals (duże miasta, wysokie dochody)")
-
-    elif preset == "suburban_families":
-        # Suburban Families: Przedmieścia, rodziny, średnie dochody
-        distribution.age_groups = {"25-34": 0.30, "35-44": 0.50, "45-54": 0.20}
-        distribution.locations = {
-            "Warszawa - przedmieścia": 0.25,
-            "Kraków - przedmieścia": 0.15,
-            "Wrocław - przedmieścia": 0.12,
-            "Poznań - przedmieścia": 0.10,
-            "Gdańsk - przedmieścia": 0.10,
-            "Trójmiasto - przedmieścia": 0.08,
-            "Katowice - przedmieścia": 0.08,
-            "Inne przedmieścia": 0.12,
-        }
-        distribution.education_levels = {
-            "Wyższe licencjackie": 0.35,
-            "Wyższe magisterskie": 0.30,
-            "Średnie": 0.20,
-            "Policealne": 0.15,
-        }
-        distribution.income_brackets = {
-            "5 000 - 7 500 zł": 0.30,
-            "7 500 - 10 000 zł": 0.35,
-            "10 000 - 15 000 zł": 0.20,
-            "3 000 - 5 000 zł": 0.10,
-            "> 15 000 zł": 0.05,
-        }
-        logger.info("🎯 Applied preset: suburban_families (przedmieścia, rodziny)")
-
-    elif preset == "rural_communities":
-        # Rural Communities: Małe miejscowości, lokalne społeczności
-        distribution.age_groups = {"25-34": 0.20, "35-44": 0.25, "45-54": 0.30, "55-64": 0.15, "65+": 0.10}
-        distribution.locations = {
-            "Małe miasta < 20k": 0.40,
-            "Wsie": 0.30,
-            "Miasta 20k-50k": 0.30,
-        }
-        distribution.education_levels = {
-            "Średnie": 0.40,
-            "Zawodowe": 0.25,
-            "Wyższe licencjackie": 0.20,
-            "Podstawowe": 0.10,
-            "Wyższe magisterskie": 0.05,
-        }
-        distribution.income_brackets = {
-            "3 000 - 5 000 zł": 0.40,
-            "< 3 000 zł": 0.25,
-            "5 000 - 7 500 zł": 0.25,
-            "7 500 - 10 000 zł": 0.08,
-            "> 10 000 zł": 0.02,
-        }
-        logger.info("🎯 Applied preset: rural_communities (małe miejscowości)")
-
-    else:
-        logger.warning(f"⚠️  Unknown demographic preset: {preset} - skipping override")
-
-    return distribution
-
-
-def _extract_polish_cities_from_description(description: str | None) -> list[str]:
-    """Wyciąga polskie miasta z opisu grupy docelowej używając regex + fleksja.
-
-    Obsługuje odmianę nazw miast w polskim języku:
-    - "Gdańsk", "Gdańsku", "Gdańskiem", "z Gdańska"
-    - "Warszawa", "Warszawie", "Warszawy", "z Warszawy"
-
-    Args:
-        description: Opis grupy docelowej (np. "Osoby z Gdańska zainteresowane ekologią")
-
-    Returns:
-        Lista wykrytych polskich miast (max 5)
-    """
-    if not description:
-        return []
-
-    cities = []
-    normalized_desc = _normalize_text(description)  # Istniejąca funkcja (usuwa diakrytyki)
-
-    # POLISH_LOCATIONS to dict z nazwami miast - używamy keys()
-    for city_name in demographics.poland.locations.keys():
-        # Normalizuj nazwę miasta (usuń diakrytyki dla matching)
-        normalized_city = _normalize_text(city_name)
-
-        # Sprawdź czy miasto występuje w opisie (z obsługą fleksji)
-        # Wzorce: "Gdańsk", "Gdańsku", "Gdańskiem", "z Gdańska", "Gdańska"
-        # Regex: słowo + opcjonalnie 0-3 litery na końcu (fleksja)
-        pattern = rf"\b{re.escape(normalized_city)}[a-z]{{0,3}}\b"
-        if re.search(pattern, normalized_desc, re.IGNORECASE):
-            cities.append(city_name)
-            logger.debug(f"📍 Extracted city from description: {city_name}")
-
-    # Limit do 5 miast (unikaj przepełnienia gdy opis zawiera wiele nazw)
-    result = cities[:5]
-
-    if result:
-        logger.info(f"📍 Extracted {len(result)} cities from description: {result}")
-
-    return result
-
-
-def _map_focus_area_to_industries(focus_area: str | None) -> list[str] | None:
-    """Konwertuje focus area na listę branż dla generatora person.
-
-    Mapowanie focus areas na konkretne branże pomaga generatorowi
-    tworzyć persony z odpowiednimi zawodami.
-
-    Args:
-        focus_area: Obszar zainteresowań (tech, healthcare, finance, etc.)
-
-    Returns:
-        Lista branż lub None jeśli focus area nie jest rozpoznany/nie ma mappingu
-    """
-    if not focus_area:
-        return None
-
-    # Normalizuj focus area (lowercase)
-    focus_area = focus_area.lower()
-
-    # Mapowanie focus areas → industries
-    focus_to_industries = {
-        "tech": ["technology", "software development", "IT services", "fintech", "SaaS"],
-        "healthcare": ["healthcare", "pharmaceuticals", "medical devices", "biotechnology", "health services"],
-        "finance": ["banking", "financial services", "fintech", "insurance", "investment management", "accounting"],
-        "education": ["education", "e-learning", "training & development", "educational technology", "academic research"],
-        "retail": ["retail", "e-commerce", "consumer goods", "fashion", "FMCG"],
-        "manufacturing": ["manufacturing", "industrial production", "logistics", "supply chain", "automotive"],
-        "services": ["consulting", "professional services", "business services", "legal services", "HR services"],
-        "entertainment": ["media & entertainment", "creative industries", "arts & culture", "gaming", "streaming"],
-        "lifestyle": ["health & wellness", "fitness", "beauty", "travel & leisure", "hospitality"],
-        "shopping": ["retail", "e-commerce", "consumer services", "marketplaces"],
-        "general": None,  # Nie filtruj branż dla general
-    }
-
-    industries = focus_to_industries.get(focus_area)
-
-    if industries:
-        logger.info(f"🏢 Mapped focus_area='{focus_area}' → industries={industries}")
-
-    return industries
-
-
-def _age_group_bounds(label: str) -> tuple[int, int | None]:
-    if '-' in label:
-        start, end = label.split('-', maxsplit=1)
-        try:
-            return int(start), int(end)
-        except ValueError:
-            return 0, None
-    if label.endswith('+'):
-        try:
-            base = int(label.rstrip('+'))
-            return base, None
-        except ValueError:
-            return 0, None
-    try:
-        value = int(label)
-        return value, value
-    except ValueError:
-        return 0, None
-
-
-def _age_group_overlaps(label: str, min_age: int | None, max_age: int | None) -> bool:
-    group_min, group_max = _age_group_bounds(label)
-    if min_age is not None and group_max is not None and group_max < min_age:
-        return False
-    if max_age is not None and group_min is not None and group_min > max_age:
-        return False
-    return True
-
-
-def _apply_age_preferences(
-    age_groups: dict[str, float],
-    focus: str | None,
-    min_age: int | None,
-    max_age: int | None,
-) -> dict[str, float]:
-    adjusted = {
-        label: weight
-        for label, weight in age_groups.items()
-        if _age_group_overlaps(label, min_age, max_age)
-    }
-    if not adjusted:
-        adjusted = dict(age_groups)
-
-    if focus == 'young_adults':
-        for label in adjusted:
-            lower, upper = _age_group_bounds(label)
-            upper_value = upper if upper is not None else lower + 5
-            if upper_value <= 35:
-                adjusted[label] *= 1.8
-            else:
-                adjusted[label] *= 0.6
-    elif focus == 'experienced_leaders':
-        for label in adjusted:
-            lower, _ = _age_group_bounds(label)
-            if lower >= 35:
-                adjusted[label] *= 1.8
-            else:
-                adjusted[label] *= 0.6
-
-    normalized = _normalize_weights(adjusted)
-    return normalized if normalized else dict(age_groups)
-
-
-def _apply_gender_preferences(genders: dict[str, float], balance: str | None) -> dict[str, float]:
-    if balance == 'female_skew':
-        return _normalize_weights({
-            'female': 0.65,
-            'male': 0.3,
-            'non-binary': 0.05,
-        })
-    if balance == 'male_skew':
-        return _normalize_weights({
-            'male': 0.65,
-            'female': 0.3,
-            'non-binary': 0.05,
-        })
-    return genders
-
-
-def _build_location_distribution(
-    base_locations: dict[str, float],
-    advanced_options: dict[str, Any] | None,
-) -> dict[str, float]:
-    if not advanced_options:
-        return base_locations
-
-    cities = advanced_options.get('target_cities') or []
-    countries = advanced_options.get('target_countries') or []
-
-    if cities:
-        city_weights = {city: 1 / len(cities) for city in cities}
-        return _normalize_weights(city_weights)
-
-    if countries:
-        labels = [f"{country} - Urban hub" for country in countries]
-        return _normalize_weights({label: 1 / len(labels) for label in labels})
-
-    urbanicity = advanced_options.get('urbanicity')
-    if urbanicity == 'urban':
-        return base_locations
-    if urbanicity == 'suburban':
-        return _normalize_weights({
-            'Suburban Midwest, USA': 0.25,
-            'Suburban Northeast, USA': 0.25,
-            'Sunbelt Suburb, USA': 0.2,
-            'Other': 0.3,
-        })
-    if urbanicity == 'rural':
-        return _normalize_weights({
-            'Rural Midwest, USA': 0.35,
-            'Rural South, USA': 0.25,
-            'Mountain Town, USA': 0.2,
-            'Other Rural Area': 0.2,
-        })
-
-    return base_locations
-
-def _normalize_distribution(
-    distribution: dict[str, float], fallback: dict[str, float]
-) -> dict[str, float]:
-    """Normalize distribution to sum to 1.0, or use fallback if invalid."""
-    if not distribution:
-        return fallback
-    total = sum(distribution.values())
-    if total <= 0:
-        return fallback
-    return {key: value / total for key, value in distribution.items()}
 
 
 @router.post(
@@ -1277,6 +274,11 @@ async def _generate_personas_task(
             generator_name = getattr(generator, "__class__", type(generator)).__name__
             logger.info("Using %s persona generator", generator_name, extra={"project_id": str(project_id)})
 
+            # Initialize utility classes
+            formatter = DemographicsFormatter()
+            distribution_builder = DistributionBuilder()
+            segment_constructor = SegmentConstructor()
+
             project = await db.get(Project, project_id)
             if not project:
                 logger.error("Project not found in background task.", extra={"project_id": str(project_id)})
@@ -1284,12 +286,12 @@ async def _generate_personas_task(
 
             target_demographics = project.target_demographics or {}
             distribution = DemographicDistribution(
-                age_groups=_normalize_distribution(target_demographics.get("age_group", {}), demographics.common.age_groups),
-                genders=_normalize_distribution(target_demographics.get("gender", {}), demographics.common.genders),
+                age_groups=distribution_builder.normalize_distribution(target_demographics.get("age_group", {}), demographics.common.age_groups),
+                genders=distribution_builder.normalize_distribution(target_demographics.get("gender", {}), demographics.common.genders),
                 # Używaj POLSKICH wartości domyślnych dla lepszej realistyczności
-                education_levels=_normalize_distribution(target_demographics.get("education_level", {}), demographics.poland.education_levels),
-                income_brackets=_normalize_distribution(target_demographics.get("income_bracket", {}), demographics.poland.income_brackets),
-                locations=_normalize_distribution(target_demographics.get("location", {}), demographics.poland.locations),
+                education_levels=distribution_builder.normalize_distribution(target_demographics.get("education_level", {}), demographics.poland.education_levels),
+                income_brackets=distribution_builder.normalize_distribution(target_demographics.get("income_bracket", {}), demographics.poland.income_brackets),
+                locations=distribution_builder.normalize_distribution(target_demographics.get("location", {}), demographics.poland.locations),
             )
 
             # === ADVANCED OPTIONS PROCESSING (AI Wizard kafle) ===
@@ -1306,20 +308,20 @@ async def _generate_personas_task(
             # PHASE 2.1: Apply demographic preset (modifies distribution)
             if demographic_preset:
                 logger.info(f"📊 Applying demographic preset: {demographic_preset}")
-                distribution = _apply_demographic_preset(distribution, demographic_preset)
+                distribution = distribution_builder.apply_demographic_preset(distribution, demographic_preset)
 
             # PHASE 2.2: Extract cities from target_audience_description
             if target_audience_desc:
-                extracted_cities = _extract_polish_cities_from_description(target_audience_desc)
+                extracted_cities = distribution_builder.extract_polish_cities_from_description(target_audience_desc)
                 if extracted_cities:
                     # Override location distribution with extracted cities (equal weights)
                     city_weights = {city: 1.0 / len(extracted_cities) for city in extracted_cities}
-                    distribution.locations = _normalize_weights(city_weights)
+                    distribution.locations = distribution_builder.normalize_weights(city_weights)
                     logger.info(f"📍 Overrode locations with extracted cities: {extracted_cities}")
 
             # PHASE 2.3: Map focus_area to industries (if not already specified)
             if focus_area and not (advanced_options and advanced_options.get("industries")):
-                industries = _map_focus_area_to_industries(focus_area)
+                industries = distribution_builder.map_focus_area_to_industries(focus_area)
                 if industries:
                     # Add industries to advanced_options for generator
                     if not advanced_options:
@@ -1425,7 +427,7 @@ async def _generate_personas_task(
                             if isinstance(group.demographics, dict)
                             else dict(group.demographics)
                         )
-                        segment_metadata = _build_segment_metadata(
+                        segment_metadata = segment_constructor.build_segment_metadata(
                             demographics,
                             group.brief,
                             group.allocation_reasoning,
@@ -1469,7 +471,7 @@ async def _generate_personas_task(
                                 if isinstance(last_group.demographics, dict)
                                 else dict(last_group.demographics)
                             )
-                            last_metadata = _build_segment_metadata(
+                            last_metadata = segment_constructor.build_segment_metadata(
                                 last_demographics,
                                 last_group.brief,
                                 last_group.allocation_reasoning,
@@ -1779,21 +781,21 @@ async def _generate_personas_task(
                     persona_title = personality.get("persona_title")
                     if persona_title:
                         persona_title = persona_title.strip()
-                    if not persona_title or persona_title == "N/A" or not _looks_polish_phrase(persona_title):
+                    if not persona_title or persona_title == "N/A" or not formatter.looks_polish_phrase(persona_title):
                         persona_title = occupation or f"Persona {age}"
                         logger.info(
                             "Persona title zaktualizowany na polski zawód",
                             extra={"project_id": str(project_id), "index": idx},
                         )
 
-                    gender_value = _polishify_gender(demographic.get("gender"))
-                    education_value = _polishify_education(demographic.get("education_level"))
-                    income_value = _polishify_income(demographic.get("income_bracket"))
-                    location_value = _ensure_polish_location(demographic.get("location"), background_story)
+                    gender_value = formatter.polishify_gender(demographic.get("gender"))
+                    education_value = formatter.polishify_education(demographic.get("education_level"))
+                    income_value = formatter.polishify_income(demographic.get("income_bracket"))
+                    location_value = formatter.ensure_polish_location(demographic.get("location"), background_story)
 
                     headline = personality.get("headline")
                     if not headline or headline == "N/A":
-                        headline = _compose_headline(
+                        headline = formatter.compose_headline(
                             full_name, persona_title, occupation, location_value
                         )
                         logger.warning(
@@ -1923,7 +925,7 @@ async def _generate_personas_task(
                         mismatches = []
 
                         # Check gender
-                        expected_gender = _polishify_gender(orch_demo.get("gender", ""))
+                        expected_gender = formatter.polishify_gender(orch_demo.get("gender", ""))
                         if expected_gender and persona_payload["gender"] != expected_gender:
                             mismatches.append(
                                 f"gender: got '{persona_payload['gender']}', expected '{expected_gender}'"
@@ -1945,7 +947,7 @@ async def _generate_personas_task(
                         expected_education = orch_demo.get("education", "")
                         if expected_education:
                             # Normalize for comparison
-                            norm_expected_ed = _polishify_education(expected_education)
+                            norm_expected_ed = formatter.polishify_education(expected_education)
                             if persona_payload["education_level"] != norm_expected_ed:
                                 mismatches.append(
                                     f"education: got '{persona_payload['education_level']}', "
@@ -2519,7 +1521,7 @@ async def get_persona_reasoning(
         segment_id_value = orch_reasoning.get("segment_id") or rag_details.get("segment_id")
 
     if not segment_name:
-        segment_name = _build_segment_metadata(
+        segment_name = segment_constructor.build_segment_metadata(
             fallback_demographics,
             orchestration_brief,
             allocation_reasoning,
@@ -2527,7 +1529,7 @@ async def get_persona_reasoning(
         ).get("segment_name")
 
     if not segment_description and segment_name:
-        segment_description = _compose_segment_description(fallback_demographics, segment_name)
+        segment_description = segment_constructor.compose_segment_description(fallback_demographics, segment_name)
 
     if not segment_social_context:
         characteristic_summary = ""
@@ -2537,17 +1539,17 @@ async def get_persona_reasoning(
                 + ", ".join(segment_characteristics[:4])
                 + "."
             )
-        demographic_sentence = _compose_segment_description(
+        demographic_sentence = segment_constructor.compose_segment_description(
             fallback_demographics,
             segment_name or "Ten segment",
         )
-        brief_snippet = _sanitize_brief_text(orchestration_brief, max_length=280)
+        brief_snippet = segment_constructor.sanitize_brief_text(orchestration_brief, max_length=280)
         segment_social_context = (
             f"{demographic_sentence}{characteristic_summary} "
             f"{brief_snippet}" if brief_snippet else f"{demographic_sentence}{characteristic_summary}"
         ).strip()
 
-    segment_social_context = _sanitize_brief_text(segment_social_context)
+    segment_social_context = segment_constructor.sanitize_brief_text(segment_social_context)
 
     response = PersonaReasoningResponse(
         orchestration_brief=orchestration_brief,
