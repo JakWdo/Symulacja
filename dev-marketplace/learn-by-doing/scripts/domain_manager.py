@@ -33,7 +33,9 @@ def add_domain(
     domain_id: str,
     name: str,
     description: str = "",
-    categories: Optional[List[str]] = None,
+    icon: str = "📚",
+    color: str = "#6B7280",
+    category: str = "custom",
     custom: bool = True
 ) -> bool:
     """
@@ -43,7 +45,9 @@ def add_domain(
         domain_id: Unikalny ID dziedziny (slug format: "data-science", "system-design")
         name: Nazwa wyświetlana (np. "Data Science", "System Design")
         description: Opis dziedziny
-        categories: Lista kategorii (np. ["pandas", "numpy", "ML"])
+        icon: Emoji ikona (default: 📚)
+        color: Hex color code (default: #6B7280)
+        category: Kategoria (engineering, product, custom - default: custom)
         custom: Czy to custom domain (True) czy predefiniowany (False)
 
     Returns:
@@ -57,26 +61,25 @@ def add_domain(
             logger.warning(f"Domain '{domain_id}' already exists")
             return False
 
-        # Dodaj nowy domain
+        # Dodaj nowy domain (zgodnie ze strukturą domains.json)
         domains_data["domains"][domain_id] = {
+            "id": domain_id,
             "name": name,
+            "icon": icon,
+            "color": color,
             "description": description,
-            "added_at": datetime.now(timezone.utc).isoformat(),
-            "active": True,
-            "categories": categories or [],
-            "concepts_count": 0,
-            "mastered_count": 0,
-            "last_practice": None,
-            "custom": custom
+            "category": category,
+            "is_custom": custom,  # Nowy system używa is_custom
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
 
-        # Jeśli to pierwszy custom domain, ustaw jako aktywny
-        if custom and domains_data.get("active_domain") is None:
+        # Jeśli to pierwszy domain lub brak aktywnego, ustaw jako aktywny
+        if domains_data.get("active_domain") is None:
             domains_data["active_domain"] = domain_id
 
         success = save_learning_domains(domains_data)
         if success:
-            logger.info(f"✅ Added domain: {name} ({domain_id})")
+            logger.info(f"✅ Added domain: {icon} {name} ({domain_id})")
         return success
 
     except Exception as e:
@@ -426,11 +429,30 @@ def add_domain_from_template(template_id: str) -> bool:
         return False
 
     template = DOMAIN_TEMPLATES[template_id]
+
+    # Mapuj icon i color na podstawie template_id
+    icon_map = {
+        "data-science": "📊",
+        "system-design": "🏗️",
+        "mathematics": "📐",
+        "machine-learning": "🧠",
+        "algorithms": "⚡"
+    }
+    color_map = {
+        "data-science": "#10B981",
+        "system-design": "#6366F1",
+        "mathematics": "#F59E0B",
+        "machine-learning": "#8B5CF6",
+        "algorithms": "#EF4444"
+    }
+
     return add_domain(
         domain_id=template_id,
         name=template["name"],
         description=template["description"],
-        categories=template["categories"],
+        icon=icon_map.get(template_id, "📚"),
+        color=color_map.get(template_id, "#6B7280"),
+        category="custom",
         custom=True
     )
 

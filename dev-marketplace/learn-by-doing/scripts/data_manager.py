@@ -232,46 +232,64 @@ def load_dynamic_concepts() -> Dict[str, Any]:
 
 def load_learning_domains() -> Dict[str, Any]:
     """
-    Wczytaj dziedziny nauki użytkownika z user_learning_domains.json
+    Wczytaj dziedziny nauki (predefiniowane + custom użytkownika)
+
+    Łączy:
+    - Predefiniowane dziedziny z data/domains.json (plugin)
+    - Custom dziedziny użytkownika z user_learning_domains.json (user storage)
 
     Returns:
         Dict z domenami. W przypadku błędu zwraca domyślną strukturę.
     """
+    # 1. Ładuj predefiniowane dziedziny z data/domains.json
+    predefined_domains = {}
+    predefined_file = LOCAL_DATA_DIR / "domains.json"
+
+    try:
+        if predefined_file.exists():
+            predefined_data = json.loads(predefined_file.read_text(encoding='utf-8'))
+            predefined_domains = predefined_data.get("domains", {})
+            logger.debug(f"Loaded {len(predefined_domains)} predefined domains from domains.json")
+        else:
+            logger.warning("domains.json not found - no predefined domains available")
+    except Exception as e:
+        logger.error(f"Error loading predefined domains: {e}")
+
+    # 2. Ładuj custom dziedziny użytkownika
+    custom_domains = {}
+    active_domain = None
+    learning_mode = "hybrid"
+
     domains_file = DATA_DIR / "user_learning_domains.json"
 
     try:
-        if not domains_file.exists():
-            logger.info("user_learning_domains.json nie istnieje, tworzę domyślną strukturę")
-            default_domains = _get_default_learning_domains()
-            save_learning_domains(default_domains)
-            return default_domains
-
-        content = domains_file.read_text(encoding='utf-8')
-        if not content.strip():
-            logger.warning("user_learning_domains.json jest pusty")
-            default_domains = _get_default_learning_domains()
-            save_learning_domains(default_domains)
-            return default_domains
-
-        domains = json.loads(content)
-
-        # Ensure required keys
-        if "domains" not in domains:
-            domains["domains"] = {}
-        if "active_domain" not in domains:
-            domains["active_domain"] = None
-        if "learning_mode" not in domains:
-            domains["learning_mode"] = "hybrid"
-
-        return domains
-
+        if domains_file.exists():
+            content = domains_file.read_text(encoding='utf-8')
+            if content.strip():
+                user_data = json.loads(content)
+                custom_domains = user_data.get("domains", {})
+                active_domain = user_data.get("active_domain")
+                learning_mode = user_data.get("learning_mode", "hybrid")
+                logger.debug(f"Loaded {len(custom_domains)} custom domains from user storage")
     except json.JSONDecodeError as e:
         logger.error(f"Błąd parsowania user_learning_domains.json: {e}")
-        return _get_default_learning_domains()
-
     except Exception as e:
-        logger.error(f"Nieoczekiwany błąd w load_learning_domains: {e}")
-        return _get_default_learning_domains()
+        logger.error(f"Error loading custom domains: {e}")
+
+    # 3. Merge: predefined + custom (custom override predef if same ID)
+    all_domains = {**predefined_domains, **custom_domains}
+
+    # 4. Jeśli brak dziedzin i brak aktywnej - ustaw pierwszy jako aktywny
+    if not active_domain and all_domains:
+        active_domain = list(all_domains.keys())[0]
+        logger.info(f"No active domain set - defaulting to '{active_domain}'")
+
+    return {
+        "domains": all_domains,
+        "active_domain": active_domain,
+        "learning_mode": learning_mode,
+        "version": "3.0"
+    }
 
 
 def save_dynamic_concepts(dynamic_concepts: Dict[str, Any]) -> bool:
@@ -300,8 +318,11 @@ def save_learning_domains(domains: Dict[str, Any]) -> bool:
     """
     Zapisz dziedziny nauki do user_learning_domains.json
 
+    UWAGA: Zapisuje TYLKO custom dziedziny (is_custom=True).
+    Predefiniowane dziedziny są w data/domains.json (read-only dla usera).
+
     Args:
-        domains: Dict z domenami
+        domains: Dict z domenami (zawiera "domains", "active_domain", "learning_mode")
 
     Returns:
         True jeśli sukces, False jeśli błąd
@@ -309,8 +330,25 @@ def save_learning_domains(domains: Dict[str, Any]) -> bool:
     domains_file = DATA_DIR / "user_learning_domains.json"
 
     try:
-        content = json.dumps(domains, indent=2, ensure_ascii=False)
+        # Filtruj tylko custom dziedziny
+        all_domains = domains.get("domains", {})
+        custom_domains = {
+            domain_id: domain_data
+            for domain_id, domain_data in all_domains.items()
+            if domain_data.get("is_custom", False) or domain_data.get("custom", False)
+        }
+
+        # Struktura do zapisania (tylko custom)
+        data_to_save = {
+            "domains": custom_domains,
+            "active_domain": domains.get("active_domain"),
+            "learning_mode": domains.get("learning_mode", "hybrid"),
+            "version": "3.0"
+        }
+
+        content = json.dumps(data_to_save, indent=2, ensure_ascii=False)
         domains_file.write_text(content, encoding='utf-8')
+        logger.debug(f"Saved {len(custom_domains)} custom domains to user storage")
         return True
 
     except Exception as e:

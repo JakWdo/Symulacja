@@ -400,6 +400,103 @@ Zaczynamy? (Powiedz "yes" aby rozpocząć Lekcję 1)
     return preview
 
 
+def suggest_course_proactively() -> Optional[Dict[str, Any]]:
+    """
+    Proaktywnie sugeruje kurs na podstawie practiced concepts.
+
+    Logika:
+    - Znajduje koncepty practiced 3+ razy
+    - Sprawdza czy są related concepts do nauki
+    - Zwraca sugestię kursu (lub None jeśli nie ma sugestii)
+
+    Returns:
+        Dict z: suggested_goal, concepts, confidence
+        Lub None jeśli brak sugestii
+    """
+    try:
+        # Importuj data_manager tutaj żeby uniknąć circular imports
+        from data_manager import load_progress
+
+        progress = load_progress()
+        practiced_concepts = progress.get("concepts", {})
+
+        # Znajdź koncepty practiced 3+ razy
+        frequent_concepts = [
+            (concept_id, concept_data)
+            for concept_id, concept_data in practiced_concepts.items()
+            if concept_data.get("practice_count", 0) >= 3 and not concept_data.get("mastered", False)
+        ]
+
+        if not frequent_concepts:
+            logger.debug("No frequent concepts found for proactive suggestion")
+            return None
+
+        # Sortuj po practice_count (malejąco)
+        frequent_concepts.sort(key=lambda x: x[1].get("practice_count", 0), reverse=True)
+
+        # Weź top concept
+        top_concept_id, top_concept_data = frequent_concepts[0]
+        practice_count = top_concept_data.get("practice_count", 0)
+
+        # Ładuj knowledge_base żeby znaleźć related concepts
+        kb = load_knowledge_base()
+        all_concepts = kb.get("concepts", {})
+
+        if top_concept_id not in all_concepts:
+            logger.warning(f"Concept {top_concept_id} not found in knowledge_base")
+            return None
+
+        top_concept = all_concepts[top_concept_id]
+        next_steps = top_concept.get("next_steps", [])
+
+        if not next_steps:
+            logger.debug(f"No next_steps for {top_concept_id}")
+            return None
+
+        # Sugeruj kurs na podstawie next_steps
+        suggested_goal = f"Pogłęb wiedzę: {top_concept.get('name', 'Unknown Concept')}"
+        suggested_concepts = [top_concept_id] + next_steps[:3]  # Top concept + 3 next steps
+
+        return {
+            "suggested_goal": suggested_goal,
+            "concepts": suggested_concepts,
+            "base_concept": top_concept_id,
+            "base_concept_name": top_concept.get("name", "Unknown"),
+            "practice_count": practice_count,
+            "confidence": min(0.7 + (practice_count * 0.05), 0.95),  # 0.7-0.95
+            "reason": f"Pracujesz z '{top_concept.get('name')}' już {practice_count}x - czas na następny krok!"
+        }
+
+    except Exception as e:
+        logger.error(f"Error in suggest_course_proactively: {e}")
+        return None
+
+
+def format_course_suggestion(suggestion: Dict[str, Any]) -> str:
+    """
+    Formatuje sugestię kursu do wyświetlenia
+
+    Args:
+        suggestion: Dict z suggest_course_proactively()
+
+    Returns:
+        Formatted string
+    """
+    base_name = suggestion.get("base_concept_name", "Unknown")
+    goal = suggestion.get("suggested_goal", "")
+    reason = suggestion.get("reason", "")
+    confidence = suggestion.get("confidence", 0) * 100
+
+    return f"""💡 **Sugestia Kursu** (confidence: {confidence:.0f}%)
+
+{reason}
+
+**Proponowany kurs:** {goal}
+
+Chcesz rozpocząć ten kurs? (Powiedz "tak" lub "stwórz kurs {goal}")
+"""
+
+
 # ============================================================================
 # MAIN (for testing)
 # ============================================================================

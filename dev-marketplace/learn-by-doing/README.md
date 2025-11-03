@@ -1,740 +1,454 @@
-# 🎓 Learn-by-Doing Plugin
+# 🎓 Learn-by-Doing Plugin v3.0
 
-**AI-asystent nauczania** dla Claude Code - ucz się przez praktykę z kursami generowanymi przez AI, dostosowanymi do projektu Sight.
+**AI-asystent nauczania** dla Claude Code - ucz się przez praktykę z kursami generowanymi przez AI. Plugin wspiera **naturalną komunikację** i automatyczne tworzenie kursów.
 
-Plugin pomaga ci opanować koncepty techniczne poprzez:
-- 🤖 **AI-generowane kursy** - Claude tworzy plan nauki dopasowany do celu
-- 📊 **Tracking postępów** - śledzi co opanowałeś w każdej dziedzinie
-- 🎯 **Praktyczne zadania** - TODO(human) z podpowiedziami
-- 📝 **Quizy** - sprawdzają twoją wiedzę po lekcjach
+## ✨ Nowości w v3.1
+
+- 🔄 **Uproszczone Dziedziny** - 8 dziedzin z ikonami i kolorami
+- 📚 **Rozszerzona Course Library** - 9 gotowych kursów wysokiej jakości
+- 🗣️ **Komunikacja Naturalna** - mów co chcesz, bez komend slash
+- 🤖 **Automatyczne Kursy** - Claude proponuje kursy na podstawie Twojej pracy
+- 🎯 **Lepszy System Dziedzin** - dziedziny z ikonami, kolorami i możliwością dodawania własnych
 
 ---
 
 ## 🚀 Szybki Start
 
-### 1. Pierwsze uruchomienie
+### Komunikacja - Mów Naturalnie!
 
-Sprawdź dostępne dziedziny nauki:
+Możesz komunikować się z pluginem na dwa sposoby:
 
-```bash
-/learn --domains
+**1. Naturalny język** (ZALECANE):
+```
+"Chcę dodać dziedzinę Security"
+"Stwórz kurs o Docker networking"
+"Jak idą moje postępy?"
+"Zrób quiz z backendu"
+"done" (po ukończeniu lekcji)
 ```
 
-Zobaczysz 7 dziedzin:
-- 🔧 **Backend** - FastAPI, SQLAlchemy, Redis, async patterns
-- 🎨 **Frontend** - React, TypeScript, TanStack Query, Zustand
-- 🤖 **AI/ML** - LangChain, Gemini, RAG, embeddings
-- 💾 **Databases** - PostgreSQL, Neo4j, Cypher, pgvector
-- 🚀 **DevOps** - Docker, Cloud Run, CI/CD, monitoring
-- ✅ **Testing** - pytest, fixtures, async testing
-- 🏗️ **System Design** - microservices, scalability, CQRS
-
-### 2. Ustaw aktywną dziedzinę
-
-Wybierz dziedzinę, którą chcesz teraz studiować:
-
+**2. Komendy slash** (skróty):
 ```bash
-/learn --domain backend
+/learn "Redis caching"
+/progress
+/quiz backend
 ```
 
-Wszystkie kursy będą teraz domyślnie w tej dziedzinie.
+### Pierwsze Kroki
 
-### 3. Rozpocznij kurs
+**1. Zobacz dostępne dziedziny:**
+```
+"Pokaż dziedziny"
+lub: /learn --domains
+```
 
-Powiedz Claude'owi czego chcesz się nauczyć:
+**Dziedziny (8):**
+- 💻 **Software Engineering** - Full-stack, API, databases, DevOps, testing, security
+- 🤖 **AI & Machine Learning** - LLM, RAG, prompt engineering, embeddings
+- ☁️ **Cloud & Infrastructure** - GCP, AWS, serverless, containers
+- 📊 **Data Science** - Analiza danych, wizualizacja, ML
+- 🏗️ **System Design** - Projektowanie skalowalnych systemów
+- 📐 **Mathematics** - Matematyka dla programistów
+- ⚡ **Algorithms** - Algorytmy i struktury danych
+- 🧪 **Testing** - Pytest, integration testing, quality assurance
 
-```bash
-/learn "Redis caching w FastAPI"
+**2. Rozpocznij kurs:**
+```
+"Stwórz kurs o Redis caching"
 ```
 
 Claude:
-1. Przeanalizuje twój cel
-2. Znajdzie powiązane koncepty z knowledge base (51 konceptów)
-3. Wygeneruje plan kursu z 3-5 lekcjami
-4. Pokaże ci preview kursu
-5. Zapisze kurs jako aktywny
+1. Przeanalizuje cel (wykryje intent `create_course`)
+2. Znajdzie koncepty z knowledge base (80+ konceptów!)
+3. Wygeneruje plan 3-5 lekcji
+4. Zapisze jako aktywny kurs
 
-**Przykładowy output:**
-
+**3. Kontynuuj naukę:**
 ```
-✅ Znalazłem 3 konceptów do nauczenia
-
-# ✅ Kurs Gotowy!
-
-## 📚 "Redis caching w FastAPI"
-
-**Parametry:**
-- Poziom: intermediate
-- Czas: standard (~2.5h)
-- Styl: balanced
-
-**Lekcje (3):**
-
-Lekcja 1: Redis Caching & Rate Limiting (backend)
-  ⏱️ ~90 min
-
-Lekcja 2: FastAPI Async Patterns (backend)
-  ⏱️ ~90 min
-
-Lekcja 3: Caching Strategies (backend)
-  ⏱️ ~72 min
-
-✅ Kurs zapisany! ID: redis-caching-w-fastapi
+"kontynuuj"
+lub: /learn continue
 ```
 
-### 4. Kontynuuj naukę
+Otrzymasz:
+- 💡 **Teoria** - wyjaśnienie konceptu
+- 🛠️ **TODO(human)** - praktyczne zadanie
+- 🔍 **Podpowiedź** - jak podejść do problemu
 
-Rozpocznij lub kontynuuj ostatni kurs:
-
-```bash
-/learn continue
-```
-
-Claude pokaże ci:
-- **Teorię** - wyjaśnienie konceptu (💡)
-- **TODO(human)** - praktyczne zadanie do wykonania (🛠️)
-- **Podpowiedź** - hint jak podejść do problemu
-- **Oczekiwania** - ile linii kodu, jaki plik, ile czasu
-
-**Przykładowa lekcja:**
-
-```
-## Lekcja 1/3: Redis Caching & Rate Limiting
-⏱️ Szacowany czas: ~90 min
-
----
-
-💡 Koncept: Redis Caching & Rate Limiting
-
-Cache'owanie danych, rate limiting, session storage
-
-**Zakładam że znasz podstawy**
-
-📝 Zastosowania:
-- Cache segment briefs (reduce LLM calls)
-- Rate limiting dla API endpoints
-- Session storage dla user state
-
-**Dlaczego to ważne:**
-Redukuje koszty LLM (cache segment briefs) i chroni przed abuse
-
----
-
-🛠️ TODO(human) 🟡: Praktyczne zadanie
-
-**Zadanie:** Zaimplementuj Redis Caching & Rate Limiting w kontekście: "Redis caching w FastAPI"
-
-**Podpowiedź:**
-redis-py z async support, używaj TTL dla auto-expiry
-
-**Oczekiwane:**
-- ~20-50 linii kodu
-- Czas: ~90 minut
-- Plik: app/services/your_file.py
-
-**Koncepty:**
-Redis Caching & Rate Limiting, backend
-
-**Gotowy?** Powiedz "done" gdy skończysz!
-```
-
-### 5. Ukończ lekcję
-
-Gdy skończysz implementację, powiedz Claude'owi:
-
+**4. Po ukończeniu lekcji:**
 ```
 "done"
 ```
 
-lub
+Claude zaloguje postęp i pokaże następną lekcję.
 
+**5. Sprawdź postępy:**
 ```
-"ukończyłem lekcję"
+"Jak idą moje postępy?"
+lub: /progress
 ```
 
-Claude automatycznie:
-1. Oznaczy lekcję jako ukończoną ✅
-2. Zaloguje practiced concept do progress tracker
-3. Zaktualizuje domain progress
-4. Pokaże następną lekcję (jeśli jest)
-
-**Output:**
-
-```
-# ✅ Lekcja 1 Ukończona!
-
-**Postęp:** 1/3 lessons
+Dashboard pokazuje:
+- 🔥 Streak (dni nauki)
+- 📊 Progress per dziedzina
+- 🎯 Top practiced concepts
+- 📅 Heatmapa aktywności (28 dni)
 
 ---
 
-**Następna lekcja (2):** FastAPI Async Patterns
+## 📚 Course Library - Gotowe Kursy
 
-Gotowy kontynuować? Użyj:
-`/learn continue`
-```
-
-### 6. Sprawdź postęp
-
-Zobacz jak ci idzie:
-
-```bash
-/progress
-```
-
-**Output:**
+Nie chcesz tworzyć kursu? Wybierz z biblioteki:
 
 ```
-# 📊 Progress Dashboard
-
-## 🔧 Aktywna Dziedzina: Backend
-████████░░░░░░░░ 30% (3/10)
-
-## 🎓 Wszystkie Dziedziny
-➡️ 🔧 Backend: ███████░░░░░░░░ 30% (3/10)
-   🎨 Frontend: ░░░░░░░░░░░░░░░ 0% (0/8)
-   🤖 AI/ML: ██░░░░░░░░░░░░░ 10% (1/10) - 1 mastered!
-
-## 📚 Aktywne Kursy
-- Redis caching w FastAPI (1/3 lekcji) [backend]
+"Pokaż dostępne kursy"
+lub: /learn --library
 ```
 
-### 7. Sprawdź wiedzę quizem
+**9 gotowych kursów:**
 
-Po ukończeniu kilku lekcji:
+### 💻 Software Engineering
+1. **backend-onboarding** (3 lekcje, ~3.5h, beginner) 🌟
+   - FastAPI Routing, Dependency Injection, SQLAlchemy Async
 
-```bash
-/quiz
+2. **full-stack-essentials** (3 lekcje, ~4.5h, intermediate)
+   - React + FastAPI + Database essentials
+
+3. **testing-quality** (3 lekcje, ~3.6h, intermediate)
+   - pytest, async testing, fixtures
+
+### 🤖 AI & Machine Learning
+4. **ai-ml-mastery** (5 lekcji, ~7.5h, intermediate)
+   - LangChain, Gemini API, Prompt Engineering, RAG
+
+### ☁️ Cloud & Infrastructure
+5. **database-deep-dive** (4 lekcje, ~6.4h, advanced)
+   - PostgreSQL Advanced, Neo4j, Cypher
+
+### 📊 Data Science
+6. **data-science-foundations** (4 lekcje, ~5h, beginner) 🆕
+   - Pandas, NumPy, Matplotlib, Stats basics
+
+### 🏗️ System Design
+7. **system-design-essentials** (4 lekcje, ~6h, intermediate) 🆕
+   - Scalability, caching, load balancing, microservices
+
+### 📐 Mathematics
+8. **mathematics-for-devs** (4 lekcje, ~5h, beginner) 🆕
+   - Linear algebra, calculus, statistics, optimization
+
+### ⚡ Algorithms
+9. **algorithms-mastery** (5 lekcji, ~7h, intermediate) 🆕
+   - Sorting, searching, graphs, dynamic programming
+
+**Rozpocznij kurs:**
 ```
-
-Claude wygeneruje quiz z practiced concepts (multiple choice, true/false, fill-in).
-
----
-
-## 📖 Wszystkie Komendy
-
-### `/learn` - Główna komenda
-
-```bash
-# Welcome screen z przeglądem dziedzin
-/learn
-
-# Rozpocznij nowy kurs AI-generowany
-/learn "cel nauki"
-
-# Przykłady celów:
-/learn "Docker multi-stage builds"
-/learn "React hooks i custom hooks"
-/learn "Neo4j Cypher queries"
-/learn "LangChain chains i prompts"
-
-# Kontynuuj ostatni kurs
-/learn continue
-
-# Zmień aktywną dziedzinę
-/learn --domain backend
-/learn --domain frontend
-/learn --domain ai_ml
-
-# Pokaż wszystkie dziedziny
-/learn --domains
-
-# Dodaj nową dziedzinę (interaktywnie)
-/learn --add-domain
-
-# Zapisz kurs do library (reusable)
-/learn --save-course <course-id>
-```
-
-### `/progress` - Dashboard postępów
-
-```bash
-/progress
-```
-
-Pokazuje:
-- Aktywną dziedzinę z progress bar
-- Przegląd wszystkich 7 dziedzin
-- Aktywne kursy (jeśli są)
-- Liczbę mastered concepts
-
-### `/quiz` - Sprawdź wiedzę
-
-```bash
-# Quiz z practiced concepts (active domain)
-/quiz
-
-# Quiz dla konkretnej dziedziny
-/quiz backend
-/quiz frontend
+"Zacznij kurs backend-onboarding"
 ```
 
 ---
 
-## 🔧 Tworzenie Własnych Dziedzin i Kursów
+## 🌍 Dziedziny Nauki
 
-### Dodawanie Nowej Dziedziny
+Plugin wspiera wiele dziedzin - możesz używać wbudowanych lub dodawać własne.
 
-Chcesz dodać własną dziedzinę nauki? (np. "Mobile Development", "Cloud Architecture")
+**Dostępne dziedziny:**
+- 💻 **Software Engineering** - Full-stack, API design, databases, DevOps, testing, security
+- 🤖 **AI & Machine Learning** - LLM, RAG, prompt engineering, embeddings, neural networks
+- ☁️ **Cloud & Infrastructure** - GCP, AWS, serverless, containers, orchestration
+- 📊 **Data Science** - Analiza danych, wizualizacja, machine learning
+- 🏗️ **System Design** - Projektowanie skalowalnych systemów, architektura
+- 📐 **Mathematics** - Linear Algebra, Calculus, Statistics, Optimization
+- ⚡ **Algorithms** - Sorting, Searching, Graphs, Dynamic Programming
+- 🧪 **Testing** - Pytest, integration testing, quality assurance
 
+**Dodaj własną dziedzinę** naturalnie:
+```
+"Chcę dodać dziedzinę Security"
+```
+
+Claude zapyta o ikonę, opis i kategorię. Możesz też użyć komendy:
 ```bash
 /learn --add-domain
 ```
 
-Plugin zapyta cię o:
-1. **ID dziedziny** (slug format, np. `mobile-dev`)
-2. **Nazwa** (wyświetlana, np. "Mobile Development")
-3. **Ikona** (emoji, np. 📱)
-4. **Opis** (opcjonalny)
-5. **Kategorie** (przez przecinek, opcjonalne)
+---
+
+## 🤖 Automatyczne Kursy
+
+Claude **proaktywnie sugeruje kursy** gdy:
+- Pracujesz z konceptem 3+ razy
+- Nie masz aktywnego kursu dla tego konceptu
+- Minęło 48h od ostatniej sugestii
 
 **Przykład:**
-
 ```
-/learn --add-domain
+💡 Sugestia Kursu (confidence: 85%)
 
-ID dziedziny: mobile-dev
-Nazwa: Mobile Development
-Ikona: 📱
-Opis: iOS, Android, React Native, Flutter
-Kategorie: ios, android, react-native, flutter
+Pracujesz z 'Redis Caching' już 4x - czas na następny krok!
 
-✅ Dziedzina dodana! 📱 Mobile Development
+Proponowany kurs: Pogłęb wiedzę: Redis Caching & Rate Limiting
 
-Ustaw jako aktywną: /learn --domain mobile-dev
-```
-
-Po utworzeniu dziedziny:
-- Pojawi się w `/learn --domains`
-- Możesz ją ustawić jako aktywną
-- Kursy w tej dziedzinie będą śledzone oddzielnie
-
-### Zapisywanie Kursu do Library
-
-Ukończyłeś kurs i chcesz go wykorzystać ponownie lub udostępnić?
-
-```bash
-/learn --save-course <course-id>
-```
-
-**Jak znaleźć course ID:**
-1. Uruchom `/progress`
-2. Zobacz sekcję "📚 Aktywne Kursy"
-3. Course ID to zazwyczaj slug z tytułu (np. `redis-caching-w-fastapi`)
-
-**Przykład:**
-
-```bash
-# Zapisz ukończony kurs
-/learn --save-course redis-caching-w-fastapi
-
-✅ Kurs zapisany do library!
-Lokalizacja: data/course_library/redis-caching-w-fastapi.json
-ID: redis-caching-w-fastapi
-
-Użyj go ponownie: /learn --start redis-caching-w-fastapi
-```
-
-Zapisany kurs:
-- Pojawi się w `/learn --library`
-- Możesz go rozpocząć ponownie przez `/learn --start <id>`
-- Jest reusable - możesz go użyć wiele razy
-
-**Use cases:**
-- **Onboarding** - stwórz kurs dla nowych członków zespołu, zapisz go, używaj dla każdego
-- **Best practices** - zapisz kursy które sprawdziły się w praktyce
-- **Własne ścieżki** - buduj custom learning paths dla swojego zespołu
-
----
-
-## 💡 Jak to działa pod maską?
-
-### 1. **Knowledge Base (51 konceptów)**
-
-Plugin ma wbudowaną bazę 51 konceptów technicznych dopasowanych do projektu Sight:
-
-**Backend (10):** fastapi-routing, fastapi-async, fastapi-dependencies, sqlalchemy-async, postgresql-basics, redis-caching, service-layer-pattern, api-design, error-handling, background-tasks
-
-**Frontend (8):** react-hooks, typescript-basics, tanstack-query, zustand-state, component-architecture, tailwind-styling, vite-tooling, async-ui-patterns
-
-**AI/ML (10):** langchain-basics, gemini-api, prompt-engineering, rag-hybrid-search, embeddings-vectors, graph-rag, llm-orchestration, token-optimization, context-management, ai-validation
-
-...i więcej w Database, DevOps, Testing, System Design
-
-Każdy koncept ma:
-- **Prerequisites** - co musisz znać wcześniej
-- **Next steps** - co uczyć się dalej (learning graph)
-- **Use cases** - gdzie to wykorzystasz w Sight
-- **Hints** - podpowiedzi jak podejść
-- **Difficulty** (1-5) - poziom trudności
-
-### 2. **Ekstraktowanie konceptów**
-
-Gdy piszesz `/learn "cel"`, Claude:
-
-1. **Keyword matching** - szuka słów kluczowych w goal ("redis" → redis-caching)
-2. **Concept names** - szuka nazw konceptów (np. "React hooks" → react-hooks)
-3. **Use cases** - dopasowuje do use cases w konceptach
-4. **Domain context** - priorytetyzuje koncepty z aktywnej dziedziny
-
-Przykład:
-```
-/learn "Async patterns w FastAPI"
-
-→ Matched concepts:
-  1. fastapi-async (exact match)
-  2. fastapi-routing (prerequisite)
-  3. background-tasks (related)
-```
-
-### 3. **Generowanie kursu**
-
-Claude tworzy plan kursu:
-
-1. **Sortuje koncepty** po prerequisites (najpierw fundamenty)
-2. **Wybiera 3-5 lekcji** (zależnie od liczby konceptów)
-3. **Dla każdej lekcji generuje:**
-   - **Theory** - wyjaśnienie konceptu z use cases
-   - **TODO(human)** - praktyczne zadanie
-   - **Estimated time** - szacowany czas (zależy od difficulty)
-
-Używa defaults:
-- **Level:** intermediate (możesz być dopytany później)
-- **Time:** standard (~8-10h total)
-- **Style:** balanced (mix teorii i praktyki)
-
-### 4. **Progress Tracking**
-
-Gdy ukończysz lekcję, plugin:
-
-1. **Zapisuje practiced concept** do `learning_progress.json`:
-   ```json
-   {
-     "fastapi-async": {
-       "name": "FastAPI Async Patterns",
-       "domain": "backend",
-       "practice_count": 1,
-       "first_practiced": "2025-11-03T10:00:00Z",
-       "last_practiced": "2025-11-03T10:00:00Z",
-       "mastered": false,
-       "practice_history": [...]
-     }
-   }
-   ```
-
-2. **Aktualizuje domain progress**:
-   - `detected` - ile konceptów w domenie zostało practiced
-   - `mastered` - ile konceptów osiągnęło mastery (>3 practice_count)
-   - `progress` - % mastered / total_concepts
-
-3. **Generuje rekomendacje** (next_steps):
-   - Używa learning graph (prerequisites → concept → next_steps)
-   - Priorytetyzuje koncepty gdzie prerequisites są spełnione
-
-### 5. **Learning Graph**
-
-Koncepty są połączone w graf zależności:
-
-```
-fastapi-routing
-  ↓
-  → next_steps: [fastapi-async, fastapi-dependencies]
-
-fastapi-async
-  ← prerequisites: [fastapi-routing]
-  ↓
-  → next_steps: [sqlalchemy-async, background-tasks]
-```
-
-Plugin używa tego do:
-- Rekomendacji "co dalej"
-- Sprawdzania readiness (czy jesteś gotowy na koncept)
-- Sortowania lekcji w kursie
-
----
-
-## 🎯 Przykłady Użycia
-
-### Scenariusz 1: Nowy członek zespołu
-
-**Cel:** Onboarding do projektu Sight
-
-```bash
-# Dzień 1: Backend basics
-/learn --domain backend
-/learn "FastAPI routing i endpoints"
-# ... pracujesz nad TODO(human) ...
-"done"
-/learn continue
-# ... kolejne lekcje ...
-
-# Dzień 2: Database
-/learn --domain database
-/learn "SQLAlchemy async ORM"
-
-# Dzień 3: AI/ML
-/learn --domain ai_ml
-/learn "LangChain basics dla persona generation"
-
-# Co tydzień: sprawdź postęp
-/progress
-```
-
-### Scenariusz 2: Głęboka nauka jednej dziedziny
-
-**Cel:** Zostań ekspertem w AI/ML
-
-```bash
-/learn --domain ai_ml
-
-# Kurs 1: Fundamenty
-/learn "LangChain chains i prompts"
-# ... 5 lekcji ...
-
-# Kurs 2: RAG System
-/learn "Hybrid search z embeddings"
-# ... 5 lekcji ...
-
-# Kurs 3: Advanced
-/learn "Graph RAG z Neo4j"
-# ... 5 lekcji ...
-
-# Po każdym kursie: quiz
-/quiz
-
-# Sprawdź mastery
-/progress
-# AI/ML: 80% (8/10) - 6 mastered!
-```
-
-### Scenariusz 3: Szybka nauka przed taskiem
-
-**Cel:** Musisz dodać Redis caching do API
-
-```bash
-# Quick course
-/learn "Redis caching patterns"
-
-# Kontynuuj z przerwami
-/learn continue
-# ... implementujesz w projekcie ...
-"done"
-
-# Następna lekcja
-/learn continue
-# ... dalej implementujesz ...
-"done"
-
-# Quiz na koniec
-/quiz
-
-# Gotowe! Masz wiedzę + praktykę
+Chcesz rozpocząć ten kurs? (Powiedz "tak")
 ```
 
 ---
 
-## 🔥 Pro Tips
+## 📊 Tracking Postępów
 
-### 1. **Używaj konkretnych celów**
+### Co jest śledzone:
 
-❌ Słabo: `/learn "backend"`
-✅ Dobrze: `/learn "FastAPI async patterns z background tasks"`
+- ✅ **Practiced Concepts** - każde ukończenie lekcji
+- 🔥 **Streak** - dni nauki bez przerwy
+- 📈 **Domain Progress** - postęp w każdej dziedzinie
+- 🎯 **Mastery** - koncept osiąga mastery po 4+ praktykowaniu
 
-Im konkretniejszy cel, tym lepiej dopasowane koncepty.
+### Jak sprawdzić:
 
-### 2. **Pracuj w kontekście projektu**
+```
+"Pokaż moje postępy"
+lub: /progress
+```
 
-TODO(human) zadania mówią "Zaimplementuj X w kontekście: [twój cel]"
+### Quiz:
 
-Nie ćwicz w izolacji - wdrażaj wiedzę od razu w projekcie Sight!
+Sprawdź wiedzę quizem:
 
-### 3. **Quizy po każdym kursie**
+```
+"Zrób quiz z backendu"
+lub: /quiz backend
+```
 
-Nie skip'uj quizów - pomagają utrwalić wiedzę i pokazują co trzeba powtórzyć.
+---
 
-### 4. **Jedna dziedzina na raz**
+## 🛠️ Przykłady Użycia
 
-Zamiast skakać między dziedziną, skup się na jednej przez tydzień. Lepszy depth niż breadth.
+### Przykład 1: Nowa dziedzina + kurs
 
-### 5. **Continue > New Course**
+```
+User: "Chcę dodać dziedzinę Security"
+Claude: [Prowadzi przez proces interaktywnie]
 
-Jeśli masz rozpoczęty kurs, ukończ go przed startowaniem nowego. Plugin priorytetyzuje `/learn continue`.
+User: "Stwórz kurs o OWASP Top 10"
+Claude: [Tworzy kurs z 4 lekcjami Security]
 
-### 6. **Track mastery, nie tylko completion**
+User: "Zacznij Lekcję 1"
+Claude: [Pokazuje teorię + TODO(human)]
 
-Cel to nie "ukończyć wszystkie kursy", ale **mastered concepts** (practice_count > 3).
+User: [pracuje nad zadaniem]
 
-Wracaj do konceptów i używaj ich w różnych kontekstach.
+User: "done"
+Claude: [Loguje progress, pokazuje Lekcję 2]
+```
+
+### Przykład 2: Course Library
+
+```
+User: "Pokaż dostępne kursy"
+Claude: [Lista 5 kursów z opisami]
+
+User: "Zacznij kurs ai-ml-mastery"
+Claude: [Rozpoczyna kurs, Lekcja 1/5]
+```
+
+### Przykład 3: Proaktywna sugestia
+
+```
+[User pracuje z Docker 3+ razy]
+
+Claude: 💡 "Widzę że pracujesz z Docker - mam kurs o multi-stage builds. Chcesz?"
+
+User: "tak"
+Claude: [Tworzy i rozpoczyna kurs]
+```
+
+---
+
+## 💡 Pro Tips
+
+1. **Używaj naturalnego języka** - "chcę się nauczyć X" działa lepiej niż zapamiętywanie komend
+2. **Ustaw aktywną dziedzinę** - kursy będą dopasowane do Twojego focusu
+3. **Mów "done" po każdej lekcji** - tracking działa tylko gdy powiesz
+4. **Sprawdzaj Course Library** - gotowe kursy są lepiej zbalansowane
+5. **Zrób quiz po kursie** - sprawdź czy naprawdę opanowałeś material
+
+---
+
+## 🔧 Komendy Slash (Skróty)
+
+Jeśli wolisz komendy:
+
+```bash
+/learn                          # Welcome screen
+/learn "cel nauki"              # Stwórz kurs
+/learn continue                 # Kontynuuj ostatni kurs
+/learn --domain backend         # Ustaw aktywną dziedzinę
+/learn --domains                # Pokaż wszystkie dziedziny
+/learn --library                # Pokaż Course Library
+/learn --start <course-id>      # Rozpocznij kurs z library
+/learn --save-course <id>       # Zapisz kurs do library
+/learn --add-domain             # Dodaj nową dziedzinę (interaktywnie)
+/progress                       # Dashboard postępów
+/quiz                           # Quiz (aktywna dziedzina)
+/quiz <domain>                  # Quiz dla konkretnej dziedziny
+```
+
+---
+
+## 🎯 Jak to działa pod maską
+
+### Architektura v3.0
+
+**1. Natural Language Intent Detection** (`intent_detector.py`)
+- Wykrywa 10 intencji: add_domain, create_course, show_progress, quiz, done, continue, etc.
+- Keyword matching + regex patterns
+- Confidence score 0.7-1.0
+
+**2. System Dziedzin** (`domains.json` + `domain_manager.py`)
+- **Dziedziny wbudowane** - w `data/domains.json`
+- **Dziedziny użytkownika** - zapisywane w `~/.claude/learn-by-doing/user_learning_domains.json`
+- **Merge** - obie struktury łączone przy load
+
+**3. Knowledge Base** (`knowledge_base.json`)
+- **80 konceptów** (51 old + 29 new)
+- Każdy koncept: name, domain, difficulty, prerequisites, next_steps, use_cases, why_important, hint
+- **Dependency Graph** - prerequisites zapewniają poprawną progresję
+
+**4. Course Planning** (`course_planner.py`)
+- **Ekstraktuje koncepty** z celu (keyword matching)
+- **Sortuje po dependencies** (prerequisites first)
+- **Generuje lekcje** z teoria + TODO(human)
+- **Proaktywne sugestie** - suggest_course_proactively()
+
+**5. Progress Tracking** (`data_manager.py`, `progress_tracker.py`)
+- **learning_progress.json** - practiced concepts, streak, domain progress
+- **practice_log.jsonl** - append-only log wszystkich praktyk
+- **Mastery** - concept osiąga mastery po 4+ practice_count
+
+---
+
+## 📂 Struktura Plików
+
+```
+learn-by-doing/
+├── data/
+│   ├── domains.json                 # Dziedziny wbudowane ⭐ NEW
+│   ├── knowledge_base.json          # 80 konceptów (51→80) ⭐ UPDATED
+│   ├── active_courses.json          # Aktywne kursy użytkownika
+│   └── course_library/              # 9 gotowych kursów
+│       ├── backend-onboarding.json
+│       ├── ai-ml-mastery.json
+│       ├── full-stack-essentials.json
+│       ├── database-deep-dive.json
+│       └── testing-quality.json
+├── scripts/
+│   ├── intent_detector.py           # NL intent detection ⭐ NEW
+│   ├── learn.py                     # Główny entry point
+│   ├── progress.py                  # Dashboard postępów
+│   ├── quiz.py                      # Quiz generator
+│   ├── course_planner.py            # AI course generation + proaktywne sugestie ⭐ UPDATED
+│   ├── course_manager.py            # CRUD kursów
+│   ├── lesson_conductor.py          # Prowadzenie lekcji
+│   ├── domain_manager.py            # Zarządzanie dziedzinami ⭐ UPDATED
+│   ├── data_manager.py              # Data persistence ⭐ UPDATED
+│   ├── learning_graph.py            # Graf zależności konceptów
+│   └── recommendation_engine.py     # Rekomendacje next steps
+├── commands/
+│   ├── learn.md                     # /learn
+│   ├── progress.md                  # /progress
+│   └── quiz.md                      # /quiz
+├── prompts/
+│   ├── learning_mindset.md          # System prompt
+│   └── course_generation.md         # AI course planning prompt ⭐ NEW
+└── README.md                        # Ten plik ⭐ UPDATED
+```
 
 ---
 
 ## ❓ FAQ
 
-### Q: Jak długo trwa typowy kurs?
+**Q: Czy muszę używać komend slash?**
+A: Nie! Możesz mówić naturalnie: "chcę się nauczyć Redis" działa tak samo jak `/learn "Redis"`.
 
-**A:** Zależy od liczby konceptów:
-- Quick (3 lekcje): ~2-3h
-- Standard (5 lekcji): ~8-10h
-- Deep (8 lekcji): ~20-30h
+**Q: Ile dziedzin mogę mieć?**
+A: 8 wbudowanych + nieograniczone własne. Dodaj dziedzinę mówiąc "dodaj dziedzinę X".
 
-Ale możesz pracować w swoim tempie - kurs jest zapisany i możesz wracać.
+**Q: Czy kursy są automatycznie tworzone?**
+A: Częściowo. Claude proponuje kursy gdy widzi że pracujesz z konceptem 3+ razy. Możesz też poprosić: "stwórz kurs o X".
 
-### Q: Co jeśli nie wiem od czego zacząć?
+**Q: Jak działa tracking?**
+A: Musisz powiedzieć "done" po każdej lekcji. Bez tego plugin nie wie że ukończyłeś zadanie.
 
-**A:**
-```bash
-/learn --domains    # Zobacz co jest dostępne
-/learn              # Welcome screen z sugestiami
-```
+**Q: Czy mogę edytować kursy?**
+A: Tak! Kursy są w `data/active_courses.json` (JSON format). Możesz też zapisać kurs do library: `/learn --save-course <id>`.
 
-Albo po prostu powiedz Claude'owi: "Chcę nauczyć się backend dla projektu Sight"
+**Q: Co to jest knowledge_base?**
+A: 80 konceptów (Backend, Frontend, AI/ML, Database, DevOps, Testing, System Design, Security, Cloud, Mobile, Product, Design) z prerequisites i next_steps. To "mapa wiedzy" pluginu.
 
-### Q: Czy muszę kończyć kursy w całości?
-
-**A:** Nie! Możesz:
-- Skip'ować lekcje (nie zalecane, ale możliwe)
-- Zacząć nowy kurs w dowolnym momencie
-- Wrócić do starego kursu później
-
-Ale zalecam dokończyć co zaczęłeś - efekt completion boost!
-
-### Q: Co jeśli koncept jest za trudny?
-
-**A:**
-1. Sprawdź **prerequisites** - może musisz nauczyć się czegoś wcześniej
-2. Poproś Claude'a o pomoc: "Wyjaśnij X prościej"
-3. Zmień level kursu (w przyszłości będzie interaktywny wybór)
-
-### Q: Czy mogę dodać własne koncepty?
-
-**A:** W obecnej wersji (v3.0) nie. Knowledge base jest predefiniowany dla projektu Sight.
-
-Custom concepts będą w przyszłych wersjach (Faza 3).
-
-### Q: Gdzie są przechowywane dane?
-
-**A:** W `data/` (local) lub `~/.claude/learn-by-doing/` (global):
-- `learning_progress.json` - twoje practiced concepts
-- `active_courses.json` - rozpoczęte kursy
-- `knowledge_base.json` - 51 konceptów
-
-### Q: Co oznacza "mastered"?
-
-**A:** Koncept jest mastered gdy:
-- `practice_count >= 4` (użyłeś go 4+ razy)
-- LUB ręcznie oznaczyłeś jako mastered
-
-Mastery ≠ completion. Mastery = deep understanding + multiple uses.
+**Q: Czy mogę usunąć dziedzinę?**
+A: Wbudowane - nie. Własne dziedziny - tak, używając `domain_manager.py`.
 
 ---
 
-## 🛠️ Techniczne Detale
+## 🔄 Changelog
 
-### Struktura Plików
+### v3.1.0 (2025-11-03)
 
-```
-learn-by-doing/
-├── .claude-plugin/
-│   └── plugin.json              # Metadata pluginu
-├── commands/
-│   ├── learn.md                 # /learn command
-│   ├── progress.md              # /progress command
-│   └── quiz.md                  # /quiz command
-├── data/
-│   ├── knowledge_base.json      # 51 konceptów (predefiniowane)
-│   ├── learning_progress.json   # Progress tracking (user data)
-│   ├── active_courses.json      # Aktywne kursy (user data)
-│   └── domains.json             # 7 dziedzin (user preferences)
-├── scripts/
-│   ├── learn.py                 # Entry point dla /learn
-│   ├── progress.py              # Entry point dla /progress
-│   ├── quiz.py                  # Entry point dla /quiz
-│   ├── course_planner.py        # AI course generation
-│   ├── course_manager.py        # CRUD kursów
-│   ├── lesson_conductor.py      # Prowadzenie lekcji
-│   ├── data_manager.py          # Data persistence
-│   ├── domain_manager.py        # Zarządzanie dziedzinami
-│   ├── learning_graph.py        # Graf zależności konceptów
-│   ├── recommendation_engine.py # Next steps suggestions
-│   └── quiz_generator.py        # Quiz generation
-└── README.md
-```
-
-### Zależności
-
-**Zero external dependencies!** Plugin używa tylko Python stdlib:
-- `json` - data persistence
-- `pathlib` - file operations
-- `datetime` - timestamps
-- `logging` - error handling
-
-### Kompatybilność
-
-- Python 3.8+
-- Claude Code (marketplace plugin)
-- Projekt Sight (koncepty dopasowane)
-
----
-
-## 📝 Changelog
-
-### v3.0.0 (2025-11-03) - MVP Release ✅
+**BREAKING CHANGES:**
+- Uproszczenie dziedzin: 12 → 8 (konsolidacja i reorganizacja)
+- Wszystkie kursy w course_library/ mają bogatą treść
 
 **Nowe funkcje:**
-- ✅ Knowledge base z 51 konceptami projektu Sight
-- ✅ AI-generowane kursy (ekstraktowanie konceptów → course plan)
-- ✅ Full course flow (start → lessons → completion)
-- ✅ Lesson completion tracking z auto-logging
-- ✅ Progress tracking per domain
-- ✅ Learning graph (prerequisites → next_steps)
-- ✅ Recommendation engine
-- ✅ Quiz generation z practiced concepts
-- ✅ Seed demo data (5 practiced concepts)
+- 📚 **4 nowe kursy** wysokiej jakości:
+  - Data Science Foundations (Pandas, NumPy, Matplotlib)
+  - System Design Essentials (Caching, Load Balancing, Microservices)
+  - Mathematics for Developers (Linear Algebra, Calculus, Stats)
+  - Algorithms Mastery (Sorting, Graphs, DP)
+- 🔄 **Skonsolidowane dziedziny**:
+  - Software Engineering (konsolidacja Backend, Frontend, Database, DevOps, Testing, Security)
+  - AI & Machine Learning (dedykowana dziedzina)
+  - Cloud & Infrastructure (dedykowana dziedzina)
+- ⚡ **Szybsze ładowanie** - kursy z biblioteki zamiast generowania
+- 📖 **README.md przepisany** - odzwierciedla nową strukturę
 
-**Zmiany:**
-- ❌ Usunięto pasywne śledzenie (PostToolUse hooks)
-- ❌ Usunięto auto-detect concepts (focus na kursy)
-- ✅ Uproszczony knowledge base (120 → 51 konceptów)
-- ✅ Redukcja kodu o 70% (~7400 → ~2200 linii)
+**Ulepszenia:**
+- Każdy kurs ma konkretne TODO odnoszące się do projektu Sight
+- Teoria wyjaśnia "dlaczego ważne" i praktyczne zastosowania
+- Szacowany czas bardziej realistyczny
+- Icons i difficulty dla wszystkich kursów
 
-### v2.3.0 - Interactive Course Planning
-- Interactive preferences (level, time, style)
-- Course preview przed zapisem
+### v3.0.0 (2025-11-03)
 
-### v2.0.0 - Universal Learning System
-- Multi-domain tracking
-- Pattern matching concepts
-- Practice log (JSONL)
+**BREAKING CHANGES:**
+- System dziedzin przepisany (domains.json zamiast hardcoded)
+- Natural language intent detection
+- 80 konceptów (było 51)
 
-### v1.0.0 - Initial Release
-- Basic concept tracking
-- Manual logging
+**Nowe funkcje:**
+- 🗣️ Komunikacja naturalna (intent_detector.py)
+- 🌍 12 dziedzin (Backend, Frontend, AI/ML, Database, DevOps, Testing, System Design, Security, Cloud, Mobile, Product, Design)
+- 🤖 Proaktywne sugestie kursów (suggest_course_proactively)
+- 📚 Course Library (5 początkowych kursów)
+- 🎨 Ikony i kolory dla dziedzin
+
+### v2.x
+- Universal Learning System
+- Practice log + progress tracking
+- Heatmapa + streak
+
+### v1.0
+- Podstawowy system kursów
+- Knowledge base (45 konceptów)
 
 ---
 
-## 🤝 Wsparcie
+## 📖 Więcej Informacji
 
-Masz problemy lub pytania?
-
-1. Sprawdź ten README (większość odpowiedzi jest tutaj!)
-2. Zapytaj Claude'a bezpośrednio w konwersacji
-3. Otwórz issue na GitHub (jeśli projekt jest na GitH repo)
-
-**Made with ❤️ by Claude & Human for the Sight Project**
+- **Plugin Metadata:** `.claude-plugin/plugin.json`
+- **Technical Docs:** `scripts/` (docstringi w każdym pliku)
+- **Architecture:** Zobacz `scripts/README.md` (jeśli istnieje)
 
 ---
 
-## 🎯 Co dalej?
+**Miłej nauki! 🚀**
 
-Zaplanowane ulepszenia (Faza 2):
-
-- **Progress tracking improvements** - auto-detect ukończonych TODO(human)
-- **AI-generated quiz questions** - pytania generowane przez LLM
-- **Dashboard enhancements** - wykresy, heatmapy aktywności
-- **Course library** - predefiniowane kursy ready-to-use
-- **Interactive preferences** - wybór level/time/style przez Claude
-- **Multi-language support** - angielski + polski
-- **Web dashboard** - HTML/JS interface
-- **GitHub integration** - sync z commits
-- **AI coach** - personalized feedback na kod
-
-Stay tuned! 🚀
+Masz pytania? Zapytaj Claude'a: "Jak działa plugin learn-by-doing?"
