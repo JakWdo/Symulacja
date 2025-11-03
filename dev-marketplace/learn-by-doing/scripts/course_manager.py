@@ -370,6 +370,99 @@ def format_courses_list(courses: List[Dict[str, Any]]) -> str:
 
 
 # ============================================================================
+# COURSE LIBRARY
+# ============================================================================
+
+def get_course_library_dir() -> Path:
+    """Get path to course library directory"""
+    plugin_root = Path(__file__).parent.parent
+    return plugin_root / "data" / "course_library"
+
+
+def load_course_library() -> List[Dict[str, Any]]:
+    """
+    Ładuje wszystkie kursy z course library
+
+    Returns:
+        Lista kursów z library (sorted by popularity desc)
+    """
+    library_dir = get_course_library_dir()
+
+    if not library_dir.exists():
+        logger.warning(f"Course library directory not found: {library_dir}")
+        return []
+
+    courses = []
+    for course_file in library_dir.glob("*.json"):
+        try:
+            with open(course_file, 'r', encoding='utf-8') as f:
+                course_data = json.load(f)
+                courses.append(course_data)
+        except Exception as e:
+            logger.error(f"Error loading course {course_file}: {e}")
+
+    # Sort by popularity (descending)
+    courses.sort(key=lambda x: x.get('popularity', 0), reverse=True)
+
+    return courses
+
+
+def get_library_course(course_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Pobiera kurs z library po ID
+
+    Args:
+        course_id: ID kursu (np. "backend-onboarding")
+
+    Returns:
+        Course dict lub None
+    """
+    courses = load_course_library()
+
+    for course in courses:
+        if course.get('id') == course_id:
+            return course
+
+    return None
+
+
+def start_library_course(course_id: str) -> Optional[str]:
+    """
+    Rozpoczyna kurs z library (kopiuje do active_courses)
+
+    Args:
+        course_id: ID kursu z library
+
+    Returns:
+        Course ID jeśli sukces, None jeśli błąd
+    """
+    # Load course from library
+    library_course = get_library_course(course_id)
+
+    if not library_course:
+        logger.error(f"Course {course_id} not found in library")
+        return None
+
+    # Convert to course plan format (compatible with create_course)
+    course_plan = {
+        "goal": library_course.get("title"),
+        "level": library_course.get("level", "intermediate"),
+        "time_budget": library_course.get("time_budget", "standard"),
+        "style": "balanced",
+        "domain_id": library_course.get("domain_id", "software-engineering"),
+        "total_lessons": library_course.get("total_lessons"),
+        "lessons": library_course.get("lessons", []),
+        "estimated_hours": library_course.get("estimated_hours")
+    }
+
+    # Create course
+    new_course_id = create_course(course_plan)
+
+    logger.info(f"Started library course: {course_id} → {new_course_id}")
+    return new_course_id
+
+
+# ============================================================================
 # MAIN (for testing)
 # ============================================================================
 
@@ -381,6 +474,12 @@ def main():
     # List courses
     courses = list_active_courses()
     print(format_courses_list(courses))
+
+    # List course library
+    print("\n# Course Library:")
+    library = load_course_library()
+    for course in library:
+        print(f"- {course['id']}: {course['title']}")
 
 
 if __name__ == "__main__":

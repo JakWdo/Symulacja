@@ -24,7 +24,7 @@ from domain_manager import (
 from course_planner import (
     extract_concepts_from_goal, create_course_plan, format_course_preview
 )
-from course_manager import create_course, get_active_courses
+from course_manager import create_course, list_active_courses, load_course_library, start_library_course
 
 
 def show_welcome():
@@ -207,6 +207,54 @@ def start_course_planning(goal: str):
     print()
 
 
+def show_course_library():
+    """
+    Pokaż dostępne kursy z course library
+    """
+    print("# 📚 Course Library - Gotowe Kursy")
+    print()
+    print("**Predefiniowane kursy gotowe do użycia:**")
+    print()
+
+    courses = load_course_library()
+
+    if not courses:
+        print("❌ **Brak kursów w library**")
+        print()
+        return
+
+    for i, course in enumerate(courses, 1):
+        course_id = course.get('id', '')
+        title = course.get('title', 'Unnamed')
+        description = course.get('description', '')
+        icon = course.get('icon', '📚')
+        level = course.get('level', 'intermediate')
+        time = course.get('estimated_hours', 0)
+        lessons = course.get('total_lessons', 0)
+        difficulty = course.get('difficulty', 3)
+        tags = ', '.join(course.get('tags', []))
+
+        # Difficulty indicator
+        diff_emoji = "🟢" if difficulty <= 2 else "🟡" if difficulty <= 3 else "🔴"
+
+        print(f"## {i}. {icon} {title}")
+        print(f"**ID:** `{course_id}`")
+        print(f"**Opis:** {description}")
+        print(f"**Parametry:** {diff_emoji} {level} | ⏱️ ~{time:.1f}h | 📖 {lessons} lekcji")
+        print(f"**Tags:** {tags}")
+        print()
+        print(f"**Rozpocznij:** `/learn --start {course_id}`")
+        print()
+
+    print("---")
+    print()
+    print("💡 **Jak używać:**")
+    print("1. Wybierz kurs z listy")
+    print("2. Użyj `/learn --start <course-id>` aby rozpocząć")
+    print("3. Kontynuuj przez `/learn continue`")
+    print()
+
+
 def continue_last_course():
     """
     Kontynuuj ostatni aktywny kurs
@@ -215,7 +263,7 @@ def continue_last_course():
     print()
 
     # Get active courses
-    active_courses = get_active_courses()
+    active_courses = list_active_courses()
 
     if not active_courses:
         print("❌ **Brak aktywnych kursów**")
@@ -312,6 +360,35 @@ def main():
                 print(f"  - `{domain['id']}`")
         else:
             set_domain_active(args[1])
+
+    elif command == "--library":
+        show_course_library()
+
+    elif command == "--start":
+        if len(args) < 2:
+            print("❌ **Błąd:** Podaj ID kursu z library")
+            print()
+            print("Usage: `/learn --start <course-id>`")
+            print()
+            print("Zobacz dostępne kursy: `/learn --library`")
+        else:
+            course_id = args[1]
+            print(f"# 🚀 Rozpoczynam kurs z library...")
+            print()
+
+            new_course_id = start_library_course(course_id)
+
+            if new_course_id:
+                print(f"✅ **Kurs rozpoczęty!** ID: `{new_course_id}`")
+                print()
+                print("📖 **Kontynuuj naukę:**")
+                print('   `/learn continue`')
+                print()
+            else:
+                print(f"❌ **Błąd:** Nie znaleziono kursu `{course_id}` w library")
+                print()
+                print("Zobacz dostępne: `/learn --library`")
+                print()
 
     elif command == "continue":
         continue_last_course()
