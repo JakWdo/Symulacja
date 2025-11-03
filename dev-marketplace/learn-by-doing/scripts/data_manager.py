@@ -405,6 +405,91 @@ def save_progress(progress: Dict[str, Any]) -> bool:
         return False
 
 
+def add_practiced_concept(
+    concept_id: str,
+    concept_name: str,
+    domain: str,
+    practice_type: str = "lesson_completed",
+    metadata: Optional[Dict[str, Any]] = None
+) -> bool:
+    """
+    Dodaje practiced concept do learning_progress.json
+
+    Args:
+        concept_id: ID konceptu (np. "fastapi-routing")
+        concept_name: Nazwa konceptu (np. "FastAPI Routing")
+        domain: Dziedzina (np. "backend")
+        practice_type: Typ praktyki (lesson_completed, manual, etc.)
+        metadata: Dodatkowe metadane (course_id, lesson_num, etc.)
+
+    Returns:
+        True jeśli sukces
+    """
+    progress = load_progress()
+
+    # Update concepts dict
+    if "concepts" not in progress:
+        progress["concepts"] = {}
+
+    if concept_id not in progress["concepts"]:
+        # New concept
+        progress["concepts"][concept_id] = {
+            "name": concept_name,
+            "domain": domain,
+            "practice_count": 0,
+            "first_practiced": datetime.now(timezone.utc).isoformat(),
+            "last_practiced": None,
+            "mastered": False,
+            "practice_history": []
+        }
+
+    # Update concept
+    concept = progress["concepts"][concept_id]
+    concept["practice_count"] += 1
+    concept["last_practiced"] = datetime.now(timezone.utc).isoformat()
+
+    # Add to practice history (last 10 entries)
+    practice_entry = {
+        "type": practice_type,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "metadata": metadata or {}
+    }
+    if "practice_history" not in concept:
+        concept["practice_history"] = []
+    concept["practice_history"].append(practice_entry)
+    concept["practice_history"] = concept["practice_history"][-10:]  # Keep last 10
+
+    # Update categories_progress
+    if "categories_progress" not in progress:
+        progress["categories_progress"] = {}
+
+    if domain not in progress["categories_progress"]:
+        progress["categories_progress"][domain] = {
+            "total_concepts": 0,
+            "detected": 0,
+            "mastered": 0,
+            "in_progress": 0,
+            "progress": 0.0
+        }
+
+    # Recalculate domain progress
+    domain_progress = progress["categories_progress"][domain]
+    domain_concepts = [c for c in progress["concepts"].values() if c.get("domain") == domain]
+
+    domain_progress["detected"] = len(domain_concepts)
+    domain_progress["mastered"] = len([c for c in domain_concepts if c.get("mastered", False)])
+    domain_progress["in_progress"] = len([c for c in domain_concepts if c.get("practice_count", 0) > 0 and not c.get("mastered", False)])
+
+    if domain_progress["total_concepts"] > 0:
+        domain_progress["progress"] = domain_progress["mastered"] / domain_progress["total_concepts"]
+
+    # Update last_session
+    progress["last_session"] = datetime.now(timezone.utc).isoformat()
+
+    # Save
+    return save_progress(progress)
+
+
 def save_config(config: Dict[str, Any]) -> bool:
     """
     Zapisz konfigurację do config.json

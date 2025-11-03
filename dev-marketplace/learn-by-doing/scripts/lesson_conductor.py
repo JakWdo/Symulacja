@@ -18,7 +18,8 @@ import sys
 
 # Import local modules
 sys.path.insert(0, str(Path(__file__).parent))
-from course_manager import get_course, get_next_lesson, update_lesson_progress
+from course_manager import get_course, get_next_lesson, update_lesson_progress, get_active_courses
+from data_manager import add_practiced_concept
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +179,64 @@ Gotowy kontynuować? Użyj:
 """
 
     return "✅ Lekcja ukończona!"
+
+
+def mark_current_lesson_done() -> str:
+    """
+    Oznacza bieżącą lekcję jako ukończoną (znajduje ostatni aktywny kurs automatycznie)
+
+    Returns:
+        Success message + następna lekcja lub gratulacje
+    """
+    # Get last active course
+    active_courses = get_active_courses()
+
+    if not active_courses:
+        return """❌ **Brak aktywnych kursów**
+
+💡 Rozpocznij nowy kurs:
+   `/learn "cel nauki"`
+"""
+
+    # Use last active course
+    course = active_courses[-1]
+    course_id = course['id']
+
+    # Get current lesson for logging
+    current_lesson_num = course.get("current_lesson", 1)
+    current_lesson = None
+    for lesson in course.get("lessons", []):
+        if lesson["num"] == current_lesson_num:
+            current_lesson = lesson
+            break
+
+    # Mark as done using existing function
+    result = mark_lesson_done(course_id)
+
+    # Log practiced concept to progress tracker
+    if current_lesson:
+        concept_id = current_lesson.get("concept_id")
+        concept_name = current_lesson.get("concept_name", "Unknown")
+        domain = current_lesson.get("category", "General")  # category is mapped from domain
+
+        try:
+            add_practiced_concept(
+                concept_id=concept_id,
+                concept_name=concept_name,
+                domain=domain,
+                practice_type="lesson_completed",
+                metadata={
+                    "course_id": course_id,
+                    "lesson_num": current_lesson_num,
+                    "course_title": course.get("title", "")
+                }
+            )
+            logger.info(f"Logged practiced concept: {concept_id}")
+        except Exception as e:
+            logger.warning(f"Failed to log practiced concept: {e}")
+            # Non-critical, continue
+
+    return result
 
 
 def skip_lesson(course_id: str) -> str:

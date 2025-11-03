@@ -21,6 +21,10 @@ from data_manager import load_config, save_config
 from domain_manager import (
     get_active_domain, set_active_domain, list_domains, get_domain
 )
+from course_planner import (
+    extract_concepts_from_goal, create_course_plan, format_course_preview
+)
+from course_manager import create_course, get_active_courses
 
 
 def show_welcome():
@@ -146,18 +150,60 @@ def start_course_planning(goal: str):
 
     # Get active domain
     active = get_active_domain()
+    domain_id = "software-engineering"  # default
     if active:
         domain_icon = active.get('icon', '📚')
         domain_name = active.get('name', '')
+        domain_id = active.get('id', 'software-engineering')
         print(f"{domain_icon} **Dziedzina:** {domain_name}")
         print()
 
-    print("🤖 **Claude generuje plan kursu...**")
+    print("🤖 **Analizuję cel i tworzę plan kursu...**")
     print()
-    print("_(To wymaga interakcji z course_planner.py - zostanie zaimplementowane)_")
+
+    # Extract concepts from goal
+    concept_ids = extract_concepts_from_goal(goal, domain_id)
+
+    if not concept_ids:
+        print("❌ **Nie znalazłem konceptów pasujących do celu.**")
+        print()
+        print("💡 Spróbuj bardziej konkretnego celu, np:")
+        print("   - 'FastAPI async patterns'")
+        print("   - 'Redis caching w backend'")
+        print("   - 'React hooks i state management'")
+        print()
+        return
+
+    print(f"✅ Znalazłem {len(concept_ids)} konceptów do nauczenia")
     print()
-    print("💡 **Tymczasowo:** Użyj normalnej konwersacji z Claude:")
-    print(f'   "Chcę nauczyć się: {goal}"')
+
+    # Use default preferences (intermediate, standard, balanced)
+    # W przyszłości można dodać interaktywny wybór przez Claude
+    preferences = {
+        "level": "intermediate",  # Zakładam średni poziom
+        "time": "standard",       # ~8-10h kurs
+        "style": "balanced"       # Mix teorii i praktyki
+    }
+
+    # Create course plan
+    course_plan = create_course_plan(goal, preferences, domain_id)
+
+    if not course_plan:
+        print("❌ **Nie udało się stworzyć kursu**")
+        print()
+        return
+
+    # Show preview
+    preview = format_course_preview(course_plan)
+    print(preview)
+
+    # Save course to active_courses.json
+    course_id = create_course(course_plan)
+
+    print(f"✅ **Kurs zapisany!** ID: `{course_id}`")
+    print()
+    print("📖 **Rozpocznij naukę:**")
+    print(f'   Powiedz "Zacznij Lekcję 1" lub użyj `/learn continue`')
     print()
 
 
@@ -167,10 +213,76 @@ def continue_last_course():
     """
     print("# 📖 Kontynuuj Naukę")
     print()
-    print("_(Funkcja zostanie zaimplementowana po integracji z course_manager)_")
+
+    # Get active courses
+    active_courses = get_active_courses()
+
+    if not active_courses:
+        print("❌ **Brak aktywnych kursów**")
+        print()
+        print("💡 Rozpocznij nowy kurs:")
+        print('   `/learn "cel nauki"`')
+        print()
+        return
+
+    # Get last active course (most recent)
+    course = active_courses[-1]
+
+    # Display course info
+    title = course.get('title', 'Unnamed Course')
+    current_lesson_num = course.get('current_lesson', 1)
+    total_lessons = course.get('total_lessons', 0)
+    completed_lessons = course.get('completed_lessons', 0)
+
+    print(f"## 📚 {title}")
     print()
-    print("💡 **Tymczasowo:** Zapytaj Claude:")
-    print('   "Kontynuujmy ostatnią lekcję"')
+    print(f"**Progress:** {completed_lessons}/{total_lessons} lekcji ukończonych")
+    print()
+
+    # Get current lesson
+    lessons = course.get('lessons', [])
+    if not lessons:
+        print("❌ **Brak lekcji w kursie**")
+        return
+
+    # Find current lesson (not completed)
+    current_lesson = None
+    for lesson in lessons:
+        if not lesson.get('completed', False):
+            current_lesson = lesson
+            break
+
+    if not current_lesson:
+        print("✅ **Kurs ukończony!**")
+        print()
+        print(f"Gratulacje! Ukończyłeś wszystkie {total_lessons} lekcji.")
+        print()
+        return
+
+    # Display current lesson
+    lesson_num = current_lesson.get('num', 1)
+    lesson_name = current_lesson.get('concept_name', 'Unknown')
+    lesson_time = current_lesson.get('estimated_time_minutes', 60)
+
+    print(f"## Lekcja {lesson_num}/{total_lessons}: {lesson_name}")
+    print(f"⏱️ Szacowany czas: ~{lesson_time} min")
+    print()
+
+    # Show theory
+    theory = current_lesson.get('theory', '')
+    if theory:
+        print(theory)
+        print()
+
+    # Show TODO(human)
+    todo = current_lesson.get('todo_human', '')
+    if todo:
+        print(todo)
+        print()
+
+    print("---")
+    print()
+    print("💡 **Po ukończeniu powiedz:** 'done' lub 'ukończyłem lekcję'")
     print()
 
 

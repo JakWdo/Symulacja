@@ -102,28 +102,37 @@ def extract_concepts_from_goal(goal: str, domain_id: str = "software-engineering
 
     for concept_id, concept_data in concepts.items():
         concept_name = concept_data.get("name", "").lower()
-        category = concept_data.get("category", "").lower()
+        domain = concept_data.get("domain", "").lower()
         use_cases = " ".join(concept_data.get("use_cases", [])).lower()
 
         # Check if concept is relevant to goal
         if (concept_name in goal_lower or
-            category in goal_lower or
+            domain in goal_lower or
             any(keyword in goal_lower for keyword in concept_name.split())):
             matched_concepts.append(concept_id)
 
-    # Keywords → concepts mapping
+    # Keywords → concepts mapping (based on Sight knowledge_base.json)
     keyword_map = {
-        "ml": ["langchain-chains", "vector-embeddings", "rag"],
-        "machine learning": ["langchain-chains", "vector-embeddings", "rag"],
-        "frontend": ["react-components", "react-hooks", "tanstack-query", "typescript-basics"],
-        "backend": ["fastapi-routing", "fastapi-async", "sqlalchemy-models"],
-        "database": ["sqlalchemy-models", "sqlalchemy-async", "alembic-migrations"],
-        "docker": ["docker-compose", "docker-multistage"],
-        "testing": ["pytest-testing", "pytest-fixtures", "pytest-async"],
-        "api": ["fastapi-routing", "fastapi-async", "fastapi-di"],
-        "cache": ["redis-caching"],
-        "graph": ["neo4j-graph"],
-        "rag": ["vector-embeddings", "vector-search", "rag", "hybrid-search"],
+        "ml": ["langchain-basics", "gemini-api", "embeddings-vectors", "rag-hybrid-search"],
+        "machine learning": ["langchain-basics", "gemini-api", "ai-validation"],
+        "ai": ["langchain-basics", "gemini-api", "prompt-engineering", "llm-orchestration"],
+        "frontend": ["react-hooks", "typescript-basics", "tanstack-query", "zustand-state"],
+        "react": ["react-hooks", "component-architecture", "async-ui-patterns"],
+        "backend": ["fastapi-routing", "fastapi-async", "fastapi-dependencies", "service-layer-pattern"],
+        "fastapi": ["fastapi-routing", "fastapi-async", "fastapi-dependencies", "api-design"],
+        "database": ["sqlalchemy-async", "postgresql-basics", "database-migrations", "query-optimization"],
+        "postgres": ["postgresql-basics", "postgresql-advanced", "pgvector-search"],
+        "neo4j": ["neo4j-basics", "neo4j-cypher", "graph-rag"],
+        "docker": ["docker-basics", "docker-compose"],
+        "testing": ["pytest-basics", "async-testing", "test-fixtures", "integration-testing"],
+        "api": ["fastapi-routing", "fastapi-async", "api-design", "api-versioning"],
+        "cache": ["redis-caching", "caching-strategies"],
+        "redis": ["redis-caching"],
+        "rag": ["rag-hybrid-search", "graph-rag", "embeddings-vectors"],
+        "langchain": ["langchain-basics", "prompt-engineering", "llm-orchestration"],
+        "gemini": ["gemini-api", "token-optimization", "context-management"],
+        "deployment": ["docker-compose", "cloud-run-deployment", "ci-cd-pipelines"],
+        "devops": ["docker-basics", "cloud-run-deployment", "monitoring-logging"],
     }
 
     for keyword, concept_ids in keyword_map.items():
@@ -191,7 +200,7 @@ def create_course_plan(
             "num": i,
             "concept_id": concept_id,
             "concept_name": concept.get("name", concept_id),
-            "category": concept.get("category", "General"),
+            "category": concept.get("domain", "General"),  # Map domain to category for compatibility
             "theory": generate_theory(concept, level, style),
             "todo_human": generate_todo_human(concept, level, style, goal),
             "estimated_time_minutes": estimate_lesson_time(level, time),
@@ -289,7 +298,7 @@ def generate_todo_human(concept: Dict, level: str, style: str, goal: str) -> str
 - Plik: {suggest_file_path(concept, goal)}
 
 **Koncepty:**
-{name}, {concept.get('category', 'General')}
+{name}, {concept.get('domain', 'General')}
 
 **Gotowy?** Powiedz "done" gdy skończysz!
 """
@@ -335,18 +344,19 @@ def estimate_task_lines(level: str) -> str:
 
 def suggest_file_path(concept: Dict, goal: str) -> str:
     """Sugeruje ścieżkę pliku dla TODO"""
-    category = concept.get("category", "general").lower()
+    domain = concept.get("domain", "general").lower()
 
     paths = {
         "backend": "app/services/",
         "frontend": "frontend/src/components/",
         "database": "app/models/",
-        "ai/ml": "app/services/ai/",
+        "ai_ml": "app/services/ai/",
         "devops": "docker/",
-        "testing": "tests/"
+        "testing": "tests/",
+        "system_design": "app/"
     }
 
-    return paths.get(category, "app/") + "your_file.py"
+    return paths.get(domain, "app/") + "your_file.py"
 
 
 def format_course_preview(course_plan: Dict) -> str:
