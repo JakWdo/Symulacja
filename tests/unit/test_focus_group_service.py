@@ -9,14 +9,6 @@ from uuid import uuid4
 from app.services.focus_groups.focus_group_service_langchain import FocusGroupServiceLangChain
 
 
-class DummyLLM:
-    """Mock LLM do testów bez wywoływania prawdziwego API."""
-
-    async def ainvoke(self, messages):
-        """Symuluje wywołanie LLM zwracając predefiniowaną odpowiedź."""
-        return SimpleNamespace(content="This is a great product idea with innovative features.")
-
-
 class DummyFocusGroup:
     """Mock modelu FocusGroup."""
 
@@ -67,10 +59,10 @@ class DummyMemoryService:
 
 
 @pytest.fixture
-def service():
+def service(mock_llm):
     """Tworzy instancję serwisu bez inicjalizacji prawdziwego LLM."""
     svc = FocusGroupServiceLangChain.__new__(FocusGroupServiceLangChain)
-    svc.llm = DummyLLM()
+    svc.llm = mock_llm
     svc.memory_service = DummyMemoryService()
     return svc
 

@@ -8,25 +8,6 @@ from uuid import uuid4
 from app.services.surveys.survey_response_generator import SurveyResponseGenerator
 
 
-class DummyLLM:
-    """Mock LLM do testów bez wywoływania prawdziwego API."""
-
-    async def ainvoke(self, messages):
-        """Symuluje wywołanie LLM zwracając odpowiedź na pytanie."""
-        # Analizujemy typ pytania z messages
-        messages_str = str(messages)
-        if "scale" in messages_str.lower() or "rating" in messages_str.lower():
-            return SimpleNamespace(content="4")
-        elif "yes" in messages_str.lower() or "no" in messages_str.lower():
-            return SimpleNamespace(content="Yes")
-        elif "choose one" in messages_str.lower():
-            return SimpleNamespace(content="Option 1")
-        elif "comma-separated" in messages_str.lower():
-            return SimpleNamespace(content="Option 1, Option 2")
-        else:
-            return SimpleNamespace(content="This is a thoughtful open-ended response based on my background.")
-
-
 class DummyPersona:
     """Mock modelu Persona."""
 
@@ -45,9 +26,25 @@ class DummyPersona:
 
 
 @pytest.fixture
-def service():
+def service(mock_llm):
     """Tworzy instancję serwisu z mock LLM."""
     from unittest.mock import patch
+
+    # Configure mock_llm to return different responses based on question type
+    async def smart_ainvoke(messages):
+        messages_str = str(messages)
+        if "scale" in messages_str.lower() or "rating" in messages_str.lower():
+            return SimpleNamespace(content="4")
+        elif "yes" in messages_str.lower() or "no" in messages_str.lower():
+            return SimpleNamespace(content="Yes")
+        elif "choose one" in messages_str.lower():
+            return SimpleNamespace(content="Option 1")
+        elif "comma-separated" in messages_str.lower():
+            return SimpleNamespace(content="Option 1, Option 2")
+        else:
+            return SimpleNamespace(content="This is a thoughtful open-ended response based on my background.")
+
+    mock_llm.ainvoke.side_effect = smart_ainvoke
 
     with patch('app.services.surveys.survey_response_generator.get_settings') as mock_settings:
         mock_settings.return_value.DEFAULT_MODEL = "gemini-2.5-flash"
@@ -55,7 +52,7 @@ def service():
         mock_settings.return_value.TEMPERATURE = 0.7
 
         svc = SurveyResponseGenerator()
-        svc.llm = DummyLLM()
+        svc.llm = mock_llm
         return svc
 
 
