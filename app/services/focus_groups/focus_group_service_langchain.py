@@ -110,12 +110,11 @@ class FocusGroupServiceLangChain:
             all_responses = []
             response_times = []
 
-            print(f"🔄 FOCUS GROUP: {len(focus_group.questions)} questions to process")
+            logger.info(f"🔄 FOCUS GROUP: {len(focus_group.questions)} questions to process")
             for question in focus_group.questions:
                 question_start = time.time()
 
-                print(f"❓ PROCESSING QUESTION: {question} for {len(personas)} personas")
-                logger.info(f"Processing question: {question} for {len(personas)} personas")
+                logger.info(f"❓ PROCESSING QUESTION: {question} for {len(personas)} personas")
 
                 # Równolegle pobieramy odpowiedzi od wszystkich person
                 responses = await self._get_concurrent_responses(
@@ -126,8 +125,7 @@ class FocusGroupServiceLangChain:
                     project_id=project_id,
                 )
 
-                print(f"✅ GOT {len(responses)} RESPONSES for question")
-                logger.info(f"Got {len(responses)} responses for question: {question}")
+                logger.info(f"✅ GOT {len(responses)} RESPONSES for question: {question}")
 
                 question_time = (time.time() - question_start) * 1000
                 response_times.append(question_time)
@@ -242,14 +240,14 @@ class FocusGroupServiceLangChain:
         ]
 
         # Wykonaj wszystkie zadania równolegle (gather zbiera wyniki)
-        print(f"🚀 Starting {len(tasks)} concurrent persona response tasks...")
+        logger.debug(f"🚀 Starting {len(tasks)} concurrent persona response tasks...")
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Obsłuż wyjątki (gather może zwrócić Exception zamiast wyniku)
         results = []
         for i, resp in enumerate(responses):
             if isinstance(resp, Exception):
-                print(f"❌ EXCEPTION in persona {personas[i].id}: {type(resp).__name__}: {str(resp)[:100]}")
+                logger.error(f"❌ EXCEPTION in persona {personas[i].id}: {type(resp).__name__}: {str(resp)[:100]}")
                 results.append(
                     {
                         "persona_id": str(personas[i].id),
@@ -258,7 +256,7 @@ class FocusGroupServiceLangChain:
                     }
                 )
             else:
-                print(f"✓ Persona {str(personas[i].id)[:8]}... response received")
+                logger.debug(f"✓ Persona {str(personas[i].id)[:8]}... response received")
                 results.append(resp)
 
         return results
@@ -322,7 +320,7 @@ class FocusGroupServiceLangChain:
             )
             response_time = time.time() - start_time
 
-            print(f"💬 Generated response (length={len(response_text) if response_text else 0}): {response_text[:50] if response_text else 'EMPTY'}...")
+            logger.debug(f"💬 Generated response (length={len(response_text) if response_text else 0}): {response_text[:50] if response_text else 'EMPTY'}...")
 
             # Utwórz event dla tej interakcji (event sourcing - niemodyfikowalny log)
             await self.memory_service.create_event(
@@ -342,11 +340,11 @@ class FocusGroupServiceLangChain:
                 response_time_ms=int(response_time * 1000),  # Konwersja sekund na milisekundy
             )
 
-            print("💾 Adding PersonaResponse to db...")
+            logger.debug("💾 Adding PersonaResponse to db...")
             session.add(persona_response)
             try:
                 await session.commit()
-                print("✅ Committed PersonaResponse to db")
+                logger.debug("✅ Committed PersonaResponse to db")
             except Exception:
                 await session.rollback()
                 raise
