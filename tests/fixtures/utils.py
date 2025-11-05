@@ -14,8 +14,7 @@ def temp_file(tmp_path):
 def reset_singletons():
     """Reset cached singletons between tests to avoid state bleed."""
     yield
-    from app.core.config import get_settings
-
-    get_settings.cache_clear()
+    # Note: Config system migrated from get_settings() to config module (PR4)
+    # No cache clearing needed for new config system
 
 

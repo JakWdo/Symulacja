@@ -125,6 +125,19 @@ class Neo4jConfig:
     max_retry_time: int = 30
 
 
+@dataclass
+class GCPConfig:
+    """
+    Konfiguracja Google Cloud Platform.
+
+    Attributes:
+        project_id: GCP Project ID (z env: GCP_PROJECT_ID)
+        region: GCP Region (z env: GCP_REGION)
+    """
+    project_id: str = "gen-lang-client-0508446677"
+    region: str = "europe-central2"
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # APP CONFIG
 # ═══════════════════════════════════════════════════════════════════════════
@@ -175,6 +188,7 @@ class AppConfig:
         self.neo4j = self._load_neo4j()
         self.celery = self._load_celery()
         self.document_storage = self._load_document_storage()
+        self.gcp = self._load_gcp()
 
     def _load_redis(self) -> RedisConfig:
         """
@@ -281,6 +295,30 @@ class AppConfig:
         return DocumentStorageConfig(
             path=storage_config.get("path", "data/documents"),
             max_size_mb=storage_config.get("max_size_mb", 50),
+        )
+
+    def _load_gcp(self) -> GCPConfig:
+        """
+        Ładuje GCP configuration.
+
+        Returns:
+            GCPConfig object z env overrides
+        """
+        gcp_config = self.config.get("gcp", {})
+
+        # Get GCP settings from env
+        project_id_env = gcp_config.get("project_id_env", "GCP_PROJECT_ID")
+        region_env = gcp_config.get("region_env", "GCP_REGION")
+
+        return GCPConfig(
+            project_id=os.getenv(
+                project_id_env,
+                gcp_config.get("default_project_id", "gen-lang-client-0508446677")
+            ),
+            region=os.getenv(
+                region_env,
+                gcp_config.get("default_region", "europe-central2")
+            ),
         )
 
 

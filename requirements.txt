@@ -80,6 +80,10 @@ Pillow
 # Scheduled Jobs
 apscheduler==3.10.4
 
+# Google Cloud (dla Cloud Tasks integration)
+google-cloud-tasks>=2.16.0,<3.0.0
+prometheus-client>=0.20.0,<1.0.0  # Metrics dla monitoring
+
 # Development
 pytest
 pytest-asyncio

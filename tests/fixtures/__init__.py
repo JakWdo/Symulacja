@@ -15,5 +15,6 @@ pytest_plugins = [
     "tests.fixtures.mocks",
     "tests.fixtures.rag",
     "tests.fixtures.utils",
+    "tests.fixtures.workflows",
 ]
 

@@ -43,7 +43,7 @@ class FocusGroupServiceLangChain:
         """Inicjalizuj serwis z LangChain LLM i serwisem pamięci"""
         from config import models
 
-        self.settings = settings
+        # Note: self.settings removed - not used anywhere in this class
         self.memory_service = MemoryServiceLangChain()
 
         # Model config z centralnego registry

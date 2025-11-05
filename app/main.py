@@ -27,7 +27,7 @@ from app.core.logging_config import configure_logging
 from app.core.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
-from app.api import projects, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard
+from app.api import projects, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal
 from app.api.dependencies import get_current_admin_user, get_db
 from app.api.exception_handlers import register_exception_handlers
 from app.services.maintenance.cleanup_service import CleanupService
@@ -37,7 +37,7 @@ import mimetypes
 
 # Configure structured logging BEFORE creating any loggers
 configure_logging(
-    structured=app_config.ENVIRONMENT == "production",
+    structured=app_config.environment == "production",
     level=os.getenv("LOG_LEVEL", "DEBUG" if app_config.debug else "INFO"),
 )
 
@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
     shutdown_scheduler(wait=True)
 
 # Walidacja krytycznych ustawień w produkcji
-if app_config.ENVIRONMENT == "production":
+if app_config.environment == "production":
     # Security: Walidacja SECRET_KEY
     secret_key = os.getenv("SECRET_KEY", app_config.secret_key)
     if secret_key == "change-me":
@@ -127,7 +127,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 #
 # CORS jest potrzebny TYLKO w development, gdy frontend dev server (localhost:5173)
 # robi requesty do backend (localhost:8000) - to są cross-origin requests.
-if app_config.ENVIRONMENT == "development":
+if app_config.environment == "development":
     # Development: frontend na localhost:5173, backend na localhost:8000
     # To są cross-origin requests, wymagają CORS
     allowed_origins = [
@@ -156,7 +156,7 @@ app.add_middleware(RequestIDMiddleware)
 
 # Security Headers Middleware
 # Dodaje OWASP-recommended headers: X-Frame-Options, CSP, X-Content-Type-Options, etc.
-enable_hsts = app_config.ENVIRONMENT == "production"  # HSTS tylko na HTTPS w produkcji
+enable_hsts = app_config.environment == "production"  # HSTS tylko na HTTPS w produkcji
 app.add_middleware(SecurityHeadersMiddleware, enable_hsts=enable_hsts)
 
 # Podpinamy katalog plików statycznych (avatary)
@@ -176,6 +176,10 @@ app.include_router(analysis.router, prefix=app_config.api_prefix, tags=["Analysi
 app.include_router(rag.router, prefix=app_config.api_prefix)  # RAG już ma prefix="/rag" i tags w routerze
 app.include_router(settings_router.router, prefix=app_config.api_prefix, tags=["Settings"])
 app.include_router(dashboard.router, prefix=app_config.api_prefix, tags=["Dashboard"])
+app.include_router(workflows.router, prefix=app_config.api_prefix, tags=["Workflows"])
+
+# Internal endpoints (dla Cloud Tasks callbacks)
+app.include_router(internal.router, tags=["Internal"])
 
 
 # Root endpoint removed - SPA catch-all route handles "/" in production
@@ -206,7 +210,7 @@ async def health_check():
 
     return {
         "status": "healthy",
-        "environment": app_config.ENVIRONMENT,
+        "environment": app_config.environment,
         "rag_services": rag_status
     }
 

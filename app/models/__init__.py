@@ -12,6 +12,9 @@ Zawiera wszystkie modele bazodanowe aplikacji (PostgreSQL):
 - Survey: Ankiety syntetyczne (pytania + konfiguracja)
 - SurveyResponse: Odpowiedzi person na ankiety
 - RAGDocument: Dokumenty RAG - baza wiedzy (PDF/DOCX) dla generowania person
+- Workflow: Wieloetapowe przepływy badawcze (Workflow Builder)
+- WorkflowStep: Pojedyncze kroki w workflow (nodes z React Flow)
+- WorkflowExecution: Historia wykonań workflow z tracking statusu
 
 Wszystkie modele używają:
 - UUID jako primary key
@@ -28,6 +31,14 @@ from .focus_group import FocusGroup
 from .persona_events import PersonaEvent, PersonaResponse
 from .survey import Survey, SurveyResponse
 from .rag_document import RAGDocument
+from .workflow import (
+    Workflow,
+    WorkflowStep,
+    WorkflowExecution,
+    WorkflowStatusEnum,
+    ExecutionStatusEnum,
+    WorkflowStepTypeEnum,
+)
 from .dashboard import (
     DashboardMetric,
     ProjectHealthLog,
@@ -48,6 +59,12 @@ __all__ = [
     "Survey",
     "SurveyResponse",
     "RAGDocument",
+    "Workflow",
+    "WorkflowStep",
+    "WorkflowExecution",
+    "WorkflowStatusEnum",
+    "ExecutionStatusEnum",
+    "WorkflowStepTypeEnum",
     "DashboardMetric",
     "ProjectHealthLog",
     "InsightEvidence",

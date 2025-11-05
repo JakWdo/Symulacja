@@ -142,6 +142,7 @@ app/api/
 ├── surveys.py               # Ankiety syntetyczne
 ├── analysis.py              # Analizy AI
 ├── rag.py                   # Upload, search
+├── workflows.py             # Workflow Builder (11 endpoints)
 ├── dashboard.py             # Metryki, health, usage
 ├── settings.py              # Ustawienia użytkownika
 ├── dependencies.py          # DI (auth, authorization)
@@ -175,6 +176,18 @@ GET    /focus-groups/{id}/responses
 POST   /rag/upload                        # PDF/DOCX processing
 POST   /rag/search                        # Hybrid search
 POST   /rag/graph-query                   # Graph RAG
+
+# Workflows
+POST   /workflows                         # Utwórz workflow
+GET    /workflows, /workflows/{id}        # Lista/szczegóły
+PUT    /workflows/{id}                    # Update workflow
+DELETE /workflows/{id}                    # Soft delete
+PATCH  /workflows/{id}/canvas             # Quick save canvas
+POST   /workflows/{id}/validate           # Pre-flight validation
+POST   /workflows/{id}/execute            # Wykonaj workflow
+GET    /workflows/{id}/executions         # Historia wykonań
+GET    /workflows/templates               # Lista templates
+POST   /workflows/templates/{id}/instantiate  # Utwórz z template
 
 # Dashboard
 GET    /dashboard/metrics, /dashboard/health/{project_id}
@@ -413,6 +426,1269 @@ class PersonaOrchestrationService:
 - Hard delete soft-deleted entities po 7 dniach
 - Cascade delete (Project → Personas → Events)
 - Scheduled job (APScheduler, codziennie 3:00)
+
+---
+
+## Workflow System
+
+### Przegląd
+
+Workflow Builder to system automatyzacji procesów badawczych w Sight. Umożliwia tworzenie, walidację i wykonywanie wizualnych workflow składających się z 14 typów nodów połączonych w DAG (Directed Acyclic Graph).
+
+**Główne Komponenty:**
+- Visual Editor (React Flow canvas)
+- Graph Validator (cycle detection, orphaned nodes)
+- Execution Engine (topological sort, context passing)
+- Template System (6 predefiniowanych workflow)
+- 14 Node Types (control flow, data generation, analysis)
+
+**Lokalizacja Kodu:**
+```
+Backend:
+├── app/api/workflows.py                       # 11 API endpoints
+├── app/models/workflow.py                     # 3 modele DB (Workflow, WorkflowExecution)
+├── app/schemas/workflow.py                    # Pydantic schemas
+└── app/services/workflows/                    # Service layer
+    ├── workflow_service.py                    # CRUD operations
+    ├── workflow_validator.py                  # Graph validation (Kahn's, BFS)
+    ├── workflow_executor.py                   # Execution orchestration
+    ├── workflow_template_service.py           # Template management (6 templates)
+    └── node_executors/                        # Per-node execution logic
+        ├── base.py                            # Abstract base executor
+        ├── control_flow_executor.py           # START, END, DECISION, LOOP
+        ├── data_generation_executor.py        # CREATE_PROJECT, GENERATE_PERSONAS
+        ├── analysis_executor.py               # RUN_FOCUS_GROUP, ANALYZE_RESULTS
+        ├── output_executor.py                 # FILTER_DATA, EXPORT_REPORT
+        └── placeholder_executor.py            # MVP placeholders
+
+Frontend:
+├── frontend/src/components/workflows/         # React components
+│   ├── WorkflowCanvas.tsx                     # React Flow canvas
+│   ├── WorkflowSidebar.tsx                    # Node palette + properties
+│   ├── PropertyPanels/                        # Per-node config panels (14 types)
+│   └── TemplateGallery.tsx                    # Template selection modal
+├── frontend/src/hooks/useWorkflows.ts         # API integration
+└── frontend/src/types/workflow.ts             # TypeScript types
+```
+
+### Architektura
+
+**Service Layer Pattern:**
+```
+┌────────────────────────────────────────────────────────────┐
+│                     CLIENT (React SPA)                      │
+│  WorkflowCanvas → useWorkflows hook → API calls            │
+└────────────────────────────┬───────────────────────────────┘
+                             │
+┌────────────────────────────▼───────────────────────────────┐
+│                     API ENDPOINTS (thin)                    │
+│  /workflows CRUD, /validate, /execute, /templates          │
+└────────────────────────────┬───────────────────────────────┘
+                             │
+┌────────────────────────────▼───────────────────────────────┐
+│                   SERVICE LAYER (business logic)            │
+├─────────────────────────────────────────────────────────────┤
+│  WorkflowService        → CRUD operations                   │
+│  WorkflowValidator      → Graph validation (Kahn's, BFS)    │
+│  WorkflowExecutor       → Execution orchestration           │
+│  WorkflowTemplateService→ Template management               │
+│  Node Executors         → Per-node execution logic          │
+└────────────────────────────┬───────────────────────────────┘
+                             │
+            ┌────────────────┴───────────────┐
+            │                                │
+┌───────────▼──────────┐          ┌─────────▼──────────┐
+│  DATABASE LAYER      │          │  EXTERNAL SERVICES │
+├──────────────────────┤          ├────────────────────┤
+│ • workflows          │          │ • LLM calls        │
+│ • workflow_executions│          │ • RAG service      │
+│ • Validation results │          │ • Other services   │
+└──────────────────────┘          └────────────────────┘
+```
+
+**Kluczowe Zasady:**
+1. **Thin Controllers:** API endpoints tylko walidują i delegują
+2. **Fat Services:** Cała logika w service layer
+3. **Immutable Executions:** WorkflowExecution = audit trail
+4. **Graph Algorithms:** Kahn's dla topological sort, BFS dla reachability
+5. **Template-First UX:** 6 prebuilt templates dla szybkiego startu
+
+### Database Schema
+
+**3 Główne Tabele:**
+
+#### workflows
+
+```sql
+CREATE TABLE workflows (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Canvas data (React Flow format)
+    canvas_data JSONB NOT NULL DEFAULT '{"nodes": [], "edges": []}'::jsonb,
+
+    -- Status management
+    status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'archived')),
+    is_template BOOLEAN DEFAULT FALSE,
+
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE,  -- Soft delete
+
+    -- Indexes
+    CONSTRAINT workflows_name_not_empty CHECK (length(name) > 0)
+);
+
+CREATE INDEX idx_workflows_project_id ON workflows(project_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_workflows_owner_id ON workflows(owner_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_workflows_status ON workflows(status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_workflows_is_template ON workflows(is_template) WHERE is_template = TRUE;
+CREATE INDEX idx_workflows_deleted_at ON workflows(deleted_at) WHERE deleted_at IS NOT NULL;
+```
+
+**Canvas Data JSONB Structure:**
+```json
+{
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": {"x": 100, "y": 100},
+      "data": {
+        "label": "Start",
+        "config": {}
+      }
+    },
+    {
+      "id": "generate-personas-1",
+      "type": "generate_personas",
+      "position": {"x": 300, "y": 100},
+      "data": {
+        "label": "Generate 20 Personas",
+        "config": {
+          "count": 20,
+          "demographic_preset": "poland_general"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "start-1",
+      "target": "generate-personas-1",
+      "type": "default"
+    }
+  ]
+}
+```
+
+#### workflow_executions
+
+```sql
+CREATE TABLE workflow_executions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+
+    -- Execution status
+    status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+
+    -- Results and errors
+    result_data JSONB,           -- Final context from execution
+    error_message TEXT,           -- Error details if failed
+
+    -- Timing
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_executions_workflow_id ON workflow_executions(workflow_id);
+CREATE INDEX idx_executions_status ON workflow_executions(status);
+CREATE INDEX idx_executions_started_at ON workflow_executions(started_at DESC);
+CREATE INDEX idx_executions_created_at ON workflow_executions(created_at DESC);
+```
+
+**Execution Result Data Example:**
+```json
+{
+  "personas": [
+    {"id": "uuid", "name": "Jan Kowalski", "age": 35},
+    {"id": "uuid", "name": "Anna Nowak", "age": 28}
+  ],
+  "focus_group_result": {
+    "id": "uuid",
+    "summary": "Participants showed strong interest in Feature A",
+    "key_insights": ["Pain point: pricing", "Opportunity: mobile app"]
+  },
+  "insights": {
+    "themes": ["pricing", "usability", "trust"],
+    "sentiment": "positive",
+    "confidence": 0.87
+  }
+}
+```
+
+#### workflow_steps (Deprecated)
+
+**Uwaga:** Historyczna tabela z wczesnych wersji. Obecnie nody przechowywane w `canvas_data` JSONB. Tabela pozostaje dla backward compatibility, ale nie jest aktywnie używana.
+
+### Graph Algorithms
+
+#### Kahn's Algorithm - Cycle Detection & Topological Sort
+
+**Złożoność:** O(V + E) gdzie V = nodes, E = edges
+**Użycie:** Walidacja DAG, określenie kolejności wykonania
+
+**Implementacja:**
+```python
+def _detect_cycles_and_sort(
+    nodes: list[dict],
+    edges: list[dict]
+) -> dict[str, Any]:
+    """
+    Kahn's Algorithm dla topological sort i detekcji cykli.
+
+    Returns:
+        {
+            "has_cycle": bool,
+            "topological_order": list[str],  # Node IDs w kolejności wykonania
+            "unreachable_nodes": list[str]   # Orphaned nodes
+        }
+    """
+    # 1. Calculate in-degree for each node
+    in_degree = {node["id"]: 0 for node in nodes}
+    adjacency = {node["id"]: [] for node in nodes}
+
+    for edge in edges:
+        in_degree[edge["target"]] += 1
+        adjacency[edge["source"]].append(edge["target"])
+
+    # 2. Queue nodes with in-degree 0 (starting nodes)
+    queue = [nid for nid, deg in in_degree.items() if deg == 0]
+    sorted_nodes = []
+
+    # 3. Process queue (BFS traversal)
+    while queue:
+        node_id = queue.pop(0)
+        sorted_nodes.append(node_id)
+
+        # Reduce in-degree for neighbors
+        for neighbor in adjacency[node_id]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    # 4. Check if all nodes were processed
+    has_cycle = len(sorted_nodes) != len(nodes)
+
+    # 5. Identify unreachable nodes (not in sorted_nodes)
+    node_ids = {node["id"] for node in nodes}
+    sorted_set = set(sorted_nodes)
+    unreachable = list(node_ids - sorted_set)
+
+    return {
+        "has_cycle": has_cycle,
+        "topological_order": sorted_nodes,
+        "unreachable_nodes": unreachable
+    }
+```
+
+**Przykład:**
+```
+Nodes: [A, B, C, D]
+Edges: [A→B, B→C, A→D, D→C]
+
+In-degree: {A: 0, B: 1, C: 2, D: 1}
+Queue: [A]
+
+Iteration 1: Process A → Queue: [B, D], In-degree: {B: 0, C: 2, D: 0}
+Iteration 2: Process B → Queue: [D], In-degree: {C: 1, D: 0}
+Iteration 3: Process D → Queue: [C], In-degree: {C: 0}
+Iteration 4: Process C → Queue: []
+
+Result: [A, B, D, C] ✅ No cycle
+```
+
+**Cycle Detection:**
+```
+Nodes: [A, B, C]
+Edges: [A→B, B→C, C→A]
+
+In-degree: {A: 1, B: 1, C: 1}
+Queue: [] (no nodes with in-degree 0!)
+
+Result: has_cycle = True ❌
+```
+
+#### BFS - Reachability Analysis
+
+**Złożoność:** O(V + E)
+**Użycie:** Detekcja orphaned nodes (nie połączone z START)
+
+**Implementacja:**
+```python
+def _get_reachable_nodes(
+    start_id: str,
+    nodes: list[dict],
+    edges: list[dict]
+) -> set[str]:
+    """
+    BFS traversal od START node.
+
+    Returns: Set node IDs osiągalnych z START
+    """
+    reachable = {start_id}
+    queue = [start_id]
+
+    # Build adjacency list
+    adjacency = {node["id"]: [] for node in nodes}
+    for edge in edges:
+        adjacency[edge["source"]].append(edge["target"])
+
+    # BFS traversal
+    while queue:
+        current = queue.pop(0)
+        for neighbor in adjacency[current]:
+            if neighbor not in reachable:
+                reachable.add(neighbor)
+                queue.append(neighbor)
+
+    return reachable
+```
+
+**Przykład:**
+```
+Nodes: [START, A, B, C, ORPHAN]
+Edges: [START→A, A→B, B→C]
+
+Reachable from START: {START, A, B, C}
+Orphaned: {ORPHAN} ❌
+```
+
+### Validation Pipeline
+
+**WorkflowValidator Service:**
+
+```python
+class WorkflowValidator:
+    """
+    Graph validation pipeline:
+    1. Structural checks (nodes, edges exist)
+    2. START/END node checks
+    3. Cycle detection (Kahn's)
+    4. Reachability analysis (BFS)
+    5. Node config validation
+    6. Edge connection validation
+    """
+
+    async def validate_workflow(
+        self,
+        workflow_id: UUID,
+        db: AsyncSession
+    ) -> ValidationResult:
+        """
+        Full validation pipeline.
+
+        Returns:
+            ValidationResult(
+                is_valid: bool,
+                errors: list[str],
+                warnings: list[str],
+                graph_analysis: dict
+            )
+        """
+        errors = []
+        warnings = []
+
+        # 1. Fetch workflow
+        workflow = await self._get_workflow(workflow_id, db)
+        canvas = workflow.canvas_data
+        nodes = canvas.get("nodes", [])
+        edges = canvas.get("edges", [])
+
+        # 2. Structural checks
+        if not nodes:
+            errors.append("Workflow is empty (no nodes)")
+        if not edges and len(nodes) > 1:
+            warnings.append("No edges connecting nodes")
+
+        # 3. START/END node checks
+        start_nodes = [n for n in nodes if n["type"] == "start"]
+        end_nodes = [n for n in nodes if n["type"] == "end"]
+
+        if len(start_nodes) == 0:
+            errors.append("Missing START node")
+        elif len(start_nodes) > 1:
+            warnings.append(f"Multiple START nodes detected ({len(start_nodes)})")
+
+        if len(end_nodes) == 0:
+            errors.append("Missing END node")
+
+        # 4. Cycle detection (Kahn's Algorithm)
+        graph_analysis = self._detect_cycles_and_sort(nodes, edges)
+
+        if graph_analysis["has_cycle"]:
+            errors.append("Workflow contains cycles (infinite loop detected)")
+
+        # 5. Reachability analysis (BFS)
+        if start_nodes:
+            start_id = start_nodes[0]["id"]
+            reachable = self._get_reachable_nodes(start_id, nodes, edges)
+            orphaned = [n["id"] for n in nodes if n["id"] not in reachable]
+
+            if orphaned:
+                warnings.append(f"Orphaned nodes detected: {orphaned}")
+
+        # 6. Node config validation
+        for node in nodes:
+            node_errors = self._validate_node_config(node)
+            errors.extend(node_errors)
+
+        # 7. Edge connection validation
+        node_ids = {n["id"] for n in nodes}
+        for edge in edges:
+            if edge["source"] not in node_ids:
+                errors.append(f"Edge {edge['id']} references non-existent source")
+            if edge["target"] not in node_ids:
+                errors.append(f"Edge {edge['id']} references non-existent target")
+
+        return ValidationResult(
+            is_valid=len(errors) == 0,
+            errors=errors,
+            warnings=warnings,
+            graph_analysis=graph_analysis
+        )
+```
+
+**Validation Response Example:**
+```json
+{
+  "is_valid": true,
+  "errors": [],
+  "warnings": ["Multiple START nodes detected (2)"],
+  "graph_analysis": {
+    "has_cycle": false,
+    "topological_order": ["start-1", "generate-1", "analyze-1", "end-1"],
+    "unreachable_nodes": [],
+    "node_count": 4,
+    "edge_count": 3
+  }
+}
+```
+
+### API Endpoints
+
+**Base Path:** `/api/v1/workflows`
+
+#### CRUD Operations
+
+**1. Create Workflow**
+```http
+POST /api/v1/workflows/
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "name": "My Research Workflow",
+  "description": "Custom workflow for market research",
+  "project_id": "uuid",
+  "canvas_data": {
+    "nodes": [
+      {"id": "start-1", "type": "start", "position": {"x": 0, "y": 0}, "data": {}},
+      {"id": "end-1", "type": "end", "position": {"x": 200, "y": 200}, "data": {}}
+    ],
+    "edges": [
+      {"id": "e1", "source": "start-1", "target": "end-1"}
+    ]
+  }
+}
+
+Response: 201 Created
+{
+  "id": "uuid",
+  "name": "My Research Workflow",
+  "status": "draft",
+  "is_template": false,
+  "created_at": "2025-01-15T10:00:00Z",
+  ...
+}
+```
+
+**2. List Workflows**
+```http
+GET /api/v1/workflows/?project_id={uuid}&include_templates=false
+Authorization: Bearer {token}
+
+Response: 200 OK
+[
+  {
+    "id": "uuid",
+    "name": "Workflow 1",
+    "status": "draft",
+    "node_count": 5,
+    "created_at": "2025-01-15T10:00:00Z"
+  }
+]
+```
+
+**3. Get Workflow**
+```http
+GET /api/v1/workflows/{workflow_id}
+Authorization: Bearer {token}
+
+Response: 200 OK
+{
+  "id": "uuid",
+  "name": "My Workflow",
+  "canvas_data": {
+    "nodes": [...],
+    "edges": [...]
+  },
+  "status": "draft"
+}
+```
+
+**4. Update Workflow**
+```http
+PUT /api/v1/workflows/{workflow_id}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "name": "Updated Name",
+  "description": "Updated description",
+  "status": "active"
+}
+
+Response: 200 OK
+```
+
+**5. Quick Save Canvas (Optimized)**
+```http
+PATCH /api/v1/workflows/{workflow_id}/canvas
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "canvas_data": {
+    "nodes": [...],
+    "edges": [...]
+  }
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "updated_at": "2025-01-15T10:30:00Z"
+}
+```
+
+**6. Delete Workflow (Soft Delete)**
+```http
+DELETE /api/v1/workflows/{workflow_id}
+Authorization: Bearer {token}
+
+Response: 204 No Content
+```
+
+#### Validation & Execution
+
+**7. Validate Workflow**
+```http
+POST /api/v1/workflows/{workflow_id}/validate
+Authorization: Bearer {token}
+
+Response: 200 OK
+{
+  "is_valid": true,
+  "errors": [],
+  "warnings": ["Multiple START nodes detected"],
+  "graph_analysis": {
+    "has_cycle": false,
+    "topological_order": ["start-1", "generate-1", "end-1"]
+  }
+}
+```
+
+**8. Execute Workflow**
+```http
+POST /api/v1/workflows/{workflow_id}/execute
+Authorization: Bearer {token}
+
+Response: 201 Created
+{
+  "id": "execution-uuid",
+  "workflow_id": "uuid",
+  "status": "running",
+  "started_at": "2025-01-15T10:30:00Z"
+}
+```
+
+**9. Get Execution History**
+```http
+GET /api/v1/workflows/{workflow_id}/executions
+Authorization: Bearer {token}
+
+Response: 200 OK
+[
+  {
+    "id": "uuid",
+    "status": "completed",
+    "started_at": "2025-01-15T10:00:00Z",
+    "completed_at": "2025-01-15T10:05:00Z",
+    "result_data": {
+      "personas": [...],
+      "insights": {...}
+    }
+  }
+]
+```
+
+#### Templates
+
+**10. Get Templates**
+```http
+GET /api/v1/workflows/templates
+Authorization: Bearer {token}
+
+Response: 200 OK
+[
+  {
+    "id": "basic_research",
+    "name": "Basic Research",
+    "description": "Quick market research with personas and survey",
+    "node_count": 5,
+    "estimated_time": "~30 min",
+    "tags": ["research", "quick-start"],
+    "canvas_data": {...}
+  }
+]
+```
+
+**11. Instantiate Template**
+```http
+POST /api/v1/workflows/templates/{template_id}/instantiate
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "project_id": "uuid",
+  "workflow_name": "My Custom Name"  // optional
+}
+
+Response: 201 Created
+{
+  "id": "workflow-uuid",
+  "name": "My Custom Name",
+  "canvas_data": {...}  // copied from template
+}
+```
+
+### Node Types (14 Types)
+
+#### Control Flow Nodes
+
+**1. START**
+- **Opis:** Entry point workflow
+- **Konfiguracja:** Brak
+- **Ograniczenia:** Dokładnie 1 per workflow
+- **Output:** Empty context `{}`
+
+**2. END**
+- **Opis:** Completion marker
+- **Konfiguracja:**
+  ```json
+  {
+    "success_message": "Workflow completed successfully!"  // optional
+  }
+  ```
+- **Output:** Final context from poprzednich nodów
+
+**3. DECISION**
+- **Opis:** Conditional branching (if/else logic)
+- **Konfiguracja:**
+  ```json
+  {
+    "condition": "persona_count > 10",  // Python expression
+    "true_label": "Yes",
+    "false_label": "No"
+  }
+  ```
+- **Branches:** 2 edges (true/false)
+- **Context Variables:** Dostęp do całego contextu (np. `persona_count`, `sentiment_score`)
+
+**4. LOOP_START**
+- **Opis:** Iteration start (for-each loop)
+- **Konfiguracja:**
+  ```json
+  {
+    "iteration_variable": "persona",
+    "items_source": "personas",      // Key z contextu
+    "max_iterations": 100
+  }
+  ```
+- **Output:** Ustawia `{iteration_variable}` w context
+
+**5. LOOP_END**
+- **Opis:** Iteration end (jumps back to LOOP_START)
+- **Konfiguracja:**
+  ```json
+  {
+    "loop_start_node_id": "loop-start-1"
+  }
+  ```
+
+#### Data Generation Nodes
+
+**6. CREATE_PROJECT**
+- **Opis:** Creates new research project
+- **Konfiguracja:**
+  ```json
+  {
+    "project_name": "New Project",
+    "description": "Project for testing feature X",
+    "demographic_targets": {
+      "age_min": 25,
+      "age_max": 45,
+      "gender": ["male", "female"],
+      "location": ["poland"]
+    }
+  }
+  ```
+- **Output:** `{"project_id": "uuid", "project": {...}}`
+- **Integration:** `ProjectService.create_project()`
+
+**7. GENERATE_PERSONAS**
+- **Opis:** Generuje AI personas z segmentami demograficznymi
+- **Konfiguracja:**
+  ```json
+  {
+    "count": 20,
+    "demographic_preset": "poland_general",
+    "target_audience_description": "Tech-savvy millennials interested in fintech",
+    "advanced_options": {
+      "diversity_level": "medium",  // low, medium, high
+      "include_edge_cases": true,
+      "use_rag_context": true
+    }
+  }
+  ```
+- **Output:** `{"personas": [{"id": "uuid", "name": "...", "age": 35}, ...]}`
+- **Integration:** `PersonaOrchestrationService.generate_personas()`
+- **Performance:** 20 personas = ~45s
+
+**8. CREATE_SURVEY**
+- **Opis:** Tworzy ankietę dla person
+- **Konfiguracja:**
+  ```json
+  {
+    "survey_name": "Product Feedback Survey",
+    "questions": [
+      {
+        "text": "How satisfied are you with our product?",
+        "type": "scale",
+        "scale_min": 1,
+        "scale_max": 5
+      },
+      {
+        "text": "What features would you like to see?",
+        "type": "open_ended"
+      }
+    ],
+    "target_personas": "all"  // or list of persona IDs
+  }
+  ```
+- **Output:** `{"survey_id": "uuid", "survey": {...}}`
+- **Integration:** `SurveyService.create_survey()` (placeholder w MVP)
+
+#### Analysis Nodes
+
+**9. RUN_FOCUS_GROUP**
+- **Opis:** Uruchamia AI focus group discussion
+- **Konfiguracja:**
+  ```json
+  {
+    "focus_group_name": "Product Feature Discussion",
+    "discussion_topics": [
+      "What do you think about Feature A?",
+      "How would you use this feature?",
+      "What concerns do you have?"
+    ],
+    "num_participants": 10,
+    "moderator_style": "casual"  // casual, formal, neutral
+  }
+  ```
+- **Output:**
+  ```json
+  {
+    "focus_group_id": "uuid",
+    "responses": [...],
+    "summary": "Participants showed strong interest...",
+    "key_insights": ["Pain point: pricing", "Opportunity: mobile"],
+    "themes": ["usability", "pricing", "trust"]
+  }
+  ```
+- **Integration:** `FocusGroupServiceLangChain.run_discussion()`
+- **Performance:** 10 personas × 3 pytania = ~2 min
+
+**10. ANALYZE_RESULTS**
+- **Opis:** Analizuje dane z poprzednich nodów
+- **Konfiguracja:**
+  ```json
+  {
+    "analysis_type": "sentiment",  // sentiment, themes, statistical
+    "data_source": "survey-1",     // Node ID lub context key
+    "custom_instructions": "Focus on pain points and feature requests"
+  }
+  ```
+- **Output:**
+  ```json
+  {
+    "analysis": {
+      "sentiment": "positive",
+      "confidence": 0.87,
+      "key_findings": [...]
+    }
+  }
+  ```
+- **Integration:** LLM call z custom prompt
+
+**11. GENERATE_INSIGHTS**
+- **Opis:** Generuje insights z LLM
+- **Konfiguracja:**
+  ```json
+  {
+    "insight_focus": ["pain_points", "opportunities", "risks"],
+    "output_format": "summary",  // summary, bullet_points, detailed
+    "include_quotes": true,
+    "max_insights": 10
+  }
+  ```
+- **Output:**
+  ```json
+  {
+    "insights": [
+      {
+        "title": "Pricing concerns",
+        "description": "...",
+        "quotes": ["..."],
+        "confidence": 0.9
+      }
+    ]
+  }
+  ```
+
+**12. COMPARE_GROUPS**
+- **Opis:** Porównuje dwie grupy (A/B testing)
+- **Konfiguracja:**
+  ```json
+  {
+    "group_a_source": "focus-group-1",
+    "group_b_source": "focus-group-2",
+    "comparison_metrics": ["sentiment", "themes", "engagement"],
+    "statistical_tests": true
+  }
+  ```
+- **Output:**
+  ```json
+  {
+    "comparison": {
+      "group_a_sentiment": 0.75,
+      "group_b_sentiment": 0.82,
+      "difference": 0.07,
+      "p_value": 0.03,
+      "significant": true
+    }
+  }
+  ```
+
+#### Output Nodes
+
+**13. FILTER_DATA**
+- **Opis:** Filtruje dane według warunków
+- **Konfiguracja:**
+  ```json
+  {
+    "filter_expression": "age > 30 and satisfaction_score >= 4",
+    "data_source": "personas",  // Context key
+    "output_key": "filtered_personas"
+  }
+  ```
+- **Output:** `{"filtered_personas": [...]}`
+
+**14. EXPORT_REPORT**
+- **Opis:** Eksportuje raport (PDF/DOCX/JSON/CSV)
+- **Konfiguracja:**
+  ```json
+  {
+    "report_name": "Final Research Report",
+    "format": "pdf",  // pdf, docx, json, csv
+    "sections": ["summary", "insights", "raw_data"],
+    "include_raw_data": false,
+    "template": "standard"
+  }
+  ```
+- **Output:**
+  ```json
+  {
+    "report_url": "https://storage.googleapis.com/.../report.pdf",
+    "file_size": 1024000
+  }
+  ```
+
+### Templates (6 Pre-built)
+
+**1. basic_research**
+- **Nodes:** 5 (START → GENERATE_PERSONAS → CREATE_SURVEY → ANALYZE_RESULTS → END)
+- **Czas:** ~30 min
+- **Use Case:** Quick market research, MVP validation
+- **Output:** Personas + survey responses + basic analysis
+
+**2. deep_dive**
+- **Nodes:** 8 (START → CREATE_PROJECT → GENERATE_PERSONAS → CREATE_SURVEY → RUN_FOCUS_GROUP → ANALYZE_RESULTS → GENERATE_INSIGHTS → END)
+- **Czas:** ~60 min
+- **Use Case:** Comprehensive research, strategic decisions
+- **Output:** Full research report z multiple data sources
+
+**3. iterative_validation**
+- **Nodes:** 7 (START → GENERATE_PERSONAS → CREATE_SURVEY → ANALYZE_RESULTS → DECISION → LOOP_START/END or END)
+- **Czas:** ~45 min
+- **Use Case:** Iterative hypothesis testing, continuous validation
+- **Features:** Conditional looping based on confidence scores
+
+**4. brand_perception**
+- **Nodes:** 7 (START → GENERATE_PERSONAS → RUN_FOCUS_GROUP → ANALYZE_RESULTS → GENERATE_INSIGHTS → EXPORT_REPORT → END)
+- **Czas:** ~40 min
+- **Use Case:** Brand studies, sentiment analysis
+- **Output:** Brand perception report z sentiment scores
+
+**5. user_journey**
+- **Nodes:** 6 (START → GENERATE_PERSONAS → journey_mapping → touchpoints_analysis → GENERATE_INSIGHTS → END)
+- **Czas:** ~50 min
+- **Use Case:** UX research, customer journey mapping
+- **Output:** Journey map z pain points i opportunities
+
+**6. feature_prioritization**
+- **Nodes:** 7 (START → GENERATE_PERSONAS → features_survey → ANALYZE_RESULTS → COMPARE_GROUPS → prioritize → END)
+- **Czas:** ~35 min
+- **Use Case:** Product roadmap planning, feature decisions
+- **Output:** Prioritized feature list z justification
+
+### Execution Engine
+
+**Workflow Execution Flow:**
+
+```python
+class WorkflowExecutor:
+    """
+    Orchestrates workflow execution:
+    1. Validation
+    2. Topological sort
+    3. Sequential execution
+    4. Context passing
+    5. Error handling
+    """
+
+    async def execute_workflow(
+        self,
+        workflow_id: UUID,
+        db: AsyncSession,
+        user: User
+    ) -> WorkflowExecution:
+        """
+        Full execution pipeline.
+
+        Flow:
+        1. Validate workflow (graph structure)
+        2. Create execution record (status: pending)
+        3. Get topological order (Kahn's)
+        4. Execute nodes sequentially
+           - Get NodeExecutor for type
+           - Execute with context
+           - Pass output to next nodes
+        5. Update execution (status: completed/failed)
+        6. Return execution with results
+        """
+        # 1. Validation
+        validation = await self.validator.validate_workflow(workflow_id, db)
+        if not validation.is_valid:
+            raise ValidationError(validation.errors)
+
+        # 2. Create execution record
+        execution = WorkflowExecution(
+            workflow_id=workflow_id,
+            status="pending",
+            created_at=datetime.utcnow()
+        )
+        db.add(execution)
+        await db.commit()
+
+        try:
+            # 3. Get workflow and topological order
+            workflow = await self._get_workflow(workflow_id, db)
+            nodes = workflow.canvas_data["nodes"]
+            edges = workflow.canvas_data["edges"]
+
+            graph_analysis = self.validator._detect_cycles_and_sort(nodes, edges)
+            topological_order = graph_analysis["topological_order"]
+
+            # 4. Update status to running
+            execution.status = "running"
+            execution.started_at = datetime.utcnow()
+            await db.commit()
+
+            # 5. Execute nodes sequentially
+            context = {}  # Shared context across nodes
+
+            for node_id in topological_order:
+                node = next(n for n in nodes if n["id"] == node_id)
+
+                # Get executor for node type
+                executor = self._get_executor_for_type(node["type"])
+
+                # Execute node
+                output = await executor.execute(
+                    node=node,
+                    context=context,
+                    db=db,
+                    user=user
+                )
+
+                # Merge output into context
+                context.update(output)
+
+            # 6. Mark as completed
+            execution.status = "completed"
+            execution.completed_at = datetime.utcnow()
+            execution.result_data = context
+
+        except Exception as e:
+            # Error handling
+            execution.status = "failed"
+            execution.completed_at = datetime.utcnow()
+            execution.error_message = str(e)
+
+        await db.commit()
+        await db.refresh(execution)
+        return execution
+```
+
+**Context Passing Example:**
+
+```python
+# Initial context
+context = {}
+
+# Node 1: GENERATE_PERSONAS
+output = await personas_executor.execute(node, context, db, user)
+# output = {"personas": [persona1, persona2, ...], "persona_count": 20}
+context.update(output)
+# context = {"personas": [...], "persona_count": 20}
+
+# Node 2: RUN_FOCUS_GROUP (uses personas from context)
+output = await focus_group_executor.execute(node, context, db, user)
+# output = {"focus_group_result": {...}, "sentiment": "positive"}
+context.update(output)
+# context = {"personas": [...], "persona_count": 20, "focus_group_result": {...}, "sentiment": "positive"}
+
+# Node 3: DECISION (checks condition with context)
+condition = node["data"]["config"]["condition"]  # "sentiment == 'positive'"
+result = eval(condition, {"sentiment": context["sentiment"]})  # True
+# Executor chooses TRUE edge
+
+# Node 4: GENERATE_INSIGHTS (uses focus_group_result from context)
+output = await insights_executor.execute(node, context, db, user)
+# output = {"insights": [...]}
+context.update(output)
+
+# Final context returned in WorkflowExecution.result_data
+```
+
+**Error Handling:**
+
+```python
+# Fail-fast strategy
+try:
+    output = await executor.execute(node, context, db, user)
+except Exception as e:
+    # Stop execution immediately
+    execution.status = "failed"
+    execution.error_message = f"Node {node['id']} failed: {str(e)}"
+    execution.result_data = context  # Partial results
+    await db.commit()
+    raise
+```
+
+### Performance Characteristics
+
+**Validation:**
+- **Kahn's Algorithm:** O(V + E) = O(n) for typical workflows
+- **BFS Reachability:** O(V + E) = O(n)
+- **Total validation time:** <100ms for 50-node workflow
+- **Complexity:** Linear w.r.t. number of nodes and edges
+
+**Execution:**
+- **Strategy:** Sequential (MVP) - nodes executed one by one
+- **Bottleneck:** LLM calls (GENERATE_PERSONAS, RUN_FOCUS_GROUP)
+- **Typical execution times:**
+  - Basic Research (5 nodes): 30-60 seconds
+  - Deep Dive (8 nodes): 2-5 minutes
+  - Complex workflows (15+ nodes): 5-10 minutes
+
+**Database:**
+- **JSONB canvas_data:** Efficient queries, indexable
+- **Indexes:** project_id, owner_id, status, deleted_at
+- **Soft delete:** deleted_at timestamp (7-day retention)
+
+**Future Optimizations:**
+- Parallel execution for independent branches (DAG parallelism)
+- Background tasks (Cloud Tasks) for long-running workflows
+- Incremental execution (cache intermediate results)
+- Real-time progress updates (WebSocket)
+
+### Security & Authorization
+
+**RBAC Enforcement:**
+
+```python
+# Authorization check in API layer
+async def get_workflow(
+    workflow_id: UUID,
+    db: AsyncSession,
+    current_user: User = Depends(get_current_user)
+):
+    """User can only access workflows in their projects."""
+    workflow = await db.get(Workflow, workflow_id)
+
+    if not workflow or workflow.deleted_at:
+        raise HTTPException(404, "Workflow not found")
+
+    # Check project ownership
+    project = await db.get(Project, workflow.project_id)
+    if project.owner_id != current_user.id:
+        raise HTTPException(403, "Access denied")
+
+    return workflow
+```
+
+**Rate Limiting:**
+- **Workflow execution:** 10 per hour per user (prevents abuse)
+- **Workflow creation:** 100 per day per user
+- **Template instantiation:** 50 per day per user
+
+**Validation:**
+- **Node configs:** Validated against Pydantic schemas
+- **Edge connections:** Must reference existing nodes
+- **DAG validation:** Prevents infinite loops (Kahn's algorithm)
+- **Input sanitization:** Python eval() używany z restricted globals
+
+### Testing
+
+**Unit Tests:** 195 tests (~90% coverage)
+
+```bash
+# All workflow tests
+pytest tests/unit/services/workflows/ -v
+
+# Specific services
+pytest tests/unit/services/workflows/test_workflow_service.py -v        # 39 tests
+pytest tests/unit/services/workflows/test_workflow_validator.py -v      # 41 tests
+pytest tests/unit/services/workflows/test_workflow_executor.py -v       # 21 tests
+pytest tests/unit/services/workflows/test_node_executors.py -v          # 61 tests
+pytest tests/unit/services/workflows/test_template_service.py -v        # 33 tests
+
+# With coverage
+pytest tests/unit/services/workflows/ \
+  --cov=app/services/workflows \
+  --cov-report=html \
+  --cov-report=term-missing
+```
+
+**Test Coverage:**
+- **WorkflowService:** 90%+ (CRUD operations, soft delete)
+- **WorkflowValidator:** 95%+ (graph algorithms, edge cases)
+- **WorkflowExecutor:** 90%+ (execution flow, error handling)
+- **Node Executors:** 85%+ (per-node logic, integration)
+- **TemplateService:** 90%+ (template management, instantiation)
+
+**Key Test Cases:**
+- Cycle detection (various graph topologies)
+- Orphaned node detection (disconnected components)
+- Topological sort correctness
+- Context passing between nodes
+- Error propagation and rollback
+- Template instantiation with custom names
+- Soft delete and recovery
+
+### Future Enhancements
+
+**MVP Limitations:**
+1. **Synchronous execution:** Blocks HTTP request (no background tasks)
+2. **Placeholder UUIDs:** Persona generation returns placeholders (parser needed)
+3. **Survey service:** Not fully implemented (placeholder executor)
+4. **No parallelism:** Sequential execution only
+5. **Limited error recovery:** Fail-fast, no retry logic
+
+**Roadmap (Post-MVP):**
+
+**Phase 2: Background Execution**
+- Integrate Cloud Tasks for async execution
+- Real-time progress updates (WebSocket)
+- Cancel/pause running workflows
+- Retry failed nodes without full re-run
+
+**Phase 3: Advanced Features**
+- Parallel execution for independent branches (DAG parallelism)
+- Sub-workflows (nested workflows, reusable components)
+- Workflow versioning (save history, rollback)
+- Conditional branches based on LLM responses
+- Dynamic node creation (generate nodes at runtime)
+
+**Phase 4: Collaboration**
+- Workflow sharing (cross-project templates)
+- Team permissions (view/edit/execute)
+- Workflow marketplace (community templates)
+- Commenting and annotations
+
+**Phase 5: Optimization**
+- Incremental execution (cache intermediate results)
+- Smart caching (detect unchanged subgraphs)
+- Cost optimization (reuse LLM calls)
+- Performance profiling per node
+
+### Related Documentation
+
+**Backend:**
+- `app/api/workflows.py` - API endpoint implementation
+- `app/models/workflow.py` - Database models
+- `app/services/workflows/` - Service layer
+- `tests/unit/services/workflows/` - Test suite
+
+**Frontend:**
+- `/frontend/WORKFLOW_*.md` - React Flow integration guides
+- `/frontend/src/components/workflows/` - UI components
+- `/frontend/src/hooks/useWorkflows.ts` - API hooks
+- `/frontend/src/types/workflow.ts` - TypeScript types
+
+**Documentation:**
+- `/docs/workflow_builder_prd.md` - Product requirements
+- `/docs/workflow_design_review.md` - UX design review
+- `/docs/WORKFLOW_REMAINING_PHASES.md` - Testing strategy
+- `/docs/WORKFLOW_AUTO_LAYOUT.md` - Auto-layout algorithm (Dagre)
+- `/docs/WORKFLOW_EXECUTION_HISTORY.md` - Execution history feature
+
+**Migracje:**
+- `alembic/versions/4bdf0d123032_add_workflows_tables.py` - Initial schema
+- `alembic/versions/45c8ede416fb_extend_workflow_node_types_and_add_.py` - Node types extension
+
+---
+
+## RAG System
 
 ### Konfiguracja w Serwisach
 

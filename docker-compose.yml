@@ -104,6 +104,8 @@ services:
       WAIT_FOR_NEO4J: "false"
     env_file:
       - .env
+    volumes:
+      - ./:/app
     depends_on:
       postgres:
         condition: service_healthy

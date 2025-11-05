@@ -771,8 +771,9 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów, bez dodatkowych wyjaśnień):"""
 
         try:
             # Use Gemini Flash for quick naming (cheap, fast)
+            model_config = models.get("global", "chat")
             llm_flash = build_chat_model(
-                model=models._registry.config.get("defaults", {}).get("chat", {}).get("model", "gemini-2.5-flash"),
+                model=model_config.params.get("model", "gemini-2.5-flash"),
                 temperature=0.7,
                 max_tokens=50,
                 timeout=10,

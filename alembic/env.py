@@ -7,7 +7,7 @@ from alembic import context
 
 # Import all models for autogenerate support
 from app.db.base import Base
-from app.core.config import get_settings
+from config import app as app_config
 # Import all models to register them with Base metadata
 from app import models  # Import wszystkich modeli z __all__
 
@@ -16,8 +16,9 @@ from app import models  # Import wszystkich modeli z __all__
 config = context.config
 
 # Get database URL from settings - use sync driver for Alembic
-settings = get_settings()
-sync_url = settings.DATABASE_URL.replace('postgresql+asyncpg://', 'postgresql+psycopg2://')
+import os
+database_url = os.getenv("DATABASE_URL", app_config.database.url)
+sync_url = database_url.replace('postgresql+asyncpg://', 'postgresql+psycopg2://')
 config.set_main_option("sqlalchemy.url", sync_url)
 
 # Interpret the config file for Python logging.

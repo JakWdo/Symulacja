@@ -1,0 +1,128 @@
+# Google Cloud Monitoring Alerts - Workflow Builder
+# Konfiguracja alertów dla monitorowania workflow execution
+
+displayName: "Workflow Builder Alerts"
+
+# Notification channels (ustaw w GCP Console przed deployment)
+# Przykład: projects/gen-lang-client-0508446677/notificationChannels/[CHANNEL_ID]
+notificationChannels:
+  - projects/gen-lang-client-0508446677/notificationChannels/EMAIL_CHANNEL
+  # - projects/gen-lang-client-0508446677/notificationChannels/SLACK_CHANNEL
+
+# Warunki alertów
+conditions:
+
+  # Alert 1: Wysoki współczynnik błędów workflow
+  - displayName: "High Workflow Failure Rate"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        metric.type = "workload.googleapis.com/workflow_executions_total"
+        metric.label.status = "failed"
+      comparison: COMPARISON_GT
+      thresholdValue: 0.1  # >10% failure rate
+      duration: 300s  # 5 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_RATE
+          crossSeriesReducer: REDUCE_MEAN
+          groupByFields:
+            - metric.label.workflow_name
+
+  # Alert 2: Długi czas wykonania workflow
+  - displayName: "Long Workflow Execution Time"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        metric.type = "workload.googleapis.com/workflow_execution_duration_seconds"
+      comparison: COMPARISON_GT
+      thresholdValue: 600  # >10 minut
+      duration: 60s
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_PERCENTILE_95
+
+  # Alert 3: Dużo oczekujących wykonań
+  - displayName: "Many Pending Executions"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        metric.type = "workload.googleapis.com/workflow_executions_pending"
+      comparison: COMPARISON_GT
+      thresholdValue: 20
+      duration: 300s  # 5 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_MAX
+
+  # Alert 4: Cloud Run memory usage spike
+  - displayName: "High Memory Usage"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        resource.labels.service_name = "sight"
+        metric.type = "run.googleapis.com/container/memory/utilizations"
+      comparison: COMPARISON_GT
+      thresholdValue: 0.85  # >85% memory usage
+      duration: 180s  # 3 minuty
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_PERCENTILE_95
+
+  # Alert 5: Cloud Run CPU throttling
+  - displayName: "CPU Throttling Detected"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        resource.labels.service_name = "sight"
+        metric.type = "run.googleapis.com/container/cpu/utilizations"
+      comparison: COMPARISON_GT
+      thresholdValue: 0.9  # >90% CPU usage
+      duration: 300s  # 5 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_PERCENTILE_99
+
+# Combiner - łączenie warunków (ANY = którykolwiek alert się aktywuje)
+combiner: OR
+
+# Dokumentacja alertu
+documentation:
+  content: |
+    # Workflow Builder Alerts
+
+    ## Alert Actions:
+
+    ### High Workflow Failure Rate
+    - Check logs: `gcloud logging read "resource.type=cloud_run_revision AND jsonPayload.workflow_id=*"`
+    - Verify last successful execution
+    - Check node executor errors
+
+    ### Long Workflow Execution Time
+    - Investigate slow nodes (check node_execution_duration_seconds metric)
+    - Review LLM API latency
+    - Consider optimizing workflow configuration
+
+    ### Many Pending Executions
+    - Check Cloud Tasks queue: `gcloud tasks queues describe workflow-executions --location=europe-central2`
+    - Verify Cloud Run scaling (min/max instances)
+    - Consider increasing max_instances if needed
+
+    ### High Memory Usage
+    - Check for memory leaks in workflow execution
+    - Review large workflow configurations
+    - Consider increasing Cloud Run memory allocation
+
+    ### CPU Throttling
+    - Check for CPU-intensive operations (embeddings, transformers)
+    - Review concurrent executions
+    - Consider increasing Cloud Run CPU allocation
+
+    ## Runbook Links:
+    - Cloud Run logs: https://console.cloud.google.com/run/detail/europe-central2/sight/logs
+    - Cloud Tasks: https://console.cloud.google.com/cloudtasks/queue/europe-central2/workflow-executions
+    - Monitoring Dashboard: https://console.cloud.google.com/monitoring/dashboards
+
+# Notification settings
+alertStrategy:
+  autoClose: 604800s  # 7 dni (auto-close jeśli resolved)

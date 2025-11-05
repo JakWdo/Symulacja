@@ -64,3 +64,10 @@ celery:
 document_storage:
   path: "data/documents"
   max_size_mb: 50
+
+# Google Cloud Platform (for Cloud Tasks integration)
+gcp:
+  project_id_env: "GCP_PROJECT_ID"
+  default_project_id: "gen-lang-client-0508446677"
+  region_env: "GCP_REGION"
+  default_region: "europe-central2"

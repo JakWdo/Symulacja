@@ -22,11 +22,13 @@ import { RAGManagementPanel } from '@/components/panels/RAGManagementPanel';
 import { ToastContainer } from '@/components/ui/toast';
 import { AppLoader } from '@/components/AppLoader';
 import { Login } from '@/components/auth/Login';
+import { WorkflowEditor } from '@/components/workflows/WorkflowEditor';
+import { WorkflowsListPage } from '@/components/workflows/WorkflowsListPage';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppStore } from '@/store/appStore';
 import { personasApi, focusGroupsApi } from '@/lib/api';
 import { useTheme } from '@/hooks/use-theme';
-import type { Project, FocusGroup, Survey } from '@/types';
+import type { Project, FocusGroup, Survey, Workflow } from '@/types';
 
 export default function App() {
   // Initialize theme
@@ -43,6 +45,7 @@ export default function App() {
   const [viewProject, setViewProject] = useState<Project | null>(null);
   const [viewFocusGroup, setViewFocusGroup] = useState<FocusGroup | null>(null);
   const [viewSurvey, setViewSurvey] = useState<Survey | null>(null);
+  const [viewWorkflow, setViewWorkflow] = useState<Workflow | null>(null);
 
   // Fetch personas for selected project
   const { data: personas } = useQuery({
@@ -185,6 +188,27 @@ export default function App() {
             <div className="mx-auto p-4 sm:p-6 lg:p-8">
               <Settings />
             </div>
+          </div>
+        );
+      case 'workflows':
+        return (
+          <WorkflowsListPage
+            projectId={selectedProject?.id}
+            onSelectWorkflow={(workflow) => {
+              setViewWorkflow(workflow);
+              setCurrentView('workflow-editor');
+            }}
+          />
+        );
+      case 'workflow-editor':
+        return viewWorkflow ? (
+          <WorkflowEditor
+            workflowId={viewWorkflow.id}
+            onBack={() => setCurrentView('workflows')}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">No workflow selected</p>
           </div>
         );
       default:

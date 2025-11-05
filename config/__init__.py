@@ -79,6 +79,7 @@ from config.app_loader import (
     Neo4jConfig,
     CeleryConfig,
     DocumentStorageConfig,
+    GCPConfig,
     get_app_config,
     app,
 )
@@ -126,6 +127,7 @@ __all__ = [
     "Neo4jConfig",
     "CeleryConfig",
     "DocumentStorageConfig",
+    "GCPConfig",
     "get_app_config",
     "app",
 ]

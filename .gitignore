@@ -63,6 +63,7 @@ redis_data/
 # Logs
 *.log
 logs/
+backend.log
 
 # Docker
 docker-compose.override.yml

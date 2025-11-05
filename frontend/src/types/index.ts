@@ -1,3 +1,6 @@
+// Workflow types (re-export from workflow.ts)
+export * from './workflow';
+
 // API Types
 export interface Project {
   id: string;
