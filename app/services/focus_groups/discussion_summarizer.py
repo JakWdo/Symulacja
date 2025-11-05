@@ -433,7 +433,7 @@ class DiscussionSummarizerService:
                 )
             except Exception as e:
                 # Don't fail summary generation if usage logging fails
-                print(f"Warning: Failed to log token usage: {e}")
+                logger.warning(f"Failed to log token usage: {e}")
 
         # Przetwarzamy odpowiedź modelu do struktury słownika
         parsed_summary = self._parse_ai_response(ai_response)
@@ -842,7 +842,7 @@ Tie each recommendation to evidence from the discussion.
                 created_insights.append(insight_record)
             except Exception as e:
                 # Log error but don't fail the entire summary generation
-                print(f"Warning: Failed to store insight {idx}: {e}")
+                logger.warning(f"Failed to store insight {idx}: {e}")
                 continue
 
         return created_insights
