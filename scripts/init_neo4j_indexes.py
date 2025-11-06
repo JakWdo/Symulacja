@@ -26,9 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from neo4j import GraphDatabase
-from app.core.config import get_settings
-
-settings = get_settings()
+from config import app as app_config, models as config_models
 
 # Konfiguracja dla Docker environment
 MAX_RETRIES = 3  # Krótszy retry bo entrypoint już czeka na Neo4j
@@ -47,14 +45,14 @@ def init_neo4j_indexes():
     print("=" * 80)
     print()
 
-    print(f"Connecting to Neo4j at {settings.NEO4J_URI}...")
+    print(f"Connecting to Neo4j at {app_config.neo4j.uri}...")
 
     driver = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             driver = GraphDatabase.driver(
-                settings.NEO4J_URI,
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+                app_config.neo4j.uri,
+                auth=(app_config.neo4j.user, app_config.neo4j.password),
                 max_connection_lifetime=30,  # Short timeout dla Docker startup
             )
 
@@ -90,6 +88,13 @@ def init_neo4j_indexes():
             print("-" * 80)
 
             try:
+                # Determine embedding model and dimension (for vector index)
+                embedding_model = config_models.get("rag", "embedding").model
+                # Basic mapping for known providers; default to 768
+                if "gemini-embedding" in embedding_model or "text-embedding-004" in embedding_model:
+                    embedding_dimension = 768
+                else:
+                    embedding_dimension = 768
                 # Check if index exists
                 result = session.run("SHOW INDEXES")
                 existing_indexes = [record["name"] for record in result]
@@ -118,7 +123,7 @@ def init_neo4j_indexes():
                         ON n.embedding
                         OPTIONS {{
                             indexConfig: {{
-                                `vector.dimensions`: {settings.EMBEDDING_DIMENSION},
+                                `vector.dimensions`: {embedding_dimension},
                                 `vector.similarity_function`: 'cosine'
                             }}
                         }}
@@ -129,7 +134,7 @@ def init_neo4j_indexes():
                     print("   Index: rag_document_embeddings")
                     print("   Node: RAGChunk")
                     print("   Property: embedding")
-                    print(f"   Dimensions: {settings.EMBEDDING_DIMENSION} (Google Gemini {settings.EMBEDDING_MODEL})")
+                    print(f"   Dimensions: {embedding_dimension} (model: {embedding_model})")
                     print("   Similarity: cosine")
 
             except Exception as e:

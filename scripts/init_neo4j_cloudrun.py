@@ -38,9 +38,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from neo4j import GraphDatabase
-from app.core.config import get_settings
-
-settings = get_settings()
+from config import app as app_config
 
 # Konfiguracja dla Cloud Run environment
 MAX_RETRIES = 10  # Więcej retry dla Cloud Run (zewnętrzny Neo4j może być slow)
@@ -72,14 +70,14 @@ def test_neo4j_connectivity() -> bool:
     Returns:
         True jeśli Neo4j dostępny, False w przeciwnym razie
     """
-    log_structured("INFO", "Testing Neo4j connectivity", uri=settings.NEO4J_URI)
+    log_structured("INFO", "Testing Neo4j connectivity", uri=app_config.neo4j.uri)
 
     delay = INITIAL_DELAY
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             driver = GraphDatabase.driver(
-                settings.NEO4J_URI,
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+                app_config.neo4j.uri,
+                auth=(app_config.neo4j.user, app_config.neo4j.password),
                 max_connection_lifetime=10,
             )
             driver.verify_connectivity()
@@ -182,8 +180,8 @@ if __name__ == "__main__":
         "INFO",
         "Cloud Run Job started",
         job="neo4j-init",
-        environment=settings.ENVIRONMENT,
-        neo4j_uri=settings.NEO4J_URI[:30] + "..." if len(settings.NEO4J_URI) > 30 else settings.NEO4J_URI
+        environment=app_config.environment,
+        neo4j_uri=app_config.neo4j.uri[:30] + "..." if len(app_config.neo4j.uri) > 30 else app_config.neo4j.uri
     )
 
     exit_code = init_neo4j_indexes_cloudrun()

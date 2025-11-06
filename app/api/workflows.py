@@ -186,6 +186,164 @@ async def list_workflows(
     return workflows
 
 
+# ==================== TEMPLATES ====================
+
+
+@router.get("/templates", response_model=list[WorkflowTemplateResponse])
+async def get_templates(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    Pobiera listę workflow templates.
+
+    Templates to pre-built workflows które user może customize.
+    MVP templates:
+    - basic_research: 4-step quick research (personas + survey + analysis)
+    - deep_dive: 6-step comprehensive (personas + focus group + survey + analysis + export)
+    - validation_flow: 5-step product validation
+
+    Returns:
+        Lista WorkflowTemplateResponse (sorted by estimated_time_minutes)
+
+    Example:
+        GET /api/v1/workflows/templates
+
+    Response:
+        [
+          {
+            "id": "basic_research",
+            "name": "Basic Research Flow",
+            "description": "Quick 4-step flow for rapid insights",
+            "category": "research",
+            "node_count": 4,
+            "estimated_time_minutes": 3,
+            "canvas_data": {...},
+            "tags": ["quick", "personas", "survey"]
+          }
+        ]
+    """
+    user_id = str(current_user.id) if current_user else "anonymous"
+    logger.debug("Fetching workflow templates", extra={"user_id": user_id})
+
+    service = WorkflowTemplateService()
+    templates = service.get_templates()
+
+    # Sort by time (fastest first)
+    templates_sorted = sorted(
+        templates, key=lambda t: t.estimated_time_minutes or 0
+    )
+
+    logger.info(
+        f"Returning {len(templates_sorted)} workflow templates",
+        extra={"templates_count": len(templates_sorted)},
+    )
+
+    return templates_sorted
+
+
+@router.post(
+    "/templates/{template_id}/instantiate",
+    response_model=WorkflowResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def instantiate_template(
+    template_id: str,
+    project_id: UUID = Body(..., embed=True),
+    workflow_name: str | None = Body(None, embed=True),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Tworzy workflow z template.
+
+    User wybiera template i tworzy nowy workflow na jego podstawie.
+    Canvas zostaje skopiowany, user może go później edytować.
+
+    Args:
+        template_id: ID template (np. "basic_research", "deep_dive")
+        project_id: UUID projektu
+        workflow_name: Custom nazwa (optional, default: template.name)
+        db: Database session
+        current_user: Authenticated user
+
+    Returns:
+        WorkflowResponse z utworzonym workflow
+
+    Raises:
+        404: Jeśli template nie istnieje
+        400: Jeśli project nie istnieje lub user nie ma dostępu
+
+    Example:
+        POST /api/v1/workflows/templates/basic_research/instantiate
+        {
+          "project_id": "uuid-projektu",
+          "workflow_name": "My Product Research"
+        }
+    """
+    logger.info(
+        f"Instantiating template '{template_id}' for project {project_id}",
+        extra={
+            "user_id": str(current_user.id),
+            "template_id": template_id,
+            "project_id": str(project_id),
+        },
+    )
+
+    service = WorkflowTemplateService()
+
+    try:
+        workflow = await service.create_from_template(
+            template_id=template_id,
+            project_id=project_id,
+            user_id=current_user.id,
+            workflow_name=workflow_name,
+            db=db,
+        )
+
+        logger.info(
+            "Workflow created from template successfully",
+            extra={
+                "workflow_id": str(workflow.id),
+                "workflow_name": workflow.name,
+                "template_id": template_id,
+                "user_id": str(current_user.id),
+            },
+        )
+
+        return workflow
+
+    except ValueError as e:
+        # Template not found or validation error
+        logger.warning(
+            f"Template instantiation failed: {e}",
+            extra={
+                "template_id": template_id,
+                "project_id": str(project_id),
+                "user_id": str(current_user.id),
+            },
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    except HTTPException:
+        # Re-raise HTTPException (403, etc.)
+        raise
+
+    except Exception as e:
+        logger.error(
+            f"Template instantiation error: {e}",
+            exc_info=True,
+            extra={
+                "template_id": template_id,
+                "project_id": str(project_id),
+                "user_id": str(current_user.id),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create workflow from template",
+        )
+
+
 @router.get("/{workflow_id}", response_model=WorkflowResponse)
 async def get_workflow(
     workflow_id: UUID,
@@ -702,160 +860,3 @@ async def get_execution_history(
 
     return list(executions)
 
-
-# ==================== TEMPLATES ====================
-
-
-@router.get("/templates", response_model=list[WorkflowTemplateResponse])
-async def get_templates(
-    current_user: Optional[User] = Depends(get_current_user_optional),
-):
-    """
-    Pobiera listę workflow templates.
-
-    Templates to pre-built workflows które user może customize.
-    MVP templates:
-    - basic_research: 4-step quick research (personas + survey + analysis)
-    - deep_dive: 6-step comprehensive (personas + focus group + survey + analysis + export)
-    - validation_flow: 5-step product validation
-
-    Returns:
-        Lista WorkflowTemplateResponse (sorted by estimated_time_minutes)
-
-    Example:
-        GET /api/v1/workflows/templates
-
-    Response:
-        [
-          {
-            "id": "basic_research",
-            "name": "Basic Research Flow",
-            "description": "Quick 4-step flow for rapid insights",
-            "category": "research",
-            "node_count": 4,
-            "estimated_time_minutes": 3,
-            "canvas_data": {...},
-            "tags": ["quick", "personas", "survey"]
-          }
-        ]
-    """
-    user_id = str(current_user.id) if current_user else "anonymous"
-    logger.debug("Fetching workflow templates", extra={"user_id": user_id})
-
-    service = WorkflowTemplateService()
-    templates = service.get_templates()
-
-    # Sort by time (fastest first)
-    templates_sorted = sorted(
-        templates, key=lambda t: t.estimated_time_minutes or 0
-    )
-
-    logger.info(
-        f"Returning {len(templates_sorted)} workflow templates",
-        extra={"templates_count": len(templates_sorted)},
-    )
-
-    return templates_sorted
-
-
-@router.post(
-    "/templates/{template_id}/instantiate",
-    response_model=WorkflowResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def instantiate_template(
-    template_id: str,
-    project_id: UUID = Body(..., embed=True),
-    workflow_name: str | None = Body(None, embed=True),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Tworzy workflow z template.
-
-    User wybiera template i tworzy nowy workflow na jego podstawie.
-    Canvas zostaje skopiowany, user może go później edytować.
-
-    Args:
-        template_id: ID template (np. "basic_research", "deep_dive")
-        project_id: UUID projektu
-        workflow_name: Custom nazwa (optional, default: template.name)
-        db: Database session
-        current_user: Authenticated user
-
-    Returns:
-        WorkflowResponse z utworzonym workflow
-
-    Raises:
-        404: Jeśli template nie istnieje
-        400: Jeśli project nie istnieje lub user nie ma dostępu
-
-    Example:
-        POST /api/v1/workflows/templates/basic_research/instantiate
-        {
-          "project_id": "uuid-projektu",
-          "workflow_name": "My Product Research"
-        }
-    """
-    logger.info(
-        f"Instantiating template '{template_id}' for project {project_id}",
-        extra={
-            "user_id": str(current_user.id),
-            "template_id": template_id,
-            "project_id": str(project_id),
-        },
-    )
-
-    service = WorkflowTemplateService()
-
-    try:
-        workflow = await service.create_from_template(
-            template_id=template_id,
-            project_id=project_id,
-            user_id=current_user.id,
-            workflow_name=workflow_name,
-            db=db,
-        )
-
-        logger.info(
-            "Workflow created from template successfully",
-            extra={
-                "workflow_id": str(workflow.id),
-                "workflow_name": workflow.name,
-                "template_id": template_id,
-                "user_id": str(current_user.id),
-            },
-        )
-
-        return workflow
-
-    except ValueError as e:
-        # Template not found or validation error
-        logger.warning(
-            f"Template instantiation failed: {e}",
-            extra={
-                "template_id": template_id,
-                "project_id": str(project_id),
-                "user_id": str(current_user.id),
-            },
-        )
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-    except HTTPException:
-        # Re-raise HTTPException (403, etc.)
-        raise
-
-    except Exception as e:
-        logger.error(
-            f"Template instantiation error: {e}",
-            exc_info=True,
-            extra={
-                "template_id": template_id,
-                "project_id": str(project_id),
-                "user_id": str(current_user.id),
-            },
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create workflow from template",
-        )
