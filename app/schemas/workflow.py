@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl, validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, ValidationInfo
 
 
 # ==================== CANVAS DATA SCHEMAS ====================
@@ -111,14 +111,14 @@ class CanvasData(BaseModel):
     nodes: list[CanvasNode] = Field(default_factory=list, description="Lista nodes workflow")
     edges: list[CanvasEdge] = Field(default_factory=list, description="Lista edges (połączeń)")
 
-    @validator('nodes')
-    def validate_nodes_not_empty_if_edges(cls, v, values):
+    @field_validator('nodes')
+    @classmethod
+    def validate_nodes_not_empty_if_edges(cls, v: list[CanvasNode]) -> list[CanvasNode]:
         """
         Jeśli są edges, muszą być też nodes.
 
         Args:
             v: Lista nodes
-            values: Pozostałe pola
 
         Returns:
             Zwalidowana lista nodes
@@ -130,14 +130,15 @@ class CanvasData(BaseModel):
         # Zostawiamy podstawową walidację - edges będą walidowane osobno
         return v
 
-    @validator('edges')
-    def validate_edges_reference_existing_nodes(cls, v, values):
+    @field_validator('edges')
+    @classmethod
+    def validate_edges_reference_existing_nodes(cls, v: list[CanvasEdge], info: ValidationInfo) -> list[CanvasEdge]:
         """
         Sprawdź czy edges wskazują na istniejące nodes.
 
         Args:
             v: Lista edges
-            values: Pozostałe pola (w tym nodes)
+            info: Kontekst walidacji z dostępem do innych pól
 
         Returns:
             Zwalidowana lista edges
@@ -145,11 +146,11 @@ class CanvasData(BaseModel):
         Raises:
             ValueError: Jeśli edge wskazuje na nieistniejący node
         """
-        if 'nodes' not in values:
+        if 'nodes' not in info.data:
             # nodes nie zostały jeszcze zwalidowane
             return v
 
-        nodes = values.get('nodes', [])
+        nodes = info.data.get('nodes', [])
         node_ids = {node.id for node in nodes}
 
         for edge in v:
@@ -516,14 +517,15 @@ class CreateSurveyNodeConfig(BaseModel):
         description="Prompt dla AI do generacji pytań (tylko gdy ai_generate_questions=True)"
     )
 
-    @validator('ai_prompt')
-    def validate_ai_prompt(cls, v, values):
+    @field_validator('ai_prompt')
+    @classmethod
+    def validate_ai_prompt(cls, v: str | None, info: ValidationInfo) -> str | None:
         """
         Waliduj że ai_prompt jest podany gdy ai_generate_questions=True.
 
         Args:
             v: Wartość ai_prompt
-            values: Pozostałe pola
+            info: Kontekst walidacji z dostępem do innych pól
 
         Returns:
             Zwalidowany ai_prompt
@@ -531,7 +533,7 @@ class CreateSurveyNodeConfig(BaseModel):
         Raises:
             ValueError: Jeśli ai_generate_questions=True ale brak ai_prompt
         """
-        if values.get('ai_generate_questions') and not v:
+        if info.data.get('ai_generate_questions') and not v:
             raise ValueError("ai_prompt is required when ai_generate_questions=True")
         return v
 
@@ -657,8 +659,9 @@ class DecisionNodeConfig(BaseModel):
     true_branch_label: str = Field(default="Yes", max_length=50)
     false_branch_label: str = Field(default="No", max_length=50)
 
-    @validator('condition')
-    def validate_condition(cls, v):
+    @field_validator('condition')
+    @classmethod
+    def validate_condition(cls, v: str) -> str:
         """
         Podstawowa walidacja składni condition.
 
