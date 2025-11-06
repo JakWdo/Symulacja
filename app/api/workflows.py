@@ -21,13 +21,14 @@ Konwencje:
 
 import logging
 from uuid import UUID
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, get_current_user_optional
 from app.models import User, WorkflowExecution
 from app.schemas.workflow import (
     WorkflowCreate,
@@ -37,6 +38,7 @@ from app.schemas.workflow import (
     WorkflowExecutionResponse,
     ValidationResult,
     WorkflowTemplateResponse,
+    CanvasData,
 )
 from app.services.workflows import (
     WorkflowService,
@@ -379,7 +381,7 @@ async def delete_workflow(
 @router.patch("/{workflow_id}/canvas", response_model=WorkflowResponse)
 async def quick_save_canvas(
     workflow_id: UUID,
-    canvas_data: dict = Body(..., embed=True),
+    canvas_data: CanvasData = Body(..., embed=True),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -420,7 +422,7 @@ async def quick_save_canvas(
 
     try:
         workflow = await service.save_canvas_state(
-            workflow_id, canvas_data, current_user.id
+            workflow_id, canvas_data.model_dump(), current_user.id
         )
 
         logger.debug(
@@ -706,7 +708,7 @@ async def get_execution_history(
 
 @router.get("/templates", response_model=list[WorkflowTemplateResponse])
 async def get_templates(
-    current_user: User = Depends(get_current_user),  # Auth optional ale dodajemy dla consistency
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Pobiera listę workflow templates.
@@ -716,9 +718,6 @@ async def get_templates(
     - basic_research: 4-step quick research (personas + survey + analysis)
     - deep_dive: 6-step comprehensive (personas + focus group + survey + analysis + export)
     - validation_flow: 5-step product validation
-
-    Args:
-        current_user: Authenticated user
 
     Returns:
         Lista WorkflowTemplateResponse (sorted by estimated_time_minutes)
@@ -740,9 +739,8 @@ async def get_templates(
           }
         ]
     """
-    logger.debug(
-        "Fetching workflow templates", extra={"user_id": str(current_user.id)}
-    )
+    user_id = str(current_user.id) if current_user else "anonymous"
+    logger.debug("Fetching workflow templates", extra={"user_id": user_id})
 
     service = WorkflowTemplateService()
     templates = service.get_templates()

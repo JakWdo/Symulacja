@@ -51,7 +51,7 @@ def build_chat_model(
         LangChain automatycznie obsługuje ResourceExhausted exceptions.
     """
     # Get defaults from config.models
-    defaults = models._registry.config.get("defaults", {}).get("chat", {})
+    defaults = models.config.get("defaults", {}).get("chat", {})
 
     params: dict[str, Any] = {
         "model": model or defaults.get("model", "gemini-2.5-flash"),

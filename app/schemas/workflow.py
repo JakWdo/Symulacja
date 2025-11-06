@@ -25,6 +25,142 @@ from uuid import UUID
 from pydantic import BaseModel, Field, HttpUrl, validator
 
 
+# ==================== CANVAS DATA SCHEMAS ====================
+
+
+class CanvasNodePosition(BaseModel):
+    """
+    Pozycja node na canvas (współrzędne x, y).
+
+    React Flow używa tych współrzędnych do renderowania nodes.
+    """
+    x: float = Field(..., description="Pozycja X na canvas")
+    y: float = Field(..., description="Pozycja Y na canvas")
+
+
+class CanvasNodeData(BaseModel):
+    """
+    Dane node (label i konfiguracja).
+
+    - label: Nazwa wyświetlana na node
+    - config: Konfiguracja specyficzna dla typu node (NodeConfig)
+    """
+    label: str = Field(..., min_length=1, max_length=255, description="Nazwa node wyświetlana na canvas")
+    config: dict = Field(default_factory=dict, description="Konfiguracja node (zależy od type)")
+
+
+class CanvasNode(BaseModel):
+    """
+    Pojedynczy node na canvas React Flow.
+
+    Zawiera:
+    - id: Unikalny identyfikator node
+    - type: Typ node (start, end, generatePersonas, etc.)
+    - position: Współrzędne {x, y} na canvas
+    - data: Label i config node
+    """
+    id: str = Field(..., min_length=1, description="Unikalny ID node")
+    type: str = Field(..., min_length=1, description="Typ node (start, end, generatePersonas, etc.)")
+    position: CanvasNodePosition = Field(..., description="Pozycja node na canvas")
+    data: CanvasNodeData = Field(..., description="Dane node (label, config)")
+
+
+class CanvasEdge(BaseModel):
+    """
+    Połączenie między nodes (edge).
+
+    - id: Unikalny identyfikator edge
+    - source: ID source node
+    - target: ID target node
+    - label: Opcjonalna etykieta (np. "Yes", "No" dla Decision node)
+    """
+    id: str = Field(..., min_length=1, description="Unikalny ID edge")
+    source: str = Field(..., min_length=1, description="ID source node")
+    target: str = Field(..., min_length=1, description="ID target node")
+    label: str | None = Field(None, max_length=100, description="Opcjonalna etykieta edge")
+
+
+class CanvasData(BaseModel):
+    """
+    Stan canvas React Flow (nodes + edges).
+
+    Główna struktura przechowująca cały workflow jako graf:
+    - nodes: Lista wszystkich węzłów workflow
+    - edges: Lista połączeń między nodes
+
+    Przykład:
+    {
+      "nodes": [
+        {
+          "id": "node-1",
+          "type": "start",
+          "position": {"x": 100, "y": 100},
+          "data": {"label": "Start", "config": {}}
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge-1",
+          "source": "node-1",
+          "target": "node-2",
+          "label": null
+        }
+      ]
+    }
+    """
+    nodes: list[CanvasNode] = Field(default_factory=list, description="Lista nodes workflow")
+    edges: list[CanvasEdge] = Field(default_factory=list, description="Lista edges (połączeń)")
+
+    @validator('nodes')
+    def validate_nodes_not_empty_if_edges(cls, v, values):
+        """
+        Jeśli są edges, muszą być też nodes.
+
+        Args:
+            v: Lista nodes
+            values: Pozostałe pola
+
+        Returns:
+            Zwalidowana lista nodes
+
+        Raises:
+            ValueError: Jeśli są edges ale brak nodes
+        """
+        # Ta walidacja zostanie wywołana po edges, więc nie możemy tu sprawdzić edges
+        # Zostawiamy podstawową walidację - edges będą walidowane osobno
+        return v
+
+    @validator('edges')
+    def validate_edges_reference_existing_nodes(cls, v, values):
+        """
+        Sprawdź czy edges wskazują na istniejące nodes.
+
+        Args:
+            v: Lista edges
+            values: Pozostałe pola (w tym nodes)
+
+        Returns:
+            Zwalidowana lista edges
+
+        Raises:
+            ValueError: Jeśli edge wskazuje na nieistniejący node
+        """
+        if 'nodes' not in values:
+            # nodes nie zostały jeszcze zwalidowane
+            return v
+
+        nodes = values.get('nodes', [])
+        node_ids = {node.id for node in nodes}
+
+        for edge in v:
+            if edge.source not in node_ids:
+                raise ValueError(f"Edge {edge.id} references non-existent source node: {edge.source}")
+            if edge.target not in node_ids:
+                raise ValueError(f"Edge {edge.id} references non-existent target node: {edge.target}")
+
+        return v
+
+
 # ==================== REQUEST SCHEMAS ====================
 
 
@@ -50,32 +186,10 @@ class WorkflowCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Nazwa workflow")
     description: str | None = Field(None, max_length=2000, description="Opis celu workflow")
     project_id: UUID = Field(..., description="UUID projektu do którego należy workflow")
-    canvas_data: dict = Field(
-        default_factory=dict,
+    canvas_data: CanvasData = Field(
+        default_factory=CanvasData,
         description="Stan canvas React Flow: {nodes: [], edges: []}"
     )
-
-    @validator('canvas_data')
-    def validate_canvas_data(cls, v):
-        """
-        Waliduj że canvas_data ma wymagane klucze 'nodes' i 'edges'.
-
-        Args:
-            v: Wartość canvas_data do walidacji
-
-        Returns:
-            Zwalidowany canvas_data
-
-        Raises:
-            ValueError: Jeśli brakuje kluczy lub nieprawidłowe typy
-        """
-        if 'nodes' not in v or 'edges' not in v:
-            raise ValueError("canvas_data must contain 'nodes' and 'edges' keys")
-        if not isinstance(v['nodes'], list):
-            raise ValueError("nodes must be a list")
-        if not isinstance(v['edges'], list):
-            raise ValueError("edges must be a list")
-        return v
 
 
 class WorkflowUpdate(BaseModel):
@@ -99,27 +213,8 @@ class WorkflowUpdate(BaseModel):
 
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = Field(None, max_length=2000)
-    canvas_data: dict | None = None
+    canvas_data: CanvasData | None = None
     status: Literal["draft", "active", "archived"] | None = None
-
-    @validator('canvas_data')
-    def validate_canvas_data(cls, v):
-        """
-        Waliduj canvas_data jeśli podany.
-
-        Args:
-            v: Wartość canvas_data do walidacji (może być None)
-
-        Returns:
-            Zwalidowany canvas_data lub None
-
-        Raises:
-            ValueError: Jeśli canvas_data nieprawidłowy
-        """
-        if v is not None:
-            if 'nodes' not in v or 'edges' not in v:
-                raise ValueError("canvas_data must contain 'nodes' and 'edges' keys")
-        return v
 
 
 class WorkflowExecuteRequest(BaseModel):
@@ -170,7 +265,7 @@ class WorkflowResponse(BaseModel):
     owner_id: UUID
     name: str
     description: str | None
-    canvas_data: dict
+    canvas_data: CanvasData
     status: str  # "draft" | "active" | "archived"
     is_template: bool
     is_active: bool
@@ -831,7 +926,7 @@ class WorkflowTemplateResponse(BaseModel):
     category: str = Field(..., description="Kategoria template (research, validation, etc.)")
     node_count: int
     estimated_time_minutes: int | None
-    canvas_data: dict
+    canvas_data: CanvasData
     tags: list[str] = Field(default_factory=list)
 
 

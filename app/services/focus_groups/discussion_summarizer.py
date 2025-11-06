@@ -283,8 +283,6 @@ class DiscussionSummarizerService:
             use_pro_model: True = gemini-2.5-pro (wolniejszy, lepsza jakość)
                           False = gemini-2.5-flash (szybszy, zbalansowana jakość)
         """
-        self.settings = settings
-
         # Dobieramy model do jakości i czasu wykonania
         from config import models
 

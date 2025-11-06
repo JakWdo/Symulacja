@@ -116,8 +116,8 @@ def test_get_template_by_id_exists():
     assert template.id == "basic_research"
     assert template.name == "Basic Research"
     assert "canvas_data" in template.model_dump()
-    assert "nodes" in template.canvas_data
-    assert "edges" in template.canvas_data
+    assert hasattr(template.canvas_data, 'nodes')
+    assert hasattr(template.canvas_data, 'edges')
 
 
 def test_get_template_by_id_not_found():
@@ -156,13 +156,13 @@ def test_basic_research_template_structure():
     service = WorkflowTemplateService()
 
     template = service.get_template_by_id("basic_research")
-    nodes = template.canvas_data["nodes"]
-    edges = template.canvas_data["edges"]
+    nodes = template.canvas_data.nodes
+    edges = template.canvas_data.edges
 
     # Powinien mieć 5 nodes: start, personas, survey, analysis, end
     assert len(nodes) == 5
 
-    node_types = [n["type"] for n in nodes]
+    node_types = [n.type for n in nodes]
     assert "start" in node_types
     assert "generate-personas" in node_types
     assert "create-survey" in node_types
@@ -178,12 +178,12 @@ def test_deep_dive_template_structure():
     service = WorkflowTemplateService()
 
     template = service.get_template_by_id("deep_dive")
-    nodes = template.canvas_data["nodes"]
+    nodes = template.canvas_data.nodes
 
     # Powinien mieć 6 nodes
     assert len(nodes) == 6
 
-    node_types = [n["type"] for n in nodes]
+    node_types = [n.type for n in nodes]
     assert "start" in node_types
     assert "generate-personas" in node_types
     assert "create-survey" in node_types
@@ -197,12 +197,12 @@ def test_iterative_validation_template_structure():
     service = WorkflowTemplateService()
 
     template = service.get_template_by_id("iterative_validation")
-    nodes = template.canvas_data["nodes"]
+    nodes = template.canvas_data.nodes
 
     # Powinien mieć 5 nodes: start, personas, focus-group, decision, end
     assert len(nodes) == 5
 
-    node_types = [n["type"] for n in nodes]
+    node_types = [n.type for n in nodes]
     assert "start" in node_types
     assert "generate-personas" in node_types
     assert "run-focus-group" in node_types
@@ -215,12 +215,12 @@ def test_brand_perception_template_structure():
     service = WorkflowTemplateService()
 
     template = service.get_template_by_id("brand_perception")
-    nodes = template.canvas_data["nodes"]
+    nodes = template.canvas_data.nodes
 
     # Powinien mieć 5 nodes
     assert len(nodes) == 5
 
-    node_types = [n["type"] for n in nodes]
+    node_types = [n.type for n in nodes]
     assert "start" in node_types
     assert "generate-personas" in node_types
     assert "create-survey" in node_types
@@ -233,12 +233,12 @@ def test_user_journey_template_structure():
     service = WorkflowTemplateService()
 
     template = service.get_template_by_id("user_journey")
-    nodes = template.canvas_data["nodes"]
+    nodes = template.canvas_data.nodes
 
     # Powinien mieć 6 nodes
     assert len(nodes) == 6
 
-    node_types = [n["type"] for n in nodes]
+    node_types = [n.type for n in nodes]
     assert "start" in node_types
     assert "generate-personas" in node_types
     assert "run-focus-group" in node_types
@@ -252,12 +252,12 @@ def test_feature_prioritization_template_structure():
     service = WorkflowTemplateService()
 
     template = service.get_template_by_id("feature_prioritization")
-    nodes = template.canvas_data["nodes"]
+    nodes = template.canvas_data.nodes
 
     # Powinien mieć 6 nodes
     assert len(nodes) == 6
 
-    node_types = [n["type"] for n in nodes]
+    node_types = [n.type for n in nodes]
     assert "start" in node_types
     assert "generate-personas" in node_types
     assert "create-survey" in node_types
@@ -277,25 +277,29 @@ def test_validate_all_templates_are_valid_dags():
     templates = service.get_templates()
 
     for template in templates:
-        nodes = template.canvas_data["nodes"]
-        edges = template.canvas_data["edges"]
+        nodes = template.canvas_data.nodes
+        edges = template.canvas_data.edges
 
         # Sprawdź start node
-        start_nodes = [n for n in nodes if n["type"] == "start"]
+        start_nodes = [n for n in nodes if n.type == "start"]
         assert len(start_nodes) >= 1, f"Template {template.id} brakuje START node"
 
         # Sprawdź end node
-        end_nodes = [n for n in nodes if n["type"] == "end"]
+        end_nodes = [n for n in nodes if n.type == "end"]
         assert len(end_nodes) >= 1, f"Template {template.id} brakuje END node"
 
+        # Konwertuj do dict dla validatora (validator oczekuje dict)
+        nodes_dict = [n.model_dump() for n in nodes]
+        edges_dict = [e.model_dump() for e in edges]
+
         # Sprawdź brak cykli (Kahn's algorithm)
-        cycle_check = validator._detect_cycles(nodes, edges)
+        cycle_check = validator._detect_cycles(nodes_dict, edges_dict)
         assert not cycle_check["has_cycle"], f"Template {template.id} zawiera cykl: {cycle_check['cycle_path']}"
 
         # Sprawdź brak orphaned nodes
-        start_id = start_nodes[0]["id"]
-        reachable = validator._get_reachable_nodes(start_id, nodes, edges)
-        all_node_ids = {n["id"] for n in nodes}
+        start_id = start_nodes[0].id
+        reachable = validator._get_reachable_nodes(start_id, nodes_dict, edges_dict)
+        all_node_ids = {n.id for n in nodes}
 
         orphaned = all_node_ids - reachable
         assert len(orphaned) == 0, f"Template {template.id} ma orphaned nodes: {orphaned}"
@@ -366,7 +370,7 @@ def test_template_node_counts_accurate():
     templates = service.get_templates()
 
     for template in templates:
-        actual_count = len(template.canvas_data["nodes"])
+        actual_count = len(template.canvas_data.nodes)
         metadata_count = template.node_count
 
         assert actual_count == metadata_count, (
@@ -401,7 +405,7 @@ async def test_instantiate_template_success(db_session: AsyncSession, test_user,
     # Verify canvas_data skopiowany z template
     assert "nodes" in workflow.canvas_data
     assert "edges" in workflow.canvas_data
-    assert len(workflow.canvas_data["nodes"]) == 5  # basic_research ma 5 nodes
+    assert len(workflow.canvas_data.nodes) == 5  # basic_research ma 5 nodes
 
 
 @pytest.mark.asyncio
@@ -465,7 +469,7 @@ async def test_instantiate_all_templates(db_session: AsyncSession, test_user, te
         assert workflow is not None
         assert workflow.project_id == test_project.id
         assert workflow.name == f"Test {template_id}"
-        assert len(workflow.canvas_data["nodes"]) > 0
+        assert len(workflow.canvas_data.nodes) > 0
 
 
 @pytest.mark.asyncio
@@ -512,7 +516,7 @@ async def test_instantiate_template_canvas_data_deep_copy(db_session: AsyncSessi
     )
 
     # Zmodyfikuj canvas_data w workflow
-    workflow.canvas_data["nodes"][0]["data"]["label"] = "MODIFIED"
+    workflow.canvas_data.nodes[0]["data"]["label"] = "MODIFIED"
     await db_session.commit()
 
     # Sprawdź że template nie został zmodyfikowany
@@ -576,7 +580,7 @@ async def test_instantiate_template_preserves_node_configs(db_session: AsyncSess
 
     # Pobierz template
     template = service.get_template_by_id("basic_research")
-    template_persona_node = next(n for n in template.canvas_data["nodes"] if n["type"] == "generate-personas")
+    template_persona_node = next(n for n in template.canvas_data.nodes if n.type == "generate-personas")
     template_config = template_persona_node["data"]["config"]
 
     # Utwórz workflow
@@ -589,7 +593,7 @@ async def test_instantiate_template_preserves_node_configs(db_session: AsyncSess
     )
 
     # Sprawdź że config został skopiowany
-    workflow_persona_node = next(n for n in workflow.canvas_data["nodes"] if n["type"] == "generate-personas")
+    workflow_persona_node = next(n for n in workflow.canvas_data.nodes if n.type == "generate-personas")
     workflow_config = workflow_persona_node["data"]["config"]
 
     assert workflow_config == template_config

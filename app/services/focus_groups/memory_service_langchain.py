@@ -29,8 +29,6 @@ class MemoryServiceLangChain:
 
     def __init__(self):
         """Inicjalizuj serwis pamięci z embeddings"""
-        self.settings = settings
-
         # Inicjalizujemy embeddingi LangChain Gemini
         self.embeddings = get_embeddings()
 

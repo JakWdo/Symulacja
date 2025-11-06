@@ -43,7 +43,6 @@ class SurveyResponseGenerator:
         # Lazy import to prevent crashes if config folder is missing during app startup
         from config import prompts, models
 
-        self.settings = settings
         self.prompts = prompts
         self.models = models
 

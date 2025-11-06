@@ -189,7 +189,6 @@ async def get_current_admin_user(
 # Opcjonalna zależność dla publicznych endpointów (token jest opcjonalny)
 async def get_current_user_optional(
     request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db)
 ) -> User | None:
     """
@@ -199,7 +198,7 @@ async def get_current_user_optional(
     Przykład: publiczna strona główna która pokazuje personalizowaną treść gdy zalogowany.
 
     Args:
-        credentials: Opcjonalne credentials (może być None)
+        request: FastAPI Request object
         db: Sesja bazy danych
 
     Returns:
@@ -212,11 +211,22 @@ async def get_current_user_optional(
                 return {"message": f"Welcome back, {current_user.full_name}"}
             return {"message": "Welcome, guest"}
     """
-    if credentials is None:
+    # Wyciągnij token bezpośrednio z request.headers
+    authorization = request.headers.get("authorization")
+
+    logger.debug(f"get_current_user_optional called, authorization header: {authorization}")
+
+    if not authorization:
+        logger.debug("No authorization header, returning None")
+        return None
+
+    # Wyciągnij token z nagłówka "Bearer <token>"
+    if not authorization.startswith("Bearer "):
+        logger.debug("Invalid authorization header format, returning None")
         return None
 
     try:
-        token = credentials.credentials
+        token = authorization.replace("Bearer ", "", 1)
         payload = decode_access_token(token)
         if payload is None:
             return None

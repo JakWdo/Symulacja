@@ -58,8 +58,6 @@ class RAGDocumentService:
 
         from config import models
 
-        self.settings = settings
-
         # Model config z centralnego registry
         model_config = models.get("rag", "graph")
         self.llm = build_chat_model(**model_config.params)

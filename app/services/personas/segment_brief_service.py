@@ -530,7 +530,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         try:
             # Gemini Flash dla szybkiego naming
             llm_flash = build_chat_model(
-                model=models._registry.config.get("defaults", {}).get("chat", {}).get("model", "gemini-2.5-flash"),
+                model=models.config.get("defaults", {}).get("chat", {}).get("model", "gemini-2.5-flash"),
                 temperature=0.7,
                 max_tokens=50,
                 timeout=10,
@@ -743,7 +743,7 @@ ZWRÓĆ TYLKO NAZWĘ (bez cudzysłowów):"""
         try:
             # Gemini Flash dla szybkiego generowania
             llm_flash = build_chat_model(
-                model=models._registry.config.get("defaults", {}).get("chat", {}).get("model", "gemini-2.5-flash"),
+                model=models.config.get("defaults", {}).get("chat", {}).get("model", "gemini-2.5-flash"),
                 temperature=0.7,
                 max_tokens=600,  # 3-4 akapity (250-400 słów)
                 timeout=20,
