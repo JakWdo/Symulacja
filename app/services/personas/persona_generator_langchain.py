@@ -31,6 +31,11 @@ from app.services.dashboard.usage_logging import (
 
 
 # Import RAG service singleton
+try:
+    from app.services.shared import get_polish_society_rag
+    _rag_service_available = True
+except ImportError:
+    _rag_service_available = False
 
 
 @dataclass
@@ -97,7 +102,6 @@ class PersonaGeneratorLangChain:
         self.rag_service = None
         if _rag_service_available and features.rag.enabled:
             try:
-                from app.services.shared import get_polish_society_rag
                 self.rag_service = get_polish_society_rag()
                 logger.info("RAG service initialized successfully in PersonaGenerator (singleton)")
             except Exception as e:

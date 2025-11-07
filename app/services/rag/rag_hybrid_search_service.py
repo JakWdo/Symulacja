@@ -72,16 +72,16 @@ class PolishSocietyRAG:
 
             # Inicjalizuj cross-encoder dla reranking (opcjonalny)
             self.reranker = None
-            if rag.retrieval.reranking.enabled:
+            if rag.retrieval.use_reranking:
                 try:
                     from sentence_transformers import CrossEncoder
                     self.reranker = CrossEncoder(
-                        rag.retrieval.reranking.model,
+                        rag.retrieval.reranker_model,
                         max_length=512
                     )
                     logger.info(
                         "Cross-encoder reranker zainicjalizowany: %s",
-                        rag.retrieval.reranking.model
+                        rag.retrieval.reranker_model
                     )
                 except ImportError:
                     logger.warning(
@@ -762,7 +762,7 @@ class PolishSocietyRAG:
             # HYBRID SEARCH (Vector + Keyword)
             if rag.retrieval.use_hybrid_search:
                 # Zwiększamy k aby mieć więcej candidates dla reranking
-                candidates_k = rag.retrieval.reranking.candidates if rag.retrieval.reranking.enabled else top_k * 2
+                candidates_k = rag.retrieval.rerank_candidates if rag.retrieval.use_reranking else top_k * 2
 
                 # Vector search (timing)
                 vector_start = time.perf_counter()
@@ -790,11 +790,11 @@ class PolishSocietyRAG:
                 rrf_duration = time.perf_counter() - rrf_start
 
                 # Optional reranking
-                if rag.retrieval.reranking.enabled and self.reranker:
+                if rag.retrieval.use_reranking and self.reranker:
                     logger.info("Applying cross-encoder reranking")
                     final_results = await self._rerank_with_cross_encoder(
                         query=query,
-                        candidates=fused_results[:rag.retrieval.reranking.candidates],
+                        candidates=fused_results[:rag.retrieval.rerank_candidates],
                         top_k=top_k
                     )
                 else:
@@ -942,7 +942,7 @@ class PolishSocietyRAG:
             # 2. HYBRID SEARCH (Vector + Keyword) - Pobierz chunki tekstowe
             if rag.retrieval.use_hybrid_search:
                 # Zwiększamy k aby mieć więcej candidates dla reranking
-                candidates_k = rag.retrieval.reranking.candidates if rag.retrieval.reranking.enabled else rag.retrieval.top_k * 2
+                candidates_k = rag.retrieval.rerank_candidates if rag.retrieval.use_reranking else rag.retrieval.top_k * 2
 
                 vector_results = await self.vector_store.asimilarity_search_with_score(
                     query,
@@ -959,11 +959,11 @@ class PolishSocietyRAG:
                 )
 
                 # 2b. RERANKING (opcjonalne) - Precyzyjny re-scoring z cross-encoder
-                if rag.retrieval.reranking.enabled and self.reranker:
+                if rag.retrieval.use_reranking and self.reranker:
                     logger.info("Applying cross-encoder reranking on top %s candidates", len(fused_results))
                     final_results = await self._rerank_with_cross_encoder(
                         query=query,
-                        candidates=fused_results[:rag.retrieval.reranking.candidates],
+                        candidates=fused_results[:rag.retrieval.rerank_candidates],
                         top_k=rag.retrieval.top_k
                     )
                     search_type = "hybrid+rerank+graph" if graph_nodes else "hybrid+rerank"

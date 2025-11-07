@@ -933,8 +933,38 @@ class WorkflowTemplateResponse(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
 
+class WorkflowInstantiateRequest(BaseModel):
+    """
+    Request do utworzenia workflow z template.
+
+    User wybiera template i tworzy nowy workflow na jego podstawie.
+    template_id jest w path parametrze, nie w body.
+
+    Pola:
+    - project_id: UUID projektu
+    - workflow_name: Custom nazwa (jeśli None - użyj template.name)
+
+    Przykład request:
+    POST /api/v1/workflows/templates/basic_research/instantiate
+    {
+      "project_id": "uuid-projektu",
+      "workflow_name": "My Product Research"
+    }
+    """
+
+    project_id: UUID = Field(..., description="UUID projektu")
+    workflow_name: str | None = Field(
+        None,
+        description="Custom nazwa (jeśli None - użyj template.name)"
+    )
+
+
 class TemplateInstantiateRequest(BaseModel):
     """
+    DEPRECATED: Użyj WorkflowInstantiateRequest zamiast tego.
+
+    Ten schema błędnie zawiera template_id w body, podczas gdy powinien być w path.
+
     Request do utworzenia workflow z template.
 
     User wybiera template i tworzy nowy workflow na jego podstawie.

@@ -38,6 +38,7 @@ from app.schemas.workflow import (
     WorkflowExecutionResponse,
     ValidationResult,
     WorkflowTemplateResponse,
+    WorkflowInstantiateRequest,
     CanvasData,
 )
 from app.services.workflows import (
@@ -248,8 +249,7 @@ async def get_templates(
 )
 async def instantiate_template(
     template_id: str,
-    project_id: UUID = Body(..., embed=True),
-    workflow_name: str | None = Body(None, embed=True),
+    request: WorkflowInstantiateRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -261,8 +261,7 @@ async def instantiate_template(
 
     Args:
         template_id: ID template (np. "basic_research", "deep_dive")
-        project_id: UUID projektu
-        workflow_name: Custom nazwa (optional, default: template.name)
+        request: Request body z project_id i workflow_name
         db: Database session
         current_user: Authenticated user
 
@@ -281,11 +280,11 @@ async def instantiate_template(
         }
     """
     logger.info(
-        f"Instantiating template '{template_id}' for project {project_id}",
+        f"Instantiating template '{template_id}' for project {request.project_id}",
         extra={
             "user_id": str(current_user.id),
             "template_id": template_id,
-            "project_id": str(project_id),
+            "project_id": str(request.project_id),
         },
     )
 
@@ -294,9 +293,9 @@ async def instantiate_template(
     try:
         workflow = await service.create_from_template(
             template_id=template_id,
-            project_id=project_id,
+            project_id=request.project_id,
             user_id=current_user.id,
-            workflow_name=workflow_name,
+            workflow_name=request.workflow_name,
             db=db,
         )
 
@@ -318,7 +317,7 @@ async def instantiate_template(
             f"Template instantiation failed: {e}",
             extra={
                 "template_id": template_id,
-                "project_id": str(project_id),
+                "project_id": str(request.project_id),
                 "user_id": str(current_user.id),
             },
         )
@@ -334,7 +333,7 @@ async def instantiate_template(
             exc_info=True,
             extra={
                 "template_id": template_id,
-                "project_id": str(project_id),
+                "project_id": str(request.project_id),
                 "user_id": str(current_user.id),
             },
         )

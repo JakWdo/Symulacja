@@ -29,6 +29,8 @@ from app.services.dashboard.usage_logging import (
     schedule_usage_logging,
 )
 
+logger = logging.getLogger(__name__)
+
 
 
 class FocusGroupServiceLangChain:
