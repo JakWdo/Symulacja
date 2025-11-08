@@ -15,6 +15,8 @@ Zawiera wszystkie modele bazodanowe aplikacji (PostgreSQL):
 - Workflow: Wieloetapowe przepływy badawcze (Workflow Builder)
 - WorkflowStep: Pojedyncze kroki w workflow (nodes z React Flow)
 - WorkflowExecution: Historia wykonań workflow z tracking statusu
+- StudyDesignerSession: Sesje interaktywnego projektowania badań przez chat
+- StudyDesignerMessage: Wiadomości w konwersacji Study Designer
 
 Wszystkie modele używają:
 - UUID jako primary key
@@ -48,6 +50,13 @@ from .dashboard import (
     ActionLog,
 )
 from .generation_progress import GenerationProgress, GenerationStage
+from .study_designer import (
+    StudyDesignerSession,
+    StudyDesignerMessage,
+    SessionStatusEnum,
+    MessageRoleEnum,
+    ConversationStageEnum,
+)
 
 __all__ = [
     "User",
@@ -74,4 +83,9 @@ __all__ = [
     "ActionLog",
     "GenerationProgress",
     "GenerationStage",
+    "StudyDesignerSession",
+    "StudyDesignerMessage",
+    "SessionStatusEnum",
+    "MessageRoleEnum",
+    "ConversationStageEnum",
 ]
