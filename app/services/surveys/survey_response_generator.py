@@ -8,7 +8,6 @@ Wydajność: Przetwarzanie równoległe dla szybkiego generowania odpowiedzi
 """
 
 import logging
-from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
@@ -24,6 +23,13 @@ from app.models import Survey, Persona, SurveyResponse
 from app.schemas.survey import QuestionAnalytics
 from app.db import AsyncSessionLocal
 from app.services.shared.clients import build_chat_model
+from app.types import (
+    QuestionDict,
+    AnswerValue,
+    AnswerDict,
+    QuestionStatistics,
+    DemographicBreakdown,
+)
 
 
 
@@ -56,7 +62,7 @@ class SurveyResponseGenerator:
 
     async def generate_responses(
         self, db: AsyncSession, survey_id: str
-    ) -> dict[str, Any]:
+    ) -> dict[str, str | int | dict[str, int | float]]:
         """
         Generuj odpowiedzi wszystkich person na ankietę
 
@@ -167,8 +173,8 @@ class SurveyResponseGenerator:
         return result.scalars().all()
 
     async def _generate_persona_survey_response(
-        self, persona: Persona, survey_id: UUID, questions: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+        self, persona: Persona, survey_id: UUID, questions: list[QuestionDict]
+    ) -> dict[str, str | float]:
         """
         Generuj odpowiedzi persony na wszystkie pytania ankiety
 
@@ -211,8 +217,8 @@ class SurveyResponseGenerator:
         }
 
     async def _generate_answer_for_question(
-        self, persona: Persona, question: dict[str, Any]
-    ) -> Any:
+        self, persona: Persona, question: QuestionDict
+    ) -> AnswerValue:
         """
         Generuj odpowiedź persony na pojedyncze pytanie
 
@@ -257,16 +263,117 @@ class SurveyResponseGenerator:
             )
 
     def _build_persona_context(self, persona: Persona) -> str:
-        """Zbuduj kontekst persony dla promptu"""
+        """
+        Zbuduj wzbogacony kontekst persony dla promptu
+
+        Zawiera demografię, psychografię (Big Five) i historię życiową
+        aby LLM mógł generować zróżnicowane odpowiedzi bazujące na
+        unikalnych cechach każdej persony.
+        """
+        # Helper dla generation labels
+        def get_generation_label(age: int) -> str:
+            if age < 25:
+                return "Gen Z"
+            elif age < 40:
+                return "Millennial"
+            elif age < 56:
+                return "Gen X"
+            else:
+                return "Boomer"
+
+        # Helper dla interpretacji personality traits
+        def get_personality_summary(persona: Persona) -> str:
+            traits = []
+
+            # Otwartość
+            if persona.openness is not None:
+                if persona.openness > 0.7:
+                    traits.append("Bardzo Otwarty/a na nowe doświadczenia")
+                elif persona.openness > 0.5:
+                    traits.append("Umiarkowanie Otwarty/a")
+                elif persona.openness > 0.3:
+                    traits.append("Tradycyjny/a w podejściu")
+                else:
+                    traits.append("Preferuje sprawdzone rozwiązania")
+
+            # Ekstrawersja
+            if persona.extraversion is not None:
+                if persona.extraversion > 0.6:
+                    traits.append("Ekstrawertyczny/a")
+                elif persona.extraversion < 0.4:
+                    traits.append("Introwertyczny/a")
+
+            # Sumienność
+            if persona.conscientiousness is not None:
+                if persona.conscientiousness > 0.7:
+                    traits.append("Bardzo Sumienny/a i Zdyscyplinowany/a")
+                elif persona.conscientiousness < 0.3:
+                    traits.append("Spontaniczny/a i Elastyczny/a")
+
+            # Ugodowość
+            if persona.agreeableness is not None:
+                if persona.agreeableness > 0.7:
+                    traits.append("Empatyczny/a i Ugodowy/a")
+                elif persona.agreeableness < 0.4:
+                    traits.append("Asertywny/a i Niezależny/a")
+
+            # Neurotyzm
+            if persona.neuroticism is not None:
+                if persona.neuroticism > 0.6:
+                    traits.append("Emocjonalny/a")
+                elif persona.neuroticism < 0.3:
+                    traits.append("Stabilny/a emocjonalnie")
+
+            return ", ".join(traits) if traits else "Osobowość zrównoważona"
+
+        # Buduj wzbogacony kontekst
+        generation = get_generation_label(persona.age)
+        personality_summary = get_personality_summary(persona)
+
+        # Formatowanie Big Five scores (jeśli dostępne)
+        big_five_scores = []
+        if persona.openness is not None:
+            big_five_scores.append(f"Otwartość: {persona.openness:.2f}")
+        if persona.conscientiousness is not None:
+            big_five_scores.append(f"Sumienność: {persona.conscientiousness:.2f}")
+        if persona.extraversion is not None:
+            big_five_scores.append(f"Ekstrawersja: {persona.extraversion:.2f}")
+        if persona.agreeableness is not None:
+            big_five_scores.append(f"Ugodowość: {persona.agreeableness:.2f}")
+        if persona.neuroticism is not None:
+            big_five_scores.append(f"Neurotyzm: {persona.neuroticism:.2f}")
+
+        big_five_str = " | ".join(big_five_scores) if big_five_scores else "N/A"
+
+        # Background (skrócony do 400 znaków dla optymalizacji tokenów)
+        background_short = (
+            persona.background_story[:400] + "..."
+            if persona.background_story and len(persona.background_story) > 400
+            else persona.background_story or "N/A"
+        )
+
         return f"""
-Age: {persona.age}, Gender: {persona.gender}
-Education: {persona.education_level or 'N/A'}
-Income: {persona.income_bracket or 'N/A'}
-Occupation: {persona.occupation or 'N/A'}
-Location: {persona.location or 'N/A'}
-Values: {', '.join(persona.values) if persona.values else 'N/A'}
-Interests: {', '.join(persona.interests) if persona.interests else 'N/A'}
-Background: {persona.background_story or 'N/A'}
+=== DEMOGRAFIA ===
+Imię: {persona.full_name or 'N/A'}
+Wiek: {persona.age} ({generation})
+Płeć: {persona.gender}
+Wykształcenie: {persona.education_level or 'N/A'}
+Dochód: {persona.income_bracket or 'N/A'}
+Zawód: {persona.occupation or 'N/A'}
+Lokalizacja: {persona.location or 'N/A'}
+
+=== PSYCHOGRAFIA ===
+Typ osobowości: {personality_summary}
+Big Five Scores (0.0-1.0): {big_five_str}
+
+=== WARTOŚCI I ZAINTERESOWANIA ===
+Wartości: {', '.join(persona.values[:5]) if persona.values else 'N/A'}
+Zainteresowania: {', '.join(persona.interests[:5]) if persona.interests else 'N/A'}
+
+=== HISTORIA ===
+{background_short}
+
+KLUCZOWY INSIGHT: Odpowiedzi tej persony powinny odzwierciedlać jej unikalny profil osobowości, wartości i doświadczenia życiowe. Nie wszystkie persony myślą tak samo!
 """.strip()
 
     async def _answer_single_choice(
@@ -415,7 +522,7 @@ Background: {persona.background_story or 'N/A'}
 
     async def get_survey_analytics(
         self, db: AsyncSession, survey_id: str
-    ) -> dict[str, Any]:
+    ) -> dict[str, list[dict] | DemographicBreakdown | float | None]:
         """
         Oblicz statystyki i analizę wyników ankiety
 
@@ -489,7 +596,7 @@ Background: {persona.background_story or 'N/A'}
             "average_response_time_ms": avg_response_time,
         }
 
-    def _calculate_question_stats(self, question_type: str, answers: list[Any]) -> dict[str, Any]:
+    def _calculate_question_stats(self, question_type: str, answers: list[AnswerValue]) -> QuestionStatistics:
         """Oblicz statystyki dla pytania na podstawie typu"""
         if question_type == "single-choice":
             # Zliczamy wystąpienia
@@ -536,8 +643,8 @@ Background: {persona.background_story or 'N/A'}
         return {}
 
     def _calculate_demographic_breakdown(
-        self, responses: list[SurveyResponse], personas: dict[UUID, Persona], questions: list[dict]
-    ) -> dict[str, dict[str, Any]]:
+        self, responses: list[SurveyResponse], personas: dict[UUID, Persona], questions: list[QuestionDict]
+    ) -> DemographicBreakdown:
         """Rozłóż odpowiedzi według demografii"""
         # Grupujemy według wieku, płci, wykształcenia i dochodu
         breakdown = {

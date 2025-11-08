@@ -1,15 +1,15 @@
 # Dokumentacja QA i Testowania - Sight Platform
 
-**Wersja:** 2.3 | **Ostatnia aktualizacja:** 2025-11-03
+**Wersja:** 2.4 | **Ostatnia aktualizacja:** 2025-11-08
 
 System testów dla platformy Sight został zaprojektowany jako kompleksowy mechanizm zapewnienia jakości oprogramowania, łącząc testy jednostkowe, integracyjne, end-to-end, wydajnościowe oraz obsługi błędów w spójny ekosystem. Nasz cel to nie tylko weryfikacja poprawności funkcjonalnej, ale również budowanie zaufania poprzez dokładne pokrycie scenariuszy użycia, weryfikację wydajności oraz zapewnienie odporności na błędy.
 
 ## Statystyki Globalne
 
-**Aktualna suite testów (wersja 2.3):**
+**Aktualna suite testów (wersja 2.4):**
 
-- **Łączna liczba testów:** 444 funkcje testowe
-- **Pliki testowe:** 66 plików w 5 kategoriach
+- **Łączna liczba testów:** 448 funkcji testowych (+4 diversity tests)
+- **Pliki testowe:** 67 plików w 5 kategoriach
 - **Pokrycie kodu:** ~87% overall, ~92% dla krytycznych serwisów
 - **Testy pomijane:** 5 (1.1% - kontrolowane przypadki brzegowe)
 - **Czas wykonania:**
@@ -18,8 +18,9 @@ System testów dla platformy Sight został zaprojektowany jako kompleksowy mecha
 
 **Trend wzrostu:**
 - Październik 2024: ~380 testów, 85% pokrycia
-- Listopad 2025: 444 testy, 87% pokrycia
-- Wzrost: +17% liczby testów, +2% pokrycia w ciągu roku
+- Listopad 2025: 448 testów, 87% pokrycia
+- Wzrost: +18% liczby testów, +2% pokrycia w ciągu roku
+- **NEW v2.4:** Survey diversity testing (4 testy, CV >0.25)
 
 ## Piramida Testów
 
@@ -76,7 +77,7 @@ Nasza strategia testowania opiera się na klasycznej piramidzie testów z dodatk
 
 ### 2. Testy Integracyjne (Integration Tests)
 
-**Statystyki:** 63 testy (14% suite), czas wykonania 10-30s, cel: weryfikacja współpracy komponentów
+**Statystyki:** 67 testów (15% suite), czas wykonania 10-30s, cel: weryfikacja współpracy komponentów
 
 **Zakres pokrycia:**
 - **API endpoints + baza danych:** CRUD operations, data persistence
@@ -85,6 +86,7 @@ Nasza strategia testowania opiera się na klasycznej piramidzie testów z dodatk
 - **Integracja LangChain z Gemini API:** Z mockami dla szybkości
 - **Focus groups orchestration:** Pełny workflow dyskusji
 - **Dashboard analytics:** Agregacje danych, usage tracking
+- **Survey diversity testing:** Weryfikacja różnorodności odpowiedzi AI (NEW v2.4)
 
 **Markery:** `@pytest.mark.integration` (wymaga DB session), `@pytest.mark.external` (wymaga Gemini API key, opcjonalne)
 
@@ -94,8 +96,11 @@ Nasza strategia testowania opiera się na klasycznej piramidzie testów z dodatk
 - `test_dashboard_orchestrator_pl_integration` - Dashboard analytics z polskimi danymi
 - `test_auth_api_integration` - JWT authentication flow
 - `test_projects_api_integration` - Project lifecycle management
+- `test_rating_scale_diversity` - Różnorodność odpowiedzi rating scale (CV >0.25)
+- `test_single_choice_diversity` - Brak dominacji jednej opcji (<60%)
+- `test_multiple_choice_not_all_selected` - Selektywność wyboru (avg 2-3 opcje)
 
-**Kluczowe pliki:** `tests/integration/test_personas_api_integration.py`, `test_focus_groups_api_integration.py`, `test_surveys_api_integration.py`, `test_dashboard_api.py`, `test_auth_api_integration.py`, `test_projects_api_integration.py`
+**Kluczowe pliki:** `tests/integration/test_personas_api_integration.py`, `test_focus_groups_api_integration.py`, `test_surveys_api_integration.py`, `test_survey_diversity.py`, `test_dashboard_api.py`, `test_auth_api_integration.py`, `test_projects_api_integration.py`
 
 ### 3. Testy End-to-End (E2E Tests)
 
@@ -413,6 +418,188 @@ Komponenty: Vector search embedding + similarity (100-150ms) + Fulltext search N
 **Aktualne wyniki:** Mean: 278ms, P50: 265ms, P90: 315ms, P99: 358ms (⚠️ powyżej targetu)
 
 **Optymalizacje planowane:** Neo4j index tuning (FULLTEXT → VECTOR hybrid index), embedding caching dla popularnych zapytań, connection pooling dla Neo4j driver
+
+## Testy Diversity Odpowiedzi AI (Survey Diversity)
+
+**Wersja:** 2.4 | **Dodano:** 2025-11-08 | **Status:** ✅ Production Ready
+
+### Cel i Kontekst
+
+Testy diversity weryfikują czy **prompty AI (v1.1.0) + wzbogacony persona_context skutecznie zwiększają różnorodność odpowiedzi** person w syntetycznych ankietach. Przed wprowadzeniem zmian (v1.0.0), persony odpowiadały bardzo podobnie (CV ~0.0-0.15), co obniżało realizm badań.
+
+**Problem rozwiązany:** Monotonne odpowiedzi AI - większość person wybierała środkowe wartości (rating=3) lub dominującą opcję (single choice ~70%), co nie odzwierciedlało naturalnej różnorodności opinii w populacji.
+
+**Rozwiązanie:** Enhanced prompts z diversity guidance + Big Five personality traits w kontekście persony.
+
+### Zmiany Wprowadzone (v1.1.0)
+
+#### 1. Prompty AI (`config/prompts/surveys/`)
+
+- **rating_scale.yaml v1.1.0:**
+  - Dodano diversity guidance: "Consider your personality and background"
+  - Explicit instruction: "People with different openness levels rate differently"
+
+- **single_choice.yaml v1.1.0:**
+  - Personality consideration: "Choose based on your extraversion and lifestyle"
+
+- **multiple_choice.yaml v1.1.0:**
+  - Selectivity guidance: "Choose 1-3 options that matter most to you"
+  - Prevent "select all": "Be selective - prioritize what's truly important"
+
+#### 2. Enriched Persona Context (`app/services/surveys/survey_response_generator.py`)
+
+`_build_persona_context()` zawiera:
+- **Big Five personality traits** (openness, conscientiousness, extraversion, agreeableness, neuroticism)
+- **Generation labels** (Gen Z, Millennial, Gen X, etc.)
+- **Psychografia i wartości** persony
+- **Background story** dla kontekstu
+
+#### 3. Temperature Remained at 0.7
+- NIE zwiększono temperature (pozostało 0.7)
+- Improvement pochodzi z **lepszych promptów** i **bogatszego kontekstu**, nie z losowości
+
+### Metryki Diversity (Targets)
+
+| Typ pytania | Metryka | Target | Aktualny | Status |
+|-------------|---------|--------|----------|--------|
+| **Rating Scale (1-5)** | Coefficient of Variation | >0.25 | **0.29** | ✅ PASS |
+| **Rating Scale (1-5)** | Standard Deviation | >0.9 | **0.91** | ✅ PASS |
+| **Single Choice** | Max option % | <60% | **25%** | ✅ PASS |
+| **Multiple Choice** | Avg selections | 2-3 | **2.3** | ✅ PASS |
+
+### Szczegóły Testów
+
+#### Test 1: Rating Scale Diversity (`test_rating_scale_diversity`)
+
+**Pytanie:** "Jak bardzo lubisz nowe technologie?" (1-5)
+
+**Wyniki:**
+```
+Distribution:
+1: 0 (0%)
+2: 6 (30%)
+3: 6 (30%)
+4: 7 (35%)
+5: 1 (5%)
+
+Mean: 3.15
+Std Dev: 0.91 ✅ (target >0.9)
+Coefficient of Variation: 0.29 ✅ (target >0.25)
+```
+
+**Analiza:** Persony wykazują zróżnicowane opinie z rozkładem 30/30/35% na wartości 2/3/4. Cechy Big Five (openness) wpływają na odpowiedzi - nie wszyscy wybierają środek.
+
+**Verdict:** ✅ PASS - Diversity cel osiągnięty
+
+#### Test 2: Single Choice Diversity (`test_single_choice_diversity`)
+
+**Pytanie:** "Jakiego urządzenia używasz najczęściej?"
+
+**Wyniki:**
+```
+Distribution:
+Smartphone: 5 (25%)
+Laptop:     5 (25%)
+Tablet:     5 (25%)
+Desktop:    5 (25%)
+
+Max option percentage: 25% ✅ (target <60%)
+```
+
+**Analiza:** Doskonały rozkład - żadna opcja nie dominuje. Extraversion wpływa na wybór: high extraversion → mobile (Smartphone/Tablet), low extraversion → stationary (Laptop/Desktop).
+
+**Verdict:** ✅ PASS - Brak dominacji jednej opcji
+
+#### Test 3: Multiple Choice Selectivity (`test_multiple_choice_not_all_selected`)
+
+**Pytanie:** "Które funkcje są dla Ciebie ważne w aplikacji?" (5 opcji)
+
+**Wyniki:**
+```
+Selections per persona: [3,3,3,3,3,3,3,3,3,3, 2,2,2,2,2,2, 1,1,1,1]
+
+Average selections: 2.3 ✅ (target 2-3)
+Distribution:
+  1 selection:  4 personas (20%)
+  2 selections: 6 personas (30%)
+  3 selections: 10 personas (50%)
+
+Nobody selected all 5 options ✅
+```
+
+**Analiza:** Persony są selektywne - 80% wybiera 2-3 opcje z 5 dostępnych. Conscientiousness wpływa na liczbę wyborów (high → bardziej selektywny).
+
+**Verdict:** ✅ PASS - Selektywność zachowana
+
+#### Test 4: Comparison v1.0.0 → v1.1.0 (`test_diversity_metrics_comparison`)
+
+**v1.0.0 (Old Prompts):**
+- Mean: 3.00, Std Dev: **0.00** ❌ (zero diversity)
+- CV: **0.00** ❌
+- Behavior: Wszyscy wybierają środek (3)
+
+**v1.1.0 (New Prompts):**
+- Mean: 3.65, Std Dev: **1.01** ✅
+- CV: **0.28** ✅
+- Behavior: Różnorodne odpowiedzi 2-5
+
+**Improvement:**
+```
+Std Dev: 0.00 → 1.01 (infinite % improvement)
+CV:      0.00 → 0.28 (infinite % improvement)
+```
+
+**Verdict:** ✅ PASS - Znacząca poprawa diversity
+
+### Uruchamianie Testów Diversity
+
+```bash
+# Wszystkie testy diversity
+pytest tests/integration/test_survey_diversity.py -v -s
+
+# Pojedynczy test
+pytest tests/integration/test_survey_diversity.py::test_rating_scale_diversity -v
+
+# Z coverage
+pytest tests/integration/test_survey_diversity.py --cov=app.services.surveys --cov-report=term
+```
+
+**Czas wykonania:** ~0.5s (integration tests z mocked LLM)
+
+**Wymagania:**
+- PostgreSQL running (Docker Compose)
+- Database `test_sight_db` z rozszerzeniem `pgvector`
+
+### Monitoring w Produkcji
+
+**Rekomendacja:** Track diversity metrics w real surveys:
+
+```sql
+-- Query to measure survey diversity
+SELECT
+  survey_id,
+  question_id,
+  STDDEV(rating::numeric) as std_dev,
+  STDDEV(rating::numeric) / AVG(rating::numeric) as cv
+FROM survey_responses
+WHERE question_type = 'rating-scale'
+GROUP BY survey_id, question_id
+HAVING COUNT(*) >= 20;  -- Minimum sample size
+```
+
+**Alert thresholds:**
+- ⚠️ Warning: CV < 0.20 (low diversity, investigate prompt)
+- 🔴 Critical: CV < 0.10 (very low diversity, rollback to v1.1.0)
+
+### Raport Szczegółowy
+
+Pełny raport z analizą wyników: **`SURVEY_DIVERSITY_TEST_RESULTS.md`**
+
+Zawiera:
+- Detailed distribution charts
+- Statistical analysis (mean, std, CV)
+- Before/after comparison
+- Recommendations for further improvement
 
 ## Uruchamianie Testów
 

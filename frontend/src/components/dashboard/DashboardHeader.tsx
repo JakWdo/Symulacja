@@ -20,7 +20,7 @@ export function DashboardHeader({ onSettingsClick, onNewProjectClick }: Dashboar
     <div className="flex items-center justify-between">
       {/* Left: Title + Subtitle */}
       <div>
-        <h1 className="font-crimson font-semibold text-2xl leading-[33.6px] text-[#333333] dark:text-foreground">
+        <h1 className="font-crimson font-semibold text-2xl leading-[33.6px] text-foreground dark:text-foreground">
           {t('header.title')}
         </h1>
         <p className="font-crimson font-normal text-base leading-[25.6px] text-figma-muted dark:text-muted-foreground">
@@ -34,7 +34,7 @@ export function DashboardHeader({ onSettingsClick, onNewProjectClick }: Dashboar
         <Button
           variant="outline"
           size="sm"
-          className="h-9 px-[13px] border-border rounded-figma-button font-crimson font-semibold text-sm text-[#333333] dark:text-foreground"
+          className="h-9 px-[13px] border-border rounded-figma-button font-crimson font-semibold text-sm text-foreground dark:text-foreground"
           onClick={onSettingsClick}
         >
           <Settings className="h-4 w-4 mr-2" />
@@ -44,7 +44,7 @@ export function DashboardHeader({ onSettingsClick, onNewProjectClick }: Dashboar
         {/* New Project Button - Primary Orange */}
         <Button
           size="sm"
-          className="h-9 px-[12px] bg-figma-primary hover:bg-figma-primary/90 text-white rounded-figma-button font-crimson font-semibold text-sm"
+          className="h-9 px-[12px] bg-brand hover:bg-brand/90 text-white rounded-figma-button font-crimson font-semibold text-sm"
           onClick={onNewProjectClick}
         >
           <Plus className="h-4 w-4 mr-2" />

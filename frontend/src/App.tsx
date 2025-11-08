@@ -135,7 +135,7 @@ export default function App() {
                 return createdFocusGroup;
               } catch (error) {
                 console.error('Failed to create focus group:', error);
-                // TODO: Dodać toast notification o błędzie
+                toast.error(t('focusGroups:create.error'));
                 throw error;
               }
             }}

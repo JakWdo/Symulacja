@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MoreVertical, Plus, Users, Eye, BarChart3, Play, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,6 +20,67 @@ import { useTranslation } from 'react-i18next';
 interface SurveysProps {
   onCreateSurvey: () => void;
   onSelectSurvey: (survey: Survey) => void;
+}
+
+// Skeleton component for loading state
+function SurveysSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Stats skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {[1, 2].map((i) => (
+          <Card key={i} className="bg-card border border-border shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-8 w-16" />
+                </div>
+                <Skeleton className="h-8 w-8 rounded-full" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Survey cards skeleton */}
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-48" />
+        <div className="grid grid-cols-1 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="bg-card border border-border shadow-sm">
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-6 w-64" />
+                      <Skeleton className="h-5 w-20" />
+                    </div>
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <Skeleton className="h-8 w-8" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-2 w-full" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
@@ -121,7 +183,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
   const getStatusBadge = (status: Survey['status']) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">{t('status.completed')}</Badge>;
+        return <Badge className="bg-brand-muted text-brand dark:text-brand">{t('status.completed')}</Badge>;
       case 'running':
         return (
           <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400 flex items-center gap-1.5">
@@ -145,9 +207,9 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t('tabs.all')}</p>
-              <p className="text-2xl font-bold text-[#F27405]">{surveys.length}</p>
+              <p className="text-2xl font-bold text-brand">{surveys.length}</p>
             </div>
-            <BarChart3 className="w-8 h-8 text-[#F27405]" />
+            <BarChart3 className="w-8 h-8 text-brand" />
           </div>
         </CardContent>
       </Card>
@@ -157,11 +219,11 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t('tabs.allResponses')}</p>
-              <p className="text-2xl font-bold text-[#F27405]">
+              <p className="text-2xl font-bold text-brand">
                 {surveys.reduce((sum, survey) => sum + survey.actual_responses, 0).toLocaleString()}
               </p>
             </div>
-            <Users className="w-8 h-8 text-[#F27405]" />
+            <Users className="w-8 h-8 text-brand" />
           </div>
         </CardContent>
       </Card>
@@ -183,19 +245,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
       </Card>
     );
   } else if (isLoading) {
-    bodyContent = (
-      <>
-        {statsSection}
-        <div className="space-y-4">
-          <h2 className="text-xl text-foreground">{t('list.title')}</h2>
-          <Card className="bg-card border border-border">
-            <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">{t('list.loading')}</p>
-            </CardContent>
-          </Card>
-        </div>
-      </>
-    );
+    bodyContent = <SurveysSkeleton />;
   } else if (surveys.length === 0) {
     bodyContent = (
       <>
@@ -211,7 +261,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
               </p>
               <Button
                 onClick={onCreateSurvey}
-                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                className="bg-brand hover:bg-brand/90 text-brand-foreground"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 {t('list.empty.action')}
@@ -236,7 +286,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
               return (
                 <Card
                   key={survey.id}
-                  className={`bg-card border hover:shadow-md transition-shadow shadow-sm ${survey.status === 'running' ? 'border-[#F27405]/50 shadow-[0_0_0_1px_rgba(242,116,5,0.08)]' : 'border-border'}`}
+                  className={`bg-card border hover:shadow-md transition-shadow shadow-sm ${survey.status === 'running' ? 'border-brand/50 shadow-[0_0_0_1px_rgba(242,116,5,0.08)]' : 'border-border'}`}
                 >
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
@@ -336,7 +386,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                             <Button
                               size="sm"
                               onClick={() => onSelectSurvey(survey)}
-                              className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                              className="bg-brand hover:bg-brand/90 text-brand-foreground"
                             >
                               <Eye className="w-4 h-4 mr-2" />
                               {t('list.card.viewResults')}
@@ -350,7 +400,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                             {survey.status === 'draft' && (
                               <Button
                                 size="sm"
-                                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                                className="bg-brand hover:bg-brand/90 text-brand-foreground"
                                 onClick={() => handleRunSurvey(survey)}
                                 disabled={runMutation.isPending}
                               >
@@ -391,13 +441,13 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                   if (project) setSelectedProject(project);
                 }}
               >
-                <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
+                <SelectTrigger className="bg-muted border-0 rounded-md px-3.5 py-2 h-9 hover:bg-muted/80 transition-colors w-56">
                   <SelectValue
                     placeholder={t('page.selectProject')}
-                    className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                    className="font-['Crimson_Text',_serif] text-[14px] text-foreground leading-5"
                   />
                 </SelectTrigger>
-                <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
+                <SelectContent className="bg-muted border-border">
                   {projectsLoading ? (
                     <div className="flex items-center justify-center p-2">
                       <SpinnerLogo className="w-4 h-4" />
@@ -409,7 +459,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
                       <SelectItem
                         key={project.id}
                         value={project.id}
-                        className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                        className="font-['Crimson_Text',_serif] text-[14px] text-foreground focus:bg-accent"
                       >
                         {project.name}
                       </SelectItem>
@@ -419,7 +469,7 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
               </Select>
               <Button
                 onClick={onCreateSurvey}
-                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                className="bg-brand hover:bg-brand/90 text-brand-foreground"
                 disabled={!selectedProject}
               >
                 <Plus className="w-4 h-4 mr-2" />

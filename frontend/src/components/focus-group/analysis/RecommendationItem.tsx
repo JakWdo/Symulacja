@@ -22,9 +22,9 @@ export const RecommendationItem: React.FC<RecommendationItemProps> = ({
   const { t } = useTranslation('focusGroups');
 
   const priorityColors = {
-    high: 'bg-figma-red/10 text-figma-red border-figma-red/30',
-    medium: 'bg-figma-yellow/10 text-figma-yellow border-figma-yellow/30',
-    low: 'bg-figma-green/10 text-figma-green border-figma-green/30',
+    high: 'bg-error/10 text-error border-error/30',
+    medium: 'bg-warning/10 text-warning border-warning/30',
+    low: 'bg-success/10 text-success border-success/30',
   };
 
   const getPriorityLabel = (priority: 'high' | 'medium' | 'low'): string => {

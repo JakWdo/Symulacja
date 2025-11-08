@@ -14,6 +14,11 @@ export function useFocusGroupAnalysis(focusGroupId: string) {
     queryFn: () => analysisApi.getAISummary(focusGroupId),
     staleTime: 10 * 60 * 1000, // 10 min - AI summary jest immutable po wygenerowaniu
     enabled: !!focusGroupId,
-    retry: 1, // Tylko jedna próba przy 404
+    retry: (failureCount, error: any) => {
+      // Nie retry jeśli 404 (summary jeszcze nie wygenerowane)
+      if (error?.response?.status === 404) return false;
+      // Retry max 1 raz dla innych błędów
+      return failureCount < 1;
+    },
   });
 }

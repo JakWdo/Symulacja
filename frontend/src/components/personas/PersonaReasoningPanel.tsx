@@ -132,21 +132,37 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
                      !reasoning.allocation_reasoning &&
                      !reasoning.overall_context)) {
     return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          <div className="space-y-2">
-            <p className="font-medium">{t('details.reasoning.emptyState.title')}</p>
-            <p className="text-sm text-muted-foreground">
-              {t('details.reasoning.emptyState.description')}
+      <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-900/10">
+        <AlertCircle className="h-4 w-4 text-yellow-600" />
+        <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+          <div className="space-y-3">
+            <p className="font-semibold text-base">Ta persona nie ma szczegółowego reasoning</p>
+            <p className="text-sm">
+              Persona została wygenerowana, ale orchestration service nie dodał szczegółowych wyjaśnień.
             </p>
-            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-              <li>{t('details.reasoning.emptyState.reasons.failed')}</li>
-              <li>{t('details.reasoning.emptyState.reasons.invalidJson')}</li>
-              <li>{t('details.reasoning.emptyState.reasons.legacy')}</li>
-            </ul>
-            <p className="text-sm font-medium mt-4">
-              {t('details.reasoning.emptyState.solution')}
+
+            <div className="text-sm">
+              <p className="font-medium mb-2">Możliwe przyczyny:</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Orchestration był wyłączony podczas generowania (<code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded text-xs">ORCHESTRATION_ENABLED=false</code>)</li>
+                <li>Wystąpił błąd połączenia z Neo4j (Graph RAG niedostępny)</li>
+                <li>Timeout podczas tworzenia briefów segmentów (&gt;90s)</li>
+                <li>Persona została wygenerowana z <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded text-xs">use_rag=false</code></li>
+              </ul>
+            </div>
+
+            <div className="text-sm border-t border-yellow-200 dark:border-yellow-700 pt-3 mt-3">
+              <p className="font-medium mb-2">🔧 Rozwiązanie:</p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>Sprawdź logi serwera: <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded text-xs">docker-compose logs api | grep Orchestration</code></li>
+                <li>Sprawdź czy Neo4j działa: <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded text-xs">docker-compose ps neo4j</code></li>
+                <li>Sprawdź <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded text-xs">.env</code>: Upewnij się że <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded text-xs">ORCHESTRATION_ENABLED=true</code></li>
+                <li className="font-medium">Wygeneruj persony ponownie aby zobaczyć pełne reasoning</li>
+              </ol>
+            </div>
+
+            <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
+              💡 Więcej informacji: CLAUDE.md → "Troubleshooting: Brak Reasoning w Personach"
             </p>
           </div>
         </AlertDescription>

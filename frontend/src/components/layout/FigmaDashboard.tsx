@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { projectsApi, personasApi, focusGroupsApi, surveysApi } from '@/lib/api';
 import { CustomLineChart, CustomDonutChart, LineChartSeries } from '@/components/charts/CustomCharts';
 import { useAppStore } from '@/store/appStore';
-import type { Project } from '@/types';
+import type { Project, Survey, FocusGroup, Persona } from '@/types';
+import type { TFunction } from 'i18next';
 
 interface DashboardProps {
   onNavigate?: (view: string) => void;
@@ -51,8 +52,8 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
     },
     enabled: projectIds.length > 0,
     refetchInterval: (query) => {
-      const data = query.state.data;
-      const hasRunning = data?.some((s: any) => s.status === 'running');
+      const data = query.state.data as Survey[] | undefined;
+      const hasRunning = data?.some((s) => s.status === 'running');
       return hasRunning ? 3000 : false;
     },
   });
@@ -69,8 +70,8 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
     },
     enabled: projectIds.length > 0,
     refetchInterval: (query) => {
-      const data = query.state.data;
-      const hasRunning = data?.some((fg: any) => fg.status === 'running');
+      const data = query.state.data as FocusGroup[] | undefined;
+      const hasRunning = data?.some((fg) => fg.status === 'running');
       return hasRunning ? 2000 : false;
     },
   });
@@ -195,7 +196,7 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
           </p>
         </div>
         <Button
-          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+          className="bg-brand hover:bg-brand/90 text-brand-foreground"
           onClick={() => onNavigate?.('projects')}
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -208,10 +209,10 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
         <Card className="bg-card border border-border rounded-xl shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">{t('mainDashboard.stats.activeProjects')}</CardTitle>
-            <FolderOpen className="h-4 w-4 text-[#F27405]" />
+            <FolderOpen className="h-4 w-4 text-brand" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#F27405]">{activeProjects}</div>
+            <div className="text-2xl font-bold text-brand">{activeProjects}</div>
             <p className="text-xs text-muted-foreground">{t('mainDashboard.stats.projectsChange')}</p>
           </CardContent>
         </Card>
@@ -219,10 +220,10 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
         <Card className="bg-card border border-border rounded-xl shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">{t('mainDashboard.stats.totalPersonas')}</CardTitle>
-            <Users className="h-4 w-4 text-[#F27405]" />
+            <Users className="h-4 w-4 text-brand" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#F27405]">{totalPersonas}</div>
+            <div className="text-2xl font-bold text-brand">{totalPersonas}</div>
             <p className="text-xs text-muted-foreground">{t('mainDashboard.stats.personasChange')}</p>
           </CardContent>
         </Card>
@@ -230,10 +231,10 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
         <Card className="bg-card border border-border rounded-xl shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">{t('mainDashboard.stats.runningSurveys')}</CardTitle>
-            <BarChart3 className="h-4 w-4 text-[#F27405]" />
+            <BarChart3 className="h-4 w-4 text-brand" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#F27405]">{runningSurveys}</div>
+            <div className="text-2xl font-bold text-brand">{runningSurveys}</div>
             <p className="text-xs text-muted-foreground">{t('mainDashboard.stats.surveysChange')}</p>
           </CardContent>
         </Card>
@@ -241,10 +242,10 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
         <Card className="bg-card border border-border rounded-xl shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm text-muted-foreground">{t('mainDashboard.stats.focusGroups')}</CardTitle>
-            <MessageSquare className="h-4 w-4 text-[#F27405]" />
+            <MessageSquare className="h-4 w-4 text-brand" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#F27405]">{totalFocusGroups}</div>
+            <div className="text-2xl font-bold text-brand">{totalFocusGroups}</div>
             <p className="text-xs text-muted-foreground">{t('mainDashboard.stats.focusGroupsChange')}</p>
           </CardContent>
         </Card>
@@ -345,7 +346,7 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
                     </div>
                     <Button
                       size="sm"
-                      className="bg-[#F27405] hover:bg-[#F27405]/90 text-white text-xs"
+                      className="bg-brand hover:bg-brand/90 text-brand-foreground text-xs"
                       onClick={() => handleViewProject(project)}
                     >
                       <Eye className="w-3 h-3 mr-1" />
@@ -377,7 +378,7 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
               <p className="text-muted-foreground mb-4">{t('mainDashboard.recentProjects.noProjects.description')}</p>
               <Button
                 onClick={() => onNavigate?.('projects')}
-                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                className="bg-brand hover:bg-brand/90 text-brand-foreground"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 {t('mainDashboard.recentProjects.noProjects.createButton')}
@@ -391,7 +392,7 @@ export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) 
   );
 }
 
-function calculateMonthlyActivity(personas: any[], surveys: any[], focusGroups: any[], t: any) {
+function calculateMonthlyActivity(personas: Persona[], surveys: Survey[], focusGroups: FocusGroup[], t: TFunction) {
   const now = new Date();
   const months = [
     t('mainDashboard.charts.researchActivity.months.jan'),

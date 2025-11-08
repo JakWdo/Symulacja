@@ -30,7 +30,7 @@ export const StrategicRecommendationsCard: React.FC<StrategicRecommendationsCard
     <Card className={`bg-card border border-border shadow-sm ${className}`}>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Target className="w-5 h-5 text-figma-green" />
+          <Target className="w-5 h-5 text-success" />
           <CardTitle className="text-card-foreground font-crimson text-xl">
             Rekomendacje Strategiczne
           </CardTitle>

@@ -28,7 +28,7 @@ export const SurprisingFindingsCard: React.FC<SurprisingFindingsCardProps> = ({
     <Card className={`bg-card border border-border shadow-sm ${className}`}>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Lightbulb className="w-5 h-5 text-figma-yellow" />
+          <Lightbulb className="w-5 h-5 text-warning" />
           <CardTitle className="text-card-foreground font-crimson text-xl">
             {t('analysis.surprisingFindings.title')}
           </CardTitle>
@@ -42,9 +42,9 @@ export const SurprisingFindingsCard: React.FC<SurprisingFindingsCardProps> = ({
           {findings.map((finding, index) => (
             <li
               key={index}
-              className="flex items-start gap-3 p-4 bg-figma-yellow/5 rounded-figma-inner border border-figma-yellow/20"
+              className="flex items-start gap-3 p-4 bg-warning/5 rounded-figma-inner border border-warning/20"
             >
-              <div className="w-2 h-2 rounded-full bg-figma-yellow shrink-0 mt-2" />
+              <div className="w-2 h-2 rounded-full bg-warning shrink-0 mt-2" />
               <div className="flex-1 prose prose-sm max-w-none text-muted-foreground">
                 <ReactMarkdown
                   components={{

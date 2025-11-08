@@ -61,22 +61,22 @@ export function CustomBarChart({ data, maxHeight = 200 }: CustomBarChartProps) {
         return (
           <div key={month.name} className="flex flex-col items-center gap-3">
             <div
-              className="bg-[#f3f3f3] flex flex-col items-center justify-end overflow-hidden relative rounded-[5px] w-[38px]"
+              className="bg-muted flex flex-col items-center justify-end overflow-hidden relative rounded-[5px] w-[38px]"
               style={{ height: `${totalHeight}px` }}
             >
-              <div className="flex-1 bg-[#f2f2f2] w-full" />
+              <div className="flex-1 bg-muted/80 w-full" />
               <div
-                className="bg-[#F27405] w-full"
+                className="bg-brand w-full"
                 style={{ height: `${personasHeight}px` }}
                 title={`Personas: ${month.personas}`}
               />
               <div
-                className="bg-[#F29F05] w-full"
+                className="bg-info w-full"
                 style={{ height: `${surveysHeight}px` }}
                 title={`Surveys: ${month.surveys}`}
               />
               <div
-                className="bg-[#28a745] w-full"
+                className="bg-success w-full"
                 style={{ height: `${focusGroupsHeight}px` }}
                 title={`Focus Groups: ${month.focusGroups}`}
               />

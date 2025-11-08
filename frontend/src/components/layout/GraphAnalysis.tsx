@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import { Network, Users, MessageCircle, Brain, Search, Filter, Eye, RefreshCcw } from 'lucide-react';
+import { Network, Users, MessageCircle, Search, Filter, Eye, RefreshCcw } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { ICON_STANDARDS } from '@/lib/iconStandards';
 import { NetworkGraph } from '@/components/analysis/NetworkGraph';
 import { projectsApi, graphApi, focusGroupsApi } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
@@ -311,10 +312,10 @@ export function GraphAnalysis() {
                 if (project) setSelectedProject(project);
               }}
             >
-              <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
+              <SelectTrigger className="bg-muted border-0 rounded-md px-3.5 py-2 h-9 hover:bg-muted/80 transition-colors w-56">
                 <SelectValue
                   placeholder="Select project"
-                  className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                  className="font-['Crimson_Text',_serif] text-[14px] text-foreground leading-5"
                 />
               </SelectTrigger>
               <SelectContent>
@@ -329,7 +330,7 @@ export function GraphAnalysis() {
                     <SelectItem
                       key={project.id}
                       value={project.id}
-                      className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                      className="font-['Crimson_Text',_serif] text-[14px] text-foreground focus:bg-accent"
                     >
                       {project.name}
                     </SelectItem>
@@ -347,7 +348,7 @@ export function GraphAnalysis() {
               }}
               disabled={!activeProjectId || focusGroupsLoading || completedFocusGroups.length === 0}
             >
-              <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
+              <SelectTrigger className="bg-muted border-0 rounded-md px-3.5 py-2 h-9 hover:bg-muted/80 transition-colors w-56">
                 <SelectValue
                   placeholder={
                     focusGroupsLoading
@@ -356,7 +357,7 @@ export function GraphAnalysis() {
                         ? 'No completed focus groups'
                         : 'Select focus group'
                   }
-                  className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                  className="font-['Crimson_Text',_serif] text-[14px] text-foreground leading-5"
                 />
               </SelectTrigger>
               <SelectContent>
@@ -373,7 +374,7 @@ export function GraphAnalysis() {
                     <SelectItem
                       key={group.id}
                       value={group.id}
-                      className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                      className="font-['Crimson_Text',_serif] text-[14px] text-foreground focus:bg-accent"
                     >
                       {group.name}
                     </SelectItem>
@@ -525,7 +526,7 @@ export function GraphAnalysis() {
               <Card className="bg-card border border-border mt-6">
                 <CardHeader>
                   <CardTitle className="text-foreground flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-primary" />
+                    <ICON_STANDARDS.ai.general className="w-5 h-5 text-primary" />
                     Ask Your Data
                   </CardTitle>
                 </CardHeader>
@@ -565,7 +566,7 @@ export function GraphAnalysis() {
                           </>
                         ) : (
                           <>
-                            <Brain className="w-4 h-4 mr-2" />
+                            <ICON_STANDARDS.ai.general className="w-4 h-4 mr-2" />
                             Analyze
                           </>
                         )}

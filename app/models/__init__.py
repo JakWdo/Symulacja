@@ -47,6 +47,7 @@ from .dashboard import (
     UserNotification,
     ActionLog,
 )
+from .generation_progress import GenerationProgress, GenerationStage
 
 __all__ = [
     "User",
@@ -71,4 +72,6 @@ __all__ = [
     "UsageMetric",
     "UserNotification",
     "ActionLog",
+    "GenerationProgress",
+    "GenerationStage",
 ]

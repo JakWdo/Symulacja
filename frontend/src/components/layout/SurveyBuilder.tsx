@@ -16,6 +16,7 @@ import { useAppStore } from '@/store/appStore';
 import type { Question } from '@/types';
 import { toast } from '@/components/ui/toastStore';
 import { useTranslation } from 'react-i18next';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface SurveyBuilderProps {
   onBack: () => void;
@@ -31,7 +32,7 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
 
   const [surveyTitle, setSurveyTitle] = useState('');
   const [surveyDescription, setSurveyDescription] = useState('');
-  const [targetResponses, setTargetResponses] = useState('1000');
+  const [targetResponses, setTargetResponses] = useState('50');
   const [questions, setQuestions] = useState<Question[]>([]);
 
   const questionTypes = [
@@ -163,9 +164,10 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
   }
 
   return (
-    <div className="w-full h-full overflow-y-auto">
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="max-w-7xl mx-auto space-y-6 p-6">
+    <ErrorBoundary>
+      <div className="w-full h-full overflow-y-auto">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="max-w-7xl mx-auto space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={onBack}>
@@ -188,10 +190,10 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Question Types Palette */}
+        <div className="flex flex-col lg:flex-row lg:grid lg:grid-cols-4 gap-6">
+          {/* Question Types Palette - na mobile: pełna szerokość */}
           <div className="lg:col-span-1">
-            <Card className="bg-card border border-border sticky top-6">
+            <Card className="bg-card border border-border lg:sticky lg:top-6">
               <CardHeader>
                 <CardTitle className="text-card-foreground flex items-center gap-2">
                   <Settings className="w-5 h-5" />
@@ -284,10 +286,11 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="250">250</SelectItem>
                       <SelectItem value="500">500</SelectItem>
-                      <SelectItem value="1000">1,000</SelectItem>
-                      <SelectItem value="2500">2,500</SelectItem>
-                      <SelectItem value="5000">5,000</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
@@ -441,8 +444,9 @@ export function SurveyBuilder({ onBack, onSave }: SurveyBuilderProps) {
             </Card>
           </div>
         </div>
-        </div>
-      </DragDropContext>
-    </div>
+          </div>
+        </DragDropContext>
+      </div>
+    </ErrorBoundary>
   );
 }

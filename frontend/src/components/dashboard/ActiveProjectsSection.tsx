@@ -108,38 +108,38 @@ function ProjectCard({
   const statusConfig = {
     running: {
       color: 'border-border text-foreground',
-      dotColor: 'bg-[#28a745]',
+      dotColor: 'bg-success',
       label: t('activeProjects.status.running'),
     },
     blocked: {
       color: 'border-border text-foreground',
-      dotColor: 'bg-[#fb2c36]',
+      dotColor: 'bg-error',
       label: t('activeProjects.status.blocked'),
     },
     paused: {
       color: 'border-border text-foreground',
-      dotColor: 'bg-[#ffc107]',
+      dotColor: 'bg-warning',
       label: t('activeProjects.status.paused'),
     },
     completed: {
       color: 'border-border text-foreground',
-      dotColor: 'bg-[#28a745]',
+      dotColor: 'bg-success',
       label: t('activeProjects.status.completed'),
     },
   };
 
-  // Health indicator colors (correct Figma red)
+  // Health indicator colors
   const healthConfig = {
     on_track: {
-      color: 'bg-[#28a745]',
+      color: 'bg-success',
       label: t('activeProjects.health.onTrack'),
     },
     at_risk: {
-      color: 'bg-[#ffc107]',
+      color: 'bg-warning',
       label: t('activeProjects.health.atRisk'),
     },
     blocked: {
-      color: 'bg-[#fb2c36]',
+      color: 'bg-error',
       label: t('activeProjects.health.blocked'),
     },
   };
@@ -185,7 +185,7 @@ function ProjectCard({
         return (
           <Button
             size="sm"
-            className="bg-figma-primary hover:bg-figma-primary/90 text-white h-8 rounded-[6px]"
+            className="bg-brand hover:bg-brand/90 text-white h-8 rounded-[6px]"
             onClick={() => {
               if (onNavigate) {
                 void onNavigate(project.cta_url);
@@ -202,7 +202,7 @@ function ProjectCard({
         return (
           <Button
             size="sm"
-            className="bg-figma-primary hover:bg-figma-primary/90 text-white h-8 rounded-[6px]"
+            className="bg-brand hover:bg-brand/90 text-white h-8 rounded-[6px]"
             onClick={() => {
               if (onNavigate) {
                 void onNavigate(project.cta_url);
@@ -322,10 +322,10 @@ function ProjectCard({
         <div className="flex items-center justify-between h-5">
           {/* Insights Count */}
           <div className="flex items-center gap-1.5 text-sm text-foreground">
-            <Lightbulb className="w-4 h-4 text-figma-primary" />
+            <Lightbulb className="w-4 h-4 text-brand" />
             <span>
               {project.new_insights_count > 0 && (
-                <span className="font-semibold text-figma-primary">
+                <span className="font-semibold text-brand">
                   +{project.new_insights_count}{' '}
                 </span>
               )}
@@ -335,7 +335,7 @@ function ProjectCard({
 
           {/* Alert (if any) */}
           {alert && (
-            <div className="flex items-center gap-1 text-xs text-[#dc3545]">
+            <div className="flex items-center gap-1 text-xs text-error">
               <alert.icon className="w-3 h-3" />
               <span>{alert.text}</span>
             </div>
@@ -360,7 +360,7 @@ function ProgressBar({ label, percentage }: { label: string; percentage: number 
       {/* Progress Bar */}
       <div className="h-[6px] bg-orange-500/20 dark:bg-orange-500/30 rounded-full overflow-hidden">
         <div
-          className="h-full bg-figma-primary transition-all duration-300 rounded-full"
+          className="h-full bg-brand transition-all duration-300 rounded-full"
           style={{ width: `${percentage}%` }}
         />
       </div>

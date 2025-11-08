@@ -74,8 +74,8 @@ export const ResponsesList: React.FC<ResponsesListProps> = ({
         <div key={qIdx} className="space-y-4">
           {/* Question Header */}
           <div className="flex items-center gap-3">
-            <div className="bg-figma-primary/10 border border-figma-primary/30 rounded px-3 py-1">
-              <span className="text-sm font-semibold text-figma-primary">Q{qIdx + 1}</span>
+            <div className="bg-brand/10 border border-brand/30 rounded px-3 py-1">
+              <span className="text-sm font-semibold text-brand">Q{qIdx + 1}</span>
             </div>
             <h4 className="text-card-foreground font-semibold">{question.question}</h4>
           </div>

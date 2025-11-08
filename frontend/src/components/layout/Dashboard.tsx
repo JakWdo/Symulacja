@@ -23,8 +23,15 @@ interface DashboardProps {
   onNavigate?: (view: string) => void;
 }
 
+interface ChartDataPoint {
+  name: string;
+  personas: number;
+  surveys: number;
+  focusGroups: number;
+}
+
 // Custom Bar Chart Component based on Figma design
-function CustomBarChart({ data }: { data: any[] }) {
+function CustomBarChart({ data }: { data: ChartDataPoint[] }) {
   return (
     <div className="flex gap-[12px] items-end justify-between relative w-full h-[240px] px-4">
       {data.map((month) => {
@@ -49,25 +56,25 @@ function CustomBarChart({ data }: { data: any[] }) {
             className="flex flex-col items-center gap-3"
           >
             <div
-              className="bg-[#f3f3f3] flex flex-col items-center justify-end overflow-hidden relative rounded-[5px] w-[38px]"
+              className="bg-muted flex flex-col items-center justify-end overflow-hidden relative rounded-[5px] w-[38px]"
               style={{ height: `${totalHeight}px` }}
             >
-              <div className="flex-1 bg-[#f2f2f2] w-full" />
+              <div className="flex-1 bg-muted/80 w-full" />
               {personasHeight > 0 && (
                 <div
-                  className="bg-[#F27405] w-full"
+                  className="bg-brand w-full"
                   style={{ height: `${personasHeight}px` }}
                 />
               )}
               {surveysHeight > 0 && (
                 <div
-                  className="bg-[#F29F05] w-full"
+                  className="bg-info w-full"
                   style={{ height: `${surveysHeight}px` }}
                 />
               )}
               {focusGroupsHeight > 0 && (
                 <div
-                  className="bg-[#28a745] w-full"
+                  className="bg-success w-full"
                   style={{ height: `${focusGroupsHeight}px` }}
                 />
               )}
@@ -235,7 +242,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         </div>
         <div className="flex gap-2">
           <Button
-            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+            className="bg-brand hover:bg-brand/90 text-brand-foreground"
             onClick={() => onNavigate?.('projects')}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -397,7 +404,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     </div>
                     <Button
                       size="sm"
-                      className="bg-[#F27405] hover:bg-[#F27405]/90 text-white text-xs"
+                      className="bg-brand hover:bg-brand/90 text-brand-foreground text-xs"
                       onClick={(e) => {
                         e.stopPropagation();
                         onNavigate?.('projects');
@@ -446,7 +453,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               </p>
               <Button
                 onClick={() => onNavigate?.('projects')}
-                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                className="bg-brand hover:bg-brand/90 text-brand-foreground"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 {t('mainDashboard.recentProjects.noProjects.createButton')}

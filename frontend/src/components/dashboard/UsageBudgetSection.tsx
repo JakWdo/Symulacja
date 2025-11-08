@@ -176,7 +176,7 @@ export function UsageBudgetSection() {
                 </div>
                 <div className="w-full h-[6px] bg-orange-500/20 dark:bg-orange-500/30 rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-figma-primary transition-all duration-300"
+                    className="h-full rounded-full bg-brand transition-all duration-300"
                     style={{ width: `${breakdown.persona_generation.percentage}%` }}
                   />
                 </div>
@@ -192,7 +192,7 @@ export function UsageBudgetSection() {
                 </div>
                 <div className="w-full h-[6px] bg-orange-500/20 dark:bg-orange-500/30 rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-figma-primary transition-all duration-300"
+                    className="h-full rounded-full bg-brand transition-all duration-300"
                     style={{ width: `${breakdown.focus_group.percentage}%` }}
                   />
                 </div>
@@ -208,7 +208,7 @@ export function UsageBudgetSection() {
                 </div>
                 <div className="w-full h-[6px] bg-orange-500/20 dark:bg-orange-500/30 rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-figma-primary transition-all duration-300"
+                    className="h-full rounded-full bg-brand transition-all duration-300"
                     style={{ width: `${breakdown.rag_query.percentage}%` }}
                   />
                 </div>
@@ -224,7 +224,7 @@ export function UsageBudgetSection() {
                 </div>
                 <div className="w-full h-[6px] bg-orange-500/20 dark:bg-orange-500/30 rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-figma-primary transition-all duration-300"
+                    className="h-full rounded-full bg-brand transition-all duration-300"
                     style={{ width: `${breakdown.other.percentage}%` }}
                   />
                 </div>

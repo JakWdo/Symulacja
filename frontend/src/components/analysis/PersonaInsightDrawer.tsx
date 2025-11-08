@@ -30,13 +30,19 @@ function formatLocationLabel(location?: string | null) {
   return location ?? 'lokalizacja nieznana';
 }
 
+interface PersonaEventData {
+  question?: string;
+  response?: string;
+  [key: string]: unknown;
+}
+
 interface PersonaHistory {
   persona_id: string;
   total_events: number;
   events: Array<{
     id: string;
     event_type: string;
-    event_data: Record<string, unknown>;
+    event_data: PersonaEventData;
     timestamp: string;
     focus_group_id: string | null;
   }>;
@@ -176,11 +182,11 @@ export function PersonaInsightDrawer({
               {history.events.map((event) => (
                 <li key={event.id} className="border-l-2 border-primary-200 pl-3">
                   <p className="font-medium text-slate-800 capitalize">{event.event_type.replace(/_/g, ' ')}</p>
-                  {'question' in event.event_data && (
-                    <p className="mt-1">{(event.event_data as any).question}</p>
+                  {event.event_data.question && (
+                    <p className="mt-1">{event.event_data.question}</p>
                   )}
-                  {'response' in event.event_data && (
-                    <p className="italic text-slate-500">{(event.event_data as any).response}</p>
+                  {event.event_data.response && (
+                    <p className="italic text-slate-500">{event.event_data.response}</p>
                   )}
                   <p className="text-[10px] text-slate-400 mt-1">{new Date(event.timestamp).toLocaleString()}</p>
                 </li>

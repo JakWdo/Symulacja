@@ -9,9 +9,13 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Clock, CheckCircle, Plus, Trash2, Brain, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, MessageSquare, BarChart3, Play, Clock, CheckCircle, Plus, Trash2, AlertCircle, Info } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { ICON_STANDARDS } from '@/lib/iconStandards';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { focusGroupsApi, personasApi, analysisApi, projectsApi } from '@/lib/api';
+import { estimateFocusGroupDuration, formatDuration as formatFGDuration } from '@/lib/focusGroupGeneration';
+import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { Logo } from '@/components/ui/logo';
 import { ScoreChart } from '@/components/ui/score-chart';
 import { toast } from '@/components/ui/toastStore';
@@ -78,6 +82,11 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   const [insights, setInsights] = useState<AISummaryResponse | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [progressMeta, setProgressMeta] = useState<{
+    start: number;
+    duration: number;
+    targetResponses: number;
+  } | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -89,7 +98,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
       persona_ids: string[];
       questions: string[];
       mode: 'normal' | 'adversarial';
-    }) => focusGroupsApi.update(initialFocusGroup.id, payload as any),
+    }) => focusGroupsApi.update(initialFocusGroup.id, payload),
     onSuccess: (updated) => {
       setQuestions(updated.questions || []);
       setSelectedPersonaIds(updated.persona_ids || []);
@@ -269,6 +278,43 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     };
   }, []);
 
+  // Nowy fake progress bazowany na progressMeta (analogicznie do Personas.tsx)
+  useEffect(() => {
+    if (!progressMeta || !isRunning) {
+      return;
+    }
+
+    // Jeśli mamy realne odpowiedzi z API, używamy responsesProgress
+    if (responsesProgress > 0 && responsesCount > 0) {
+      const ratio = Math.min(responsesCount / progressMeta.targetResponses, 0.99);
+      setDiscussionProgress((prev) => Math.max(prev, Math.max(5, ratio * 100)));
+      return;
+    }
+
+    // Fake progress based on time elapsed
+    const interval = setInterval(() => {
+      setDiscussionProgress((prev) => {
+        const elapsed = Date.now() - progressMeta.start;
+        const ratio = Math.min(elapsed / progressMeta.duration, 0.97);
+        const target = 5 + ratio * 90; // 5% → 95%
+        return prev + (target - prev) * 0.35; // Smooth transition
+      });
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [progressMeta, isRunning, responsesProgress, responsesCount]);
+
+  // Cleanup progressMeta po zakończeniu
+  useEffect(() => {
+    if (focusGroup.status === 'completed' && progressMeta) {
+      setDiscussionProgress(100);
+      setTimeout(() => {
+        setProgressMeta(null);
+        setDiscussionProgress(0);
+      }, 2000); // Pokaż 100% przez 2s
+    }
+  }, [focusGroup.status, progressMeta]);
+
   const runMutation = useMutation({
     mutationFn: () => focusGroupsApi.run(focusGroup.id),
     onSuccess: () => {
@@ -326,6 +372,20 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   });
 
   const handleRunDiscussion = () => {
+    // Oblicz szacowany czas generacji
+    const duration = estimateFocusGroupDuration({
+      numPersonas: focusGroup.persona_ids?.length || 20,
+      numQuestions: focusGroup.questions?.length || 4,
+      useAI: true,
+    });
+
+    // Ustaw meta przed rozpoczęciem
+    setProgressMeta({
+      start: Date.now(),
+      duration,
+      targetResponses: (focusGroup.persona_ids?.length || 0) * (focusGroup.questions?.length || 0),
+    });
+
     runMutation.mutate();
   };
 
@@ -433,7 +493,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405] border-[#F27405]/30';
+        return 'bg-brand-muted text-brand dark:text-brand border-brand/30';
       case 'running':
         return 'bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/30';
       case 'pending':
@@ -472,10 +532,11 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   });
 
   return (
-    <div className="w-full h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
+    <ErrorBoundary>
+      <div className="w-full h-full overflow-y-auto">
+        <div className="max-w-7xl mx-auto space-y-6 p-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
         <Button
           variant="ghost"
           onClick={onBack}
@@ -542,7 +603,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                   {questions.map((question: string, index: number) => (
                     <div key={index} className="p-3 bg-muted rounded-lg border border-border">
                       <div className="flex items-start gap-3">
-                        <span className="text-sm font-medium text-[#F27405] bg-[#F27405]/10 px-2 py-1 rounded">
+                        <span className="text-sm font-medium text-brand bg-brand-muted px-2 py-1 rounded">
                           Q{index + 1}
                         </span>
                         <p className="text-foreground flex-1">{question}</p>
@@ -587,7 +648,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                       <Button
                         onClick={addQuestion}
                         disabled={!newQuestion.trim() || updateMutation.isPending}
-                        className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                        className="bg-brand hover:bg-brand/90 text-brand-foreground"
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
@@ -623,7 +684,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                           key={persona.id}
                           className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
                             isSelected
-                              ? 'bg-[#F27405]/10 border-[#F27405]/40'
+                              ? 'bg-brand-muted border-brand/40'
                               : 'bg-muted border-border'
                           }`}
                         >
@@ -664,7 +725,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                 {!discussionComplete && !isRunning && focusGroup.status === 'pending' && (
                   <Button
                     onClick={handleRunDiscussion}
-                    className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                    className="bg-brand hover:bg-brand/90 text-brand-foreground"
                     disabled={runMutation.isPending}
                   >
                     <Play className="w-4 h-4 mr-2" />
@@ -686,17 +747,44 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
               {(isRunning || focusGroup.status === 'running') && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Logo className="w-5 h-5" spinning />
-                    <span className="text-card-foreground">{t('view.discussion.simulationInProgress')}</span>
-                  </div>
+                  {/* Progress Bar z Czasem */}
+                  <div className="rounded-lg border border-border bg-card/80 p-4 space-y-3 shadow-sm">
+                    {/* Header z czasem */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <SpinnerLogo className="w-4 h-4" />
+                        <span className="font-medium text-card-foreground">
+                          {t('view.discussion.simulationInProgress')}
+                        </span>
+                      </div>
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{t('view.discussion.progressLabel')}</span>
-                      <span className="text-muted-foreground">{discussionProgress}%</span>
+                      {/* Szacowany czas */}
+                      {progressMeta && (
+                        <div className="text-xs text-muted-foreground tabular-nums">
+                          Czas: ~{formatFGDuration(progressMeta.duration)}
+                          {responsesCount > 0 && progressMeta.targetResponses > 0 && (
+                            <span className="ml-2 text-primary font-medium">
+                              {responsesCount}/{progressMeta.targetResponses}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <Progress value={discussionProgress} className="w-full" />
+
+                    {/* Progress bar */}
+                    <Progress value={Math.min(discussionProgress, 100)} className="h-2" />
+
+                    {/* Info tooltip */}
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 rounded p-2">
+                      <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                      <p className="leading-tight">
+                        <strong>Generowanie Focus Group trwa długo</strong> gdy masz wiele person
+                        i pytań (każda persona odpowiada na każde pytanie).
+                        {progressMeta && progressMeta.targetResponses > 0 && (
+                          <> {progressMeta.targetResponses} odpowiedzi ≈ {formatFGDuration(progressMeta.duration)}.</>
+                        )}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="bg-muted rounded-lg p-4 border border-border">
@@ -756,14 +844,14 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     alt="Sight Logo"
                     className="w-16 h-16 mx-auto mb-4 object-contain"
                   />
-                  <h3 className="text-lg font-medium text-[#F27405] mb-2">{t('view.discussion.completeTitle')}</h3>
+                  <h3 className="text-lg font-medium text-brand mb-2">{t('view.discussion.completeTitle')}</h3>
                   <p className="text-muted-foreground mb-4">
                     {t('view.discussion.completeDescription')}
                   </p>
                   <Button
                     onClick={handleGenerateAiSummary}
                     disabled={summaryProcessing}
-                    className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                    className="bg-brand hover:bg-brand/90 text-brand-foreground"
                   >
                     {summaryProcessing ? (
                       <>
@@ -772,7 +860,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                       </>
                     ) : (
                       <>
-                        <Brain className="w-4 h-4 mr-2" />
+                        <ICON_STANDARDS.ai.general className="w-4 h-4 mr-2" />
                         {t('view.discussion.generateButton')}
                       </>
                     )}
@@ -787,7 +875,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
                     alt="Sight Logo"
                     className="w-16 h-16 mx-auto mb-4 object-contain"
                   />
-                  <h3 className="text-lg font-medium text-[#F27405] mb-2">{t('view.discussion.summaryGeneratedTitle')}</h3>
+                  <h3 className="text-lg font-medium text-brand mb-2">{t('view.discussion.summaryGeneratedTitle')}</h3>
                   <p className="text-muted-foreground mb-4">
                     {t('view.discussion.summaryGeneratedDescription')}
                   </p>
@@ -877,7 +965,8 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
           )}
         </TabsContent>
       </Tabs>
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }

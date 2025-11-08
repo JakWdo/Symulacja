@@ -61,6 +61,7 @@ scipy
 httpx
 # websockets - moved to pyproject.toml [project.optional-dependencies] experimental (currently unused)
 python-multipart
+sse-starlette>=1.6.5  # Server-Sent Events for real-time progress streaming
 
 # Auth & Security
 python-jose[cryptography]

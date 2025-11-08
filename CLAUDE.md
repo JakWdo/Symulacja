@@ -634,6 +634,102 @@ Przed deploymentem:
 - Czas odpowiedzi API: < 500ms (90. percentyl)
 - Czas zapytania do bazy: < 100ms (95. percentyl)
 
+## Troubleshooting: Brak Reasoning w Personach
+
+**Symptom:** Persony są wygenerowane, ale zakładka "Uzasadnienie" jest pusta lub pokazuje żółty banner "Ta persona nie ma szczegółowego reasoning".
+
+### Diagnoza
+
+1. **Sprawdź logi serwera:**
+```bash
+docker-compose logs -f api | grep "Orchestration"
+```
+
+Szukaj:
+- ✅ `"✅ Orchestration plan created"` - sukces
+- ❌ `"❌ Orchestration failed"` - błąd
+- ❌ `"🚫 ORCHESTRATION DISABLED"` - wyłączone
+
+2. **Sprawdź feature flag:**
+```bash
+grep ORCHESTRATION_ENABLED .env
+# Powinno być: ORCHESTRATION_ENABLED=true
+```
+
+3. **Sprawdź Neo4j (Graph RAG):**
+```bash
+docker-compose ps neo4j
+# Status musi być: Up (healthy)
+```
+
+### Przyczyny Problemu
+
+**1. Feature Flag Wyłączony**
+- `ORCHESTRATION_ENABLED=false` w `.env`
+- **Fix:** Zmień na `true`, restart `docker-compose restart api`
+
+**2. Neo4j Connection Error**
+- Neo4j nie działa lub nie jest dostępny
+- **Fix:** `docker-compose restart neo4j`, sprawdź http://localhost:7474
+
+**3. Orchestration Timeout**
+- Tworzenie briefów segmentów trwa >90s (domyślny timeout)
+- **Fix:** Zwiększ timeout w `config/features.yaml`: `orchestration.timeout: 120`
+
+**4. Gemini API Error**
+- Invalid API key lub rate limit
+- **Fix:** Sprawdź `GOOGLE_API_KEY` w `.env`, sprawdź quota
+
+**5. Persony Wygenerowane z use_rag=false**
+- Frontend lub skrypty użyły `use_rag: false`
+- **Fix:** Upewnij się że wszystkie requesty mają `use_rag: true`
+
+### Rozwiązanie
+
+```bash
+# 1. Sprawdź konfigurację
+cat .env | grep ORCHESTRATION_ENABLED
+cat .env | grep GOOGLE_API_KEY
+
+# 2. Sprawdź usługi
+docker-compose ps
+
+# 3. Zrestartuj serwisy
+docker-compose restart api neo4j
+
+# 4. Sprawdź logi podczas generowania
+docker-compose logs -f api &
+
+# 5. Wygeneruj persony ponownie
+# (Stare persony nie dostaną reasoning retroaktywnie)
+```
+
+### Prevention
+
+- ✅ **Backend:** API zwraca `warning` w response jeśli orchestration wyłączone
+- ✅ **Frontend UI:** Żółty banner pokazuje się jeśli brak orchestration
+- ✅ **ReasoningPanel:** Szczegółowe instrukcje troubleshooting jeśli brak reasoning
+- ✅ **Logi:** Structured alert gdy orchestration failuje (`alert: True`)
+
+### Weryfikacja Success
+
+Po naprawie, sprawdź:
+```bash
+# 1. Wygeneruj testową personę
+curl -X POST http://localhost:8000/api/v1/projects/{project_id}/personas/generate \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"num_personas": 1, "use_rag": true}'
+
+# 2. Poczekaj ~30s
+
+# 3. Sprawdź reasoning (powinien zwrócić orchestration_brief, graph_insights, etc.)
+curl http://localhost:8000/api/v1/personas/{persona_id}/reasoning \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Jeśli reasoning zawiera `orchestration_brief` (900-1200 znaków), `graph_insights`, `segment_name` - **problem rozwiązany!** ✅
+
 ## Uzyskiwanie Pomocy
 
 1. Sprawdź `docs/README.md` dla indeksu dokumentacji

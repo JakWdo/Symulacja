@@ -14,18 +14,20 @@ import { toast } from '@/components/ui/toastStore';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { FocusGroup } from '@/types';
+import type { TFunction } from 'i18next';
 
 interface FocusGroupsProps {
   onCreateFocusGroup: () => void;
-  onSelectFocusGroup: (focusGroup: any) => void;
+  onSelectFocusGroup: (focusGroup: FocusGroup) => void;
   showCreateDialog: boolean;
   onCreateDialogChange: (show: boolean) => void;
 }
 
-const getStatusBadge = (focusGroup: any, t: any) => {
+const getStatusBadge = (focusGroup: FocusGroup, t: TFunction) => {
   switch (focusGroup.status) {
     case 'completed':
-      return <Badge className="bg-[#F27405]/10 text-[#F27405] dark:text-[#F27405]">{t('status.completed')}</Badge>;
+      return <Badge className="bg-brand-muted text-brand dark:text-brand">{t('status.completed')}</Badge>;
     case 'running':
       return (
         <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400 flex items-center gap-1.5">
@@ -55,7 +57,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
   const selectedProject = useAppStore(state => state.selectedProject);
   const setSelectedProject = useAppStore(state => state.setSelectedProject);
   const queryClient = useQueryClient();
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; focusGroup: any | null }>({
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; focusGroup: FocusGroup | null }>({
     open: false,
     focusGroup: null,
   });
@@ -77,8 +79,8 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
     refetchOnReconnect: 'always',
     refetchInterval: (query) => {
       // Poll every 2s if any focus group is running
-      const data = query.state.data;
-      const hasRunningFG = data?.some((fg: any) => fg.status === 'running');
+      const data = query.state.data as FocusGroup[] | undefined;
+      const hasRunningFG = data?.some((fg) => fg.status === 'running');
       return hasRunningFG ? 2000 : false;
     },
     refetchIntervalInBackground: true,
@@ -96,7 +98,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
     },
   });
 
-  const handleDelete = (focusGroup: any) => {
+  const handleDelete = (focusGroup: FocusGroup) => {
     if (isDeleting) return;
     setDeleteDialog({ open: true, focusGroup });
   };
@@ -124,13 +126,13 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                 if (project) setSelectedProject(project);
               }}
             >
-              <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors w-56">
+              <SelectTrigger className="bg-muted border-0 rounded-md px-3.5 py-2 h-9 hover:bg-muted/80 transition-colors w-56">
                 <SelectValue
                   placeholder={t('page.selectProject')}
-                  className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                  className="font-['Crimson_Text',_serif] text-[14px] text-foreground leading-5"
                 />
               </SelectTrigger>
-              <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
+              <SelectContent className="bg-muted border-border">
                 {projectsLoading ? (
                   <div className="flex items-center justify-center p-2">
                     <SpinnerLogo className="w-4 h-4" />
@@ -142,7 +144,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                     <SelectItem
                       key={project.id}
                       value={project.id}
-                      className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                      className="font-['Crimson_Text',_serif] text-[14px] text-foreground focus:bg-accent"
                     >
                       {project.name}
                     </SelectItem>
@@ -152,7 +154,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
             </Select>
             <Button
               onClick={onCreateFocusGroup}
-              className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+              className="bg-brand hover:bg-brand/90 text-brand-foreground"
               disabled={!selectedProject}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -182,7 +184,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
           <h2 className="text-lg font-medium text-foreground">{t('list.empty.title')}</h2>
           <p className="text-sm text-muted-foreground">{t('list.empty.description')}</p>
           <Button
-            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white mt-2"
+            className="bg-brand hover:bg-brand/90 text-brand-foreground mt-2"
             onClick={onCreateFocusGroup}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -228,7 +230,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
               {focusGroups.map((focusGroup) => (
             <Card
               key={focusGroup.id}
-              className={`bg-card border hover:shadow-md transition-shadow shadow-sm ${focusGroup.status === 'running' ? 'border-[#F27405]/50 shadow-[0_0_0_1px_rgba(242,116,5,0.08)]' : 'border-border'}`}
+              className={`bg-card border hover:shadow-md transition-shadow shadow-sm ${focusGroup.status === 'running' ? 'border-brand/50 shadow-[0_0_0_1px_rgba(242,116,5,0.08)]' : 'border-border'}`}
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
@@ -325,7 +327,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
                       <Button
                         size="sm"
                         onClick={() => onSelectFocusGroup(focusGroup)}
-                        className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                        className="bg-brand hover:bg-brand/90 text-brand-foreground"
                       >
                         <Settings className="w-4 h-4 mr-2" />
                         {t('list.card.manage')}

@@ -9,9 +9,11 @@ Definiuje struktury danych dla:
 """
 
 from pydantic import BaseModel, Field
-from typing import Any, Literal
+from typing import Literal
 from datetime import datetime
 from uuid import UUID
+
+from app.types import QuestionDict, QuestionStatistics, DemographicBreakdown
 
 
 class QuestionSchema(BaseModel):
@@ -100,7 +102,7 @@ class SurveyResponse(BaseModel):
     project_id: UUID
     title: str
     description: str | None
-    questions: list[dict[str, Any]]  # QuestionSchema as dict
+    questions: list[QuestionDict]  # QuestionSchema as dict
     status: str
     target_responses: int
     actual_responses: int
@@ -133,7 +135,7 @@ class QuestionAnalytics(BaseModel):
     question_type: str
     question_title: str
     responses_count: int
-    statistics: dict[str, Any]
+    statistics: QuestionStatistics
 
 
 class SurveyResultsResponse(BaseModel):
@@ -158,7 +160,7 @@ class SurveyResultsResponse(BaseModel):
     project_id: UUID
     title: str
     description: str | None
-    questions: list[dict[str, Any]]
+    questions: list[QuestionDict]
     status: str
     target_responses: int
     actual_responses: int
@@ -170,7 +172,7 @@ class SurveyResultsResponse(BaseModel):
 
     # Wyniki i analiza
     question_analytics: list[QuestionAnalytics]
-    demographic_breakdown: dict[str, dict[str, Any]]
+    demographic_breakdown: DemographicBreakdown
     completion_rate: float
     average_response_time_ms: float | None
 

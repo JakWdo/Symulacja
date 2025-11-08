@@ -126,18 +126,18 @@ function InsightCard({
   const { t } = useTranslation('dashboard');
   const Icon = INSIGHT_TYPE_ICONS[insight.insight_type];
 
-  // Icon background colors (Figma design)
+  // Icon background colors
   const iconBgColors = {
-    opportunity: 'bg-[rgba(16,185,129,0.1)]',
-    risk: 'bg-[#ffe2e2]',
-    trend: 'bg-[rgba(245,158,11,0.1)]',
-    pattern: 'bg-[rgba(59,130,246,0.1)]',
+    opportunity: 'bg-success-muted',
+    risk: 'bg-error-muted',
+    trend: 'bg-warning-muted',
+    pattern: 'bg-info-muted',
   };
 
   // Impact badge colors (Figma design)
   const impactBadgeColors = {
-    high: 'bg-figma-primary text-white',
-    medium: 'bg-figma-secondary text-foreground',
+    high: 'bg-brand text-white',
+    medium: 'bg-info text-foreground',
     low: 'bg-muted text-foreground',
   };
 

@@ -13,22 +13,22 @@ function ToastItem({ toast }: { toast: Toast }) {
 
   const palettes = {
     success: {
-      gradient: 'from-[#FFF5EB] via-[#FFFFFF] to-[#FFFDF8]',
-      border: 'border-[#F5B97F]',
-      text: 'text-[#4A3828]',
-      icon: 'text-[#F27405] bg-[#F27405]/15',
+      gradient: 'from-card via-card to-card',
+      border: 'border-success',
+      text: 'text-foreground',
+      icon: 'text-brand bg-brand-muted',
     },
     error: {
-      gradient: 'from-[#FFEAE3] via-[#FFF5F1] to-[#FFFFFF]',
-      border: 'border-[#F59B7F]',
-      text: 'text-[#4A2A26]',
-      icon: 'text-[#D64545] bg-[#D64545]/15',
+      gradient: 'from-card via-card to-card',
+      border: 'border-error',
+      text: 'text-foreground',
+      icon: 'text-error bg-error-muted',
     },
     info: {
-      gradient: 'from-[#FFF3E6] via-[#FFFFFF] to-[#FFFDF8]',
-      border: 'border-[#F5C67F]',
-      text: 'text-[#433027]',
-      icon: 'text-[#F29F05] bg-[#F29F05]/15',
+      gradient: 'from-card via-card to-card',
+      border: 'border-info',
+      text: 'text-foreground',
+      icon: 'text-info bg-info-muted',
     },
   };
 
@@ -42,7 +42,7 @@ function ToastItem({ toast }: { toast: Toast }) {
       exit={{ opacity: 0, y: -20, scale: 0.95 }}
       className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${palette.border} ${palette.gradient} ${palette.text} shadow-lg max-w-md`}
     >
-      <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand-orange to-brand-gold" aria-hidden />
+      <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand to-info" aria-hidden />
       <div className="flex items-start gap-3 p-4">
         <div className={`h-9 w-9 rounded-full flex items-center justify-center ${palette.icon}`}>
           <Icon className="w-5 h-5" />
@@ -66,7 +66,7 @@ function ToastItem({ toast }: { toast: Toast }) {
         </div>
         <button
           onClick={() => removeToast(toast.id)}
-          className="p-1 rounded-lg bg-white/40 hover:bg-white/60 transition-colors text-slate-500 hover:text-slate-700"
+          className="p-1 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground"
         >
           <X className="w-4 h-4" />
         </button>

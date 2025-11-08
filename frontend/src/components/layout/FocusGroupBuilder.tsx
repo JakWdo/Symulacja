@@ -110,7 +110,7 @@ export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
           <Button
             onClick={handleCreate}
             disabled={!focusGroupTitle || !selectedProject || isSaving}
-            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+            className="bg-brand hover:bg-brand/90 text-brand-foreground"
           >
             {isSaving ? (
               <SpinnerLogo className="w-4 h-4 mr-2" />

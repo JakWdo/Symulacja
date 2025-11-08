@@ -640,7 +640,7 @@ function FocusGroupForm({
         </Button>
         <Button
           type="button"
-          className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+          className="bg-brand hover:bg-brand/90 text-brand-foreground"
           onClick={() => handleSave(true)}
           disabled={isSaving || !name.trim() || personasLoading}
           isLoading={isSaving && savingAction === 'launch'}

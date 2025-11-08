@@ -17,7 +17,8 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
-from typing import Any
+
+from app.types import LogContext
 
 
 class JSONFormatter(logging.Formatter):
@@ -46,7 +47,7 @@ class JSONFormatter(logging.Formatter):
             JSON string kompatybilny z GCP Cloud Logging
         """
         # Podstawowe pola (wymagane przez GCP)
-        log_data: dict[str, Any] = {
+        log_data: LogContext = {
             "severity": record.levelname,  # INFO, WARNING, ERROR, CRITICAL
             "message": record.getMessage(),
             "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),

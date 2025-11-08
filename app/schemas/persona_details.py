@@ -12,10 +12,12 @@ Definiuje struktury danych dla:
 """
 
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from app.types import RAGCitation, RAGContextDetails, JSONValue
 
 
 # KPISnapshot model removed - deprecated in favor of real-time metrics
@@ -64,8 +66,8 @@ class PersonaDetailsResponse(BaseModel):
 
     # RAG data
     rag_context_used: bool = False
-    rag_citations: list[dict[str, Any]] | None = None
-    rag_context_details: dict[str, Any] | None = None
+    rag_citations: list[RAGCitation] | None = None
+    rag_context_details: RAGContextDetails | None = None
 
     # Audit log (last 10 actions)
     audit_log: list["PersonaAuditEntry"] = Field(default_factory=list)
@@ -112,7 +114,7 @@ class PersonaExportRequest(BaseModel):
 class PersonaExportResponse(BaseModel):
     format: Literal["pdf", "csv", "json"]
     sections: list[str]
-    content: dict[str, Any]
+    content: dict[str, str | list[str] | dict[str, str | int | float]]
 
 
 # JourneyTouchpoint, JourneyStage, and CustomerJourney models removed
@@ -196,7 +198,7 @@ class PersonaComparisonRequest(BaseModel):
 
 class PersonaComparisonValue(BaseModel):
     persona_id: UUID
-    value: Any
+    value: JSONValue
 
 
 class PersonaDifference(BaseModel):
@@ -316,7 +318,7 @@ class PersonaAuditEntry(BaseModel):
 
     id: UUID
     action: str = Field(..., description="Typ akcji")
-    details: dict[str, Any] | None = Field(
+    details: dict[str, JSONValue] | None = Field(
         None, description="Szczegóły akcji (JSON)"
     )
     user_id: UUID | None = Field(None, description="Kto wykonał akcję")

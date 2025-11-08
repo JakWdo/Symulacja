@@ -18,12 +18,16 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any
+from typing import TypeVar, Callable
+from collections.abc import Awaitable
 
 from redis.asyncio import Redis, ConnectionPool
 from redis.exceptions import ConnectionError, TimeoutError, RedisError
 
 from config import app
+from app.types import JSONValue
+
+T = TypeVar('T')
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +120,12 @@ async def get_redis_client() -> Redis:
 
 
 async def _retry_with_backoff(
-    operation: callable,
+    operation: Callable[..., Awaitable[T]],
     *args,
     max_retries: int = 3,
     backoff: float = 0.5,
     **kwargs
-) -> Any:
+) -> T:
     """
     Wykonuje operację Redis z retry logic i exponential backoff.
 
@@ -173,7 +177,7 @@ async def _retry_with_backoff(
         raise last_exception
 
 
-async def redis_get_json(key: str) -> Any | None:
+async def redis_get_json(key: str) -> JSONValue | None:
     """Fetch JSON data from Redis and decode it.
 
     Graceful degradation:
@@ -224,7 +228,7 @@ async def redis_get_json(key: str) -> Any | None:
         return None
 
 
-async def redis_set_json(key: str, value: Any, ttl_seconds: int | None = None) -> bool:
+async def redis_set_json(key: str, value: JSONValue, ttl_seconds: int | None = None) -> bool:
     """Store JSON-serialisable value in Redis with optional TTL.
 
     Graceful degradation:

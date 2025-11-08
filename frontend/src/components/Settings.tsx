@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { LanguageSelector } from '@/components/ui/language-selector';
 import { useTheme } from '@/hooks/use-theme';
 import { useTranslation } from '@/i18n/hooks';
@@ -16,6 +15,7 @@ import { settingsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { getAvatarUrl, getInitials } from '@/lib/avatar';
+import type { APIError } from '@/types';
 import {
   User,
   Database,
@@ -102,7 +102,7 @@ export function Settings() {
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       toast.success(t('toast.profileUpdateSuccess'));
     },
-    onError: (error: any) => {
+    onError: (error: APIError) => {
       toast.error(error?.response?.data?.detail || t('profile.updateError'));
     },
   });
@@ -118,7 +118,7 @@ export function Settings() {
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       toast.success(t('toast.avatarUploadSuccess'));
     },
-    onError: (error: any) => {
+    onError: (error: APIError) => {
       toast.error(error?.response?.data?.detail || t('profile.avatar.uploadError'));
     },
   });
@@ -130,7 +130,7 @@ export function Settings() {
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       toast.success(t('toast.avatarDeleteSuccess'));
     },
-    onError: (error: any) => {
+    onError: (error: APIError) => {
       toast.error(error?.response?.data?.detail || t('profile.avatar.deleteError'));
     },
   });
@@ -141,7 +141,7 @@ export function Settings() {
       toast.info(t('toast.accountDeleteSuccess'));
       logout();
     },
-    onError: (error: any) => {
+    onError: (error: APIError) => {
       toast.error(error?.response?.data?.detail || t('toast.accountDeleteError'));
     },
   });
@@ -153,7 +153,7 @@ export function Settings() {
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'usage-budget'] });
       toast.success(t('toast.budgetUpdateSuccess'));
     },
-    onError: (error: any) => {
+    onError: (error: APIError) => {
       toast.error(error?.response?.data?.detail || t('budget.updateError'));
     },
   });

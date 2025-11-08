@@ -150,7 +150,7 @@ export function TemplateSelectionDialog({
           templateId: selectedTemplateId,
           data: {
             project_id: projectId,
-            workflow_name: name || undefined, // Backend auto-generates if empty
+            ...(name && { workflow_name: name }), // Dodaj pole tylko jeśli name nie jest pusty
           },
         },
         {

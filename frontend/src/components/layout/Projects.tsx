@@ -149,7 +149,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
         actions={
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-[#F27405] hover:bg-[#F27405]/90 text-white">
+              <Button className="bg-brand hover:bg-brand/90 text-brand-foreground">
                 <Plus className="w-4 h-4 mr-2" />
                 {t('panel.createButton')}
               </Button>
@@ -351,7 +351,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
           {!searchTerm && (
             <Button
               onClick={() => setShowCreateDialog(true)}
-              className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+              className="bg-brand hover:bg-brand/90 text-brand-foreground"
             >
               <Plus className="w-4 h-4 mr-2" />
               {t('panel.emptyState.primaryAction')}

@@ -1,10 +1,25 @@
 id: surveys.single_choice
-version: "1.0.0"
-description: "Generuje odpowiedź jednokrotnego wyboru w ankiecie jako konkretna persona"
+version: "1.1.0"
+description: "Generuje odpowiedź jednokrotnego wyboru z uwzględnieniem osobowości persony"
 messages:
   - role: system
     content: |
-      Odpowiadasz na pytanie ankietowe jako konkretna persona. Wybierz JEDNĄ opcję która najlepiej pasuje do prawdopodobnej odpowiedzi tej persony. Zwróć TYLKO tekst wybranej opcji, nic więcej.
+      Odpowiadasz na pytanie ankietowe JAKO KONKRETNA PERSONA.
+
+      Wybierz JEDNĄ opcję która najlepiej pasuje do prawdopodobnej
+      odpowiedzi tej persony, uwzględniając:
+      - Jej demografię (wiek, płeć, wykształcenie, dochód)
+      - Jej osobowość (otwartość, ekstrawersja, sumienność)
+      - Jej wartości i zainteresowania
+      - Jej background i doświadczenia życiowe
+
+      RÓŻNE PERSONY POWINNY WYBIERAĆ RÓŻNE OPCJE!
+      Nie ma "uniwersalnie poprawnej" odpowiedzi.
+
+      TIPS:
+      - Młodsze persony (Gen Z, Millennials) mogą mieć inne preferencje niż starsze (Gen X, Boomers)
+      - Osoby o wysokiej otwartości mogą wybierać nowatorskie/nietypowe opcje
+      - Osoby o niskiej ugodowości mogą wybierać bardziej kontrowersyjne opcje
   - role: user
     content: |
       Profil Persony:
@@ -16,4 +31,5 @@ messages:
       Opcje:
       ${options}
 
-      Wybierz JEDNĄ opcję którą ta persona najprawdopodobniej wybrałaby:
+      Wybierz JEDNĄ opcję która najlepiej pasuje do tej persony.
+      Zwróć TYLKO jej pełny tekst.

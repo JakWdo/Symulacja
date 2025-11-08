@@ -107,7 +107,7 @@ export function HealthBlockersSection({ onFixBlocker }: HealthBlockersSectionPro
           </div>
         ) : (
           <div className="py-12 text-center">
-            <CheckCircle className="h-12 w-12 mx-auto text-figma-green mb-4" />
+            <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
             <p className="font-medium text-lg mb-2">{t('health.allGood.title')}</p>
             <p className="text-sm text-figma-muted">
               {t('health.allGood.description')}
@@ -179,7 +179,7 @@ function BlockerCard({
       <div className="flex items-start gap-3 flex-1 min-w-0">
         {/* Alert Icon */}
         <div className="flex-shrink-0">
-          <AlertTriangle className="h-4 w-4 text-figma-red" />
+          <AlertTriangle className="h-4 w-4 text-error" />
         </div>
 
         {/* Content */}
@@ -198,7 +198,7 @@ function BlockerCard({
         <Button
           onClick={handleFix}
           size="sm"
-          className="bg-figma-red hover:bg-figma-red/90 text-white h-8 px-3 flex-shrink-0 rounded-[6px]"
+          className="bg-error hover:bg-error/90 text-white h-8 px-3 flex-shrink-0 rounded-[6px]"
         >
           {t('health.fixButton')}
         </Button>

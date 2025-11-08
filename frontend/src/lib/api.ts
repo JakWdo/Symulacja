@@ -154,6 +154,15 @@ export interface GeneratePersonasPayload {
   advanced_options?: PersonaAdvancedOptions;
 }
 
+export interface GeneratePersonasResponse {
+  message: string;
+  project_id: string;
+  num_personas: number;
+  use_rag: boolean;
+  orchestration_enabled: boolean;
+  warning?: string;
+}
+
 const baseUrl = import.meta.env.VITE_API_BASE_URL
   ? `${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/api/v1`
   : '/api/v1';
@@ -247,8 +256,9 @@ export const personasApi = {
   generate: async (
     projectId: string,
     payload: GeneratePersonasPayload,
-  ): Promise<void> => {
-    await api.post(`/projects/${projectId}/personas/generate`, payload);
+  ): Promise<GeneratePersonasResponse> => {
+    const { data } = await api.post<GeneratePersonasResponse>(`/projects/${projectId}/personas/generate`, payload);
+    return data;
   },
   getDetails: async (personaId: string): Promise<PersonaDetailsResponse> => {
     const { data } = await api.get<PersonaDetailsResponse>(`/personas/${personaId}/details`);

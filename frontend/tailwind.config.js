@@ -8,15 +8,42 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Brand Colors with Dark Mode Support (CSS Variables)
+        brand: {
+          DEFAULT: 'hsl(var(--brand))',
+          foreground: 'hsl(var(--brand-foreground))',
+          light: 'hsl(var(--brand-light))',
+          muted: 'hsl(var(--brand-muted))',
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+          muted: 'hsl(var(--success-muted))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+          muted: 'hsl(var(--warning-muted))',
+        },
+        error: {
+          DEFAULT: 'hsl(var(--error))',
+          foreground: 'hsl(var(--error-foreground))',
+          muted: 'hsl(var(--error-muted))',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          foreground: 'hsl(var(--info-foreground))',
+          muted: 'hsl(var(--info-muted))',
+        },
+        // Legacy Support (will be migrated)
         'brand-orange': '#F27405',
-        // Figma Dashboard Design Colors
-        'figma-primary': '#F27405',     // Primary orange
-        'figma-secondary': '#F29F05',   // Secondary yellow
-        'figma-green': '#28a745',       // Success/green
-        'figma-red': '#dc3545',         // Error/red
-        'figma-red-alt': '#fb2c36',     // Alternate red
-        'figma-yellow': '#ffc107',      // Warning/yellow
-        'figma-muted': '#6c757d',       // Muted foreground
+        'figma-primary': '#F27405',
+        'figma-secondary': '#F29F05',
+        'figma-green': '#28a745',
+        'figma-red': '#dc3545',
+        'figma-red-alt': '#fb2c36',
+        'figma-yellow': '#ffc107',
+        'figma-muted': '#6c757d',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

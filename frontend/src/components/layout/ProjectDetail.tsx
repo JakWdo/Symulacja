@@ -166,7 +166,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
                   Cancel
                 </Button>
                 <Button
-                  className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                  className="bg-brand hover:bg-brand/90 text-brand-foreground"
                   onClick={handleSave}
                   disabled={updateMutation.isPending}
                 >

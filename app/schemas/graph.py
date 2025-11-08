@@ -2,8 +2,9 @@
 Schematy Pydantic dla API analizy grafowej
 """
 
-from typing import Any
 from pydantic import BaseModel, Field
+
+from app.types import JSONObject
 
 
 class NodeProperties(BaseModel):
@@ -40,7 +41,7 @@ class GraphNode(BaseModel):
     group: int = Field(..., description="Grupa dla kolorowania (1=persona, 2=concept, 3=emotion)")
     size: int = Field(..., description="Rozmiar node (proporcjonalny do ważności)")
     sentiment: float | None = Field(None, description="Sentiment score (-1.0 do 1.0)")
-    metadata: dict[str, Any] | None = Field(None, description="Dodatkowe dane")
+    metadata: JSONObject | None = Field(None, description="Dodatkowe dane")
     # properties: Optional[NodeProperties] = Field(None, description="Bogate metadane węzła z GraphRAG")
     # Note: Field 'properties' commented out - currently unused, can be re-enabled for GraphRAG
 
@@ -101,7 +102,7 @@ class GraphQueryInsight(BaseModel):
     """Pojedynczy insight zwrócony przez zapytanie"""
     title: str
     detail: str
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: JSONObject = Field(default_factory=dict)
 
 
 class GraphQueryRequest(BaseModel):

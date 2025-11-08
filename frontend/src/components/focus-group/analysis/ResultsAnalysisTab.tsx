@@ -1,8 +1,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Brain, RefreshCw, AlertCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
+import { ICON_STANDARDS } from '@/lib/iconStandards';
 import { ExecutiveSummaryCard } from './ExecutiveSummaryCard';
 import { KeyInsightsGrid } from './KeyInsightsGrid';
 import { SurprisingFindingsCard } from './SurprisingFindingsCard';
@@ -43,7 +44,7 @@ export const ResultsAnalysisTab: React.FC<ResultsAnalysisTabProps> = ({ focusGro
         <CardContent className="py-12 text-center space-y-4">
           {is404 ? (
             <>
-              <Brain className="w-12 h-12 text-muted-foreground mx-auto" />
+              <ICON_STANDARDS.ai.general className="w-12 h-12 text-muted-foreground mx-auto" />
               <h3 className="text-lg font-medium text-card-foreground">
                 {t('analysis.aiSummary.notGeneratedTitle')}
               </h3>
@@ -53,7 +54,7 @@ export const ResultsAnalysisTab: React.FC<ResultsAnalysisTabProps> = ({ focusGro
               <Button
                 onClick={handleRegenerate}
                 disabled={regenerateMutation.isPending}
-                className="bg-figma-primary hover:bg-figma-primary/90 text-white"
+                className="bg-brand hover:bg-brand/90 text-white"
               >
                 {regenerateMutation.isPending ? (
                   <>
@@ -62,7 +63,7 @@ export const ResultsAnalysisTab: React.FC<ResultsAnalysisTabProps> = ({ focusGro
                   </>
                 ) : (
                   <>
-                    <Brain className="w-4 h-4 mr-2" />
+                    <ICON_STANDARDS.ai.general className="w-4 h-4 mr-2" />
                     {t('analysis.aiSummary.generateButton')}
                   </>
                 )}

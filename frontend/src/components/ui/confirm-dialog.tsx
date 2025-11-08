@@ -37,7 +37,7 @@ export function ConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="bg-[#f8f9fa] dark:bg-[#1a1a1a] border-border font-['Crimson_Text',serif]">
+      <AlertDialogContent className="bg-muted border-border font-['Crimson_Text',serif]">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-2xl font-semibold text-foreground font-['Crimson_Text',serif]">
             {title}
@@ -52,7 +52,7 @@ export function ConfirmDialog({
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
-            className="bg-[#F27405] hover:bg-[#F27405]/90 text-white font-['Crimson_Text',serif] text-base"
+            className="bg-brand hover:bg-brand/90 text-brand-foreground font-['Crimson_Text',serif] text-base"
           >
             {confirmText}
           </AlertDialogAction>

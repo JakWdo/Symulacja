@@ -1,13 +1,15 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   MoreVertical,
   Plus,
@@ -20,20 +22,27 @@ import {
   Filter,
   Database,
   Trash2,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Keyboard,
 } from 'lucide-react';
+import { cn } from '@/components/ui/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { PersonaDetailsDrawer } from '@/components/personas/PersonaDetailsDrawer';
 import { DeletePersonaDialog } from '@/components/personas/DeletePersonaDialog';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { projectsApi, personasApi } from '@/lib/api';
-import type { GeneratePersonasPayload } from '@/lib/api';
+import type { GeneratePersonasPayload, GeneratePersonasResponse } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { Persona as APIPersona } from '@/types';
 import { toast } from '@/components/ui/toastStore';
-import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
+import { estimateGenerationDuration, formatDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
 import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { useTranslation } from 'react-i18next';
+import { Info } from 'lucide-react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 
 // Display-friendly Persona interface
@@ -273,12 +282,7 @@ export function Personas() {
   const selectedProject = useAppStore(state => state.selectedProject);
   const setGlobalProject = useAppStore(state => state.setSelectedProject);
   const setActivePanel = useAppStore(state => state.setActivePanel);
-  const { t, i18n } = useTranslation('personas');
-  const { t: tCommon } = useTranslation('common');
-  const translate = useCallback(
-    (pl: string, en: string): string => (i18n.language.startsWith('pl') ? pl : en),
-    [i18n.language]
-  );
+  const { t } = useTranslation('personas');
 
   const projectLabel = selectedProject?.name || t('page.generationToast.unknownProject');
   const [selectedPersonaForDetails, setSelectedPersonaForDetails] = useState<string | null>(null);
@@ -300,9 +304,15 @@ export function Personas() {
   const [ageRange, setAgeRange] = useState<[number, number]>([18, 65]);
   const [selectedOccupations, setSelectedOccupations] = useState<string[]>([]);
 
+  // Mobile filters state
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+
   // Delete dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [personaToDelete, setPersonaToDelete] = useState<DisplayPersona | null>(null);
+
+  // Orchestration warning state
+  const [orchestrationWarning, setOrchestrationWarning] = useState<string | null>(null);
 
   // Fetch all projects
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
@@ -382,30 +392,79 @@ export function Personas() {
     }
   }, [selectedProject]);
 
-  // Calculate population statistics based on filtered personas
-  const ageGroups = filteredPersonas.reduce((acc, persona) => {
-    const ageGroup = persona.age < 25 ? '18-24' :
-                    persona.age < 35 ? '25-34' :
-                    persona.age < 45 ? '35-44' :
-                    persona.age < 55 ? '45-54' : '55+';
-    acc[ageGroup] = (acc[ageGroup] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  // Keyboard navigation for personas carousel
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Ignore if user is typing in input field
+    if ((e.target as HTMLElement).tagName === 'INPUT' ||
+        (e.target as HTMLElement).tagName === 'TEXTAREA') {
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowLeft':
+        // Previous persona
+        e.preventDefault();
+        setCurrentPersonaIndex((prev) => Math.max(0, prev - 1));
+        break;
+
+      case 'ArrowRight':
+        // Next persona
+        e.preventDefault();
+        setCurrentPersonaIndex((prev) =>
+          Math.min(filteredPersonas.length - 1, prev + 1)
+        );
+        break;
+
+      case 'Home':
+        // First persona
+        e.preventDefault();
+        setCurrentPersonaIndex(0);
+        break;
+
+      case 'End':
+        // Last persona
+        e.preventDefault();
+        setCurrentPersonaIndex(filteredPersonas.length - 1);
+        break;
+    }
+  }, [filteredPersonas.length]);
+
+  // Attach keyboard listener
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Calculate population statistics based on filtered personas (OPTIMIZED with useMemo)
+  const ageGroups = useMemo(() => {
+    return filteredPersonas.reduce((acc, persona) => {
+      const ageGroup = persona.age < 25 ? '18-24' :
+                      persona.age < 35 ? '25-34' :
+                      persona.age < 45 ? '35-44' :
+                      persona.age < 55 ? '45-54' : '55+';
+      acc[ageGroup] = (acc[ageGroup] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [filteredPersonas]);
 
   const currentPersona = filteredPersonas[currentPersonaIndex] ?? null;
   const currentPersonaName = currentPersona ? extractFirstName(currentPersona.name) : '';
   const currentPersonaAgeLabel = currentPersona ? formatAge(currentPersona.age) : '';
 
+  // Top interests computation (OPTIMIZED with useMemo)
+  const topInterests = useMemo(() => {
+    return filteredPersonas.flatMap(p => p.interests)
+      .reduce((acc, interest) => {
+        acc[interest] = (acc[interest] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+  }, [filteredPersonas]);
 
-  const topInterests = filteredPersonas.flatMap(p => p.interests)
-    .reduce((acc, interest) => {
-      acc[interest] = (acc[interest] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-  const sortedInterests = Object.entries(topInterests)
-    .sort(([,a], [,b]) => b - a)
-    .slice(0, 5);
+  const sortedInterests = useMemo(() => {
+    return Object.entries(topInterests)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5);
+  }, [topInterests]);
 
   const baselineCount = progressMeta?.baselineCount ?? 0;
   const requestedCount = progressMeta?.targetCount ?? 0;
@@ -417,9 +476,17 @@ export function Personas() {
   const generateMutation = useMutation({
     mutationFn: (payload: GeneratePersonasPayload) =>
       personasApi.generate(selectedProject!.id, payload),
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['personas', selectedProject?.id] });
       queryClient.invalidateQueries({ queryKey: ['personas', 'all'] });
+
+      // Zapisz warning jeśli orchestration wyłączone
+      if (data.warning) {
+        setOrchestrationWarning(data.warning);
+        // Auto-clear po 30 sekundach
+        setTimeout(() => setOrchestrationWarning(null), 30000);
+      }
+
       const modeCopy = variables.adversarial_mode ? t('page.generationToast.adversarialMode') : t('page.generationToast.standardMode');
       toast.info(
         t('page.generationToast.started'),
@@ -513,7 +580,10 @@ export function Personas() {
     timeoutWarningIssued.current = false;
     setProgressMeta({
         start: Date.now(),
-        duration: estimateGenerationDuration(payload.num_personas),
+        duration: estimateGenerationDuration(payload.num_personas, {
+          useRag: payload.use_rag,
+          adversarialMode: payload.adversarial_mode,
+        }),
         targetCount: payload.num_personas,
         baselineCount,
       });
@@ -525,8 +595,9 @@ export function Personas() {
     activeGenerationProjectId === selectedProject?.id && generationProgress > 0;
 
   return (
-    <div className="w-full h-full overflow-y-auto">
-      <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
+    <ErrorBoundary>
+      <div className="w-full h-full overflow-y-auto">
+        <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
       {/* Header */}
       <PageHeader
         title={t('page.title')}
@@ -549,13 +620,13 @@ export function Personas() {
                 if (project) setGlobalProject(project);
               }}
             >
-              <SelectTrigger className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-0 rounded-md px-3.5 py-2 h-9 hover:bg-[#f0f1f2] dark:hover:bg-[#333333] transition-colors">
+              <SelectTrigger className="bg-muted border-0 rounded-md px-3.5 py-2 h-9 hover:bg-muted/80 transition-colors">
                 <SelectValue
                   placeholder={t('page.selectProjectPlaceholder')}
-                  className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] leading-5"
+                  className="font-['Crimson_Text',_serif] text-[14px] text-foreground leading-5"
                 />
               </SelectTrigger>
-              <SelectContent className="bg-[#f8f9fa] dark:bg-[#2a2a2a] border-border">
+              <SelectContent className="bg-muted border-border">
                 {projectsLoading ? (
                   <div className="flex items-center justify-center p-2">
                     <SpinnerLogo className="w-4 h-4" />
@@ -567,7 +638,7 @@ export function Personas() {
                     <SelectItem
                       key={project.id}
                       value={project.id}
-                      className="font-['Crimson_Text',_serif] text-[14px] text-[#333333] dark:text-[#e5e5e5] focus:bg-[#e9ecef] dark:focus:bg-[#333333]"
+                      className="font-['Crimson_Text',_serif] text-[14px] text-foreground focus:bg-accent"
                     >
                       {project.name}
                     </SelectItem>
@@ -577,7 +648,7 @@ export function Personas() {
             </Select>
             <Button
               onClick={() => setShowPersonaWizard(true)}
-              className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+              className="bg-brand hover:bg-brand/90 text-brand-foreground"
             >
               <Plus className="w-4 h-4 mr-2" />
               {t('page.generateButton')}
@@ -587,12 +658,41 @@ export function Personas() {
       />
 
       {showProgressBar && (
-        <div className="rounded-lg border border-border bg-card/80 p-4 space-y-2 shadow-sm">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <SpinnerLogo className="w-4 h-4" />
-            <span className="font-medium text-card-foreground">{t('page.generating')}</span>
+        <div className="rounded-lg border border-border bg-card/80 p-4 space-y-3 shadow-sm">
+          {/* Header z czasem */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <SpinnerLogo className="w-4 h-4" />
+              <span className="font-medium text-card-foreground">
+                {t('page.generating')}
+              </span>
+            </div>
+
+            {/* Szacowany czas */}
+            {progressMeta && (
+              <div className="text-xs text-muted-foreground tabular-nums">
+                Czas: ~{formatDuration(progressMeta.duration)}
+                {newlyGeneratedCount > 0 && (
+                  <span className="ml-2 text-primary font-medium">
+                    {newlyGeneratedCount}/{requestedCount}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
-          <Progress value={Math.min(generationProgress, 100)} />
+
+          {/* Progress bar */}
+          <Progress value={Math.min(generationProgress, 100)} className="h-2" />
+
+          {/* Info tooltip */}
+          <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 rounded p-2">
+            <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+            <p className="leading-tight">
+              <strong>Generowanie person trwa dłużej niż zwykle</strong> gdy używasz RAG
+              (wyszukiwanie demograficzne + tworzenie briefów segmentów).
+              Możesz kontynuować pracę - otrzymasz powiadomienie po zakończeniu.
+            </p>
+          </div>
         </div>
       )}
 
@@ -690,7 +790,7 @@ export function Personas() {
               </p>
               <Button
                 onClick={() => setShowPersonaWizard(true)}
-                className="bg-[#F27405] hover:bg-[#F27405]/90 text-white"
+                className="bg-brand hover:bg-brand/90 text-brand-foreground"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 {t('page.emptyState.generateButton')}
@@ -719,10 +819,30 @@ export function Personas() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-12 gap-6 max-h-[600px]">
-            {/* Filters Sidebar */}
-            <div className="col-span-12 lg:col-span-4">
-              <Card className="bg-card border border-border overflow-y-auto" style={{ maxHeight: '600px' }}>
+          <>
+            {/* Warning Banner - Orchestration Disabled */}
+            {orchestrationWarning && (
+              <Alert className="mb-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/10">
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                  <strong className="font-semibold">Uwaga:</strong> {orchestrationWarning}
+                  <br />
+                  <span className="text-sm mt-1 block">
+                    Persony zostały wygenerowane w trybie podstawowym bez szczegółowych analiz.
+                    Sprawdź logi serwera: <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">docker-compose logs api | grep Orchestration</code>
+                  </span>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Filters Sidebar - collapsed na mobile */}
+            <div className={cn(
+              "lg:col-span-4",
+              // Mobile: Collapsed by default
+              !filtersExpanded && "hidden lg:block"
+            )}>
+              <Card className="bg-card border border-border overflow-y-auto lg:sticky lg:top-6" style={{ maxHeight: '600px' }}>
                 <CardHeader>
                   <CardTitle className="text-card-foreground flex items-center gap-2">
                     <Filter className="w-5 h-5" />
@@ -849,8 +969,30 @@ export function Personas() {
             </div>
 
             {/* Persona Carousel */}
-            <div className="col-span-12 lg:col-span-8">
-              <Card className="bg-card border border-border overflow-y-auto" style={{ maxHeight: '600px' }}>
+            <div className="lg:col-span-8 space-y-4">
+              {/* Mobile: Toggle button */}
+              <div className="lg:hidden">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                  onClick={() => setFiltersExpanded(!filtersExpanded)}
+                >
+                  <Filter className="w-4 h-4" />
+                  {filtersExpanded ? 'Ukryj filtry' : 'Pokaż filtry'}
+                  {filtersExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              <Card
+                className="bg-card border border-border overflow-y-auto focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
+                style={{ maxHeight: '600px' }}
+                tabIndex={0}
+                role="region"
+                aria-label="Karuzela person"
+                aria-live="polite"
+                aria-atomic="true"
+              >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
@@ -860,6 +1002,7 @@ export function Personas() {
                         onClick={() => setCurrentPersonaIndex(Math.max(0, currentPersonaIndex - 1))}
                         disabled={currentPersonaIndex === 0}
                         className="h-8 w-8 p-0"
+                        aria-label="Poprzednia persona"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
@@ -872,11 +1015,27 @@ export function Personas() {
                         onClick={() => setCurrentPersonaIndex(Math.min(filteredPersonas.length - 1, currentPersonaIndex + 1))}
                         disabled={currentPersonaIndex === filteredPersonas.length - 1}
                         className="h-8 w-8 p-0"
+                        aria-label="Następna persona"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </Button>
+
+                      {/* Keyboard shortcuts tooltip */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Keyboard className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">
+                            <p><kbd className="px-1 py-0.5 bg-muted rounded">←</kbd> <kbd className="px-1 py-0.5 bg-muted rounded">→</kbd> Nawigacja</p>
+                            <p><kbd className="px-1 py-0.5 bg-muted rounded">Home</kbd> Pierwsza | <kbd className="px-1 py-0.5 bg-muted rounded">End</kbd> Ostatnia</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
-                    
+
                     <div className="flex gap-2">
                       {filteredPersonas.map((_, index) => (
                         <button
@@ -885,6 +1044,7 @@ export function Personas() {
                             index === currentPersonaIndex ? 'bg-primary' : 'bg-muted'
                           }`}
                           onClick={() => setCurrentPersonaIndex(index)}
+                          aria-label={`Przejdź do persony ${index + 1}`}
                         />
                       ))}
                     </div>
@@ -940,8 +1100,8 @@ export function Personas() {
                         </p>
                       </div>
 
-                      {/* Demographics Grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {/* Demographics Grid - responsive */}
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         <div className="space-y-0.5">
                           <p className="text-xs text-muted-foreground">{t('page.carousel.demographics.gender')}</p>
                           <p className="text-sm text-card-foreground">{currentPersona.demographics.gender}</p>
@@ -999,6 +1159,7 @@ export function Personas() {
               </Card>
             </div>
           </div>
+          </>
         )}
       </div>
 
@@ -1027,7 +1188,8 @@ export function Personas() {
           setPersonaToDelete(null);
         }}
       />
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }

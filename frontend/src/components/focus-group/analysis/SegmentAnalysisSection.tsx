@@ -34,7 +34,7 @@ export const SegmentAnalysisSection: React.FC<SegmentAnalysisSectionProps> = ({
     <Card className={`bg-card border border-border shadow-sm ${className}`}>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-figma-primary" />
+          <Users className="w-5 h-5 text-brand" />
           <CardTitle className="text-card-foreground font-crimson text-xl">
             {t('analysis.segments.title')}
           </CardTitle>

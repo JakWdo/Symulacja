@@ -55,10 +55,55 @@ export function transformWizardConfigToPayload(
   };
 }
 
+export interface GenerationOptions {
+  useRag?: boolean;
+  adversarialMode?: boolean;
+}
+
 /**
- * Szacuje przewidywany czas generowania (ms) na podstawie liczby person.
- * Używane do prezentacji progress barów.
+ * Szacuje czas generacji person z realistycznymi overhead'ami.
+ *
+ * @param numPersonas Liczba person do wygenerowania
+ * @param options Opcje generacji (RAG, adversarial mode)
+ * @returns Szacowany czas w ms
  */
-export function estimateGenerationDuration(numPersonas: number): number {
-  return Math.max(5000, numPersonas * 2500);
+export function estimateGenerationDuration(
+  numPersonas: number,
+  options: GenerationOptions = {}
+): number {
+  // Base time per persona (LLM call + DB write)
+  const baseTimePerPersona = 2500; // ms (~2.5s per persona)
+
+  // Overhead dla orchestration (segment briefs z Graph RAG)
+  const orchestrationOverhead = options.useRag ? 15000 : 5000; // 15s z RAG, 5s bez
+
+  // Adversarial mode ma bardziej złożone prompty
+  const adversarialMultiplier = options.adversarialMode ? 1.3 : 1.0;
+
+  // Batch overhead (walidacja, zapis do DB, indexing)
+  const batchOverhead = 5000; // 5s
+
+  // Total time
+  const totalTime =
+    orchestrationOverhead +
+    (baseTimePerPersona * numPersonas * adversarialMultiplier) +
+    batchOverhead;
+
+  // Safety margin 20% (queue delays, network latency, etc.)
+  return Math.round(totalTime * 1.2);
+}
+
+/**
+ * Formatuje czas w ms do czytelnego stringa (np. "45s", "2m 15s")
+ */
+export function formatDuration(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return remainingSeconds > 0
+    ? `${minutes}m ${remainingSeconds}s`
+    : `${minutes}m`;
 }

@@ -1,6 +1,16 @@
 // Workflow types (re-export from workflow.ts)
 export * from './workflow';
 
+// Error Types
+export interface APIError {
+  response?: {
+    data?: {
+      detail?: string;
+    };
+  };
+  message?: string;
+}
+
 // API Types
 export interface Project {
   id: string;
@@ -561,33 +571,31 @@ export interface Survey {
 
 export interface QuestionAnalytics {
   question_id: string;
-  question_type: string;
-  question_title: string;
-  responses_count: number;
-  statistics: Record<string, any>;
+  question_text: string;
+  question_type: 'rating_scale' | 'single_choice' | 'multiple_choice' | 'open_text';
+  total_responses: number;
+  response_rate: number;
+  distribution: Record<string, number>;
+  stats: {
+    mean: number;
+    median: number;
+    std_dev: number;
+    min: number;
+    max: number;
+  } | null;
 }
 
 export interface SurveyResults {
-  // Base Survey fields
-  id: string;
-  project_id: string;
-  title: string;
-  description?: string;
-  questions: Question[];
-  status: string;
-  target_responses: number;
-  actual_responses: number;
-  total_execution_time_ms?: number;
-  avg_response_time_ms?: number;
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-
-  // Analytics fields
   question_analytics: QuestionAnalytics[];
-  demographic_breakdown: Record<string, Record<string, any>>;
+  demographic_breakdown: {
+    by_age: Record<string, { count: number; avg_rating: number }>;
+    by_gender: Record<string, { count: number; avg_rating: number }>;
+    by_education: Record<string, { count: number; avg_rating: number }>;
+  };
   completion_rate: number;
-  average_response_time_ms?: number;
+  average_response_time_ms: number;
+  total_personas: number;
+  responding_personas: number;
 }
 
 // RAG Types
@@ -800,7 +808,7 @@ export interface PersonaMessagingPayload {
 
 export interface PersonaComparisonValue {
   persona_id: string;
-  value: any;
+  value: string | number | boolean | string[] | null;
 }
 
 export interface PersonaDifference {

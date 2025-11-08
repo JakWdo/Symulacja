@@ -12,7 +12,7 @@ export const NumberedBadge: React.FC<NumberedBadgeProps> = ({ number, className 
   return (
     <div
       className={`
-        bg-figma-primary rounded-full w-7 h-7
+        bg-brand rounded-full w-7 h-7
         flex items-center justify-center shrink-0
         ${className}
       `}

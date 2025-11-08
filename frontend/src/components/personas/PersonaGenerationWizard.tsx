@@ -109,7 +109,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-full max-h-[90vh] bg-card dark:bg-[#11161d] border border-border text-foreground flex flex-col p-0 shadow-xl overflow-hidden">
+      <DialogContent className="max-w-3xl w-full max-h-[90vh] bg-card border border-border text-foreground flex flex-col p-0 shadow-xl overflow-hidden">
         <div className="p-6 pb-4 bg-card dark:bg-transparent border-b border-border">
           <DialogHeader>
             <DialogTitle className="text-xl">{t('wizard.title')}</DialogTitle>
@@ -134,7 +134,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6 bg-card dark:bg-[#0d1218]">
+        <div className="flex-1 overflow-y-auto px-6 pb-6 bg-card">
           <div className="space-y-6 pt-4">
             {/* Number of Personas */}
             <div>
@@ -272,7 +272,7 @@ export function PersonaGenerationWizard({ open, onOpenChange, onGenerate }: Pers
         </div>
 
         {/* Footer Actions */}
-        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 p-6 pt-4 border-t border-border bg-card dark:bg-[#11161d]">
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 p-6 pt-4 border-t border-border bg-card">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

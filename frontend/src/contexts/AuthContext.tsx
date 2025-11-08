@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi, type User, type LoginCredentials, type RegisterData } from '@/lib/api';
 import { toast } from '@/components/ui/toastStore';
 import { useTranslation } from 'react-i18next';
+import type { APIError } from '@/types';
 
 interface AuthContextType {
   user: User | null;
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['auth'] });
       toast.success(t('login.success'));
     },
-    onError: (error: any) => {
+    onError: (error: APIError) => {
       toast.error(error?.response?.data?.detail || t('login.error'));
     },
   });
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['auth'] });
       toast.success(t('register.success'));
     },
-    onError: (error: any) => {
+    onError: (error: APIError) => {
       toast.error(error?.response?.data?.detail || t('register.error'));
     },
   });
