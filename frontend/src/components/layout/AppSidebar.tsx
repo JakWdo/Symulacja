@@ -30,7 +30,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
   const { t } = useTranslation('common');
 
   return (
-    <Sidebar className="bg-sidebar border-r border-sidebar-border w-64 h-screen">
+    <Sidebar className="bg-sidebar border-r border-sidebar-border w-64 h-full">
       <SidebarHeader className="h-[164px] p-0 flex-shrink-0">
         <div className="flex items-center justify-between h-12 px-6 pt-6">
           <div key={theme} className="w-12 h-12 rounded-[14px] shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] overflow-hidden">
