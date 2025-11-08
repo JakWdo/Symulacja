@@ -87,3 +87,59 @@ export const CATEGORY_LABELS: Record<TemplateCategory, string> = {
   analysis: 'Analysis',
   validation: 'Validation',
 };
+
+/**
+ * Workflow Templates dla tabs UI (Figma design)
+ */
+export interface WorkflowTemplateCard {
+  id: string;
+  name: string;
+  description: string;
+  category?: string;
+  nodeCount: number;
+}
+
+export const workflowTemplates: WorkflowTemplateCard[] = [
+  {
+    id: 'product-research',
+    name: 'Product Research Flow',
+    description: 'Complete product research workflow with personas, surveys, and analysis',
+    category: 'Product',
+    nodeCount: 6,
+  },
+  {
+    id: 'quick-survey',
+    name: 'Quick Survey Flow',
+    description: 'Simple survey-based research workflow',
+    category: 'Survey',
+    nodeCount: 3,
+  },
+  {
+    id: 'brand-perception',
+    name: 'Brand Perception Study',
+    description: 'Understand how customers perceive your brand',
+    category: 'Brand',
+    nodeCount: 5,
+  },
+  {
+    id: 'user-journey',
+    name: 'User Journey Mapping',
+    description: 'Map and optimize user experience journey',
+    category: 'UX',
+    nodeCount: 6,
+  },
+  {
+    id: 'competitive-analysis',
+    name: 'Competitive Analysis',
+    description: 'Analyze competitors and market positioning',
+    category: 'Market',
+    nodeCount: 5,
+  },
+  {
+    id: 'feature-prioritization',
+    name: 'Feature Prioritization',
+    description: 'Prioritize product features based on user feedback',
+    category: 'Product',
+    nodeCount: 6,
+  },
+];
