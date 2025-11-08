@@ -1,0 +1,261 @@
+"""
+API endpoints dla Study Designer Chat
+
+REST API dla interaktywnego projektowania badań przez chat.
+
+Endpoints:
+- POST   /study-designer/sessions - Rozpocznij nową sesję
+- GET    /study-designer/sessions/{id} - Pobierz sesję
+- POST   /study-designer/sessions/{id}/message - Wyślij wiadomość
+- POST   /study-designer/sessions/{id}/approve - Zatwierdź plan
+- DELETE /study-designer/sessions/{id} - Anuluj sesję
+- GET    /study-designer/sessions - Lista sesji użytkownika
+"""
+
+from __future__ import annotations
+
+import logging
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.dependencies import get_current_user, get_db
+from app.models.user import User
+from app.models.study_designer import StudyDesignerSession
+from app.services.study_designer.orchestrator import StudyDesignerOrchestrator
+from app.schemas.study_designer import (
+    SessionCreate,
+    SessionCreateResponse,
+    MessageSend,
+    MessageSendResponse,
+    PlanApproval,
+    SessionResponse,
+    SessionListResponse,
+    MessageResponse,
+    GeneratedPlanResponse,
+)
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/study-designer", tags=["study-designer"])
+
+
+@router.post("/sessions", response_model=SessionCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_session(
+    data: SessionCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Rozpoczyna nową sesję projektowania badania.
+
+    Returns:
+        SessionCreateResponse z sesją i welcome message
+    """
+    logger.info(f"User {user.id} creating new study designer session")
+
+    orchestrator = StudyDesignerOrchestrator(db)
+    session = await orchestrator.create_session(
+        user_id=user.id, project_id=data.project_id
+    )
+
+    # Get welcome message (last message from session)
+    await db.refresh(session, attribute_names=["messages"])
+    welcome_msg = session.messages[-1].content if session.messages else "Welcome!"
+
+    return SessionCreateResponse(
+        session=SessionResponse.from_orm(session), welcome_message=welcome_msg
+    )
+
+
+@router.get("/sessions/{session_id}", response_model=SessionResponse)
+async def get_session(
+    session_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Pobiera sesję z pełną historią wiadomości.
+
+    Args:
+        session_id: UUID sesji
+
+    Returns:
+        SessionResponse z messages
+    """
+    orchestrator = StudyDesignerOrchestrator(db)
+    session = await orchestrator.get_session(session_id, user.id)
+
+    # Convert generated_plan to response model
+    response = SessionResponse.from_orm(session)
+
+    if session.generated_plan:
+        response.generated_plan = GeneratedPlanResponse(**session.generated_plan)
+
+    return response
+
+
+@router.post("/sessions/{session_id}/message", response_model=MessageSendResponse)
+async def send_message(
+    session_id: UUID,
+    data: MessageSend,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Wysyła wiadomość do Study Designer.
+
+    Args:
+        session_id: UUID sesji
+        data: MessageSend z treścią wiadomości
+
+    Returns:
+        MessageSendResponse z zaktualizowaną sesją i nowymi wiadomościami
+    """
+    logger.info(f"User {user.id} sending message to session {session_id}")
+
+    orchestrator = StudyDesignerOrchestrator(db)
+
+    # Verify user owns this session
+    await orchestrator.get_session(session_id, user.id)
+
+    # Count messages before
+    stmt = select(StudyDesignerSession).where(StudyDesignerSession.id == session_id)
+    result = await db.execute(stmt)
+    session_before = result.scalar_one()
+
+    from sqlalchemy.orm import selectinload
+
+    stmt = stmt.options(selectinload(StudyDesignerSession.messages))
+    result = await db.execute(stmt)
+    session_before = result.scalar_one()
+
+    messages_before_count = len(session_before.messages)
+
+    # Process message
+    session = await orchestrator.process_user_message(session_id, data.message)
+
+    # Get new messages
+    await db.refresh(session, attribute_names=["messages"])
+    new_messages = session.messages[messages_before_count:]
+
+    response = SessionResponse.from_orm(session)
+
+    if session.generated_plan:
+        response.generated_plan = GeneratedPlanResponse(**session.generated_plan)
+
+    return MessageSendResponse(
+        session=response,
+        new_messages=[MessageResponse.from_orm(msg) for msg in new_messages],
+        plan_ready=(session.status == "plan_ready"),
+    )
+
+
+@router.post("/sessions/{session_id}/approve", response_model=SessionResponse)
+async def approve_plan(
+    session_id: UUID,
+    data: PlanApproval,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Zatwierdza wygenerowany plan i uruchamia wykonanie badania.
+
+    Args:
+        session_id: UUID sesji
+        data: PlanApproval (może być pusty)
+
+    Returns:
+        SessionResponse ze statusem approved/executing
+    """
+    logger.info(f"User {user.id} approving plan for session {session_id}")
+
+    orchestrator = StudyDesignerOrchestrator(db)
+    session = await orchestrator.approve_plan(session_id, user.id)
+
+    response = SessionResponse.from_orm(session)
+
+    if session.generated_plan:
+        response.generated_plan = GeneratedPlanResponse(**session.generated_plan)
+
+    return response
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_session(
+    session_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Anuluje sesję projektowania badania.
+
+    Args:
+        session_id: UUID sesji
+    """
+    logger.info(f"User {user.id} cancelling session {session_id}")
+
+    # Load session
+    stmt = select(StudyDesignerSession).where(
+        StudyDesignerSession.id == session_id,
+        StudyDesignerSession.user_id == user.id,
+    )
+    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+
+    # Mark as cancelled
+    session.status = "cancelled"
+    session.completed_at = db.func.now()
+
+    await db.commit()
+
+
+@router.get("/sessions", response_model=SessionListResponse)
+async def list_sessions(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 20,
+    offset: int = 0,
+):
+    """
+    Lista sesji użytkownika (bez messages).
+
+    Args:
+        limit: Max liczba sesji (default 20)
+        offset: Offset (default 0)
+
+    Returns:
+        SessionListResponse
+    """
+    logger.info(f"User {user.id} listing sessions (limit={limit}, offset={offset})")
+
+    stmt = (
+        select(StudyDesignerSession)
+        .where(StudyDesignerSession.user_id == user.id)
+        .order_by(StudyDesignerSession.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+
+    result = await db.execute(stmt)
+    sessions = result.scalars().all()
+
+    # Count total
+    from sqlalchemy import func
+
+    count_stmt = select(func.count(StudyDesignerSession.id)).where(
+        StudyDesignerSession.user_id == user.id
+    )
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar_one()
+
+    return SessionListResponse(
+        sessions=[SessionResponse.from_orm(s) for s in sessions], total=total
+    )
