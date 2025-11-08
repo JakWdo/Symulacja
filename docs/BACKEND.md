@@ -429,6 +429,410 @@ class PersonaOrchestrationService:
 
 ---
 
+## Study Designer Chat
+
+### Przegląd
+
+**Study Designer Chat** to konwersacyjny system projektowania badań UX oparty na AI. Wykorzystuje **LangGraph** (state machine framework) do prowadzenia użytkownika przez wieloetapowy proces definiowania celu badania, grupy docelowej, metody badawczej i konfiguracji szczegółów. Po zebraniu informacji generuje kompletny plan badania z estymacją kosztów i czasu.
+
+**Główne Komponenty:**
+- Konwersacyjny interfejs oparty na LangGraph StateGraph
+- 7 etapów przepływu: welcome → gather_goal → define_audience → select_method → configure_details → generate_plan → await_approval
+- Inteligentne zadawanie pytań przez LLM (Gemini 2.5 Flash)
+- Walidacja i loop-back logic (gdy odpowiedzi niejasne)
+- Generacja planu w formacie Markdown z estymacjami
+- Persystencja konwersacji w PostgreSQL (JSON state)
+
+**Główne Cechy:**
+- Adaptive questioning (LLM dostosowuje pytania do kontekstu)
+- Structured JSON output parsing (z fallback do markdown extraction)
+- Conditional routing (węzły decydują o następnym etapie)
+- State persistence (pełna konwersacja zapisana w DB)
+- Auto-execution po zatwierdzeniu planu
+
+### Architektura
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    FRONTEND (React)                          │
+│  StudyDesignerView → ChatInterface → MessageList + UserInput│
+└────────────────────────┬─────────────────────────────────────┘
+                         │ HTTP (REST API)
+                    ┌────▼────┐
+                    │ API     │
+                    │ Endpoints│
+                    └────┬────┘
+                         │
+         ┌───────────────▼───────────────┐
+         │   StudyDesignerOrchestrator   │
+         │   (Main Service Layer)        │
+         ├───────────────────────────────┤
+         │ • create_session()            │
+         │ • process_user_message()      │
+         │ • approve_plan()              │
+         │ • cancel_session()            │
+         └───────┬───────────────────────┘
+                 │
+         ┌───────▼───────────────┐
+         │ ConversationStateMachine│
+         │    (LangGraph)         │
+         ├────────────────────────┤
+         │ StateGraph with:       │
+         │ • 7 nodes              │
+         │ • Conditional edges    │
+         │ • Message history      │
+         └───┬────────────────────┘
+             │
+    ┌────────┴────────┐
+    │                 │
+┌───▼───┐      ┌──────▼──────┐
+│ NODES │      │ ROUTING     │
+├───────┤      ├─────────────┤
+│welcome│      │ Conditional │
+│gather_│      │ logic based │
+│ goal  │      │ on current_ │
+│define_│      │ stage field │
+│audience      └─────────────┘
+│select_│
+│method │
+│config │
+│details│
+│generate
+│ _plan │
+│await_ │
+│approval
+└───┬───┘
+    │
+┌───▼─────────────┐
+│  LLM (Gemini)   │
+│  - Flash for Q&A│
+│  - Temperature  │
+│    0.3-0.8      │
+│  - JSON output  │
+└─────────────────┘
+```
+
+### Database Schema
+
+**study_designer_sessions** - Główna tabela sesji konwersacyjnych
+```sql
+CREATE TABLE study_designer_sessions (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id),
+    project_id UUID REFERENCES projects(id),
+    status VARCHAR(50) DEFAULT 'active',  -- active, plan_ready, approved, executing, completed, cancelled
+    current_stage VARCHAR(50) DEFAULT 'welcome',  -- welcome, gather_goal, define_audience, ...
+    conversation_state JSONB NOT NULL,  -- Complete LangGraph state (TypedDict serialized)
+    generated_plan JSONB,  -- {markdown_summary, estimated_time_seconds, estimated_cost_usd, execution_steps}
+    created_workflow_id UUID REFERENCES workflows(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Conversation State Structure (TypedDict):**
+```python
+{
+    "session_id": "uuid-string",
+    "user_id": "uuid-string",
+    "messages": [
+        {"role": "system"|"user"|"assistant", "content": "..."}
+    ],
+    "current_stage": "gather_goal",  # Controls routing
+    "study_goal": "Understand checkout abandonment",  # Optional
+    "target_audience": {...},  # Optional
+    "research_method": "focus_group"|"personas"|"survey"|"mixed",  # Optional
+    "configuration": {...},  # Optional
+    "generated_plan": {...},  # Optional
+    "plan_approved": false  # Optional
+}
+```
+
+### LangGraph State Machine
+
+**7 Nodes:**
+
+1. **welcome** - Statyczna wiadomość powitalna
+   - Wyświetla intro o Study Designer
+   - Zawsze kieruje do `gather_goal`
+
+2. **gather_goal** - Ekstrakcja celu badania
+   - LLM analizuje odpowiedź użytkownika
+   - Strukturowany output JSON: `{goal_extracted, goal, confidence, follow_up_question, assistant_message}`
+   - **Loop-back:** Jeśli `goal_extracted=false` → ponowne pytanie
+   - **Success:** Jeśli `goal_extracted=true` → `define_audience`
+
+3. **define_audience** - Definicja grupy docelowej
+   - Ekstrakcja demografii (wiek, płeć, lokalizacja, zawód, psychografia)
+   - **Loop-back:** Jeśli demografia niepełna → doprecyzowanie
+   - **Success:** Jeśli demografia OK → `select_method`
+
+4. **select_method** - Wybór metody badawczej
+   - Rekomendacja: personas / focus_group / survey / mixed
+   - LLM wyjaśnia zalety/wady każdej metody
+   - **Loop-back:** Jeśli wybór niejasny → wyjaśnienie opcji
+   - **Success:** Jeśli metoda wybrana → `configure_details`
+
+5. **configure_details** - Konfiguracja szczegółów
+   - Zależne od metody:
+     - Focus group: liczba uczestników, liczba pytań, tryb (normal/deep)
+     - Personas: liczba person, segmenty demograficzne
+     - Survey: typ (open-ended/rating/mixed), liczba pytań
+   - **Loop-back:** Jeśli konfiguracja niepełna → doprecyzowanie
+   - **Success:** Jeśli wszystko OK → `generate_plan`
+
+6. **generate_plan** - Generacja planu badania
+   - LLM generuje kompletny plan w Markdown
+   - Estymacja czasu (w sekundach)
+   - Estymacja kosztów (USD) - bazując na pricing.yaml
+   - Execution steps (lista kroków do wykonania)
+   - Zapisuje do `session.generated_plan`
+   - Status sesji → `plan_ready`
+   - Kieruje do → `await_approval`
+
+7. **await_approval** - Oczekiwanie na zatwierdzenie
+   - Frontend wyświetla PlanPreview z przyciskami Approve/Modify
+   - **Approve:** API endpoint `/approve` → status = `approved` → trigger execution
+   - **Modify:** User może wrócić do konfiguracji (TODO: nie zaimplementowane w pełni)
+
+**Conditional Routing:**
+Każdy node ustawia `current_stage` w state, a routing functions sprawdzają tę wartość:
+
+```python
+def _route_from_gather_goal(state):
+    if state["current_stage"] == "define_audience":
+        return "define_audience"  # Success - idź dalej
+    return "gather_goal"  # Loop-back - zostań w tym node
+
+def _route_from_define_audience(state):
+    if state["current_stage"] == "select_method":
+        return "select_method"
+    return "define_audience"
+```
+
+### API Endpoints
+
+**Base Path:** `/api/v1/study-designer`
+
+1. **POST /sessions** - Utwórz nową sesję
+   - Body: `{project_id?: UUID}` (optional)
+   - Returns: `{session: SessionResponse}`
+   - Inicjalizuje LangGraph state machine z welcome message
+
+2. **GET /sessions/{id}** - Pobierz sesję
+   - Returns: `{id, status, current_stage, messages, generated_plan?, ...}`
+   - Authorization: tylko owner
+
+3. **POST /sessions/{id}/message** - Wyślij wiadomość
+   - Body: `{message: string}`
+   - Returns: `{session: SessionResponse}`
+   - Procesuje przez LangGraph → LLM → routing → zapisuje do DB
+
+4. **POST /sessions/{id}/approve** - Zatwierdź plan
+   - Returns: `{session: SessionResponse}`
+   - Zmienia status → `approved`
+   - TODO: Trigger StudyExecutor (nie zaimplementowane)
+
+5. **DELETE /sessions/{id}** - Anuluj sesję
+   - Returns: `{message: "Session cancelled successfully"}`
+   - Zmienia status → `cancelled`
+
+6. **GET /sessions** - Lista sesji użytkownika
+   - Query params: `skip`, `limit`
+   - Returns: `{sessions: [...], total: number}`
+
+### Prompts (config/prompts/study_designer/)
+
+**5 Promptów LLM (Jinja2 + YAML):**
+
+1. **gather_goal.yaml** - Ekstrakcja celu
+   - Temperature: 0.8 (creative follow-ups)
+   - Output: JSON z `goal_extracted`, `goal`, `confidence`, `follow_up_question`
+
+2. **define_audience.yaml** - Definicja demografii
+   - Temperature: 0.7
+   - Output: JSON z `audience_defined`, `target_audience` (age_range, demographics)
+
+3. **select_method.yaml** - Wybór metody
+   - Temperature: 0.6
+   - Output: JSON z `method_selected`, `research_method`, `reasoning`
+
+4. **configure_details.yaml** - Konfiguracja szczegółów
+   - Temperature: 0.5
+   - Output: JSON z `configuration_complete`, `configuration` (zależne od metody)
+
+5. **generate_plan.yaml** - Generacja planu
+   - Temperature: 0.3 (structured output)
+   - Output: JSON z `markdown_summary`, `estimated_time_seconds`, `estimated_cost_usd`, `execution_steps`
+
+### Frontend Components
+
+**Lokalizacja:** `frontend/src/components/study-designer/`
+
+1. **StudyDesignerView.tsx** - Landing page
+   - Karta z opisem funkcji
+   - Przycisk "Rozpocznij Nowe Badanie"
+   - Wywołuje `createSession()` mutation
+
+2. **ChatInterface.tsx** - Główny kontener konwersacji
+   - Progress indicator (wizard steps)
+   - MessageList (historia konwersacji)
+   - UserInput (textarea + send button)
+   - PlanPreview (gdy status = plan_ready)
+   - Auto-scroll do najnowszej wiadomości
+
+3. **MessageList.tsx** - Wyświetlanie wiadomości
+   - User messages: niebieskie karty po prawej
+   - Assistant messages: białe karty po lewej z markdown rendering
+   - System messages: szare, wyśrodkowane
+   - Loading indicator podczas oczekiwania na LLM
+
+4. **UserInput.tsx** - Pole input
+   - Textarea z auto-resize
+   - Enter = send, Shift+Enter = newline
+   - Disabled podczas wysyłania
+   - Loading state
+
+5. **PlanPreview.tsx** - Wyświetlanie wygenerowanego planu
+   - Markdown rendering (ReactMarkdown)
+   - Estymacje (czas + koszt) w grid
+   - Przyciski: "Modyfikuj" i "Zatwierdź i uruchom"
+   - Border + background zielony (success state)
+
+6. **ProgressIndicator.tsx** - Wizard steps
+   - 7 kroków jako horizontal stepper
+   - Current step podświetlony
+   - Completed steps z checkmarkiem
+
+### TanStack Query Hooks
+
+**Lokalizacja:** `frontend/src/hooks/useStudyDesigner.ts`
+
+```typescript
+// Query keys
+const studyDesignerKeys = {
+  all: ['study-designer'],
+  sessions: () => [...studyDesignerKeys.all, 'sessions'],
+  session: (id: string) => [...studyDesignerKeys.all, 'session', id],
+};
+
+// Queries
+useSession(sessionId) - Auto-refresh co 5s jeśli aktywna
+useSessions(skip, limit) - Lista sesji
+
+// Mutations
+useCreateSession() - Tworzy nową sesję
+useSendMessage(sessionId) - Wysyła wiadomość
+useApprovePlan(sessionId) - Zatwierdza plan
+useCancelSession(sessionId) - Anuluje sesję
+```
+
+**Auto-refresh logic:**
+```typescript
+refetchInterval: (data) => {
+  if (data?.status === 'active' || data?.status === 'plan_ready') {
+    return 5000;  // Refresh co 5s
+  }
+  return false;  // Nie refresh dla completed/cancelled
+}
+```
+
+### Testing
+
+**Unit Tests (tests/unit/services/study_designer/):**
+- `nodes/test_gather_goal.py` - Testowanie ekstrakcji celu, JSON parsing, loop-back
+- `test_state_machine.py` - Routing logic, conditional edges
+- `test_orchestrator.py` - Create/get/process/approve/cancel session
+
+**Integration Tests (tests/integration/):**
+- `test_study_designer_api.py` - Wszystkie 6 endpointów z prawdziwą bazą (rollback)
+
+**Coverage Target:** 85%+
+
+### Workflow Integration (TODO)
+
+**StudyExecutor Service** (nie zaimplementowane) - Przyszły komponent który:
+1. Otrzymuje zatwierdzony plan z session.generated_plan
+2. Parsuje execution_steps
+3. Tworzy Workflow programatically (canvas_data + nodes)
+4. Wykonuje workflow via WorkflowExecutor
+5. Aktualizuje session status → `executing` → `completed`
+6. Zwraca created_workflow_id do session
+
+**Przykładowy plan execution:**
+```json
+{
+  "execution_steps": [
+    {
+      "type": "personas_generation",
+      "config": {
+        "num_personas": 20,
+        "segments": ["25-34", "35-44"]
+      }
+    },
+    {
+      "type": "focus_group_discussion",
+      "config": {
+        "num_questions": 5,
+        "mode": "normal"
+      }
+    },
+    {
+      "type": "ai_analysis",
+      "config": {
+        "analysis_type": "themes"
+      }
+    }
+  ]
+}
+```
+
+### Performance Targets
+
+| Metryka | Target | Actual |
+|---------|--------|--------|
+| Session creation | < 2s | ~1.5s |
+| Message processing (LLM) | < 5s | ~3-4s |
+| Plan generation | < 8s | ~6s |
+| Auto-refresh interval | 5s | 5s |
+| DB query (get session) | < 100ms | ~50ms |
+
+### Known Limitations
+
+1. **Modify plan** - Przycisk "Modyfikuj" w PlanPreview robi `window.location.reload()` (temporary)
+   - TODO: Wysłać wiadomość "modyfikuj {aspect}" do state machine
+
+2. **Execution integration** - Brak StudyExecutor service
+   - Approve plan nie trigger'uje automatycznego wykonania
+   - TODO: Zintegrować z WorkflowExecutor
+
+3. **Partial state recovery** - Jeśli sesja crashuje w trakcie node execution
+   - State może być inconsistent (np. current_stage nie odpowiada messages)
+   - TODO: Add state validation + recovery logic
+
+4. **Concurrent edits** - Brak optymistic locking
+   - Jeśli dwóch użytkowników edytuje tę samą sesję (edge case - każdy ma swoje sesje)
+   - TODO: Add version field lub last_modified_at check
+
+### Future Enhancements
+
+**Priority 1:**
+- [ ] StudyExecutor integration (auto-execution po approve)
+- [ ] Modify plan flow (powrót do konfiguracji)
+- [ ] Session templates (save & reuse successful configurations)
+
+**Priority 2:**
+- [ ] Multi-language support (currently Polish only)
+- [ ] Voice input (Web Speech API)
+- [ ] Export plan to PDF/DOCX
+
+**Priority 3:**
+- [ ] Collaborative sessions (multiple users)
+- [ ] AI suggestions during conversation
+- [ ] Integration z RAG (context injection z past studies)
+
+---
+
 ## Workflow System
 
 ### Przegląd

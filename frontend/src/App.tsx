@@ -24,6 +24,7 @@ import { AppLoader } from '@/components/AppLoader';
 import { Login } from '@/components/auth/Login';
 import { WorkflowEditor } from '@/components/workflows/WorkflowEditor';
 import { WorkflowsListPage } from '@/components/workflows/WorkflowsListPage';
+import { StudyDesignerView } from '@/components/study-designer/StudyDesignerView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppStore } from '@/store/appStore';
 import { personasApi, focusGroupsApi } from '@/lib/api';
@@ -210,6 +211,12 @@ export default function App() {
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground">No workflow selected</p>
           </div>
+        );
+      case 'study-designer':
+        return (
+          <StudyDesignerView
+            onBack={() => setCurrentView('dashboard')}
+          />
         );
       default:
         return <FigmaDashboard onNavigate={setCurrentView} />;
