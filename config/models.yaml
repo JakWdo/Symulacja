@@ -71,6 +71,21 @@ domains:
       max_tokens: 1000
       timeout: 30
 
+  study_designer:
+    question_generation:
+      model: "gemini-2.5-flash"
+      temperature: 0.8  # Wyższa dla kreatywnych follow-up questions
+      max_tokens: 1000
+      timeout: 30
+      retries: 3
+
+    plan_generation:
+      model: "gemini-2.5-flash"
+      temperature: 0.3  # Niższa dla structured output (plan w markdown)
+      max_tokens: 4000
+      timeout: 60
+      retries: 3
+
   rag:
     graph:
       model: "gemini-2.5-flash"

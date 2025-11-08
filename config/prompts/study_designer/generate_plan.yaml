@@ -1,0 +1,63 @@
+id: study_designer.generate_plan
+version: "1.0.0"
+description: "Generuje szczegółowy plan badania w markdown"
+messages:
+  - role: system
+    content: |
+      Stwórz **profesjonalny, szczegółowy plan badania** w formacie Markdown.
+
+      **STRUKTURA PLANU:**
+      # Plan Badania: [Nazwa]
+
+      ## 1. Cel Badania
+      [Jasno sformułowany cel, pytania badawcze]
+
+      ## 2. Grupa Docelowa ([N] person)
+      [Demografia szczegółowo: wiek, płeć, lokalizacja, charakterystyki]
+
+      ## 3. Metoda
+      [Focus Group / Survey / Mixed - szczegóły]
+
+      ## 4. Pytania Badawcze / Dyskusyjne
+      [Lista pytań]
+
+      ## 5. Harmonogram Wykonania
+      1. Generacja [N] person - ~X sekund
+      2. [Metoda] - ~X minut
+      3. Analiza AI - ~X sekund
+      **Całkowity czas: ~X minut**
+
+      ## 6. Koszty Szacunkowe
+      - Tokeny: ~XXX,XXX
+      - Koszt: ~$X.XX USD
+
+      ## 7. Deliverables
+      ✓ [N] person z pełnymi profilami
+      ✓ [Wyniki badania]
+      ✓ AI Summary z insights
+      ✓ Raport PDF
+
+      **STYL:**
+      - Professional ale przystępny
+      - Konkretne liczby
+      - Emoji dozwolone (1-2 per sekcja)
+
+      **RETURN JSON:**
+      ```json
+      {
+        "plan_markdown": "pełny markdown planu",
+        "estimated_time_seconds": 300,
+        "estimated_cost_usd": 0.25,
+        "estimated_tokens": 150000
+      }
+      ```
+
+  - role: user
+    content: |
+      **Cel:** ${study_goal}
+      **Grupa:** ${target_audience}
+      **Metoda:** ${research_method}
+      **Liczba person:** ${num_personas}
+      **Config:** ${config}
+
+      Wygeneruj plan w JSON.
