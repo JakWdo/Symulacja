@@ -386,6 +386,49 @@ export function useDeleteWorkflow() {
 }
 
 /**
+ * Hook do duplikowania workflow
+ *
+ * Tworzy kopię workflow z tym samym canvas_data ale nową nazwą.
+ *
+ * @returns TanStack Query mutation
+ *
+ * @example
+ * const { mutate: duplicateWorkflow } = useDuplicateWorkflow();
+ * duplicateWorkflow(workflowId, {
+ *   onSuccess: () => toast.success("Workflow duplicated"),
+ * });
+ */
+export function useDuplicateWorkflow() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (workflowId: string) => {
+      // Pobierz oryginał
+      const original = await workflowsApi.get(workflowId);
+
+      // Utwórz kopię z nową nazwą
+      return workflowsApi.create({
+        name: `${original.name} (Copy)`,
+        description: original.description,
+        project_id: original.project_id,
+        canvas_data: original.canvas_data,
+        status: 'draft',
+      });
+    },
+    onSuccess: (newWorkflow) => {
+      // Add to cache
+      queryClient.setQueryData(
+        workflowKeys.detail(newWorkflow.id),
+        newWorkflow
+      );
+
+      // Invalidate lists
+      queryClient.invalidateQueries({ queryKey: workflowKeys.lists() });
+    },
+  });
+}
+
+/**
  * Hook do walidacji workflow przed execution
  *
  * Nie modyfikuje cache - zwraca tylko validation result.
