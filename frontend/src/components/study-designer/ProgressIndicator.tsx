@@ -1,7 +1,11 @@
 /**
  * ProgressIndicator - Wizard steps progress
  *
- * Pokazuje wizualnie w którym etapie konwersacji jesteśmy.
+ * Redesigned zgodnie z Sight Design System:
+ * - Success colors dla completed steps (zamiast hardcoded green)
+ * - Brand colors dla current step (zamiast hardcoded blue)
+ * - Muted colors dla pending steps (zamiast hardcoded gray)
+ * - Consistent spacing i typography
  */
 
 import React from 'react';
@@ -38,10 +42,10 @@ export const ProgressIndicator: React.FC<Props> = ({ currentStage }) => {
               <div
                 className={`flex items-center justify-center w-8 h-8 rounded-full ${
                   isCompleted
-                    ? 'bg-green-500 text-white'
+                    ? 'bg-success text-white'
                     : isCurrent
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-400'
+                    ? 'bg-brand text-white'
+                    : 'bg-muted text-muted-foreground'
                 }`}
               >
                 {isCompleted ? (
@@ -54,7 +58,7 @@ export const ProgressIndicator: React.FC<Props> = ({ currentStage }) => {
               {/* Step Name */}
               <p
                 className={`text-xs mt-1 hidden sm:block ${
-                  isCurrent ? 'font-semibold text-blue-600' : 'text-gray-500'
+                  isCurrent ? 'font-semibold text-brand' : 'text-muted-foreground'
                 }`}
               >
                 {stage.name}
@@ -65,7 +69,7 @@ export const ProgressIndicator: React.FC<Props> = ({ currentStage }) => {
             {index < STAGES.length - 1 && (
               <div
                 className={`h-0.5 w-8 ${
-                  isCompleted ? 'bg-green-500' : 'bg-gray-200'
+                  isCompleted ? 'bg-success' : 'bg-muted'
                 }`}
               />
             )}

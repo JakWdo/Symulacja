@@ -1,7 +1,11 @@
 /**
  * UserInput - Input field + Send button
  *
- * Textarea z auto-resize i Enter to send (Shift+Enter dla newline).
+ * Redesigned zgodnie z Sight Design System:
+ * - Używa Textarea i Button z UI
+ * - Consistent spacing (gap-3)
+ * - Proper button sizing
+ * - Loading state z animacją
  */
 
 import React from 'react';
@@ -36,14 +40,14 @@ export const UserInput: React.FC<Props> = ({
         onKeyDown={onKeyPress}
         placeholder={placeholder}
         disabled={disabled}
-        className="flex-1 min-h-[60px] max-h-[200px] resize-none"
+        className="flex-1 min-h-[60px] max-h-[200px] resize-none rounded-[8px]"
         rows={2}
       />
 
       <Button
         onClick={onSend}
         disabled={disabled || !value.trim() || isLoading}
-        className="flex-shrink-0"
+        className="flex-shrink-0 rounded-[6px]"
         size="lg"
       >
         {isLoading ? (

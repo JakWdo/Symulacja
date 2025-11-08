@@ -1,7 +1,12 @@
 /**
  * ChatInterface - Główny komponent Study Designer Chat
  *
- * Zarządza całą konwersacją z AI, wyświetla wiadomości, input, plan.
+ * Redesigned zgodnie z Sight Design System:
+ * - Brand colors z CSS variables
+ * - Consistent spacing i borders
+ * - Icons zamiast emoji
+ * - Skeleton loading states
+ * - Proper alert variants (info, success, warning)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -12,7 +17,8 @@ import { UserInput } from './UserInput';
 import { PlanPreview } from './PlanPreview';
 import { ProgressIndicator } from './ProgressIndicator';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
+import { Loader2, Rocket, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
 export const ChatInterface: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -53,9 +59,11 @@ export const ChatInterface: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-3 text-lg">Ładowanie sesji...</span>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-brand" />
+          <p className="text-base text-muted-foreground">Ładowanie sesji...</p>
+        </div>
       </div>
     );
   }
@@ -63,12 +71,15 @@ export const ChatInterface: React.FC = () => {
   // Error state
   if (error) {
     return (
-      <div className="container mx-auto p-6">
-        <Alert variant="destructive">
-          <AlertDescription>
-            Błąd ładowania sesji: {(error as Error).message}
-          </AlertDescription>
-        </Alert>
+      <div className="min-h-screen bg-background">
+        <div className="max-w-[1920px] w-full mx-auto p-4 md:p-6">
+          <Alert variant="destructive" className="rounded-[8px]">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Błąd ładowania sesji: {(error as Error).message}
+            </AlertDescription>
+          </Alert>
+        </div>
       </div>
     );
   }
@@ -86,16 +97,16 @@ export const ChatInterface: React.FC = () => {
     session.status === 'active' || session.status === 'plan_ready';
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header with Progress */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+      <div className="bg-background border-b border-border sticky top-0 z-10 shadow-sm">
+        <div className="max-w-[1920px] w-full mx-auto px-4 py-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl md:text-2xl font-semibold text-foreground">
                 Projektowanie Badania przez Chat
               </h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Sesja: {sessionId?.slice(0, 8)}...
               </p>
             </div>
@@ -106,61 +117,66 @@ export const ChatInterface: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6 max-w-4xl">
-        {/* Status Alerts */}
-        {isExecuting && (
-          <Alert className="mb-4 bg-blue-50 border-blue-200">
-            <AlertDescription>
-              🚀 Badanie jest wykonywane... Trwa generacja person i analiza.
-            </AlertDescription>
-          </Alert>
-        )}
+      <div className="max-w-[1920px] w-full mx-auto px-4 py-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Status Alerts */}
+          {isExecuting && (
+            <Alert className="rounded-[8px] bg-info/10 border-info/20">
+              <Rocket className="h-4 w-4 text-info" />
+              <AlertDescription className="text-info-foreground">
+                Badanie jest wykonywane... Trwa tworzenie workflow i przygotowanie zasobów.
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {isCompleted && (
-          <Alert className="mb-4 bg-green-50 border-green-200">
-            <AlertDescription>
-              ✅ Badanie zakończone! Wyniki są dostępne w projekcie.
-            </AlertDescription>
-          </Alert>
-        )}
+          {isCompleted && (
+            <Alert className="rounded-[8px] bg-success/10 border-success/20">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success-foreground">
+                Badanie zakończone! Wyniki są dostępne w projekcie.
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {isCancelled && (
-          <Alert className="mb-4 bg-gray-50 border-gray-200">
-            <AlertDescription>
-              ❌ Sesja została anulowana.
-            </AlertDescription>
-          </Alert>
-        )}
+          {isCancelled && (
+            <Alert className="rounded-[8px] bg-muted border-border">
+              <XCircle className="h-4 w-4 text-muted-foreground" />
+              <AlertDescription className="text-muted-foreground">
+                Sesja została anulowana.
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {/* Messages */}
-        <MessageList
-          messages={session.messages || []}
-          isLoading={sendMessageMutation.isPending}
-        />
+          {/* Messages */}
+          <MessageList
+            messages={session.messages || []}
+            isLoading={sendMessageMutation.isPending}
+          />
 
-        {/* Plan Preview (if generated) */}
-        {isPlanReady && session.generated_plan && (
-          <div className="mt-6">
-            <PlanPreview
-              plan={session.generated_plan}
-              sessionId={session.id}
-            />
-          </div>
-        )}
+          {/* Plan Preview (if generated) */}
+          {isPlanReady && session.generated_plan && (
+            <div className="mt-6">
+              <PlanPreview
+                plan={session.generated_plan}
+                sessionId={session.id}
+              />
+            </div>
+          )}
 
-        {/* User Input */}
-        {canSendMessage && !isPlanReady && (
-          <div className="mt-6 sticky bottom-0 bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-            <UserInput
-              value={userMessage}
-              onChange={setUserMessage}
-              onSend={handleSendMessage}
-              onKeyPress={handleKeyPress}
-              disabled={sendMessageMutation.isPending}
-              isLoading={sendMessageMutation.isPending}
-            />
-          </div>
-        )}
+          {/* User Input */}
+          {canSendMessage && !isPlanReady && (
+            <div className="mt-6 sticky bottom-4 bg-background p-4 rounded-[8px] border border-border shadow-sm">
+              <UserInput
+                value={userMessage}
+                onChange={setUserMessage}
+                onSend={handleSendMessage}
+                onKeyPress={handleKeyPress}
+                disabled={sendMessageMutation.isPending}
+                isLoading={sendMessageMutation.isPending}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
