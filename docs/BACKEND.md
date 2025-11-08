@@ -749,15 +749,72 @@ refetchInterval: (data) => {
 
 **Coverage Target:** 85%+
 
-### Workflow Integration (TODO)
+### Workflow Integration ✅
 
-**StudyExecutor Service** (nie zaimplementowane) - Przyszły komponent który:
-1. Otrzymuje zatwierdzony plan z session.generated_plan
-2. Parsuje execution_steps
-3. Tworzy Workflow programatically (canvas_data + nodes)
-4. Wykonuje workflow via WorkflowExecutor
-5. Aktualizuje session status → `executing` → `completed`
-6. Zwraca created_workflow_id do session
+**StudyExecutor Service** (`app/services/study_designer/study_executor.py`) - Automatyczne wykonanie zatwierdzonego planu:
+
+**Odpowiedzialności:**
+1. `execute_approved_plan()` - Główna metoda wykonania:
+   - Waliduje że session.status == "approved"
+   - Waliduje że session.generated_plan zawiera execution_steps
+   - Buduje canvas_data z execution_steps przez `_build_canvas_from_steps()`
+   - Tworzy Workflow przez WorkflowService
+   - Aktualizuje session: status → "executing", created_workflow_id
+   - Zwraca UUID utworzonego workflow
+
+2. `_build_canvas_from_steps()` - Generacja nodes i edges:
+   - Start node (pozycja y=100)
+   - Node per execution_step (vertical layout, y += 150)
+   - Edges łączące nodes sekwencyjnie
+   - End node (ostatni)
+   - Mapowanie step types do workflow node types:
+     - `personas_generation` → `personas`
+     - `focus_group_discussion` → `focus_groups`
+     - `survey_generation` → `surveys`
+     - `ai_analysis` → `analysis`
+
+3. `_get_node_label()` - Czytelne labels:
+   - "Generate 20 Personas"
+   - "Focus Group (5 questions)"
+   - "AI Analysis: Themes"
+
+4. `_generate_workflow_name()` - Nazwa workflow:
+   - "Study: {study_goal}" (jeśli istnieje)
+   - "Study from Session {id}" (fallback)
+   - Limit 255 znaków (długi goal skracany do 200 + "...")
+
+**Integracja z approve_plan:**
+
+```python
+# W StudyDesignerOrchestrator.approve_plan()
+try:
+    executor = StudyExecutor(self.db)
+    workflow_id = await executor.execute_approved_plan(session, user_id)
+
+    # Success message
+    system_msg = StudyDesignerMessage(
+        content=f"✅ Plan zatwierdzony! Workflow został utworzony...",
+        metadata={"event": "plan_approved", "workflow_id": str(workflow_id)},
+    )
+except Exception as e:
+    # Error handling - rollback to approved status
+    session.status = "approved"
+    system_msg = StudyDesignerMessage(
+        content=f"⚠️ Problem podczas tworzenia workflow: {str(e)}",
+        metadata={"event": "execution_failed", "error": str(e)},
+    )
+    raise HTTPException(500, ...) from e
+```
+
+**Flow:**
+1. User zatwierdza plan (POST `/sessions/{id}/approve`)
+2. Orchestrator wywołuje `StudyExecutor.execute_approved_plan()`
+3. StudyExecutor parsuje execution_steps i tworzy canvas_data
+4. WorkflowService zapisuje workflow w DB jako "draft"
+5. Session.status → "executing", Session.created_workflow_id = workflow.id
+6. Zwraca SessionResponse z created_workflow_id
+
+**Nota:** Workflow jest tworzony jako "draft" - może być później wykonany ręcznie przez użytkownika lub automatycznie przez WorkflowExecutor (future enhancement).
 
 **Przykładowy plan execution:**
 ```json
@@ -802,11 +859,7 @@ refetchInterval: (data) => {
 1. **Modify plan** - Przycisk "Modyfikuj" w PlanPreview robi `window.location.reload()` (temporary)
    - TODO: Wysłać wiadomość "modyfikuj {aspect}" do state machine
 
-2. **Execution integration** - Brak StudyExecutor service
-   - Approve plan nie trigger'uje automatycznego wykonania
-   - TODO: Zintegrować z WorkflowExecutor
-
-3. **Partial state recovery** - Jeśli sesja crashuje w trakcie node execution
+2. **Partial state recovery** - Jeśli sesja crashuje w trakcie node execution
    - State może być inconsistent (np. current_stage nie odpowiada messages)
    - TODO: Add state validation + recovery logic
 
@@ -817,9 +870,10 @@ refetchInterval: (data) => {
 ### Future Enhancements
 
 **Priority 1:**
-- [ ] StudyExecutor integration (auto-execution po approve)
+- [x] StudyExecutor integration (auto-execution po approve) ✅ DONE
 - [ ] Modify plan flow (powrót do konfiguracji)
 - [ ] Session templates (save & reuse successful configurations)
+- [ ] Auto-execution workflow po utworzeniu (WorkflowExecutor integration)
 
 **Priority 2:**
 - [ ] Multi-language support (currently Polish only)

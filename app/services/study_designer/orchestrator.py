@@ -29,6 +29,7 @@ from app.services.study_designer.state_schema import (
     deserialize_state,
     update_last_activity,
 )
+from app.services.study_designer.study_executor import StudyExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -216,23 +217,53 @@ class StudyDesignerOrchestrator:
                 f"has_plan={session.generated_plan is not None})",
             )
 
-        # TODO: Create Workflow from generated_plan
-        # TODO: Trigger WorkflowExecutor
-        # For now, just mark as approved
+        # Execute approved plan via StudyExecutor
+        try:
+            executor = StudyExecutor(self.db)
+            workflow_id = await executor.execute_approved_plan(session, user_id)
 
-        session.status = "approved"
+            logger.info(
+                f"Plan approved and workflow {workflow_id} created for session {session.id}"
+            )
 
-        # Add system message
-        system_msg = StudyDesignerMessage(
-            session_id=session.id,
-            role="system",
-            content="Plan zatwierdzony. Badanie zostanie uruchomione wkrótce.",
-            metadata={"event": "plan_approved"},
-        )
-        self.db.add(system_msg)
+            # Add system message about successful execution
+            system_msg = StudyDesignerMessage(
+                session_id=session.id,
+                role="system",
+                content=f"✅ Plan zatwierdzony! Workflow został utworzony (ID: {str(workflow_id)[:8]}...) i rozpoczyna się wykonanie.",
+                metadata={"event": "plan_approved", "workflow_id": str(workflow_id)},
+            )
+            self.db.add(system_msg)
 
-        await self.db.commit()
-        await self.db.refresh(session)
+            await self.db.commit()
+            await self.db.refresh(session)
+
+        except Exception as e:
+            logger.error(
+                f"Failed to execute approved plan for session {session.id}: {e}",
+                exc_info=True,
+            )
+
+            # Rollback session to approved status (not executing) on error
+            session.status = "approved"
+
+            # Add error message
+            system_msg = StudyDesignerMessage(
+                session_id=session.id,
+                role="system",
+                content=f"⚠️ Plan zatwierdzony, ale wystąpił problem podczas tworzenia workflow: {str(e)}",
+                metadata={"event": "execution_failed", "error": str(e)},
+            )
+            self.db.add(system_msg)
+
+            await self.db.commit()
+            await self.db.refresh(session)
+
+            # Re-raise to return 500 to client
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to execute approved plan: {str(e)}",
+            ) from e
 
         logger.info(f"Session {session_id} approved")
 
