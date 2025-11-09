@@ -1,7 +1,7 @@
 """add_study_designer_chat_models
 
 Revision ID: 8ba3d04beee1
-Revises: 45c8ede416fb
+Revises: 20251105_perf_idx
 Create Date: 2025-11-08 17:00:00.000000
 
 Adds tables for Study Designer Chat feature:
@@ -17,7 +17,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '8ba3d04beee1'
-down_revision: Union[str, Sequence[str], None] = '45c8ede416fb'
+down_revision: Union[str, Sequence[str], None] = '20251105_perf_idx'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
