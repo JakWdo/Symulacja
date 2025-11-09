@@ -45,7 +45,7 @@ class MessageResponse(BaseModel):
     id: UUID
     role: Literal["user", "assistant", "system"]
     content: str
-    metadata: dict = {}
+    message_metadata: dict = {}
     created_at: datetime
 
     class Config:

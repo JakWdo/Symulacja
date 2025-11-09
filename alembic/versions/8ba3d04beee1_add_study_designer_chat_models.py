@@ -56,7 +56,7 @@ def upgrade() -> None:
         sa.Column('session_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('role', sa.String(length=20), nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
-        sa.Column('metadata', postgresql.JSON(astext_type=sa.Text()), server_default=sa.text("'{}'::json"), nullable=True),
+        sa.Column('message_metadata', postgresql.JSON(astext_type=sa.Text()), server_default=sa.text("'{}'::json"), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['session_id'], ['study_designer_sessions.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')

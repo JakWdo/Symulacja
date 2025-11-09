@@ -239,7 +239,7 @@ class StudyDesignerMessage(Base):
         role: Rola nadawcy (MessageRoleEnum: user, assistant, system)
         content: Treść wiadomości (Text, może być długa)
 
-        metadata: JSON z dodatkowymi danymi
+        message_metadata: JSON z dodatkowymi danymi
             {
                 "stage": "gather_goal",  # Etap konwersacji
                 "question_type": "follow_up",  # Typ pytania
@@ -274,8 +274,9 @@ class StudyDesignerMessage(Base):
     )  # MessageRoleEnum: user, assistant, system
     content = Column(Text, nullable=False)
 
-    # Metadata (stage, question_type, extracted_data, etc.)
-    metadata = Column(
+    # Message metadata (stage, question_type, extracted_data, etc.)
+    # Note: renamed from 'metadata' to avoid conflict with SQLAlchemy Base.metadata
+    message_metadata = Column(
         JSON,
         nullable=True,
         default={},

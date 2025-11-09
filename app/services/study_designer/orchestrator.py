@@ -99,7 +99,7 @@ class StudyDesignerOrchestrator:
                 session_id=session.id,
                 role=msg["role"],
                 content=msg["content"],
-                metadata={"stage": updated_state["current_stage"]},
+                message_metadata={"stage": updated_state["current_stage"]},
             )
             self.db.add(message)
 
@@ -142,7 +142,7 @@ class StudyDesignerOrchestrator:
             session_id=session.id,
             role="user",
             content=user_message,
-            metadata={"stage": session.current_stage},
+            message_metadata={"stage": session.current_stage},
         )
         self.db.add(user_msg)
 
@@ -173,7 +173,7 @@ class StudyDesignerOrchestrator:
                     session_id=session.id,
                     role=msg["role"],
                     content=msg["content"],
-                    metadata={"stage": updated_state["current_stage"]},
+                    message_metadata={"stage": updated_state["current_stage"]},
                 )
                 self.db.add(assistant_msg)
 
@@ -231,7 +231,7 @@ class StudyDesignerOrchestrator:
                 session_id=session.id,
                 role="system",
                 content=f"✅ Plan zatwierdzony! Workflow został utworzony (ID: {str(workflow_id)[:8]}...) i rozpoczyna się wykonanie.",
-                metadata={"event": "plan_approved", "workflow_id": str(workflow_id)},
+                message_metadata={"event": "plan_approved", "workflow_id": str(workflow_id)},
             )
             self.db.add(system_msg)
 
@@ -252,7 +252,7 @@ class StudyDesignerOrchestrator:
                 session_id=session.id,
                 role="system",
                 content=f"⚠️ Plan zatwierdzony, ale wystąpił problem podczas tworzenia workflow: {str(e)}",
-                metadata={"event": "execution_failed", "error": str(e)},
+                message_metadata={"event": "execution_failed", "error": str(e)},
             )
             self.db.add(system_msg)
 
