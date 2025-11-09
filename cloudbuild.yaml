@@ -91,14 +91,17 @@ steps:
             --region=europe-central2 \
             --add-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight \
             --set-secrets=DATABASE_URL=DATABASE_URL_CLOUD:latest \
-            --command=alembic,upgrade,head \
+            --set-env-vars=PYTHONUNBUFFERED=1,PYTHONPATH=/app \
+            --command=bash \
+            --args=scripts/run_migrations_cloudrun.sh \
             --max-retries=2 \
             --task-timeout=300
         else
           echo "Updating migration job image..."
           gcloud run jobs update db-migrate \
             --image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
-            --region=europe-central2
+            --region=europe-central2 \
+            --set-env-vars=PYTHONUNBUFFERED=1,PYTHONPATH=/app
         fi
 
         # Execute migrations
