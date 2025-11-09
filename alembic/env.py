@@ -7,7 +7,6 @@ from alembic import context
 
 # Import all models for autogenerate support
 from app.db.base import Base
-from config import app as app_config
 # Import all models to register them with Base metadata
 from app import models  # Import wszystkich modeli z __all__
 
@@ -15,9 +14,14 @@ from app import models  # Import wszystkich modeli z __all__
 # access to the values within the .ini file in use.
 config = context.config
 
-# Get database URL from settings - use sync driver for Alembic
+# Get database URL from environment - use sync driver for Alembic
+# This avoids importing config loader which may fail in Cloud Run Job environment
 import os
-database_url = os.getenv("DATABASE_URL", app_config.database.url)
+database_url = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://sight:dev_password_change_in_prod@localhost:5433/sight_db"
+)
+# Convert async driver (asyncpg) to sync (psycopg2) for Alembic
 sync_url = database_url.replace('postgresql+asyncpg://', 'postgresql+psycopg2://')
 config.set_main_option("sqlalchemy.url", sync_url)
 
