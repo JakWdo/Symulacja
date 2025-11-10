@@ -35,6 +35,7 @@ import {
 
 import { useWorkflows, useDeleteWorkflow, useDuplicateWorkflow } from '@/hooks/useWorkflows';
 import { TemplateSelectionDialog } from './TemplateSelectionDialog';
+import { WorkflowNameDialog } from './WorkflowNameDialog';
 import { workflowTemplates } from './templateMetadata';
 import type { Workflow } from '@/types';
 
@@ -53,6 +54,8 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
   // ============================================
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isNameDialogOpen, setIsNameDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // ============================================
@@ -109,7 +112,12 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
   };
 
   const handleCreateFromTemplate = (templateId: string) => {
-    setIsDialogOpen(true);
+    // Find template metadata
+    const template = workflowTemplates.find((t) => t.id === templateId);
+    if (template) {
+      setSelectedTemplate({ id: template.id, name: template.name });
+      setIsNameDialogOpen(true); // Open WorkflowNameDialog (not TemplateSelectionDialog)
+    }
   };
 
   // ============================================
@@ -328,7 +336,7 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
         </TabsContent>
       </Tabs>
 
-      {/* Template Selection Dialog */}
+      {/* Template Selection Dialog - for "New Workflow" button (full selection) */}
       <TemplateSelectionDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
@@ -339,6 +347,22 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
           }
         }}
       />
+
+      {/* Workflow Name Dialog - for template gallery "Use Template" (direct instantiate) */}
+      {selectedTemplate && (
+        <WorkflowNameDialog
+          open={isNameDialogOpen}
+          onOpenChange={setIsNameDialogOpen}
+          templateId={selectedTemplate.id}
+          templateName={selectedTemplate.name}
+          projectId={effectiveProjectId}
+          onWorkflowCreated={(workflow) => {
+            if (onSelectWorkflow) {
+              onSelectWorkflow(workflow);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
