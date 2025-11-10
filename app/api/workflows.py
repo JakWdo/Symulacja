@@ -279,13 +279,13 @@ async def instantiate_template(
           "workflow_name": "My Product Research"
         }
     """
+    # Debug logging - format przyjazny dla GCP (textPayload)
     logger.info(
-        f"Instantiating template '{template_id}' for project {request.project_id}",
-        extra={
-            "user_id": str(current_user.id),
-            "template_id": template_id,
-            "project_id": str(request.project_id),
-        },
+        f"Instantiating template '{template_id}' for user {current_user.id}\n"
+        f"Request data:\n"
+        f"  - project_id: {request.project_id} (type: {type(request.project_id).__name__})\n"
+        f"  - workflow_name: {request.workflow_name}\n"
+        f"  - template_id: {template_id}"
     )
 
     service = WorkflowTemplateService()

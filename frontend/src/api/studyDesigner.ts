@@ -6,7 +6,41 @@
 
 import axios from 'axios';
 
-const API_BASE = '/api/v1/study-designer';
+// Utwórz axios instance z konfiguracją (baseURL, auth interceptor)
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL
+    ? `${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/api/v1`
+    : '/api/v1',
+});
+
+// Add auth interceptor - attach JWT token to all requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Add Accept-Language header
+  const language = localStorage.getItem('i18nextLng') || 'pl';
+  const normalizedLang = language.split('-')[0];
+  config.headers['Accept-Language'] = normalizedLang;
+
+  return config;
+});
+
+// Handle 401 errors globally - redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
+
+const API_BASE = '/study-designer';
 
 // === TYPES ===
 
@@ -71,7 +105,7 @@ export interface SessionListResponse {
 export async function createSession(
   data: SessionCreateRequest = {}
 ): Promise<SessionCreateResponse> {
-  const response = await axios.post<SessionCreateResponse>(`${API_BASE}/sessions`, data);
+  const response = await api.post<SessionCreateResponse>(`${API_BASE}/sessions`, data);
   return response.data;
 }
 
@@ -79,7 +113,7 @@ export async function createSession(
  * Pobiera sesję z pełną historią wiadomości
  */
 export async function getSession(sessionId: string): Promise<Session> {
-  const response = await axios.get<Session>(`${API_BASE}/sessions/${sessionId}`);
+  const response = await api.get<Session>(`${API_BASE}/sessions/${sessionId}`);
   return response.data;
 }
 
@@ -90,7 +124,7 @@ export async function sendMessage(
   sessionId: string,
   message: string
 ): Promise<MessageSendResponse> {
-  const response = await axios.post<MessageSendResponse>(
+  const response = await api.post<MessageSendResponse>(
     `${API_BASE}/sessions/${sessionId}/message`,
     { message }
   );
@@ -101,7 +135,7 @@ export async function sendMessage(
  * Zatwierdza wygenerowany plan
  */
 export async function approvePlan(sessionId: string): Promise<Session> {
-  const response = await axios.post<Session>(
+  const response = await api.post<Session>(
     `${API_BASE}/sessions/${sessionId}/approve`,
     { approved: true }
   );
@@ -112,7 +146,7 @@ export async function approvePlan(sessionId: string): Promise<Session> {
  * Anuluje sesję
  */
 export async function cancelSession(sessionId: string): Promise<void> {
-  await axios.delete(`${API_BASE}/sessions/${sessionId}`);
+  await api.delete(`${API_BASE}/sessions/${sessionId}`);
 }
 
 /**
@@ -122,7 +156,7 @@ export async function listSessions(
   limit: number = 20,
   offset: number = 0
 ): Promise<SessionListResponse> {
-  const response = await axios.get<SessionListResponse>(`${API_BASE}/sessions`, {
+  const response = await api.get<SessionListResponse>(`${API_BASE}/sessions`, {
     params: { limit, offset },
   });
   return response.data;

@@ -5,6 +5,7 @@ Centralized exception handling for FastAPI application.
 Handles validation errors, HTTP exceptions, and unexpected errors with detailed logging.
 """
 
+import json
 import logging
 import os
 import traceback
@@ -35,18 +36,15 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
             "input": error.get("input"),
         })
 
-    logger.error(
-        f"Request validation error: {request.method} {request.url.path}",
-        extra={
-            "request_method": request.method,
-            "request_url": str(request.url),
-            "request_path": request.url.path,
-            "validation_errors": error_details,
-            "error_count": len(errors),
-            "body": exc.body if hasattr(exc, 'body') else None,
-        },
-        exc_info=False,
+    # Format logowania przyjazny dla GCP (textPayload, nie structured extra fields)
+    error_msg = (
+        f"Request validation error: {request.method} {request.url.path}\n"
+        f"Error count: {len(errors)}\n"
+        f"Validation errors:\n{json.dumps(error_details, indent=2, ensure_ascii=False)}\n"
+        f"Request body: {exc.body if hasattr(exc, 'body') else 'N/A'}"
     )
+
+    logger.error(error_msg, exc_info=False)
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -70,18 +68,15 @@ async def response_validation_exception_handler(request: Request, exc: ResponseV
             "type": error.get("type"),
         })
 
-    logger.critical(
-        f"RESPONSE VALIDATION ERROR: {request.method} {request.url.path} - Schema mismatch!",
-        extra={
-            "request_method": request.method,
-            "request_url": str(request.url),
-            "request_path": request.url.path,
-            "validation_errors": error_details,
-            "error_count": len(errors),
-            "response_body": str(exc.body)[:500] if hasattr(exc, 'body') else None,  # First 500 chars
-        },
-        exc_info=True,
+    # Format logowania przyjazny dla GCP (textPayload)
+    error_msg = (
+        f"RESPONSE VALIDATION ERROR: {request.method} {request.url.path} - Schema mismatch!\n"
+        f"Error count: {len(errors)}\n"
+        f"Validation errors:\n{json.dumps(error_details, indent=2, ensure_ascii=False)}\n"
+        f"Response body (first 500 chars): {str(exc.body)[:500] if hasattr(exc, 'body') else 'N/A'}"
     )
+
+    logger.critical(error_msg, exc_info=True)
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -95,18 +90,14 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
     Loguje szczegóły HTTP errors (404, 401, 403, etc.) dla debugowania.
     """
-    logger.warning(
-        f"HTTP {exc.status_code}: {request.method} {request.url.path} - {exc.detail}",
-        extra={
-            "request_method": request.method,
-            "request_url": str(request.url),
-            "request_path": request.url.path,
-            "status_code": exc.status_code,
-            "detail": exc.detail,
-            "headers": dict(exc.headers) if exc.headers else None,
-        },
-        exc_info=False,
+    # Format logowania przyjazny dla GCP (textPayload)
+    error_msg = (
+        f"HTTP {exc.status_code}: {request.method} {request.url.path}\n"
+        f"Detail: {exc.detail}\n"
+        f"Headers: {dict(exc.headers) if exc.headers else 'None'}"
     )
+
+    logger.warning(error_msg, exc_info=False)
 
     return JSONResponse(
         status_code=exc.status_code,
@@ -130,18 +121,16 @@ async def global_exception_handler(request: Request, exc: Exception):
         JSONResponse z kodem 500 i bezpiecznym komunikatem błędu
     """
     tb = traceback.format_exc()
-    logger.error(
-        f"Unhandled exception: {request.method} {request.url.path} - {exc}",
-        extra={
-            "request_method": request.method,
-            "request_url": str(request.url),
-            "request_path": request.url.path,
-            "exception_type": type(exc).__name__,
-            "exception_message": str(exc),
-            "traceback": tb,
-        },
-        exc_info=True,
+
+    # Format logowania przyjazny dla GCP (textPayload)
+    error_msg = (
+        f"Unhandled exception: {request.method} {request.url.path}\n"
+        f"Exception type: {type(exc).__name__}\n"
+        f"Exception message: {str(exc)}\n"
+        f"Traceback:\n{tb}"
     )
+
+    logger.error(error_msg, exc_info=True)
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
