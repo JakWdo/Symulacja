@@ -941,7 +941,7 @@ class WorkflowInstantiateRequest(BaseModel):
     template_id jest w path parametrze, nie w body.
 
     Pola:
-    - project_id: UUID projektu
+    - project_id: UUID projektu (string lub UUID object - auto konwersja)
     - workflow_name: Custom nazwa (jeśli None - użyj template.name)
 
     Przykład request:
@@ -952,11 +952,15 @@ class WorkflowInstantiateRequest(BaseModel):
     }
     """
 
-    project_id: UUID = Field(..., description="UUID projektu")
+    project_id: UUID = Field(..., description="UUID projektu (accepts string or UUID)")
     workflow_name: str | None = Field(
         None,
         description="Custom nazwa (jeśli None - użyj template.name)"
     )
+
+    # Pydantic v2 automatic validation: str -> UUID conversion
+    # Jeśli frontend wyśle string UUID, Pydantic automatycznie konwertuje
+    # Jeśli string nie jest valid UUID, rzuci ValidationError z clear message
 
 
 class TemplateInstantiateRequest(BaseModel):
