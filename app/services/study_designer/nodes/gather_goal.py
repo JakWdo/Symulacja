@@ -31,6 +31,10 @@ from app.services.study_designer.state_schema import (
 
 logger = logging.getLogger(__name__)
 
+# Circuit breaker config
+MAX_PARSE_RETRIES = 3  # Max liczba prób parsowania JSON
+FALLBACK_GOAL = "Użytkownik chce przeprowadzić badanie"  # Generic fallback goal
+
 
 async def gather_goal_node(state: ConversationState) -> ConversationState:
     """
@@ -47,9 +51,20 @@ async def gather_goal_node(state: ConversationState) -> ConversationState:
         - Dodaje assistant message
         - Aktualizuje state['study_goal'] jeśli cel wyekstraktowany
         - Pozostaje w 'gather_goal' stage lub przechodzi do 'define_audience'
+
+    Circuit Breaker:
+        - Jeśli parsing JSON failuje > MAX_PARSE_RETRIES, używa fallback i przechodzi dalej
+        - Zapobiega infinite loop z niepoprawnym JSON od LLM
     """
     session_id = state["session_id"]
-    logger.info(f"[Gather Goal] Session {session_id}: Processing user message")
+
+    # Pobierz retry count (inicjalizuj jeśli nie istnieje)
+    parse_retry_count = state.get("gather_goal_parse_retries", 0)
+
+    logger.info(
+        f"[Gather Goal] Session {session_id}: Processing user message "
+        f"(retry count: {parse_retry_count}/{MAX_PARSE_RETRIES})"
+    )
 
     # Pobierz ostatnią wiadomość użytkownika
     user_message = get_last_user_message(state)
@@ -97,8 +112,42 @@ async def gather_goal_node(state: ConversationState) -> ConversationState:
         )
 
     except Exception as e:
-        logger.error(f"[Gather Goal] Session {session_id}: LLM call failed: {e}")
-        # Fallback response
+        logger.error(
+            f"[Gather Goal] Session {session_id}: LLM call failed: {e}",
+            exc_info=True,
+            extra={"alert": True},  # Alert w GCP Logs
+        )
+
+        # Increment retry counter
+        parse_retry_count += 1
+        state["gather_goal_parse_retries"] = parse_retry_count
+
+        # Circuit breaker: Po MAX_RETRIES użyj fallback i przejdź dalej
+        if parse_retry_count >= MAX_PARSE_RETRIES:
+            logger.warning(
+                f"[Gather Goal] Session {session_id}: Circuit breaker triggered! "
+                f"Max retries ({MAX_PARSE_RETRIES}) exceeded. Using fallback goal.",
+                extra={"alert": True},
+            )
+
+            # Użyj fallback goal i przejdź do następnego stage
+            state["study_goal"] = FALLBACK_GOAL
+            state["study_goal_confirmed"] = False  # Mark as unconfirmed
+            state["current_stage"] = "define_audience"
+
+            add_message(
+                state,
+                "assistant",
+                "Rozumiem, że chcesz przeprowadzić badanie. Przejdźmy dalej - "
+                "opowiedz mi o grupie docelowej dla tego badania.",
+            )
+
+            # Reset retry counter
+            state["gather_goal_parse_retries"] = 0
+
+            return state
+
+        # Retry: Poproś ponownie
         add_message(
             state,
             "assistant",
@@ -106,6 +155,9 @@ async def gather_goal_node(state: ConversationState) -> ConversationState:
             "Czy mógłbyś ponownie opisać cel Twojego badania?",
         )
         return state
+
+    # Success! Reset retry counter
+    state["gather_goal_parse_retries"] = 0
 
     # Dodaj assistant message
     assistant_message = llm_output.get("assistant_message", "")

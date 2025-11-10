@@ -38,12 +38,21 @@ class ConversationStateMachine:
 
     Attributes:
         graph: Skompilowany LangGraph StateGraph
+        config: LangGraph config z recursion_limit
     """
+
+    # LangGraph config - zwiększony recursion_limit dla complex conversations
+    LANGGRAPH_CONFIG = {
+        "recursion_limit": 50,  # Zwiększono z domyślnych 25 → 50
+        "configurable": {},
+    }
 
     def __init__(self):
         """Inicjalizuje state machine i buduje graph."""
         self.graph = self._build_graph()
-        logger.info("[State Machine] Initialized successfully")
+        logger.info(
+            f"[State Machine] Initialized successfully with recursion_limit={self.LANGGRAPH_CONFIG['recursion_limit']}"
+        )
 
     def _build_graph(self) -> StateGraph:
         """
@@ -203,8 +212,8 @@ class ConversationStateMachine:
             # Dodaj user message do state (nodes będą go pobierać)
             state["messages"].append({"role": "user", "content": user_message})
 
-            # Run graph from current stage
-            result = await self.graph.ainvoke(state)
+            # Run graph from current stage with config (recursion_limit)
+            result = await self.graph.ainvoke(state, config=self.LANGGRAPH_CONFIG)
 
             logger.info(
                 f"[State Machine] Message processed, new stage: {result.get('current_stage')}"
@@ -214,7 +223,8 @@ class ConversationStateMachine:
 
         except Exception as e:
             logger.error(
-                f"[State Machine] Failed to process message for session {session_id}: {e}"
+                f"[State Machine] Failed to process message for session {session_id}: {e}",
+                exc_info=True,
             )
             raise
 
