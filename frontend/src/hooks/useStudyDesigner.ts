@@ -14,7 +14,6 @@ import {
   listSessions,
   type SessionCreateRequest,
 } from '../api/studyDesigner';
-import { useNavigate } from 'react-router-dom';
 
 // === QUERY KEYS ===
 
@@ -30,17 +29,16 @@ export const studyDesignerKeys = {
  * Hook do tworzenia nowej sesji Study Designer
  */
 export function useCreateSession() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data?: SessionCreateRequest) => createSession(data),
     onSuccess: (response) => {
-      // Navigate to session
-      navigate(`/study-designer/${response.session.id}`);
-
       // Invalidate sessions list
       queryClient.invalidateQueries({ queryKey: studyDesignerKeys.sessions() });
+
+      // Note: Navigation is handled by the calling component (StudyDesignerView)
+      // by checking mutation.data and rendering ChatInterface conditionally
     },
   });
 }

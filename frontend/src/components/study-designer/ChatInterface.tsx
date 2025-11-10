@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import { useSession, useSendMessage } from '../../hooks/useStudyDesigner';
 import { MessageList } from './MessageList';
 import { UserInput } from './UserInput';
@@ -20,8 +19,12 @@ import { Alert, AlertDescription } from '../ui/alert';
 import { Skeleton } from '../ui/skeleton';
 import { Loader2, Rocket, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
-export const ChatInterface: React.FC = () => {
-  const { sessionId } = useParams<{ sessionId: string }>();
+interface ChatInterfaceProps {
+  sessionId: string;
+  onBack?: () => void;
+}
+
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId, onBack }) => {
   const [userMessage, setUserMessage] = useState('');
 
   // Queries

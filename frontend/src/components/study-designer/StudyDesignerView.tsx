@@ -9,8 +9,9 @@
  * - Loading states z Skeleton
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCreateSession } from '../../hooks/useStudyDesigner';
+import { ChatInterface } from './ChatInterface';
 import { Button } from '../ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
@@ -31,7 +32,15 @@ interface Props {
 }
 
 export const StudyDesignerView: React.FC<Props> = ({ onBack }) => {
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const createSessionMutation = useCreateSession();
+
+  // When session is created successfully, save sessionId
+  useEffect(() => {
+    if (createSessionMutation.data?.session?.id) {
+      setSessionId(createSessionMutation.data.session.id);
+    }
+  }, [createSessionMutation.data]);
 
   const handleStartSession = async () => {
     try {
@@ -41,6 +50,17 @@ export const StudyDesignerView: React.FC<Props> = ({ onBack }) => {
     }
   };
 
+  const handleBackFromChat = () => {
+    setSessionId(null);
+    // Optionally: cancel session on backend
+  };
+
+  // If session is active, show ChatInterface
+  if (sessionId) {
+    return <ChatInterface sessionId={sessionId} onBack={handleBackFromChat} />;
+  }
+
+  // Otherwise show landing page
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[1920px] w-full mx-auto p-4 md:p-6">
