@@ -121,7 +121,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId, onBack 
 
       {/* Main Content */}
       <div className="max-w-[1920px] w-full mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-5xl mx-auto space-y-6">
           {/* Status Alerts */}
           {isExecuting && (
             <Alert className="rounded-[8px] bg-info/10 border-info/20">
