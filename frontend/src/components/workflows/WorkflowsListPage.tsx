@@ -24,7 +24,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Plus,
   FolderOpen,
   Copy,
   Trash2,
@@ -34,7 +33,6 @@ import {
 } from 'lucide-react';
 
 import { useWorkflows, useDeleteWorkflow, useDuplicateWorkflow } from '@/hooks/useWorkflows';
-import { TemplateSelectionDialog } from './TemplateSelectionDialog';
 import { WorkflowNameDialog } from './WorkflowNameDialog';
 import { workflowTemplates } from './templateMetadata';
 import type { Workflow } from '@/types';
@@ -53,7 +51,6 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
   // State
   // ============================================
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isNameDialogOpen, setIsNameDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -112,6 +109,20 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
   };
 
   const handleCreateFromTemplate = (templateId: string) => {
+    // UUID regex validation
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (!projectId) {
+      toast.error('Brak projektu. Wybierz projekt przed utworzeniem workflow.');
+      return;
+    }
+
+    if (!UUID_REGEX.test(projectId)) {
+      console.error('❌ Invalid projectId format:', projectId);
+      toast.error('Nieprawidłowy format ID projektu. Odśwież stronę i spróbuj ponownie.');
+      return;
+    }
+
     // Find template metadata
     const template = workflowTemplates.find((t) => t.id === templateId);
     if (template) {
@@ -158,23 +169,9 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
       <CardContent className="py-12 text-center">
         <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
         <p className="text-foreground mb-2">No workflows yet</p>
-        <p className="text-sm text-muted-foreground mb-4">
-          Create your first workflow or start from a template
+        <p className="text-sm text-muted-foreground">
+          Switch to the <strong>Templates</strong> tab to create your first workflow from a template
         </p>
-        <div className="flex gap-2 justify-center">
-          <Button
-            onClick={() => setIsDialogOpen(true)}
-            className="bg-brand-orange hover:bg-brand-orange/90 text-white"
-          >
-            Create Workflow
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setIsDialogOpen(true)}
-          >
-            Browse Templates
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
@@ -249,8 +246,26 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
   // Main Render
   // ============================================
 
-  // Default projectId dla przykładu (można pobrać z URL lub context)
-  const effectiveProjectId = projectId || 'default-project-id';
+  // Walidacja projectId - wymagany dla tworzenia workflows
+  if (!projectId) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Project Required
+            </CardTitle>
+            <CardDescription>
+              Please select a project to view and create workflows
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  const effectiveProjectId = projectId;
 
   return (
     <div className="h-screen flex flex-col max-w-[1920px] mx-auto p-6">
@@ -275,13 +290,6 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
             <p className="text-sm text-muted-foreground">
               {workflows?.length || 0} workflow{workflows?.length !== 1 ? 's' : ''}
             </p>
-            <Button
-              onClick={() => setIsDialogOpen(true)}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-white gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              New Workflow
-            </Button>
           </div>
 
           {isLoading && renderLoading()}
@@ -335,18 +343,6 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Template Selection Dialog - for "New Workflow" button (full selection) */}
-      <TemplateSelectionDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        projectId={effectiveProjectId}
-        onWorkflowCreated={(workflow) => {
-          if (onSelectWorkflow) {
-            onSelectWorkflow(workflow);
-          }
-        }}
-      />
 
       {/* Workflow Name Dialog - for template gallery "Use Template" (direct instantiate) */}
       {selectedTemplate && (

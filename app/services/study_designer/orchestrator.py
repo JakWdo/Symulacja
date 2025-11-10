@@ -192,6 +192,93 @@ class StudyDesignerOrchestrator:
 
         return session
 
+    async def process_user_message_stream(
+        self, session_id: UUID, user_message: str
+    ):
+        """
+        Streaming version of process_user_message.
+        Yields MessageChunk objects during processing dla SSE.
+
+        Args:
+            session_id: UUID sesji
+            user_message: Treść wiadomości od użytkownika
+
+        Yields:
+            MessageChunk: Partial assistant messages during generation
+        """
+        from app.schemas.study_designer import MessageChunk
+        from datetime import datetime
+
+        # Load session
+        session = await self._load_session(session_id)
+
+        # Save user message immediately
+        user_msg = StudyDesignerMessage(
+            session_id=session_id,
+            role="user",
+            content=user_message,
+            created_at=datetime.utcnow(),
+        )
+        self.db.add(user_msg)
+        await self.db.flush()
+
+        # Deserialize conversation state
+        state = deserialize_state(session.conversation_state)
+        original_message_count = len(state.get("messages", []))
+
+        # Stream from state machine
+        final_state = None
+        async for state_update in self.state_machine.process_message_stream(
+            state, user_message
+        ):
+            final_state = state_update
+
+            # Extract new messages
+            new_messages = state_update.get("messages", [])[original_message_count:]
+
+            for msg in new_messages:
+                if msg["role"] == "assistant":
+                    yield MessageChunk(
+                        role="assistant",
+                        content=msg["content"],
+                        is_complete=False,
+                    )
+
+            # Update count for next iteration
+            original_message_count = len(state_update.get("messages", []))
+
+        # Save final state to DB
+        if final_state:
+            session.conversation_state = serialize_state(final_state)
+            session.current_stage = final_state.get("current_stage", session.current_stage)
+            session.status = final_state.get("status", session.status)
+
+            # Check if plan was generated
+            if final_state.get("generated_plan"):
+                session.generated_plan = final_state["generated_plan"]
+                session.status = "plan_ready"
+
+            # Save new assistant messages
+            new_messages = final_state.get("messages", [])[len(state.get("messages", [])):]
+            for msg in new_messages:
+                if msg["role"] == "assistant":
+                    db_msg = StudyDesignerMessage(
+                        session_id=session_id,
+                        role="assistant",
+                        content=msg["content"],
+                        created_at=datetime.utcnow(),
+                    )
+                    self.db.add(db_msg)
+
+            await self.db.commit()
+
+        # Yield completion event
+        yield MessageChunk(
+            role="assistant",
+            content="",
+            is_complete=True,
+        )
+
     async def approve_plan(self, session_id: UUID, user_id: UUID) -> StudyDesignerSession:
         """
         Zatwierdza plan i triggeruje wykonanie badania.

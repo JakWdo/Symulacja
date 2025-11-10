@@ -288,6 +288,24 @@ async def instantiate_template(
         f"  - template_id: {template_id}"
     )
 
+    # Explicit validation dla lepszych error messages
+    if not request.project_id:
+        logger.warning(
+            f"Missing project_id for template instantiation",
+            extra={
+                "template_id": template_id,
+                "user_id": str(current_user.id),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "message": "project_id is required",
+                "field": "project_id",
+                "hint": "Please provide a valid project UUID",
+            },
+        )
+
     service = WorkflowTemplateService()
 
     try:

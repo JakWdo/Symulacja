@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useSession, useSendMessage } from '../../hooks/useStudyDesigner';
+import { useSession, useSendMessageStream } from '../../hooks/useStudyDesigner';
 import { MessageList } from './MessageList';
 import { UserInput } from './UserInput';
 import { PlanPreview } from './PlanPreview';
@@ -29,25 +29,36 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId, onBack 
 
   // Queries
   const { data: session, isLoading, error } = useSession(sessionId);
-  const sendMessageMutation = useSendMessage(sessionId!);
+
+  // NOWY: Streaming hook (zamiast mutation)
+  const {
+    sendMessage,
+    isStreaming,
+    streamedMessage,
+    error: streamError,
+  } = useSendMessageStream(sessionId!);
 
   // Auto-scroll effect
   useEffect(() => {
-    if (session?.messages) {
-      // Scroll to bottom when new messages arrive
+    if (session?.messages || streamedMessage) {
+      // Scroll to bottom when new messages arrive or streaming
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
-  }, [session?.messages?.length]);
+  }, [session?.messages?.length, streamedMessage]);
 
   // Handle send message
   const handleSendMessage = async () => {
-    if (!userMessage.trim()) return;
+    if (!userMessage.trim() || isStreaming) return;
+
+    const messageToSend = userMessage;
+    setUserMessage(''); // Clear input immediately
 
     try {
-      await sendMessageMutation.mutateAsync(userMessage);
-      setUserMessage(''); // Clear input
+      await sendMessage(messageToSend);
     } catch (err) {
       console.error('Failed to send message:', err);
+      // Restore message on error
+      setUserMessage(messageToSend);
     }
   };
 
@@ -153,7 +164,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId, onBack 
           {/* Messages */}
           <MessageList
             messages={session.messages || []}
-            isLoading={sendMessageMutation.isPending}
+            isLoading={isStreaming}
+            streamingMessage={streamedMessage}
           />
 
           {/* Plan Preview (if generated) */}
@@ -174,8 +186,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId, onBack 
                 onChange={setUserMessage}
                 onSend={handleSendMessage}
                 onKeyPress={handleKeyPress}
-                disabled={sendMessageMutation.isPending}
-                isLoading={sendMessageMutation.isPending}
+                disabled={isStreaming}
+                isLoading={isStreaming}
+                placeholder={isStreaming ? "AI odpowiada..." : "Wpisz wiadomość..."}
               />
             </div>
           )}

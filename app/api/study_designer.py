@@ -14,12 +14,14 @@ Endpoints:
 
 from __future__ import annotations
 
+import json
 import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sse_starlette.sse import EventSourceResponse
 
 from app.api.dependencies import get_current_user, get_db
 from app.models.user import User
@@ -28,6 +30,7 @@ from app.services.study_designer.orchestrator import StudyDesignerOrchestrator
 from app.schemas.study_designer import (
     SessionCreate,
     SessionCreateResponse,
+    MessageChunk,
     MessageSend,
     MessageSendResponse,
     PlanApproval,
@@ -121,14 +124,13 @@ async def send_message(
     # Verify user owns this session
     await orchestrator.get_session(session_id, user.id)
 
-    # Count messages before
-    stmt = select(StudyDesignerSession).where(StudyDesignerSession.id == session_id)
-    result = await db.execute(stmt)
-    session_before = result.scalar_one()
-
+    # Count messages before (single query with eager loading)
     from sqlalchemy.orm import selectinload
 
-    stmt = stmt.options(selectinload(StudyDesignerSession.messages))
+    stmt = select(StudyDesignerSession).where(
+        StudyDesignerSession.id == session_id
+    ).options(selectinload(StudyDesignerSession.messages))
+
     result = await db.execute(stmt)
     session_before = result.scalar_one()
 
@@ -151,6 +153,73 @@ async def send_message(
         new_messages=[MessageResponse.from_orm(msg) for msg in new_messages],
         plan_ready=(session.status == "plan_ready"),
     )
+
+
+@router.post("/sessions/{session_id}/message/stream")
+async def send_message_stream(
+    session_id: UUID,
+    data: MessageSend,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    SSE streaming endpoint dla Study Designer Chat.
+    Zwraca partial messages w real-time podczas przetwarzania.
+
+    Args:
+        session_id: UUID sesji
+        data: MessageSend z treścią wiadomości
+
+    Returns:
+        EventSourceResponse ze stream'em MessageChunk objects
+
+    Events:
+        - status: Initial status message
+        - message: Partial assistant messages (MessageChunk)
+        - error: Error details jeśli wystąpi błąd
+    """
+    logger.info(f"User {user.id} sending message (STREAM) to session {session_id}")
+
+    orchestrator = StudyDesignerOrchestrator(db)
+
+    # Verify user owns this session
+    await orchestrator.get_session(session_id, user.id)
+
+    async def event_generator():
+        try:
+            # Initial status event
+            yield {
+                "event": "status",
+                "data": json.dumps({"message": "Przetwarzanie pytania..."})
+            }
+
+            # Stream from orchestrator
+            async for chunk in orchestrator.process_user_message_stream(
+                session_id, data.message
+            ):
+                yield {
+                    "event": "message",
+                    "data": chunk.model_dump_json()
+                }
+
+        except HTTPException as e:
+            # Forward HTTP errors (timeout, etc)
+            logger.error(f"SSE stream HTTP error: {e.status_code} - {e.detail}")
+            yield {
+                "event": "error",
+                "data": json.dumps({
+                    "status_code": e.status_code,
+                    "detail": e.detail
+                })
+            }
+        except Exception as e:
+            logger.error(f"SSE stream error: {e}", exc_info=True)
+            yield {
+                "event": "error",
+                "data": json.dumps({"detail": str(e)})
+            }
+
+    return EventSourceResponse(event_generator())
 
 
 @router.post("/sessions/{session_id}/approve", response_model=SessionResponse)

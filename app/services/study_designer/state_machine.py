@@ -11,9 +11,11 @@ welcome → gather_goal → define_audience → select_method
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Literal
 
+from fastapi import HTTPException, status
 from langgraph.graph import StateGraph, END
 from app.services.study_designer.state_schema import ConversationState
 from app.services.study_designer.nodes import (
@@ -213,7 +215,22 @@ class ConversationStateMachine:
             state["messages"].append({"role": "user", "content": user_message})
 
             # Run graph from current stage with config (recursion_limit)
-            result = await self.graph.ainvoke(state, config=self.LANGGRAPH_CONFIG)
+            # Timeout 45s (bezpiecznie poniżej Cloud Run 60s default timeout)
+            try:
+                result = await asyncio.wait_for(
+                    self.graph.ainvoke(state, config=self.LANGGRAPH_CONFIG),
+                    timeout=45.0
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    f"[State Machine] Timeout exceeded (45s) for session {session_id}, "
+                    f"stage: {current_stage}",
+                    extra={"alert": True}
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                    detail="Przetwarzanie czatu przekroczyło limit czasu (45s). Spróbuj ponownie z prostszym pytaniem."
+                )
 
             logger.info(
                 f"[State Machine] Message processed, new stage: {result.get('current_stage')}"
@@ -221,9 +238,80 @@ class ConversationStateMachine:
 
             return result
 
+        except HTTPException:
+            # Re-raise HTTPException (timeout error)
+            raise
         except Exception as e:
             logger.error(
                 f"[State Machine] Failed to process message for session {session_id}: {e}",
+                exc_info=True,
+            )
+            raise
+
+    async def process_message_stream(
+        self, state: ConversationState, user_message: str
+    ):
+        """
+        Streaming version using LangGraph .astream().
+        Yields state updates after each node execution dla SSE.
+
+        Args:
+            state: Current conversation state
+            user_message: User's message to process
+
+        Yields:
+            ConversationState: Partial state updates during graph execution
+
+        Raises:
+            HTTPException: Jeśli timeout exceeded (45s)
+            Exception: Jeśli graph execution failuje
+        """
+        session_id = state.get("session_id", "unknown")
+        current_stage = state.get("current_stage", "unknown")
+
+        logger.info(
+            f"[State Machine] STREAMING message for session {session_id}, "
+            f"stage: {current_stage}"
+        )
+
+        try:
+            # Add user message to state
+            state["messages"].append({"role": "user", "content": user_message})
+
+            # Stream with timeout - używamy .astream() zamiast .ainvoke()
+            try:
+                async for state_update in asyncio.wait_for(
+                    self.graph.astream(
+                        state,
+                        config=self.LANGGRAPH_CONFIG,
+                        stream_mode="updates"  # Yields deltas after each node
+                    ),
+                    timeout=45.0
+                ):
+                    logger.debug(f"[State Machine] Stream update: {list(state_update.keys())}")
+
+                    # Merge update into state
+                    for key, value in state_update.items():
+                        state[key] = value
+
+                    # Yield updated state
+                    yield state
+
+            except asyncio.TimeoutError:
+                logger.error(
+                    f"[State Machine] Stream timeout (45s) for session {session_id}",
+                    extra={"alert": True}
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                    detail="Przetwarzanie czatu przekroczyło limit czasu (45s). Spróbuj ponownie."
+                )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(
+                f"[State Machine] Stream failed for session {session_id}: {e}",
                 exc_info=True,
             )
             raise

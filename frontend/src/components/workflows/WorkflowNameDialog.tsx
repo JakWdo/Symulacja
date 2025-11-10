@@ -78,8 +78,24 @@ export function WorkflowNameDialog({
    * Handle workflow creation
    */
   const handleCreate = () => {
+    // Debug logging
+    console.group('🔍 Creating workflow from template');
+    console.log('Template ID:', templateId);
+    console.log('Template Name:', templateName);
+    console.log('Project ID:', projectId);
+    console.log('Workflow Name:', workflowName.trim());
+    console.groupEnd();
+
     if (!projectId || !templateId) {
       toast.error('Missing project or template ID');
+      return;
+    }
+
+    // UUID validation
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_REGEX.test(projectId)) {
+      console.error('❌ Invalid projectId:', projectId);
+      toast.error('Invalid project ID format');
       return;
     }
 
@@ -95,6 +111,7 @@ export function WorkflowNameDialog({
       },
       {
         onSuccess: (workflow) => {
+          console.log('✅ Workflow created successfully:', workflow);
           toast.success(`Workflow "${workflow.name}" created!`);
           onOpenChange(false);
           setWorkflowName(''); // Reset for next time
@@ -103,6 +120,8 @@ export function WorkflowNameDialog({
           }
         },
         onError: (error: any) => {
+          console.error('❌ Failed to create workflow:', error);
+          console.error('Error details:', error.response?.data);
           toast.error(`Failed to create workflow: ${error.message}`);
         },
       }

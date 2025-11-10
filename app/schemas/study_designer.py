@@ -102,3 +102,24 @@ class SessionListResponse(BaseModel):
 
     sessions: list[SessionResponse]
     total: int
+
+
+class MessageChunk(BaseModel):
+    """
+    Streaming chunk dla SSE events.
+    Reprezentuje partial assistant message podczas streamingu.
+    """
+
+    role: Literal["assistant"]
+    content: str
+    is_complete: bool = False
+    metadata: dict = Field(default_factory=dict)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "role": "assistant",
+                "content": "Rozumiem, że chcesz zbadać...",
+                "is_complete": False,
+            }
+        }

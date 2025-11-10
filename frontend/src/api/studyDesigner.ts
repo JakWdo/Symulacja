@@ -161,3 +161,68 @@ export async function listSessions(
   });
   return response.data;
 }
+
+/**
+ * Interface dla streaming chunk
+ */
+export interface MessageChunk {
+  role: 'assistant';
+  content: string;
+  is_complete: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * SSE stream dla wysyłania wiadomości (streaming version)
+ * Yields partial messages w real-time jak ChatGPT
+ */
+export async function* sendMessageStream(
+  sessionId: string,
+  message: string
+): AsyncGenerator<MessageChunk, void, unknown> {
+  const token = localStorage.getItem('access_token');
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/study-designer/sessions/${sessionId}/message/stream`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ message }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`SSE error: ${response.status}`);
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            yield data as MessageChunk;
+          } catch (e) {
+            console.error('Failed to parse SSE data:', e);
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}

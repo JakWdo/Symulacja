@@ -18,15 +18,20 @@ import type { Message } from '../../api/studyDesigner';
 interface Props {
   messages: Message[];
   isLoading?: boolean;
+  streamingMessage?: string; // NEW: Partial message being streamed
 }
 
-export const MessageList: React.FC<Props> = ({ messages, isLoading = false }) => {
+export const MessageList: React.FC<Props> = ({
+  messages,
+  isLoading = false,
+  streamingMessage = '',
+}) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  }, [messages.length, streamingMessage]);
 
   return (
     <div className="space-y-4">
@@ -102,8 +107,27 @@ export const MessageList: React.FC<Props> = ({ messages, isLoading = false }) =>
         );
       })}
 
-      {/* Loading indicator */}
-      {isLoading && (
+      {/* Streaming message (partial response) */}
+      {isLoading && streamingMessage && (
+        <div className="flex gap-3 justify-start">
+          <Avatar className="w-10 h-10 flex-shrink-0">
+            <AvatarFallback className="bg-brand/10 text-brand">
+              <Bot className="w-5 h-5" />
+            </AvatarFallback>
+          </Avatar>
+
+          <Card className="p-4 bg-background border-border rounded-[8px]">
+            <div className="prose prose-sm max-w-none">
+              <ReactMarkdown>{streamingMessage}</ReactMarkdown>
+              {/* Blinking cursor */}
+              <span className="inline-block w-2 h-4 bg-brand animate-pulse ml-1" />
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Loading indicator (gdy streaming message pusty) */}
+      {isLoading && !streamingMessage && (
         <div className="flex gap-3 justify-start">
           <Avatar className="w-10 h-10 flex-shrink-0">
             <AvatarFallback className="bg-brand/10 text-brand">

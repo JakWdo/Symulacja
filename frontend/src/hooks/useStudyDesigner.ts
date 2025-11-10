@@ -4,11 +4,13 @@
  * TanStack Query hooks dla Study Designer Chat.
  */
 
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createSession,
   getSession,
   sendMessage,
+  sendMessageStream,
   approvePlan,
   cancelSession,
   listSessions,
@@ -119,4 +121,57 @@ export function useSessionsList(limit = 20, offset = 0) {
     queryKey: [...studyDesignerKeys.sessions(), limit, offset],
     queryFn: () => listSessions(limit, offset),
   });
+}
+
+/**
+ * Hook do streaming messages (SSE version)
+ * Używa async generator do real-time updates
+ */
+export function useSendMessageStream(sessionId: string) {
+  const queryClient = useQueryClient();
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamedMessage, setStreamedMessage] = useState('');
+  const [error, setError] = useState<Error | null>(null);
+
+  const sendMessage = async (message: string) => {
+    setIsStreaming(true);
+    setStreamedMessage('');
+    setError(null);
+
+    try {
+      for await (const chunk of sendMessageStream(sessionId, message)) {
+        if (chunk.is_complete) {
+          // Stream zakończony
+          setIsStreaming(false);
+          setStreamedMessage('');
+
+          // Odśwież session data z serwera
+          queryClient.invalidateQueries({
+            queryKey: studyDesignerKeys.session(sessionId),
+          });
+        } else {
+          // Akumuluj content
+          setStreamedMessage((prev) => {
+            // Jeśli to nowy message (różny od poprzedniego)
+            if (!prev || chunk.content.startsWith(prev)) {
+              return chunk.content;
+            }
+            return prev + chunk.content;
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Stream error:', err);
+      setError(err as Error);
+      setIsStreaming(false);
+      throw err;
+    }
+  };
+
+  return {
+    sendMessage,
+    isStreaming,
+    streamedMessage,
+    error,
+  };
 }
