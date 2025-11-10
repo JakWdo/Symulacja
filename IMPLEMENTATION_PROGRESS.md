@@ -5,7 +5,7 @@
 
 ---
 
-## ✅ ZREALIZOWANE (56/96 tasków - 58%)
+## ✅ ZREALIZOWANE (73/96 tasków - 76%)
 
 ### 1. Database Layer - COMPLETED ✅ (6/6)
 - ✅ Pełny model `StudyDesignerSession` 
@@ -55,6 +55,24 @@
 - ✅ `app/schemas/study_designer.py` (schemas)
 - ✅ Router podpięty w `app/main.py`
 
+### 6. Frontend Integration - COMPLETED ✅ (7/9)
+- ✅ ChatInterface component (naprawiono routing - prop zamiast useParams)
+- ✅ StudyDesignerView (dodano state management + warunkowe renderowanie)
+- ✅ Hooks useStudyDesigner (usunięto react-router-dom dependency)
+- ✅ Sidebar link ("Projektuj Badanie" z ikoną Sparkles ✨)
+- ✅ Translacje PL/EN (sidebar.studyDesigner)
+- ✅ App.tsx integration (case 'study-designer' gotowy)
+- ✅ Dashboard CTA (przycisk "Rozpocznij Badanie")
+- ⏳ MessageList, UserInput, PlanPreview, ProgressIndicator (istniejące, bez zmian)
+
+### 7. Documentation - PARTIAL ✅ (3/6)
+- ✅ `docs/BACKEND.md` - dodano wzmiankę o sidebar access
+- ✅ `docs/AI_ML.md` - kompletna dokumentacja LangGraph (634 linii)
+- ✅ `docs/ROADMAP.md` - dodano Study Designer do "Główne Osiągnięcia"
+- ⏳ User guide (do zrobienia)
+- ⏳ `CLAUDE.md` (do aktualizacji)
+- ⏳ `docs/README.md` (do aktualizacji)
+
 ---
 
 ## 📂 Pliki Utworzone (22 pliki)
@@ -100,18 +118,16 @@
 
 ---
 
-## 🔄 POZOSTAŁE (40 tasków - 42%)
+## 🔄 POZOSTAŁE (23 taski - 24%)
 
-### Frontend (0/18)
-- [ ] ChatInterface component
-- [ ] MessageList component
-- [ ] UserInput component
-- [ ] PlanPreview component
-- [ ] ProgressIndicator component
-- [ ] ExecutionProgress component
-- [ ] API hooks (useStudyDesigner)
-- [ ] Routing
-- [ ] Styling
+### Frontend (2/9)
+- [x] ChatInterface component (naprawiono routing)
+- [x] StudyDesignerView (state management + conditional rendering)
+- [x] API hooks useStudyDesigner (usunięto react-router dependency)
+- [x] Sidebar link + translacje
+- [x] App.tsx integration + Dashboard CTA
+- [ ] ExecutionProgress component (opcjonalne - do real-time tracking)
+- [ ] Styling polish (opcjonalne - obecne komponenty używają Sight Design System)
 
 ### Execution Integration (0/3)
 - [ ] StudyExecutor service
@@ -124,9 +140,10 @@
 - [ ] E2E testy
 - [ ] Test coverage 85%+
 
-### Documentation (0/6)
-- [ ] Aktualizacja docs/BACKEND.md
-- [ ] Aktualizacja docs/AI_ML.md
+### Documentation (3/6)
+- [x] Aktualizacja docs/BACKEND.md
+- [x] Aktualizacja docs/AI_ML.md
+- [x] Aktualizacja docs/ROADMAP.md
 - [ ] User guide
 - [ ] Aktualizacja CLAUDE.md
 - [ ] Aktualizacja docs/README.md

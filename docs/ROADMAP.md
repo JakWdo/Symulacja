@@ -52,6 +52,7 @@ Szczegółowa dokumentacja techniczna znajduje się w:
 
 ✅ **Produkcyjny Backend**: 60+ endpoints, async-first, event sourcing
 ✅ **Hybrydowy System RAG**: Vector + keyword + graph search
+✅ **Study Designer Chat**: Konwersacyjne projektowanie badań (LangGraph, 7 etapów)
 ✅ **Wysoka Jakość**: 87% test coverage, 444 testy
 ✅ **Wydajność**: Wszystkie SLA targets spełnione
 ✅ **CI/CD**: Automated deployment w 7-12 min

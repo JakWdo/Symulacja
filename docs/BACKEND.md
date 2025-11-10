@@ -435,6 +435,8 @@ class PersonaOrchestrationService:
 
 **Study Designer Chat** to konwersacyjny system projektowania badań UX oparty na AI. Wykorzystuje **LangGraph** (state machine framework) do prowadzenia użytkownika przez wieloetapowy proces definiowania celu badania, grupy docelowej, metody badawczej i konfiguracji szczegółów. Po zebraniu informacji generuje kompletny plan badania z estymacją kosztów i czasu.
 
+**Dostęp UI:** Funkcja dostępna przez stały link w sidebar (ikona Sparkles ✨) oraz CTA card w dashboardzie. Warunkowe renderowanie: landing page → ChatInterface po utworzeniu sesji.
+
 **Główne Komponenty:**
 - Konwersacyjny interfejs oparty na LangGraph StateGraph
 - 7 etapów przepływu: welcome → gather_goal → define_audience → select_method → configure_details → generate_plan → await_approval
