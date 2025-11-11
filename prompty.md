@@ -124,7 +124,7 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 25. api/dashboard.py cleanup ✅ (279→278 linii, usunięto datetime)
 - [x] 26. api/study_designer.py cleanup ✅ (330 linii - brak martwego kodu)
 - [x] 27. schemas/project.py cleanup ✅ (219 linii - brak martwego kodu)
-- [ ] 28. schemas/dashboard.py cleanup
+- [x] 28. schemas/dashboard.py cleanup ✅ (287 linii, usunięto nieużywany import Field)
 
 ### 🟡 P1: Backend Services Folders
 - [ ] 29. services/personas/ folder structure
@@ -373,10 +373,11 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
 
 ---
 
-#### 28. 🟡 [Backend Schemas] - schemas/dashboard.py
+#### 28. ✅ [Backend Schemas] - schemas/dashboard.py
 
 Przejrzyj `app/schemas/dashboard.py` (sprawdź rozmiar i zakres). Przed: `wc -l app/schemas/dashboard.py && rg -n "from app.schemas.dashboard import" app tests`. Jeśli >500 linii, wyodrębnij `dashboard_metrics.py` i `dashboard_usage.py` i zaktualizuj importy. Po: `pytest tests/integration/test_dashboard_api.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [✅] Grep [✅] Podział [N/A] Importy [✅] Fixes [✅] Testy [✅] Działa.
+**Wynik**: 287 linii - poniżej progu 500 linii. Usunięto nieużywany import `Field` z Pydantic. Używany tylko w `app/api/dashboard.py`.
 
 ---
 
