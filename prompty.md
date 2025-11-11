@@ -44,7 +44,12 @@ Każdy prompt wymaga wykonania 6 kroków:
 1. **[ ] Grep:** Znajdź wszystkie zależności przed zmianami
 2. **[ ] Podział:** Podziel plik na moduły według specyfikacji
 3. **[ ] Importy:** Zaktualizuj wszystkie importy w zależnych plikach
-4. **[ ] Fixes:** Napraw TODO/hardcoded/deprecated code
+4. **[ ] Fixes:** Napraw TODO/hardcoded/deprecated code + **USUŃ NIEUŻYWANY KOD**
+   - Przeszukaj nieużywane importy (`rg` lub IDE)
+   - Usuń nieużywane funkcje i zmienne
+   - Usuń nieużywane parametry funkcji
+   - Usuń zakomentowany martwy kod
+   - Dla Python: można użyć `autoflake --remove-all-unused-imports --remove-unused-variables`
 5. **[ ] Testy:** Uruchom testy regresyjne (`pytest -v`)
 6. **[ ] Działa:** Zweryfikuj działanie (`docker-compose restart` lub `npm run build`)
 
