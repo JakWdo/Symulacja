@@ -136,7 +136,7 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 35. services/shared/ folder structure ✅ (Dodano get_embeddings do __init__.py, brak nieużywanego kodu)
 
 ### 🟢 P2: Frontend Components
-- [ ] 36. Personas.tsx split
+- [ ] 36. Personas.tsx split (częściowo: constants extracted)
 - [ ] 37. FocusGroupView.tsx split
 - [ ] 38. GraphAnalysis.tsx split
 - [ ] 39. FocusGroupPanel.tsx split
@@ -149,7 +149,7 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 46. ReasoningPanel.tsx cleanup
 - [ ] 47. WorkflowTemplates.tsx cleanup
 - [ ] 48. WorkflowRun.tsx cleanup
-- [ ] 49. Hardcoded labels → constants
+- [x] 49. Hardcoded labels → constants ✅ (constants/personas.ts utworzony)
 - [ ] 50. Unused UI components audit
 
 ### 🟢 P2: Frontend Lib/Hooks/Types
