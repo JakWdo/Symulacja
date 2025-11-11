@@ -47,7 +47,7 @@ from .prompt_templates import (
     create_persona_prompt,
     create_segment_persona_prompt,
 )
-from .statistical_validation import validate_distribution
+from ..validation.statistical_validation import validate_distribution
 from .rag_integration import get_rag_context_for_persona
 
 

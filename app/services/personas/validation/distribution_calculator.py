@@ -71,7 +71,7 @@ class DistributionBuilder:
                 continue
             if numeric > 0:
                 cleaned[str(key)] = numeric
-        return normalize_weights(cleaned) if cleaned else None
+        return DistributionBuilder.normalize_weights(cleaned) if cleaned else None
 
     @staticmethod
     def select_weighted(distribution: dict[str, float]) -> str | None:
@@ -373,7 +373,7 @@ class DistributionBuilder:
                 else:
                     adjusted[label] *= 0.6
 
-        normalized = normalize_weights(adjusted)
+        normalized = DistributionBuilder.normalize_weights(adjusted)
         return normalized if normalized else dict(age_groups)
 
     @staticmethod
@@ -389,13 +389,13 @@ class DistributionBuilder:
             Adjusted genders distribution
         """
         if balance == 'female_skew':
-            return normalize_weights({
+            return DistributionBuilder.normalize_weights({
                 'female': 0.65,
                 'male': 0.3,
                 'non-binary': 0.05,
             })
         if balance == 'male_skew':
-            return normalize_weights({
+            return DistributionBuilder.normalize_weights({
                 'male': 0.65,
                 'female': 0.3,
                 'non-binary': 0.05,
@@ -425,24 +425,24 @@ class DistributionBuilder:
 
         if cities:
             city_weights = {city: 1 / len(cities) for city in cities}
-            return normalize_weights(city_weights)
+            return DistributionBuilder.normalize_weights(city_weights)
 
         if countries:
             labels = [f"{country} - Urban hub" for country in countries]
-            return normalize_weights({label: 1 / len(labels) for label in labels})
+            return DistributionBuilder.normalize_weights({label: 1 / len(labels) for label in labels})
 
         urbanicity = advanced_options.get('urbanicity')
         if urbanicity == 'urban':
             return base_locations
         if urbanicity == 'suburban':
-            return normalize_weights({
+            return DistributionBuilder.normalize_weights({
                 'Suburban Midwest, USA': 0.25,
                 'Suburban Northeast, USA': 0.25,
                 'Sunbelt Suburb, USA': 0.2,
                 'Other': 0.3,
             })
         if urbanicity == 'rural':
-            return normalize_weights({
+            return DistributionBuilder.normalize_weights({
                 'Rural Midwest, USA': 0.35,
                 'Rural South, USA': 0.25,
                 'Mountain Town, USA': 0.2,

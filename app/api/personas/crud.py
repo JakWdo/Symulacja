@@ -340,7 +340,7 @@ async def bulk_delete_personas(
     elif deleted_count > 0:
         message = f"Deleted {deleted_count} persona(s), {failed_count} failed. Check failed_ids for details."
     else:
-        message = f"Failed to delete all personas. Check failed_ids for details."
+        message = "Failed to delete all personas. Check failed_ids for details."
 
     return PersonaBulkDeleteResponse(
         deleted_count=deleted_count,

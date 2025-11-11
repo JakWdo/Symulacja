@@ -10,7 +10,7 @@ from scipy import stats
 from typing import Any
 from config import features
 
-from .demographic_sampling import DemographicDistribution
+from ..generation.demographic_sampling import DemographicDistribution
 
 
 def validate_distribution(
