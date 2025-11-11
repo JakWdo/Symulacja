@@ -302,24 +302,27 @@ Prompt (krótki): Przejrzyj `app/api/projects.py` (zarządzanie projektami + dem
 
 ---
 
-#### 19. 🟡 [Backend Schemas] - schemas/workflow.py (994 linii)
+#### 19. ✅ [Backend Schemas] - schemas/workflow.py (994 linii → podzielony)
 
 Przejrzyj `app/schemas/workflow.py` (zbyt wiele modeli w jednym miejscu). Przed: `rg -n "from app.schemas.workflow import" app tests` i zinwentaryzuj importy. Podziel na `workflow_base.py` i `workflow_nodes.py`; zaktualizuj importy w `app/api/workflows.py`, `app/services/workflows/`, `tests/`. Po: `pytest tests/unit/services/workflows/test_workflow_validator.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [✅] Grep [✅] Podział [✅] Importy (wrapper) [✅] Fixes [✅] Testy [✅] Działa.
+**Wynik**: Podzielono na workflow_base.py (480 linii), workflow_nodes.py (589 linii), wrapper (120 linii). 14 plików importujących zachowało backward compatibility.
 
 ---
 
-#### 20. 🟡 [Backend Schemas] - schemas/persona.py
+#### 20. ✅ [Backend Schemas] - schemas/persona.py
 
 Przejrzyj `app/schemas/persona.py` (sprawdź rozmiar i zakres). Przed: `wc -l app/schemas/persona.py && rg -n "from app.schemas.persona import" app tests`. Jeśli >500 linii, wydziel `persona_generation.py` i `persona_details.py`; zaktualizuj importy w `app/api/personas/`, `tests/`. Po: `pytest tests/unit/test_persona_generator.py -v tests/unit/test_persona_orchestration.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [✅] Grep [✅] Podział [N/A] Importy [N/A] Fixes [✅] Testy [✅] Działa.
+**Wynik**: 477 linii - poniżej progu 500 linii, **bez zmian potrzebnych**.
 
 ---
 
-#### 21. 🟡 [Backend Schemas] - schemas/focus_group.py
+#### 21. ✅ [Backend Schemas] - schemas/focus_group.py
 
 Przejrzyj `app/schemas/focus_group.py` (sprawdź rozmiar i zakres). Przed: `wc -l app/schemas/focus_group.py && rg -n "from app.schemas.focus_group import" app tests`. Jeśli >500 linii, wydziel `focus_group_base.py`, `focus_group_responses.py`, `focus_group_summaries.py` i zaktualizuj importy. Po: `pytest tests/unit/test_focus_group_service.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [✅] Grep [✅] Podział [N/A] Importy [N/A] Fixes [✅] Testy [✅] Działa.
+**Wynik**: 131 linii - poniżej progu 500 linii, **bez zmian potrzebnych**.
 
 ---
 
