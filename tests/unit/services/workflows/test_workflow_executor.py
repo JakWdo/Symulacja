@@ -24,8 +24,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Project, User
 from app.models.workflow import Workflow, WorkflowExecution
-from app.services.workflows.workflow_executor import WorkflowExecutor
-from app.services.workflows.workflow_validator import ValidationResult
+from app.services.workflows.execution import WorkflowExecutor
+from app.services.workflows.validation import ValidationResult
 
 
 # ==================== 1. EXECUTION ORCHESTRATION TESTS ====================

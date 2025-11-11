@@ -12,7 +12,7 @@ from pydantic import BaseModel
 import logging
 
 from app.db.session import get_db
-from app.services.workflows.workflow_executor import WorkflowExecutor
+from app.services.workflows.execution import WorkflowExecutor
 
 router = APIRouter(prefix="/internal", tags=["Internal"])
 logger = logging.getLogger(__name__)

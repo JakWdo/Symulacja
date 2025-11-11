@@ -20,8 +20,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.workflow import Workflow
-from app.services.workflows.workflow_template_service import WorkflowTemplateService
-from app.services.workflows.workflow_validator import WorkflowValidator
+from app.services.workflows.templates import WorkflowTemplateService
+from app.services.workflows.validation import WorkflowValidator
 
 
 # ==================== TEMPLATE RETRIEVAL TESTS ====================

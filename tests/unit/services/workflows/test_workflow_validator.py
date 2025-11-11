@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Project, User
 from app.models.workflow import Workflow
-from app.services.workflows.workflow_validator import WorkflowValidator
+from app.services.workflows.validation import WorkflowValidator
 
 
 # ==================== 1. EMPTY WORKFLOW TESTS ====================

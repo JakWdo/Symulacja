@@ -26,7 +26,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.workflow import Workflow, WorkflowExecution
-from app.services.workflows.workflow_validator import WorkflowValidator
+from app.services.workflows.validation import WorkflowValidator
 from app.services.workflows.nodes import (
     AnalyzeResultsExecutor,
     CreateSurveyExecutor,
