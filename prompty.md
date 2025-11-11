@@ -143,9 +143,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 40. WorkflowEditor.tsx split
 - [ ] 41. PersonaPanel.tsx split
 - [ ] 42. AISummaryPanel.tsx split
-- [ ] 43. Surveys.tsx cleanup
-- [ ] 44. Dashboard.tsx cleanup
-- [ ] 45. ❌ ProjectSettings.tsx - NIE ISTNIEJE (jest Settings.tsx)
+- [x] 43. Surveys.tsx cleanup ✅ (506→222 linii + 4 komponenty: SurveysSkeleton, SurveysStats, SurveyCard, SurveysList)
+- [x] 44. Dashboard.tsx cleanup ✅ (nie wymaga refaktoryzacji: MainDashboard 130 linii, OverviewDashboard 444 linii - oba <500)
+- [x] 45. Settings.tsx cleanup ✅ (601→95 linii + 4 komponenty: ProfileSettings, BudgetSettings, AppearanceSettings, AccountSidebar)
 - [ ] 46. ❌ ReasoningPanel.tsx - NIE ISTNIEJE (jest PersonaReasoningPanel.tsx)
 - [ ] 47. ❌ WorkflowTemplates.tsx - NIE ISTNIEJE (jest WorkflowsListPage.tsx)
 - [ ] 48. ❌ WorkflowRun.tsx - NIE ISTNIEJE (sprawdź WorkflowsListPage/ExecutionHistory)

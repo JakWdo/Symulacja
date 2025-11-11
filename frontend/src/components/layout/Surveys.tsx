@@ -1,11 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
-import { MoreVertical, Plus, Users, Eye, BarChart3, Play, Trash2 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { BarChart3, Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { surveysApi, projectsApi } from '@/lib/api';
@@ -16,71 +12,12 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useState } from 'react';
 import { toast } from '@/components/ui/toastStore';
 import { useTranslation } from 'react-i18next';
+import { SurveysSkeleton } from '@/components/surveys/SurveysSkeleton';
+import { SurveysList } from '@/components/surveys/SurveysList';
 
 interface SurveysProps {
   onCreateSurvey: () => void;
   onSelectSurvey: (survey: Survey) => void;
-}
-
-// Skeleton component for loading state
-function SurveysSkeleton() {
-  return (
-    <div className="space-y-6">
-      {/* Stats skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[1, 2].map((i) => (
-          <Card key={i} className="bg-card border border-border shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-8 w-16" />
-                </div>
-                <Skeleton className="h-8 w-8 rounded-full" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Survey cards skeleton */}
-      <div className="space-y-4">
-        <Skeleton className="h-6 w-48" />
-        <div className="grid grid-cols-1 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="bg-card border border-border shadow-sm">
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-6 w-64" />
-                      <Skeleton className="h-5 w-20" />
-                    </div>
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                  <Skeleton className="h-8 w-8" />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-2 w-full" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-full" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
@@ -101,7 +38,6 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
     queryFn: projectsApi.getAll,
   });
 
-  // Fetch surveys for selected project
   const { data: surveys = [], isLoading } = useQuery({
     queryKey: ['surveys', selectedProject?.id],
     queryFn: () => surveysApi.getByProject(selectedProject!.id),
@@ -110,7 +46,6 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
     refetchOnMount: 'always',
     refetchOnReconnect: 'always',
     refetchInterval: (query) => {
-      // Poll every 3s if any survey is running
       const data = query.state.data;
       const hasRunningSurvey = data?.some((s: Survey) => s.status === 'running');
       return hasRunningSurvey ? 3000 : false;
@@ -118,7 +53,6 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
     refetchIntervalInBackground: true,
   });
 
-  // Run survey mutation
   const runMutation = useMutation({
     mutationFn: surveysApi.run,
     onSuccess: () => {
@@ -126,7 +60,6 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
     },
   });
 
-  // Delete survey mutation
   const deleteMutation = useMutation({
     mutationFn: surveysApi.delete,
     onSuccess: () => {
@@ -180,56 +113,6 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
     setDeleteDialog({ open: false, survey: null });
   };
 
-  const getStatusBadge = (status: Survey['status']) => {
-    switch (status) {
-      case 'completed':
-        return <Badge className="bg-brand-muted text-brand dark:text-brand">{t('status.completed')}</Badge>;
-      case 'running':
-        return (
-          <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400 flex items-center gap-1.5">
-            <SpinnerLogo className="w-3.5 h-3.5" />
-            {t('status.running')}
-          </Badge>
-        );
-      case 'draft':
-        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">{t('status.draft')}</Badge>;
-      case 'failed':
-        return <Badge className="bg-gray-500/10 text-gray-700 dark:text-gray-400">{t('status.failed')}</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
-    }
-  };
-
-  const statsSection = (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Card className="bg-card border border-border shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{t('tabs.all')}</p>
-              <p className="text-2xl font-bold text-brand">{surveys.length}</p>
-            </div>
-            <BarChart3 className="w-8 h-8 text-brand" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-card border border-border shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{t('tabs.allResponses')}</p>
-              <p className="text-2xl font-bold text-brand">
-                {surveys.reduce((sum, survey) => sum + survey.actual_responses, 0).toLocaleString()}
-              </p>
-            </div>
-            <Users className="w-8 h-8 text-brand" />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
   let bodyContent;
 
   if (!selectedProject) {
@@ -246,189 +129,22 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
     );
   } else if (isLoading) {
     bodyContent = <SurveysSkeleton />;
-  } else if (surveys.length === 0) {
-    bodyContent = (
-      <>
-        {statsSection}
-        <div className="space-y-4">
-          <h2 className="text-xl text-foreground">{t('list.title')}</h2>
-          <Card className="bg-card border border-border">
-            <CardContent className="p-12 text-center">
-              <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg text-card-foreground mb-2">{t('list.empty.title')}</h3>
-              <p className="text-muted-foreground mb-4">
-                {t('list.empty.description')}
-              </p>
-              <Button
-                onClick={onCreateSurvey}
-                className="bg-brand hover:bg-brand/90 text-brand-foreground"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                {t('list.empty.action')}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </>
-    );
   } else {
     bodyContent = (
-      <>
-        {statsSection}
-        <div className="space-y-4">
-          <h2 className="text-xl text-foreground">{t('list.title')}</h2>
-          <div className="grid grid-cols-1 gap-4">
-            {surveys.map((survey) => {
-              const progress = survey.target_responses > 0
-                ? (survey.actual_responses / survey.target_responses) * 100
-                : 0;
-
-              return (
-                <Card
-                  key={survey.id}
-                  className={`bg-card border hover:shadow-md transition-shadow shadow-sm ${survey.status === 'running' ? 'border-brand/50 shadow-[0_0_0_1px_rgba(242,116,5,0.08)]' : 'border-border'}`}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 space-y-4">
-                        {/* Header */}
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="text-lg text-card-foreground">{survey.title}</h3>
-                              {getStatusBadge(survey.status)}
-                            </div>
-                            {survey.description && (
-                              <p className="text-sm text-muted-foreground mb-2">
-                                {survey.description}
-                              </p>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                              {survey.questions.length} {survey.questions.length === 1 ? 'pytanie' : survey.questions.length < 5 ? 'pytania' : 'pytań'}
-                            </p>
-                          </div>
-
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              {survey.status === 'completed' && (
-                                <DropdownMenuItem onClick={() => onSelectSurvey(survey)}>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  {t('list.card.viewResults')}
-                                </DropdownMenuItem>
-                              )}
-                              {survey.status === 'draft' && (
-                                <DropdownMenuItem onClick={() => handleRunSurvey(survey)}>
-                                  <Play className="w-4 h-4 mr-2" />
-                                  {t('list.card.launch')}
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteSurvey(survey)}
-                                className="text-red-600 dark:text-red-400"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                {t('list.card.delete')}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        {/* Progress and Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">{t('list.card.progress')}</span>
-                              <span className="text-card-foreground">
-                                {survey.actual_responses.toLocaleString()} / {survey.target_responses.toLocaleString()}
-                              </span>
-                            </div>
-                            <Progress value={progress} className="h-2" />
-                            <p className="text-xs text-muted-foreground">
-                              {t('list.card.completed', { progress: Math.round(progress) })}
-                            </p>
-                          </div>
-
-                          <div className="space-y-1">
-                            <p className="text-sm text-muted-foreground">{t('list.card.executionTime')}</p>
-                            <div className="space-y-1">
-                              {survey.total_execution_time_ms ? (
-                                <>
-                                  <p className="text-xs text-card-foreground">
-                                    {t('list.card.total')}: {(survey.total_execution_time_ms / 1000).toFixed(1)}s
-                                  </p>
-                                  {survey.avg_response_time_ms && (
-                                    <p className="text-xs text-card-foreground">
-                                      {t('list.card.average')}: {(survey.avg_response_time_ms / 1000).toFixed(2)}s {t('list.card.perResponse')}
-                                    </p>
-                                  )}
-                                </>
-                              ) : (
-                                <p className="text-xs text-card-foreground">
-                                  {survey.status === 'running'
-                                    ? t('list.card.running')
-                                    : survey.status === 'draft'
-                                    ? t('list.card.notStarted')
-                                    : t('list.card.na')}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        {survey.status === 'completed' ? (
-                          <div className="flex items-center gap-2 pt-2">
-                            <Button
-                              size="sm"
-                              onClick={() => onSelectSurvey(survey)}
-                              className="bg-brand hover:bg-brand/90 text-brand-foreground"
-                            >
-                              <Eye className="w-4 h-4 mr-2" />
-                              {t('list.card.viewResults')}
-                            </Button>
-                            <p className="text-xs text-muted-foreground ml-auto">
-                              {t('list.card.created', { date: new Date(survey.created_at).toLocaleDateString() })}
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 pt-2">
-                            {survey.status === 'draft' && (
-                              <Button
-                                size="sm"
-                                className="bg-brand hover:bg-brand/90 text-brand-foreground"
-                                onClick={() => handleRunSurvey(survey)}
-                                disabled={runMutation.isPending}
-                              >
-                                <Play className="w-4 h-4 mr-2" />
-                                {t('list.card.launch')}
-                              </Button>
-                            )}
-                            <p className="text-xs text-muted-foreground ml-auto">
-                              {t('list.card.created', { date: new Date(survey.created_at).toLocaleDateString() })}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      </>
+      <SurveysList
+        surveys={surveys}
+        onCreateSurvey={onCreateSurvey}
+        onSelectSurvey={onSelectSurvey}
+        onRunSurvey={handleRunSurvey}
+        onDeleteSurvey={handleDeleteSurvey}
+        isRunning={runMutation.isPending}
+      />
     );
   }
 
   return (
     <div className="w-full h-full overflow-y-auto">
       <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
-        {/* Header */}
         <PageHeader
           title={t('page.title')}
           subtitle={t('page.subtitle')}
