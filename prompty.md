@@ -133,7 +133,7 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 32. services/rag/ folder structure ✅ (Struktura search/, graph/, documents/, clients/)
 - [x] 33. services/focus_groups/ folder structure ✅ (Struktura discussion/, summaries/, memory/)
 - [x] 34. services/surveys/ folder structure ✅ (Importy zaktualizowane, struktura wystarczająca)
-- [ ] 35. services/shared/ folder structure
+- [x] 35. services/shared/ folder structure ✅ (Dodano get_embeddings do __init__.py, brak nieużywanego kodu)
 
 ### 🟢 P2: Frontend Components
 - [ ] 36. Personas.tsx split
