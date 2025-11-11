@@ -107,9 +107,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 15. dashboard usage_logging.py cleanup ✅ (usage_logging.py: 182 linii, brak print(), bez zmian)
 
 ### 🟡 P1: Backend API + Schemas
-- [ ] 16. api/personas/generation.py split
-- [ ] 17. api/workflows.py split
-- [ ] 18. api/projects.py split
+- [x] 16. api/personas/generation.py split ✅ (1360→394+224+804 linii: endpoints + orchestration + validation)
+- [x] 17. api/workflows.py split ✅ (879→442+286+207 linii: crud + execution + templates)
+- [x] 18. api/projects.py split ✅ (693→175+549 linii: crud + demographics)
 - [ ] 19. schemas/workflow.py split
 - [ ] 20. schemas/persona.py cleanup
 - [ ] 21. schemas/focus_group.py cleanup
