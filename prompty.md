@@ -127,9 +127,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 28. schemas/dashboard.py cleanup ✅ (287 linii, usunięto nieużywany import Field)
 
 ### 🟡 P1: Backend Services Folders
-- [ ] 29. services/personas/ folder structure
-- [ ] 30. services/dashboard/ folder structure
-- [ ] 31. services/workflows/ folder structure
+- [x] 29. services/personas/ folder structure ✅ (Fix importów wewnętrznych)
+- [x] 30. services/dashboard/ folder structure ✅ (Struktura metrics/, usage/, insights/, costs/)
+- [x] 31. services/workflows/ folder structure ✅ (Struktura execution/, templates/, validation/ + docs przeniesione)
 - [ ] 32. services/rag/ folder structure
 - [ ] 33. services/focus_groups/ folder structure
 - [ ] 34. services/surveys/ folder structure
