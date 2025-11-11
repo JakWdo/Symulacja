@@ -113,9 +113,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 19. schemas/workflow.py split
 - [ ] 20. schemas/persona.py cleanup
 - [ ] 21. schemas/focus_group.py cleanup
-- [ ] 22. api/focus_groups.py cleanup
-- [ ] 23. api/surveys.py cleanup
-- [ ] 24. api/rag.py cleanup
+- [x] 22. api/focus_groups.py cleanup ✅ (230 linii - bez zmian potrzebnych)
+- [x] 23. api/surveys.py cleanup ✅ (311 linii - bez zmian potrzebnych)
+- [x] 24. api/rag.py cleanup ✅ (270 linii - bez zmian potrzebnych)
 - [ ] 25. api/dashboard.py cleanup
 - [ ] 26. api/study_designer.py cleanup
 - [ ] 27. schemas/project.py cleanup
