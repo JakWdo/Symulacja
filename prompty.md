@@ -3,7 +3,7 @@
 **Projekt:** Sight AI-powered Focus Groups Platform
 **Ścieżka:** `.` (ścieżki repo‑relatywne)
 **Data utworzenia:** 2025-11-11
-**Scope:** 75 promptów cleanup dla redukcji długu technicznego
+**Scope:** 114 zadań cleanup dla redukcji długu technicznego
 **Cel:** Modularyzacja kodu (max 700 linii/plik), usunięcie TODO/hardcoded values, optymalizacja struktury
 
 ---
@@ -20,7 +20,14 @@
    - [🟢 P2: Frontend Lib/Hooks/Types (51-58)](#p2-frontend-libhookstypes)
    - [🟢 P2: Tests (59-66)](#p2-tests)
    - [🟢 P2: Config & Scripts (67-70)](#p2-config--scripts)
-   - [🔵 P3: Documentation (71-75)](#p3-documentation)
+   - [🟠 P2.5: Audyt Poprzednich Refaktoryzacji (71-80)](#p25-audyt-poprzednich-refaktoryzacji)
+   - [🟠 P2.6: Audyt Post-Split (81-85)](#p26-audyt-post-split)
+   - [🟡 P2.7: Backend Re-Split (86-88)](#p27-backend-re-split)
+   - [🔴 P0: Security & Critical (89-94)](#p0-security--critical)
+   - [🟡 P1: Features & Infrastructure (95-99)](#p1-features--infrastructure)
+   - [🟢 P2: Performance & Tech Debt (100-104)](#p2-performance--tech-debt)
+   - [🟢 P2.8: Repository Cleanup (105-109)](#p28-repository-cleanup)
+   - [🔵 P3: Documentation (110-114)](#p3-documentation)
 4. [Appendix: Komendy i Narzędzia](#appendix-komendy-i-narzędzia)
 
 ---
@@ -29,13 +36,13 @@
 
 ### Kolejność Wykonywania
 
-**KRYTYCZNE:** Wykonuj prompty SEKWENCYJNIE według numeracji 1→75. Nie pomijaj kroków!
+**KRYTYCZNE:** Wykonuj prompty SEKWENCYJNIE według numeracji 1→114. Nie pomijaj kroków!
 
 **Priorytety:**
-- 🔴 **P0 (1-15):** Krytyczne - backend core services (wykonaj w ciągu 1-2 dni)
-- 🟡 **P1 (16-35):** Wysokie - backend API + folders (wykonaj w ciągu 3-5 dni)
-- 🟢 **P2 (36-70):** Średnie - frontend + tests + config (wykonaj w ciągu 1-2 tygodni)
-- 🔵 **P3 (71-75):** Niskie - dokumentacja (wykonaj w ciągu 1 miesiąca)
+- 🔴 **P0 (1-15, 89-94):** Krytyczne - backend core services + security (wykonaj w ciągu 1-2 dni)
+- 🟡 **P1 (16-35, 86-88, 95-99):** Wysokie - backend API/folders + features (wykonaj w ciągu 3-5 dni)
+- 🟢 **P2 (36-70, 71-85, 100-109):** Średnie - frontend + tests + audyty + performance (wykonaj w ciągu 1-2 tygodni)
+- 🔵 **P3 (110-114):** Niskie - dokumentacja (wykonaj w ciągu 1 miesiąca)
 
 ### Workflow Per Prompt
 
@@ -75,11 +82,16 @@ gh pr create --title "Cleanup: Prompt XX - Opis" --label cleanup
 ### Breakpoints (Commit Points)
 
 **Zalecane punkty commit po zakończeniu:**
-- Prompt 15 (P0 complete) → Merge do main
-- Prompt 35 (P1 complete) → Merge do main
-- Prompt 58 (Frontend complete) → Merge do main
-- Prompt 70 (P2 complete) → Merge do main
-- Prompt 75 (All complete) → Celebrate! 🎉
+- Prompt 15 (P0 Backend Core) → Merge do main
+- Prompt 35 (P1 Backend API) → Merge do main
+- Prompt 58 (Frontend Lib/Hooks) → Merge do main
+- Prompt 70 (P2 Config & Scripts) → Merge do main
+- Prompt 80 (P2.5 Audyt) → Merge do main
+- Prompt 88 (P2.7 Re-Split) → Merge do main
+- Prompt 94 (P0 Security) → Merge do main
+- Prompt 99 (P1 Features) → Merge do main
+- Prompt 109 (P2.8 Cleanup) → Merge do main
+- Prompt 114 (All complete) → Celebrate! 🎉
 
 ### Konwencje i Guardrails
 
@@ -179,96 +191,277 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 70. Cache cleanup ✅ (usunięto 8 plików cache, utworzono scripts/cleanup_cache.sh)
 
 ### 🟠 P2.5: Audyt Poprzednich Refaktoryzacji (NOWE - 2025-11-11)
-- [x] 76. Backend: Audyt nieużywanych importów po zadaniach 1-35 ✅ (6 naprawionych)
-- [x] 77. Frontend: Usunięcie martwego kodu (GraphAnalysis.tsx, etc.) ✅ (897 linii)
-- [x] 78. Backend: Sprawdzenie TODO/FIXME z zadań 1-35 ✅ (5 TODO skatalogowanych)
-- [ ] 79. Frontend: Audyt komponentów UI shadcn (50+ plików)
-- [ ] 80. Backend: Sprawdzenie BackgroundTasks usage
-- [ ] 81. Full repo: Znajdź duplikaty kodu (copy-paste)
-- [ ] 82. Frontend: Sprawdź nieużywane hooki i utility functions
-- [ ] 83. Backend: Sprawdź czy stare serwisy mają deprecated metody
-- [ ] 84. Tests: Usuń martwe fixtures i test utilities
-- [ ] 85. Global: Sprawdź nieużywane dependencies (requirements.txt, package.json)
+- [x] 71. Backend: Audyt nieużywanych importów po zadaniach 1-35 ✅ (6 naprawionych)
+- [x] 72. Frontend: Usunięcie martwego kodu (GraphAnalysis.tsx, etc.) ✅ (897 linii)
+- [x] 73. Backend: Sprawdzenie TODO/FIXME z zadań 1-35 ✅ (5 TODO skatalogowanych)
+- [ ] 74. Frontend: Audyt komponentów UI shadcn (50+ plików)
+- [ ] 75. Backend: Sprawdzenie BackgroundTasks usage
+- [ ] 76. Full repo: Znajdź duplikaty kodu (copy-paste)
+- [ ] 77. Frontend: Sprawdź nieużywane hooki i utility functions
+- [ ] 78. Backend: Sprawdź czy stare serwisy mają deprecated metody
+- [ ] 79. Tests: Usuń martwe fixtures i test utilities
+- [ ] 80. Global: Sprawdź nieużywane dependencies (requirements.txt, package.json)
 
-### 🔵 P3: Documentation
-- [ ] 71. docs/BACKEND.md - aktualizacja o refaktoryzacje 1-35 (service layer split, nowa struktura folderów)
-- [ ] 72. docs/AI_ML.md - aktualizacja o zmiany RAG (zadania 3,6), persona generation (1,4,8-10)
-- [ ] 73. docs/ROADMAP.md - dodaj "Completed 2024" (zadania 1-51), zaktualizuj Q1 2025 priorities (86-115)
-- [ ] 74. docs/CLAUDE.md - aktualizuj Referencję Kluczowych Plików po refaktoryzacjach, przykłady importów
-- [ ] 75. docs/README.md - zaktualizuj linki i opisy, dodaj nowe sekcje jeśli potrzebne
+### 🟠 P2.5: Audyt Poprzednich Refaktoryzacji
 
-### 🟠 P2.6: Audyt Post-Split (NOWE - 2025-11-11)
-- [ ] 86. Frontend: Audyt WorkflowEditor, PersonaPanel, AISummaryPanel po splitach - usuń nieużywane funkcje/importy/komponenty
-- [ ] 87. Frontend: Audyt Personas, FocusGroupView, Surveys, Settings po splitach - usuń nieużywane funkcje/importy/komponenty
-- [ ] 88. Backend: Audyt wszystkich plików po splitach 1-35 - usuń nieużywane funkcje/importy/klasy/helper functions
-- [ ] 89. Backend: Audyt nieużywanych utility functions i helper methods - usuń dead code (unreachable, commented out)
-- [ ] 90. Dependencies: Audyt package.json + requirements.txt - usuń nieużywane pakiety i dependencies
+**UWAGA:** Ta sekcja powstała 2025-11-11 po odkryciu martwego kodu (GraphAnalysis.tsx) i nieistniejących komponentów w oryginalnych zadaniach 36-48. Zadania 71-80 sprawdzają skutki poprzednich refaktoryzacji i usuwają martwy kod.
 
-### 🟡 P2.7: Backend Re-Split (pliki nadal >700 linii)
-- [ ] 91. hybrid_search_service.py ponowny split (1074→4 moduły: search_orchestrator, vector_search, keyword_search, fusion <400 linii)
-- [ ] 92. segment_brief_service.py ponowny split (820→3 moduły: brief_generator, brief_cache, brief_formatter <350 linii)
-- [ ] 93. dashboard_core.py split (674→3 moduły: dashboard_metrics, dashboard_usage, dashboard_costs <300 linii)
+#### 71. 🟠 [Backend Audit] - Nieużywane importy po zadaniach 1-35
 
-### 🔴 P0: Security & Critical (NOWE - Q4 2024)
-- [ ] 94. RBAC Implementation - role-based access control (Admin/Researcher/Viewer, middleware, decorators, migration users.role, tests 90%+)
-- [ ] 95. Security Audit - comprehensive security audit (OWASP, Bandit, Safety, manual code review, SQL injection, XSS, CSRF, secrets exposure)
-- [ ] 96. Staging Environment Setup - separate Cloud Run service + database dla testowania migrations przed production (CI/CD integration)
-- [ ] 97. Secrets Scanning w CI/CD - GitHub Actions workflow (TruffleHog, GitGuardian, gitleaks, automated scan, alerts dla findings)
-- [ ] 98. Automated Rollback - Cloud Run automatic rollback on health check failure (5xx >5%, latency >2s, rollback <2min, alerts Slack)
-
-### 🟡 P1: Features & Infrastructure (NOWE - Q1 2025)
-- [ ] 99. Export PDF/DOCX - generate PDF reports personas/focus groups/surveys (WeasyPrint, python-docx, charts, watermarks dla free tier, download <5s)
-- [ ] 101. Team Accounts - multi-user/team accounts (share projects, invite teammates, activity log, permissions, team dashboard)
-- [ ] 102. Enhanced Monitoring & Alerting - Cloud Monitoring dashboards, PagerDuty integration, alerts (error rate >5%, downtime, cost spikes, MTTR <20min)
-- [ ] 103. E2E Tests Expansion - expand E2E test suite 12→30+ testów (Playwright, cover critical paths: persona generation, focus groups, workflows 90%+)
-- [ ] 104. Multi-LLM Provider Support - abstraction layer multi-provider (Gemini, OpenAI, Anthropic, fallback chain, cost-based routing, tracking)
-- [ ] 105. Database Connection Pooling Optimization - optimize pool_size, overflow, timeout (pool_size 20, overflow 10, timeout 30s, 0 exhaustion errors)
-
-### 🟢 P2: Performance & Tech Debt (NOWE - Q1-Q2 2025)
-- [ ] 106. Bundle Size Reduction - frontend optimization (2.5MB→1.5MB, lazy loading, code splitting, tree shaking, Vite config, Lighthouse >80)
-- [ ] 107. Lazy Loading Routes - lazy load wszystkie route components (React.lazy, Suspense, initial load <1MB, route load <200ms)
-- [ ] 108. N+1 Query Problem - fix N+1 queries w loops (use selectinload/joinedload, API latency <300ms p90, 0 N+1 w critical paths)
-- [ ] 109. Neo4j Connection Leaks - fix connection leaks (context managers `async with`, memory usage stable, monitoring alerts)
-- [ ] 110. Missing Database Indexes - add indexes based on pg_stat_statements analysis (all queries <100ms p95, indexes documented)
-
-### 🟢 P2.8: Repository Cleanup (NOWE - 2025-11-11)
-- [ ] 111. Cleanup cache directories - usuń .pytest_cache, .ruff_cache, __pycache__, .pyc files (dodaj do .gitignore jeśli brak)
-- [ ] 112. Cleanup macOS files - usuń wszystkie .DS_Store files (dodaj do .gitignore)
-- [ ] 113. Archive/Delete obsolete .md files - przenieś do archive/ lub usuń: STUDY_DESIGNER_IMPLEMENTATION.md, STUDY_DESIGNER_SUMMARY.md, IMPLEMENTATION_PROGRESS.md, frontend/DARK_MODE_AUDIT_2025_11_08.md
-- [ ] 114. Cleanup root directory - uporządkuj root (przenieś DEMO_DATA_INFO.md do docs/ jeśli potrzebny, oceń docker-compose.prod.yml)
-- [ ] 115. Docker volumes cleanup - sprawdź czy docker-compose volumes są używane, cleanup nieużywanych (local Neo4j data, PostgreSQL data)
+Przejrzyj wszystkie moduły backendu zrefaktoryzowane w zadaniach 1-35 (sprawdź martwe importy po podziale plików).
+PRZED: `ruff check app/services --select F401 --statistics` && zanotuj liczbę nieużywanych importów.
+Cleanup: uruchom `ruff check app/services --select F401,F841 --fix` (usuwa unused imports i variables) + ręcznie sprawdź `app/api` i `tests/` czy nie ma importów do starych nieistniejących modułów + zaktualizuj wszystkie `__init__.py` pliki żeby eksportowały tylko używane symbole.
+PO: `ruff check app/ --select F401,F841 && pytest tests/unit -v && docker-compose restart api`.
+Checklist: [ ] Ruff statistics [ ] Auto-fix [ ] Manual review [ ] Update __init__ [ ] Pytest [ ] Działa.
 
 ---
 
-## 🧹 Prompty Cleanup - NOWE ZADANIA (86-115)
+#### 72. 🟠 [Frontend Audit] - Usunięcie martwego kodu
+
+Przejrzyj frontend i usuń komponenty które nie są używane nigdzie w aplikacji.
+PRZED: `rg -l "GraphAnalysis|import.*GraphAnalysis" frontend/src --glob "*.tsx" --glob "*.ts"` && zweryfikuj że GraphAnalysis.tsx jest używany tylko w samym sobie.
+Usuń martwe komponenty:
+- `frontend/src/components/layout/GraphAnalysis.tsx` (788 linii, 0 użyć)
+- Sprawdź routing w `App.tsx` czy nie ma martwych case'ów
+- Sprawdź czy `FigmaDashboard.tsx` jest używany (może być legacy)
+- Sprawdź `StatsOverlay.tsx`, `FloatingControls.tsx` (małe pliki, mogą być nieużywane)
+Usuń imports: `rg "import.*GraphAnalysis" frontend/src -l` i usuń wszystkie importy + zaktualizuj routing + **usuń nieużywany kod** (`npm run lint -- --fix`).
+PO: `cd frontend && npm run build && npm run preview && rg "GraphAnalysis" frontend/src` (powinno być 0 wyników).
+Checklist: [ ] Identify dead code [ ] Delete files [ ] Remove imports [ ] Update routing [ ] Fixes (lint) [ ] Build [ ] Działa.
+
+---
+
+#### 73. 🟠 [Backend Audit] - TODO/FIXME z zadań 1-35
+
+Przejrzyj TODO/FIXME markers pozostawione po refaktoryzacji zadań 1-35 i zdecyduj: fix now, create issue, or delete.
+PRZED: `rg "TODO|FIXME|XXX|HACK" app/services --glob "*.py" -n | tee /tmp/todos.txt && wc -l /tmp/todos.txt`.
+Kategoryzuj:
+- **Fix now:** TODO które są łatwe do naprawienia (np. cache TTL z config)
+- **Create GitHub issue:** Większe TODO wymagające osobnego zadania (np. weighted sampling)
+- **Delete:** Przestarzałe TODO z starego kodu
+Znalezione TODO:
+- `app/services/workflows/execution/workflow_executor.py:180` - Map node_id → WorkflowStep.id
+- `app/services/workflows/nodes/personas.py:100,107,175` - Integracja z segment-based generation
+- `app/services/workflows/validation/workflow_validator.py:422` - Validate template exists
+Napraw/utwórz issues/usuń + zaktualizuj kod + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
+PO: `rg "TODO|FIXME" app/services --glob "*.py" -n | wc -l` (powinno być <10) `&& pytest tests/unit -v`.
+Checklist: [ ] List TODOs [ ] Kategoryzuj [ ] Fix/Issue/Delete [ ] Update code [ ] Pytest [ ] Działa.
+
+---
+
+#### 74. 🟠 [Frontend Audit] - Komponenty UI shadcn (56 plików)
+
+Przejrzyj `frontend/src/components/ui/` (56 komponentów shadcn) i usuń nieużywane.
+PRZED: `ls frontend/src/components/ui/*.tsx | wc -l && for f in frontend/src/components/ui/*.tsx; do name=$(basename "$f" .tsx); uses=$(rg -l "@/components/ui/$name|components/ui/$name" frontend/src --glob "*.tsx" | grep -v "ui/$name.tsx" | wc -l); echo "$uses - $name"; done | sort -n | head -20`.
+Usuń komponenty z 0-1 użyciami (mogą być nieużywane):
+- Sprawdź `aspect-ratio.tsx`, `input-otp.tsx`, `breadcrumb.tsx`
+- Sprawdź `resizable.tsx`, `sonner.tsx`, `toggle-group.tsx`
+- Sprawdź `pagination.tsx`, `navigation-menu.tsx`
+Uwaga: zachowaj podstawowe (button, input, card, dialog, label, select, textarea, checkbox, radio-group, switch, slider, tabs, toast, tooltip, dropdown-menu, popover, avatar, badge, separator, skeleton, progress, alert, scroll-area, sheet, table).
+Usuń nieużywane + zaktualizuj `ui/index.ts` jeśli istnieje + **usuń nieużywany kod** (`npm run lint -- --fix`).
+PO: `cd frontend && npm run build && ls frontend/src/components/ui/*.tsx | wc -l` (powinno być <40).
+Checklist: [ ] List UI components [ ] Check usage [ ] Delete unused [ ] Update index [ ] Fixes (lint) [ ] Build [ ] Działa.
+
+---
+
+#### 75. 🟠 [Backend Audit] - BackgroundTasks usage
+
+Przejrzyj użycie `BackgroundTasks` w API - sprawdź czy po zadaniach 22-23 jest nadal potrzebny lub został zastąpiony asynchronicznymi taskami.
+PRZED: `rg "BackgroundTasks|background_tasks" app/api --glob "*.py" -n` && zanotuj wszystkie użycia.
+Znalezione użycia:
+- `app/api/rag.py` - używa BackgroundTasks
+- `app/api/personas/generation_endpoints.py` - używa BackgroundTasks
+Sprawdź czy te operacje mogą być wykonane synchronicznie async/await lub czy wymagają prawdziwych background tasks (Celery/Redis Queue). Jeśli operacje są szybkie (<2s), rozważ zamianę na bezpośrednie async calls. Jeśli długie (>5s), dodaj TODO dla Celery integration.
+Cleanup/decision + zaktualizuj kod + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
+PO: `rg "BackgroundTasks" app/api --glob "*.py" -n && pytest tests/integration -v`.
+Checklist: [ ] List usage [ ] Analyze necessity [ ] Decision (keep/remove/Celery) [ ] Update code [ ] Pytest [ ] Działa.
+
+---
+
+#### 76. 🟠 [Full Repo Audit] - Duplikaty kodu (copy-paste detection)
+
+Znajdź duplikaty kodu w całym repo (copy-paste anti-pattern) i wydziel do wspólnych utility functions.
+PRZED: zainstaluj `pip install vulture pylint` (dla Python) i użyj `rg` dla TypeScript patterns.
+Szukaj duplikatów:
+```bash
+# Python: funkcje >10 linii powtórzone 2+ razy
+rg "def \w+\(" app/ -A 10 | sort | uniq -cd | sort -rn | head -20
+
+# TypeScript: funkcje >10 linii powtórzone 2+ razy
+rg "function \w+\(|const \w+ = \(" frontend/src -A 10 | sort | uniq -cd | sort -rn | head -20
+```
+Znalezione duplikaty → wydziel do:
+- Backend: `app/services/shared/utils.py` lub domain-specific utils
+- Frontend: `frontend/src/lib/utils.ts` lub domain-specific utils
+Refaktoryzuj duplikaty + zaktualizuj importy + **usuń nieużywany kod** (ruff + npm lint).
+PO: `pytest tests/unit -v && cd frontend && npm run build`.
+Checklist: [ ] Detect duplicates [ ] Extract to utils [ ] Update imports [ ] Fixes (lint) [ ] Tests [ ] Działa.
+
+---
+
+#### 77. 🟠 [Frontend Audit] - Nieużywane hooki i utility functions
+
+Przejrzyj `frontend/src/hooks/` i `frontend/src/lib/` i usuń nieużywane hooki oraz utility functions.
+PRZED:
+```bash
+# Lista wszystkich hooks
+find frontend/src/hooks -name "*.ts" -o -name "*.tsx"
+
+# Dla każdego hooka sprawdź usage
+for hook in $(find frontend/src/hooks -name "use*.ts" -o -name "use*.tsx"); do
+  name=$(basename "$hook" .ts | sed 's/.tsx//')
+  uses=$(rg -l "$name" frontend/src --glob "*.tsx" --glob "*.ts" | grep -v "hooks/$name" | wc -l)
+  echo "$uses - $name"
+done | sort -n
+```
+Usuń hooki z 0 użyciami + sprawdź `lib/` utility functions (np. `formatters.ts`, `validators.ts`) + **usuń nieużywany kod** (`npm run lint -- --fix`).
+PO: `cd frontend && npm run build && npm run type-check`.
+Checklist: [ ] List hooks [ ] Check usage [ ] Delete unused [ ] Check lib utils [ ] Fixes (lint) [ ] Build [ ] Type-check.
+
+---
+
+#### 78. 🟠 [Backend Audit] - Deprecated metody w serwisach
+
+Przejrzyj serwisy backendu i usuń przestarzałe metody które nie są już używane po refaktoryzacji.
+PRZED: `rg "@deprecated|# deprecated|# legacy|# old" app/services --glob "*.py" -n` && zanotuj wszystkie deprecated markers.
+Sprawdź każdy serwis czy nie ma:
+- Metod oznaczonych `@deprecated` lub komentarzem `# deprecated`
+- Metod typu `legacy_*` lub `old_*`
+- Metod nie używanych nigdzie: `for method in $(rg "^    def \w+\(" app/services/surveys/survey_response_generator.py -o | sed 's/def //'); do echo "$method - $(rg "$method" app tests --glob "*.py" | wc -l)"; done`
+Przykład z zadania 11: `legacy_survey_format()` w survey_response_generator.py.
+Usuń deprecated metody + zaktualizuj testy + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
+PO: `rg "@deprecated|legacy_|old_" app/services --glob "*.py" -n && pytest tests/unit -v`.
+Checklist: [ ] Find deprecated [ ] Check usage [ ] Delete unused [ ] Update tests [ ] Fixes (ruff) [ ] Pytest [ ] Działa.
+
+---
+
+#### 79. 🟠 [Tests Audit] - Martwe fixtures i test utilities
+
+Przejrzyj `tests/fixtures/` i `tests/conftest.py` i usuń nieużywane fixtures oraz test utilities.
+PRZED:
+```bash
+# Lista wszystkich fixtures
+find tests/ -name "conftest.py" -o -name "*fixtures*" | xargs rg "^def \w+\(" -o | sed 's/def //' | sed 's/(//' | sort | uniq
+
+# Sprawdź usage każdej fixture
+for fixture in $(find tests/ -name "conftest.py" | xargs rg "@pytest.fixture" -A 1 | rg "^def \w+" -o | sed 's/def //'); do
+  uses=$(rg "$fixture" tests/ --glob "*.py" | grep -v "def $fixture" | wc -l)
+  echo "$uses - $fixture"
+done | sort -n | head -20
+```
+Usuń fixtures z 0-1 użyciami (poza fixtures używanymi jako dependencies innych fixtures) + sprawdź `tests/utils/` czy nie ma deprecated test helpers + konsoliduj duplikaty fixtures (zadanie 64).
+Cleanup + zaktualizuj testy + **usuń nieużywany kod** (`ruff check tests/ --select F401,F841 --fix`).
+PO: `pytest tests/ -v --collect-only && pytest tests/unit -v`.
+Checklist: [ ] List fixtures [ ] Check usage [ ] Delete unused [ ] Consolidate duplicates [ ] Fixes (ruff) [ ] Pytest [ ] Działa.
+
+---
+
+#### 80. 🟠 [Global Audit] - Nieużywane dependencies
+
+Przejrzyj `requirements.txt` i `frontend/package.json` i usuń nieużywane dependencies.
+PRZED:
+```bash
+# Python: sprawdź imports vs requirements
+pip install pipreqs
+pipreqs . --force --savepath /tmp/actual_requirements.txt
+diff requirements.txt /tmp/actual_requirements.txt
+
+# Frontend: sprawdź imports vs package.json
+npx depcheck frontend/
+```
+Backend - potencjalnie nieużywane:
+- Sprawdź czy wszystkie biblioteki w requirements.txt są importowane w app/
+- Sprawdź optionalne dependencies w pyproject.toml [llm-providers], [document-processing]
+
+Frontend - potencjalnie nieużywane:
+- Sprawdź devDependencies vs dependencies
+- Sprawdź czy biblioteki UI (lucide-react, radix-ui) są wszystkie używane
+
+Usuń nieużywane dependencies + zaktualizuj lockfiles + rebuild + **usuń nieużywany kod** (ruff + npm lint).
+PO: `pip install -r requirements.txt && cd frontend && npm install && npm run build && docker-compose build api`.
+Checklist: [ ] Analyze Python deps [ ] Analyze Node deps [ ] Delete unused [ ] Update lockfiles [ ] Rebuild [ ] Test [ ] Działa.
+
+---
+
+### 🟠 P2.6: Audyt Post-Split (NOWE - 2025-11-11)
+- [ ] 81. Frontend: Audyt WorkflowEditor, PersonaPanel, AISummaryPanel po splitach - usuń nieużywane funkcje/importy/komponenty
+- [ ] 82. Frontend: Audyt Personas, FocusGroupView, Surveys, Settings po splitach - usuń nieużywane funkcje/importy/komponenty
+- [ ] 83. Backend: Audyt wszystkich plików po splitach 1-35 - usuń nieużywane funkcje/importy/klasy/helper functions
+- [ ] 84. Backend: Audyt nieużywanych utility functions i helper methods - usuń dead code (unreachable, commented out)
+- [ ] 85. Dependencies: Audyt package.json + requirements.txt - usuń nieużywane pakiety i dependencies
+
+### 🟡 P2.7: Backend Re-Split (pliki nadal >700 linii)
+- [ ] 86. hybrid_search_service.py ponowny split (1074→4 moduły: search_orchestrator, vector_search, keyword_search, fusion <400 linii)
+- [ ] 87. segment_brief_service.py ponowny split (820→3 moduły: brief_generator, brief_cache, brief_formatter <350 linii)
+- [ ] 88. dashboard_core.py split (674→3 moduły: dashboard_metrics, dashboard_usage, dashboard_costs <300 linii)
+
+### 🔴 P0: Security & Critical (NOWE - Q4 2024)
+- [ ] 89. RBAC Implementation - role-based access control (Admin/Researcher/Viewer, middleware, decorators, migration users.role, tests 90%+)
+- [ ] 90. Security Audit - comprehensive security audit (OWASP, Bandit, Safety, manual code review, SQL injection, XSS, CSRF, secrets exposure)
+- [ ] 91. Staging Environment Setup - separate Cloud Run service + database dla testowania migrations przed production (CI/CD integration)
+- [ ] 92. Secrets Scanning w CI/CD - GitHub Actions workflow (TruffleHog, GitGuardian, gitleaks, automated scan, alerts dla findings)
+- [ ] 93. Automated Rollback - Cloud Run automatic rollback on health check failure (5xx >5%, latency >2s, rollback <2min, alerts Slack)
+
+### 🟡 P1: Features & Infrastructure (NOWE - Q1 2025)
+- [ ] 94. Export PDF/DOCX - generate PDF reports personas/focus groups/surveys (WeasyPrint, python-docx, charts, watermarks dla free tier, download <5s)
+- [ ] 95. Team Accounts - multi-user/team accounts (share projects, invite teammates, activity log, permissions, team dashboard)
+- [ ] 96. Enhanced Monitoring & Alerting - Cloud Monitoring dashboards, PagerDuty integration, alerts (error rate >5%, downtime, cost spikes, MTTR <20min)
+- [ ] 97. E2E Tests Expansion - expand E2E test suite 12→30+ testów (Playwright, cover critical paths: persona generation, focus groups, workflows 90%+)
+- [ ] 98. Multi-LLM Provider Support - abstraction layer multi-provider (Gemini, OpenAI, Anthropic, fallback chain, cost-based routing, tracking)
+- [ ] 99. Database Connection Pooling Optimization - optimize pool_size, overflow, timeout (pool_size 20, overflow 10, timeout 30s, 0 exhaustion errors)
+
+### 🟢 P2: Performance & Tech Debt (NOWE - Q1-Q2 2025)
+- [ ] 100. Bundle Size Reduction - frontend optimization (2.5MB→1.5MB, lazy loading, code splitting, tree shaking, Vite config, Lighthouse >80)
+- [ ] 101. Lazy Loading Routes - lazy load wszystkie route components (React.lazy, Suspense, initial load <1MB, route load <200ms)
+- [ ] 102. N+1 Query Problem - fix N+1 queries w loops (use selectinload/joinedload, API latency <300ms p90, 0 N+1 w critical paths)
+- [ ] 103. Neo4j Connection Leaks - fix connection leaks (context managers `async with`, memory usage stable, monitoring alerts)
+- [ ] 104. Missing Database Indexes - add indexes based on pg_stat_statements analysis (all queries <100ms p95, indexes documented)
+
+### 🟢 P2.8: Repository Cleanup (NOWE - 2025-11-11)
+- [ ] 105. Cleanup cache directories - usuń .pytest_cache, .ruff_cache, __pycache__, .pyc files (dodaj do .gitignore jeśli brak)
+- [ ] 106. Cleanup macOS files - usuń wszystkie .DS_Store files (dodaj do .gitignore)
+- [ ] 107. Archive/Delete obsolete .md files - przenieś do archive/ lub usuń: STUDY_DESIGNER_IMPLEMENTATION.md, STUDY_DESIGNER_SUMMARY.md, IMPLEMENTATION_PROGRESS.md, frontend/DARK_MODE_AUDIT_2025_11_08.md
+- [ ] 108. Cleanup root directory - uporządkuj root (przenieś DEMO_DATA_INFO.md do docs/ jeśli potrzebny, oceń docker-compose.prod.yml)
+- [ ] 109. Docker volumes cleanup - sprawdź czy docker-compose volumes są używane, cleanup nieużywanych (local Neo4j data, PostgreSQL data)
+
+### 🔵 P3: Documentation
+- [ ] 110. docs/BACKEND.md - aktualizacja o refaktoryzacje 1-35 (service layer split, nowa struktura folderów)
+- [ ] 111. docs/AI_ML.md - aktualizacja o zmiany RAG (zadania 3,6), persona generation (1,4,8-10)
+- [ ] 112. docs/ROADMAP.md - dodaj "Completed 2024" (zadania 1-51), zaktualizuj Q1 2025 priorities (86-115)
+- [ ] 113. docs/CLAUDE.md - aktualizuj Referencję Kluczowych Plików po refaktoryzacjach, przykłady importów
+- [ ] 114. docs/README.md - zaktualizuj linki i opisy, dodaj nowe sekcje jeśli potrzebne
+
+---
+
+## 🧹 Prompty Cleanup - NOWE ZADANIA (71-114)
 
 ### 🟠 P2.6: Audyt Post-Split
 
-#### 86. Frontend: Audyt WorkflowEditor, PersonaPanel, AISummaryPanel
+#### 81. Frontend: Audyt WorkflowEditor, PersonaPanel, AISummaryPanel
 
 Prompt: Audyt plików po splitach 40-42. Sprawdź `WorkflowEditor.tsx` (549→191), `PersonaPanel.tsx` (314→139), `AISummaryPanel.tsx` (253→78). Find unused: `npm run lint | grep -E "unused|never used"`. Remove unused imports, functions, components, variables. Fix all warnings. Verify: `npm run build && npm run lint` (0 warnings w tych plikach).
 
 ---
 
-#### 87. Frontend: Audyt Personas, FocusGroupView, Surveys, Settings
+#### 82. Frontend: Audyt Personas, FocusGroupView, Surveys, Settings
 
 Prompt: Audyt plików 36-37,43,45. Check `Personas.tsx` (653→488), `FocusGroupView.tsx` (972→637), `Surveys.tsx` (506→222), `Settings.tsx` (601→95). Find unused exports: `rg "export (const|function)" [plik] | cut -d: -f2`. Check if used: `rg "[name]" frontend/src`. Remove unused. Lint: `npm run lint`. Verify: `npm run build`.
 
 ---
 
-#### 88. Backend: Audyt plików po splitach 1-35
+#### 83. Backend: Audyt plików po splitach 1-35
 
 Prompt: Audyt backend po 1-35. Large files: `find app/services -name "*.py" -size +10k`. Check functions: `rg "^def |^class " [plik]`. Find unused: `rg "[func_name]" app tests` (0 results = unused). Remove unused functions, imports (`ruff check --select F401`), commented code. Verify: `pytest tests/unit -v`.
 
 ---
 
-#### 89. Backend: Audyt utility functions
+#### 84. Backend: Audyt utility functions
 
 Prompt: Find utils: `find app -name "*utils*.py" -o -name "*helpers*.py"`. List functions: `rg "^def " [plik]`. Check usage: `rg -c "[func]" app tests`. Remove 0-usage functions, dead code. Verify: `pytest -v`.
 
 ---
 
-#### 90. Dependencies audyt
+#### 85. Dependencies audyt
 
 Prompt: **Frontend**: `npm ls --depth=0 | cut -d@ -f1`. Check usage: `rg "from '[pkg]'|import '[pkg]'" frontend/src`. Remove unused: `npm uninstall [pkg]`. **Backend**: `pip freeze > installed.txt`. Check: `rg "^import|^from" app | sort -u`. Compare, remove unused: `pip uninstall [pkg]`. Verify: `npm run build && pytest -v`.
 
@@ -276,19 +469,19 @@ Prompt: **Frontend**: `npm ls --depth=0 | cut -d@ -f1`. Check usage: `rg "from '
 
 ### 🟡 P2.7: Backend Re-Split
 
-#### 91. hybrid_search_service.py re-split (1074→<400)
+#### 86. hybrid_search_service.py re-split (1074→<400)
 
 Prompt: Zadanie 3 failed (still 1074 lines). Split `app/services/rag/rag_hybrid_search_service.py` → 4 modules: `hybrid_search/search_orchestrator.py` (~300, main), `vector_search.py` (~350, pgvector), `keyword_search.py` (~250, Neo4j), `rrf_fusion.py` (~150, algorithm). Grep: `rg "RagHybridSearchService" app tests`. Update imports in `app/api/rag.py`. Verify: `pytest tests/unit/test_rag* -v && docker-compose restart api`. Each <400 lines.
 
 ---
 
-#### 92. segment_brief_service.py re-split (820→<350)
+#### 87. segment_brief_service.py re-split (820→<350)
 
 Prompt: Task 7 failed (still 820). Split `app/services/personas/segment_brief_service.py` → 3: `segment_brief/brief_generator.py` (~350, LLM logic), `brief_cache.py` (~250, Redis), `brief_formatter.py` (~200, formatting). Grep: `rg "SegmentBriefService" app`. Update imports. Verify: `pytest -k segment_brief -v`. Each <350.
 
 ---
 
-#### 93. dashboard_core.py split (674→<300)
+#### 88. dashboard_core.py split (674→<300)
 
 Prompt: Split `app/services/dashboard/dashboard_core.py` (674) → 3: `dashboard/dashboard_metrics.py` (~280), `dashboard_usage.py` (~220), `dashboard_costs.py` (~170). Grep: `rg "DashboardCore" app`. Update `app/api/dashboard.py` imports. Verify: `pytest -k dashboard -v`. Each <300.
 
@@ -296,31 +489,31 @@ Prompt: Split `app/services/dashboard/dashboard_core.py` (674) → 3: `dashboard
 
 ### 🔴 P0: Security & Critical
 
-#### 94. RBAC Implementation
+#### 89. RBAC Implementation
 
 Prompt: Implement RBAC (Admin/Researcher/Viewer). **Migration**: `alembic revision -m "add_user_role"` → add `users.role ENUM`. **Middleware**: `app/middleware/rbac.py` → `@requires_role('admin')` decorator. **API**: Protect endpoints (Admin: DELETE /users, Researcher: POST /personas, Viewer: GET only). **Tests**: `pytest tests/unit/test_rbac.py --cov=app/middleware/rbac` (90%+). Verify: role enforcement works, 403 on unauthorized.
 
 ---
 
-#### 95. Security Audit
+#### 90. Security Audit
 
 Prompt: Security audit. **OWASP**: SQL injection, XSS, CSRF checks. **Bandit**: `bandit -r app/ -ll` → fix high/medium. **Safety**: `safety check` → update vulnerable deps. **Manual**: JWT expiry, secrets in code (`rg "api_key|password|secret" app`). **Report**: Document findings + fixes. Success: 0 high/critical vulns, report ready.
 
 ---
 
-#### 96. Staging Environment
+#### 91. Staging Environment
 
 Prompt: Setup staging. **Cloud Run**: `sight-api-staging` service. **DB**: `sight-staging-db` Cloud SQL. **CI/CD**: `.github/workflows/deploy-staging.yml` → auto-deploy `staging` branch. **Migrations**: Test on staging first. **Env**: Separate vars (STAGING=true). Success: staging live, migrations tested, CI/CD works.
 
 ---
 
-#### 97. Secrets Scanning CI/CD
+#### 92. Secrets Scanning CI/CD
 
 Prompt: Secrets scan. **Workflow**: `.github/workflows/secrets-scan.yml` → TruffleHog, GitGuardian. **Config**: `.trufflehog.yaml`. **Alerts**: Fail build, Slack #security. **Historical**: `trufflehog git file://.` → scan all. Success: CI/CD scan works, 0 secrets found, alerts fire.
 
 ---
 
-#### 98. Automated Rollback
+#### 93. Automated Rollback
 
 Prompt: Auto rollback. **Health**: `/health` endpoint (DB, Redis, Neo4j checks). **Policy**: If 5xx>5% OR latency>2s for 2min → rollback. **Config**: `gcloud run services update --health-check=/health`. **Alerts**: Slack on rollback. **Test**: Crash endpoint, verify rollback <2min. Success: rollback works, MTTR<2min.
 
@@ -328,75 +521,69 @@ Prompt: Auto rollback. **Health**: `/health` endpoint (DB, Redis, Neo4j checks).
 
 ### 🟡 P1: Features & Infrastructure
 
-#### 99. Export PDF/DOCX
+#### 94. Export PDF/DOCX
 
 Prompt: PDF/DOCX export. **Backend**: `app/services/export/pdf_generator.py` (WeasyPrint), `docx_generator.py` (python-docx). **API**: `POST /api/export/personas/{id}/pdf`. **Features**: Charts, watermarks (free tier), TOC. **Performance**: Background task, <5s download. **Frontend**: Download button. Success: PDF works, <5s, watermarks, tests 85%+.
 
 ---
 
-#### 100. Stripe Integration
+#### 95. Stripe Integration
 
 Prompt: Stripe payments. **Models**: `app/models/subscription.py`. **API**: `POST /api/payments/checkout`, `/webhooks/stripe`. **Plans**: Free, Pro $49/mo. **Webhooks**: `checkout.session.completed`, `invoice.payment_succeeded`. **Portal**: Billing portal link. **Frontend**: Pricing page, checkout. Success: subscribe works, webhooks handled, tests 90%+.
 
 ---
 
-#### 101. Team Accounts
+#### 96. Team Accounts
 
 Prompt: Teams. **Models**: `app/models/team.py`, `team_members.py`. **API**: `POST /api/teams`, `/teams/{id}/invite`, `/teams/{id}/projects`. **Permissions**: Owner/Member/Viewer. **Projects**: Add `team_id`, share. **Activity**: Audit log. **Frontend**: Team dashboard. Success: teams work, shared projects, tests 85%+.
 
 ---
 
-#### 102. Monitoring & Alerting
+#### 97. Monitoring & Alerting
 
 Prompt: Enhanced monitoring. **Dashboards**: Cloud Monitoring (latency p50/p90/p99, errors, users, costs). **Alerts**: Error>5%, downtime>1min, cost spike>$100/day. **PagerDuty**: Integration, on-call. **Metrics**: Custom (personas/hour, tokens/min). **Reports**: Weekly email. Success: dashboards live, alerts fire, PagerDuty works, MTTR<20min.
 
 ---
 
-#### 103. E2E Tests Expansion (12→30+)
+#### 98. E2E Tests Expansion (12→30+)
 
 Prompt: E2E expansion. **Current**: 12 tests. **Target**: 30+. **Coverage**: Persona flow (create→generate→view), Focus groups (setup→discuss→results), Workflows (create→execute→export), Surveys, Settings. **Framework**: Playwright `tests/e2e/`. **CI**: GitHub Actions. **Critical**: 90%+ coverage. Success: 30+ tests, critical paths covered, CI works, flaky<5%.
 
 ---
 
-#### 104. Multi-LLM Support
+#### 99. Multi-LLM Support
 
 Prompt: Multi-provider. **Abstraction**: `app/services/shared/llm_router.py`. **Providers**: Gemini, OpenAI, Anthropic. **Fallback**: Gemini→OpenAI→Anthropic. **Cost Routing**: Prefer cheaper for simple tasks. **Config**: `config/models.yaml` per-domain. **Tracking**: Tokens/cost per provider. Success: 3 providers work, fallback tested, cost tracking accurate.
 
 ---
 
-#### 105. Connection Pooling Optimization
-
-Prompt: Optimize pooling. **Current**: pool_size=10. **Analysis**: `pg_stat_activity` → check exhaustion. **Optimize**: pool_size=20, max_overflow=10, timeout=30s. **Config**: `app/db/session.py` engine. **Monitor**: Track usage, alert>80%. **Load Test**: `locust --users 100`. Success: 0 exhaustion, stable, load test passes.
-
----
-
 ### 🟢 P2: Performance & Tech Debt
 
-#### 106. Bundle Size Reduction (2.5MB→1.5MB)
+#### 100. Bundle Size Reduction (2.5MB→1.5MB)
 
-Prompt: Reduce bundle. **Current**: 2.5MB. **Target**: <1.5MB. **Techniques**: Lazy loading, code splitting (`manualChunks`), tree shaking, remove unused deps (task 90). **Analysis**: `npm run build --stats && npx vite-bundle-visualizer`. **Optimize**: Split vendor chunks, dynamic imports. **Lighthouse**: >80. Success: <1.5MB, initial<1MB, Lighthouse>80, <3s on 3G.
+Prompt: Reduce bundle. **Current**: 2.5MB. **Target**: <1.5MB. **Techniques**: Lazy loading, code splitting (`manualChunks`), tree shaking, remove unused deps (task 85). **Analysis**: `npm run build --stats && npx vite-bundle-visualizer`. **Optimize**: Split vendor chunks, dynamic imports. **Lighthouse**: >80. Success: <1.5MB, initial<1MB, Lighthouse>80, <3s on 3G.
 
 ---
 
-#### 107. Lazy Loading Routes
+#### 101. Lazy Loading Routes
 
 Prompt: Lazy routes. **Current**: All eager. **Target**: All lazy. **Implementation**: `const Personas = lazy(() => import('./Personas'))`, wrap `<Suspense>`. **Routes**: Personas, FocusGroups, Workflows, Dashboard, Settings, Surveys. **Fallback**: LoadingSpinner. **Preload**: On hover. Success: all lazy, fallbacks work, initial<1MB, transitions smooth.
 
 ---
 
-#### 108. N+1 Query Problem
+#### 102. N+1 Query Problem
 
 Prompt: Fix N+1. **Identify**: SQL logging (echo=True), `pg_stat_statements`. **Patterns**: Loops loading related data. **Fix**: `selectinload(Persona.focus_groups)`, `joinedload(Project.personas)`. **Critical**: `/api/personas` (with focus_groups), `/api/projects/{id}` (with personas). **Validate**: Count queries (O(1) not O(n)). Success: 0 N+1 in critical, latency<300ms p90, optimal counts.
 
 ---
 
-#### 109. Neo4j Connection Leaks
+#### 103. Neo4j Connection Leaks
 
 Prompt: Fix leaks. **Problem**: Connections not closed. **Fix**: Always `async with neo4j_connection.session() as session:`. **Audit**: `rg "neo4j_connection\\.session\\(\\)" app` → check all. **Monitor**: Track `neo4j.bolt.connections.active`. **Validate**: Stress test, memory stable. Success: 0 leaks, memory stable, monitoring works.
 
 ---
 
-#### 110. Missing DB Indexes
+#### 104. Missing DB Indexes
 
 Prompt: Add indexes. **Analysis**: `SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMIT 20` → slow queries. **Slow**: `personas WHERE project_id AND deleted_at IS NULL`. **Indexes**: Composite `CREATE INDEX idx_personas_project_deleted ON personas(project_id, deleted_at)`, similar for focus_groups, surveys. **Migration**: Alembic. **Validate**: Queries<100ms p95. Success: all<100ms, indexes documented.
 
@@ -404,33 +591,65 @@ Prompt: Add indexes. **Analysis**: `SELECT * FROM pg_stat_statements ORDER BY to
 
 ### 🟢 P2.8: Repository Cleanup
 
-#### 111. Cleanup cache
+#### 105. Cleanup cache
 
 Prompt: Remove cache. **Dirs**: `.pytest_cache`, `.ruff_cache`, `__pycache__`, `*.pyc`. **Command**: `rm -rf .pytest_cache .ruff_cache && find . -name "__pycache__" -exec rm -rf {} + && find . -name "*.pyc" -delete`. **Gitignore**: Add to `.gitignore`. Success: cache removed, gitignore updated.
 
 ---
 
-#### 112. Cleanup .DS_Store
+#### 106. Cleanup .DS_Store
 
 Prompt: Remove .DS_Store. **Find**: `find . -name ".DS_Store"` (7 found). **Remove**: `find . -name ".DS_Store" -delete`. **Gitignore**: Add `.DS_Store`. **Global**: `echo ".DS_Store" >> ~/.gitignore_global`. Success: removed, gitignore updated.
 
 ---
 
-#### 113. Archive obsolete .md
+#### 107. Archive obsolete .md
 
 Prompt: Archive old docs. **Files**: `STUDY_DESIGNER_*.md`, `IMPLEMENTATION_PROGRESS.md`, `frontend/DARK_MODE_AUDIT_*.md`. **Archive**: `mkdir -p docs/archive && mv [files] docs/archive/`. **Commit**: "chore: archive obsolete docs". Success: archived, root cleaner.
 
 ---
 
-#### 114. Cleanup root
+#### 108. Cleanup root
 
 Prompt: Clean root. **Review**: `ls -la | grep .md`. **Move**: `DEMO_DATA_INFO.md` → `docs/` or delete. **Evaluate**: `docker-compose.prod.yml` (if unused, delete). **Keep**: `README.md`, `CLAUDE.md`, `prompty.md`, `docker-compose.yml`. Success: root cleaner, only essentials.
 
 ---
 
-#### 115. Docker volumes cleanup
+#### 109. Docker volumes cleanup
 
 Prompt: Cleanup volumes. **Check**: `docker volume ls`. **Data**: Neo4j `./data/neo4j`, PostgreSQL `./data/postgres`. **Decision**: Keep or cleanup. **Cleanup**: `docker-compose down -v && rm -rf ./data/*`. **Gitignore**: `data/` in `.gitignore`. **Fresh**: `docker-compose up -d && python scripts/init_neo4j_indexes.py`. Success: reviewed, decision made, fresh start works.
+
+---
+
+### 🔵 P3: Documentation
+
+#### 110. docs/BACKEND.md - aktualizacja refaktoryzacji
+
+Prompt: Zaktualizuj `docs/BACKEND.md` o wszystkie zmiany z zadań 1-35. **Dodaj sekcje**: Nowa struktura `app/services/` (personas/, dashboard/, workflows/, rag/, focus_groups/ z podfolderami). **Zaktualizuj**: Service layer patterns, import examples. **Sprawdź**: Cross-references do nowych modułów. Success: docs aktualne, wszystkie nowe moduły udokumentowane.
+
+---
+
+#### 111. docs/AI_ML.md - aktualizacja RAG i persona generation
+
+Prompt: Zaktualizuj `docs/AI_ML.md`. **RAG changes**: Zadania 3,6 (hybrid search split, graph service split). **Persona generation**: Zadania 1,4,8-10 (generator split, orchestration, details, distribution). **Dodaj**: Nowe moduły, zaktualizowane flow diagrams. Success: docs aktualne, RAG i persona generation jasne.
+
+---
+
+#### 112. docs/ROADMAP.md - completed tasks i Q1 2025
+
+Prompt: Zaktualizuj `docs/ROADMAP.md`. **Add**: "Completed 2024" section z zadaniami 1-70 (refaktoryzacje backend/frontend). **Update**: Q1 2025 priorities z zadaniami 71-114 (audyty, re-splits, security, features). **Check**: Priorytety vs BIZNES.md KPIs. Success: roadmap aktualny, completed tracked.
+
+---
+
+#### 113. docs/CLAUDE.md - referencje i przykłady
+
+Prompt: Zaktualizuj `docs/CLAUDE.md`. **Section "Referencja Kluczowych Plików"**: Dodaj nowe moduły z zadań 1-35. **Update**: Import examples (nowe ścieżki). **Add**: Troubleshooting dla split modules. Success: claude.md aktualny, import examples poprawne.
+
+---
+
+#### 114. docs/README.md - linki i indeks
+
+Prompt: Zaktualizuj `docs/README.md`. **Review**: Wszystkie linki do docs. **Add**: Nowe sekcje jeśli brakuje (workflows docs z zadania 31). **Check**: Alfabetyczny porządek, opisy aktualne. Success: README indeks aktualny, wszystkie docs linkowane.
 
 ---
 
@@ -1038,238 +1257,6 @@ Checklist: [ ] Find cache [ ] Delete [ ] Fixes (cleanup) [ ] Update .gitignore [
 
 ---
 
-### 🔵 P3: Documentation
-
-#### 71. 🔵 [Docs] - docs/BACKEND.md (2673 linii) → split
-
-Przejrzyj `docs/BACKEND.md` (2673 linii, problem: przekracza limit 700 linii).
-PRZED: `wc -l docs/BACKEND.md && grep "^##" docs/BACKEND.md` && zanotuj główne sekcje.
-Podziel na 2 pliki: `docs/BACKEND_ARCHITECTURE.md` (architektura systemu, wzorce, high-level design ~1300 linii), `docs/BACKEND_IMPLEMENTATION.md` (szczegóły implementacji, API endpoints, services ~1400 linii) + zaktualizuj `docs/README.md` z linkami + dodaj cross-references między plikami.
-PO: `wc -l docs/BACKEND*.md && grep "\[BACKEND" docs/README.md`.
-Checklist: [ ] Grep sections [ ] Podział [ ] Cross-refs [ ] Update README [ ] Review.
-
----
-
-#### 72. 🔵 [Docs] - docs/AI_ML.md (1202 linii) → split
-
-Przejrzyj `docs/AI_ML.md` (1202 linii, problem: przekracza limit 700 linii).
-PRZED: `wc -l docs/AI_ML.md && grep "^##" docs/AI_ML.md` && zanotuj główne sekcje.
-Podziel na 2 pliki: `docs/AI_ML_OVERVIEW.md` (LLM integration, prompts, models, persona generation ~600 linii), `docs/AI_ML_RAG.md` (RAG system, hybrid search, graph RAG, embeddings ~650 linii) + zaktualizuj `docs/README.md` + dodaj cross-references.
-PO: `wc -l docs/AI_ML*.md && grep "\[AI_ML" docs/README.md`.
-Checklist: [ ] Grep sections [ ] Podział [ ] Cross-refs [ ] Update README [ ] Review.
-
----
-
-#### 73. 🔵 [Docs] - docs/QA.md (899 linii) → optimize
-
-Przejrzyj `docs/QA.md` (899 linii, blisko limitu 700 linii).
-PRZED: `wc -l docs/QA.md && grep "^##" docs/QA.md` && zanotuj redundantne sekcje.
-Optymalizuj: usuń redundantne przykłady + konsoliduj podobne sekcje + przenieś verbose command examples do appendix + skróć do ~680 linii zachowując kluczowe informacje + zaktualizuj `docs/README.md` jeśli zmienił się scope.
-PO: `wc -l docs/QA.md` (powinno być <700) `&& grep "QA" docs/README.md`.
-Checklist: [ ] Analyze redundancy [ ] Optimize [ ] Appendix [ ] Update README [ ] Review.
-
----
-
-#### 74. 🔵 [Docs] - docs/INFRASTRUKTURA.md (882 linii) → optimize
-
-Przejrzyj `docs/INFRASTRUKTURA.md` (882 linii, blisko limitu 700 linii).
-PRZED: `wc -l docs/INFRASTRUKTURA.md && grep "^##" docs/INFRASTRUKTURA.md` && zanotuj verbose sekcje.
-Optymalizuj: skróć verbose Docker/CI/CD examples + konsoliduj deployment instructions + przenieś detailed troubleshooting do appendix + skróć do ~680 linii + zaktualizuj `docs/README.md`.
-PO: `wc -l docs/INFRASTRUKTURA.md` (powinno być <700) `&& grep "INFRA" docs/README.md`.
-Checklist: [ ] Analyze verbosity [ ] Optimize [ ] Appendix [ ] Update README [ ] Review.
-
----
-
-#### 75. 🔵 [Docs] - workflows docs move
-
-Przejrzyj `app/services/workflows/docs/` (dokumentacja workflows w niewłaściwym miejscu).
-PRZED: `ls -lh app/services/workflows/docs/ && find app/services/workflows/docs/ -name "*.md" -exec wc -l {} +`.
-Przenieś: `mkdir -p docs/workflows/ && mv app/services/workflows/docs/*.md docs/workflows/` + zaktualizuj linki w `docs/README.md` + sprawdź internal cross-references w przenoszonych plikach + usuń pusty folder `app/services/workflows/docs/`.
-PO: `ls -lh docs/workflows/ && grep "workflows" docs/README.md && ! test -d app/services/workflows/docs`.
-Checklist: [ ] List files [ ] Create dir [ ] Move [ ] Update links [ ] Remove old [ ] Verify.
-
----
-
-### 🟠 P2.5: Audyt Poprzednich Refaktoryzacji
-
-**UWAGA:** Ta sekcja powstała 2025-11-11 po odkryciu martwego kodu (GraphAnalysis.tsx) i nieistniejących komponentów w oryginalnych zadaniach 36-48. Zadania 76-85 sprawdzają skutki poprzednich refaktoryzacji i usuwają martwy kod.
-
-#### 76. 🟠 [Backend Audit] - Nieużywane importy po zadaniach 1-35
-
-Przejrzyj wszystkie moduły backendu zrefaktoryzowane w zadaniach 1-35 (sprawdź martwe importy po podziale plików).
-PRZED: `ruff check app/services --select F401 --statistics` && zanotuj liczbę nieużywanych importów.
-Cleanup: uruchom `ruff check app/services --select F401,F841 --fix` (usuwa unused imports i variables) + ręcznie sprawdź `app/api` i `tests/` czy nie ma importów do starych nieistniejących modułów + zaktualizuj wszystkie `__init__.py` pliki żeby eksportowały tylko używane symbole.
-PO: `ruff check app/ --select F401,F841 && pytest tests/unit -v && docker-compose restart api`.
-Checklist: [ ] Ruff statistics [ ] Auto-fix [ ] Manual review [ ] Update __init__ [ ] Pytest [ ] Działa.
-
----
-
-#### 77. 🟠 [Frontend Audit] - Usunięcie martwego kodu
-
-Przejrzyj frontend i usuń komponenty które nie są używane nigdzie w aplikacji.
-PRZED: `rg -l "GraphAnalysis|import.*GraphAnalysis" frontend/src --glob "*.tsx" --glob "*.ts"` && zweryfikuj że GraphAnalysis.tsx jest używany tylko w samym sobie.
-Usuń martwe komponenty:
-- `frontend/src/components/layout/GraphAnalysis.tsx` (788 linii, 0 użyć)
-- Sprawdź routing w `App.tsx` czy nie ma martwych case'ów
-- Sprawdź czy `FigmaDashboard.tsx` jest używany (może być legacy)
-- Sprawdź `StatsOverlay.tsx`, `FloatingControls.tsx` (małe pliki, mogą być nieużywane)
-Usuń imports: `rg "import.*GraphAnalysis" frontend/src -l` i usuń wszystkie importy + zaktualizuj routing + **usuń nieużywany kod** (`npm run lint -- --fix`).
-PO: `cd frontend && npm run build && npm run preview && rg "GraphAnalysis" frontend/src` (powinno być 0 wyników).
-Checklist: [ ] Identify dead code [ ] Delete files [ ] Remove imports [ ] Update routing [ ] Fixes (lint) [ ] Build [ ] Działa.
-
----
-
-#### 78. 🟠 [Backend Audit] - TODO/FIXME z zadań 1-35
-
-Przejrzyj TODO/FIXME markers pozostawione po refaktoryzacji zadań 1-35 i zdecyduj: fix now, create issue, or delete.
-PRZED: `rg "TODO|FIXME|XXX|HACK" app/services --glob "*.py" -n | tee /tmp/todos.txt && wc -l /tmp/todos.txt`.
-Kategoryzuj:
-- **Fix now:** TODO które są łatwe do naprawienia (np. cache TTL z config)
-- **Create GitHub issue:** Większe TODO wymagające osobnego zadania (np. weighted sampling)
-- **Delete:** Przestarzałe TODO z starego kodu
-Znalezione TODO:
-- `app/services/workflows/execution/workflow_executor.py:180` - Map node_id → WorkflowStep.id
-- `app/services/workflows/nodes/personas.py:100,107,175` - Integracja z segment-based generation
-- `app/services/workflows/validation/workflow_validator.py:422` - Validate template exists
-Napraw/utwórz issues/usuń + zaktualizuj kod + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
-PO: `rg "TODO|FIXME" app/services --glob "*.py" -n | wc -l` (powinno być <10) `&& pytest tests/unit -v`.
-Checklist: [ ] List TODOs [ ] Kategoryzuj [ ] Fix/Issue/Delete [ ] Update code [ ] Pytest [ ] Działa.
-
----
-
-#### 79. 🟠 [Frontend Audit] - Komponenty UI shadcn (56 plików)
-
-Przejrzyj `frontend/src/components/ui/` (56 komponentów shadcn) i usuń nieużywane.
-PRZED: `ls frontend/src/components/ui/*.tsx | wc -l && for f in frontend/src/components/ui/*.tsx; do name=$(basename "$f" .tsx); uses=$(rg -l "@/components/ui/$name|components/ui/$name" frontend/src --glob "*.tsx" | grep -v "ui/$name.tsx" | wc -l); echo "$uses - $name"; done | sort -n | head -20`.
-Usuń komponenty z 0-1 użyciami (mogą być nieużywane):
-- Sprawdź `aspect-ratio.tsx`, `input-otp.tsx`, `breadcrumb.tsx`
-- Sprawdź `resizable.tsx`, `sonner.tsx`, `toggle-group.tsx`
-- Sprawdź `pagination.tsx`, `navigation-menu.tsx`
-Uwaga: zachowaj podstawowe (button, input, card, dialog, label, select, textarea, checkbox, radio-group, switch, slider, tabs, toast, tooltip, dropdown-menu, popover, avatar, badge, separator, skeleton, progress, alert, scroll-area, sheet, table).
-Usuń nieużywane + zaktualizuj `ui/index.ts` jeśli istnieje + **usuń nieużywany kod** (`npm run lint -- --fix`).
-PO: `cd frontend && npm run build && ls frontend/src/components/ui/*.tsx | wc -l` (powinno być <40).
-Checklist: [ ] List UI components [ ] Check usage [ ] Delete unused [ ] Update index [ ] Fixes (lint) [ ] Build [ ] Działa.
-
----
-
-#### 80. 🟠 [Backend Audit] - BackgroundTasks usage
-
-Przejrzyj użycie `BackgroundTasks` w API - sprawdź czy po zadaniach 22-23 jest nadal potrzebny lub został zastąpiony asynchronicznymi taskami.
-PRZED: `rg "BackgroundTasks|background_tasks" app/api --glob "*.py" -n` && zanotuj wszystkie użycia.
-Znalezione użycia:
-- `app/api/rag.py` - używa BackgroundTasks
-- `app/api/personas/generation_endpoints.py` - używa BackgroundTasks
-Sprawdź czy te operacje mogą być wykonane synchronicznie async/await lub czy wymagają prawdziwych background tasks (Celery/Redis Queue). Jeśli operacje są szybkie (<2s), rozważ zamianę na bezpośrednie async calls. Jeśli długie (>5s), dodaj TODO dla Celery integration.
-Cleanup/decision + zaktualizuj kod + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
-PO: `rg "BackgroundTasks" app/api --glob "*.py" -n && pytest tests/integration -v`.
-Checklist: [ ] List usage [ ] Analyze necessity [ ] Decision (keep/remove/Celery) [ ] Update code [ ] Pytest [ ] Działa.
-
----
-
-#### 81. 🟠 [Full Repo Audit] - Duplikaty kodu (copy-paste detection)
-
-Znajdź duplikaty kodu w całym repo (copy-paste anti-pattern) i wydziel do wspólnych utility functions.
-PRZED: zainstaluj `pip install vulture pylint` (dla Python) i użyj `rg` dla TypeScript patterns.
-Szukaj duplikatów:
-```bash
-# Python: funkcje >10 linii powtórzone 2+ razy
-rg "def \w+\(" app/ -A 10 | sort | uniq -cd | sort -rn | head -20
-
-# TypeScript: funkcje >10 linii powtórzone 2+ razy
-rg "function \w+\(|const \w+ = \(" frontend/src -A 10 | sort | uniq -cd | sort -rn | head -20
-```
-Znalezione duplikaty → wydziel do:
-- Backend: `app/services/shared/utils.py` lub domain-specific utils
-- Frontend: `frontend/src/lib/utils.ts` lub domain-specific utils
-Refaktoryzuj duplikaty + zaktualizuj importy + **usuń nieużywany kod** (ruff + npm lint).
-PO: `pytest tests/unit -v && cd frontend && npm run build`.
-Checklist: [ ] Detect duplicates [ ] Extract to utils [ ] Update imports [ ] Fixes (lint) [ ] Tests [ ] Działa.
-
----
-
-#### 82. 🟠 [Frontend Audit] - Nieużywane hooki i utility functions
-
-Przejrzyj `frontend/src/hooks/` i `frontend/src/lib/` i usuń nieużywane hooki oraz utility functions.
-PRZED:
-```bash
-# Lista wszystkich hooks
-find frontend/src/hooks -name "*.ts" -o -name "*.tsx"
-
-# Dla każdego hooka sprawdź usage
-for hook in $(find frontend/src/hooks -name "use*.ts" -o -name "use*.tsx"); do
-  name=$(basename "$hook" .ts | sed 's/.tsx//')
-  uses=$(rg -l "$name" frontend/src --glob "*.tsx" --glob "*.ts" | grep -v "hooks/$name" | wc -l)
-  echo "$uses - $name"
-done | sort -n
-```
-Usuń hooki z 0 użyciami + sprawdź `lib/` utility functions (np. `formatters.ts`, `validators.ts`) + **usuń nieużywany kod** (`npm run lint -- --fix`).
-PO: `cd frontend && npm run build && npm run type-check`.
-Checklist: [ ] List hooks [ ] Check usage [ ] Delete unused [ ] Check lib utils [ ] Fixes (lint) [ ] Build [ ] Type-check.
-
----
-
-#### 83. 🟠 [Backend Audit] - Deprecated metody w serwisach
-
-Przejrzyj serwisy backendu i usuń przestarzałe metody które nie są już używane po refaktoryzacji.
-PRZED: `rg "@deprecated|# deprecated|# legacy|# old" app/services --glob "*.py" -n` && zanotuj wszystkie deprecated markers.
-Sprawdź każdy serwis czy nie ma:
-- Metod oznaczonych `@deprecated` lub komentarzem `# deprecated`
-- Metod typu `legacy_*` lub `old_*`
-- Metod nie używanych nigdzie: `for method in $(rg "^    def \w+\(" app/services/surveys/survey_response_generator.py -o | sed 's/def //'); do echo "$method - $(rg "$method" app tests --glob "*.py" | wc -l)"; done`
-Przykład z zadania 11: `legacy_survey_format()` w survey_response_generator.py.
-Usuń deprecated metody + zaktualizuj testy + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
-PO: `rg "@deprecated|legacy_|old_" app/services --glob "*.py" -n && pytest tests/unit -v`.
-Checklist: [ ] Find deprecated [ ] Check usage [ ] Delete unused [ ] Update tests [ ] Fixes (ruff) [ ] Pytest [ ] Działa.
-
----
-
-#### 84. 🟠 [Tests Audit] - Martwe fixtures i test utilities
-
-Przejrzyj `tests/fixtures/` i `tests/conftest.py` i usuń nieużywane fixtures oraz test utilities.
-PRZED:
-```bash
-# Lista wszystkich fixtures
-find tests/ -name "conftest.py" -o -name "*fixtures*" | xargs rg "^def \w+\(" -o | sed 's/def //' | sed 's/(//' | sort | uniq
-
-# Sprawdź usage każdej fixture
-for fixture in $(find tests/ -name "conftest.py" | xargs rg "@pytest.fixture" -A 1 | rg "^def \w+" -o | sed 's/def //'); do
-  uses=$(rg "$fixture" tests/ --glob "*.py" | grep -v "def $fixture" | wc -l)
-  echo "$uses - $fixture"
-done | sort -n | head -20
-```
-Usuń fixtures z 0-1 użyciami (poza fixtures używanymi jako dependencies innych fixtures) + sprawdź `tests/utils/` czy nie ma deprecated test helpers + konsoliduj duplikaty fixtures (zadanie 64).
-Cleanup + zaktualizuj testy + **usuń nieużywany kod** (`ruff check tests/ --select F401,F841 --fix`).
-PO: `pytest tests/ -v --collect-only && pytest tests/unit -v`.
-Checklist: [ ] List fixtures [ ] Check usage [ ] Delete unused [ ] Consolidate duplicates [ ] Fixes (ruff) [ ] Pytest [ ] Działa.
-
----
-
-#### 85. 🟠 [Global Audit] - Nieużywane dependencies
-
-Przejrzyj `requirements.txt` i `frontend/package.json` i usuń nieużywane dependencies.
-PRZED:
-```bash
-# Python: sprawdź imports vs requirements
-pip install pipreqs
-pipreqs . --force --savepath /tmp/actual_requirements.txt
-diff requirements.txt /tmp/actual_requirements.txt
-
-# Frontend: sprawdź imports vs package.json
-npx depcheck frontend/
-```
-Backend - potencjalnie nieużywane:
-- Sprawdź czy wszystkie biblioteki w requirements.txt są importowane w app/
-- Sprawdź optionalne dependencies w pyproject.toml [llm-providers], [document-processing]
-
-Frontend - potencjalnie nieużywane:
-- Sprawdź devDependencies vs dependencies
-- Sprawdź czy biblioteki UI (lucide-react, radix-ui) są wszystkie używane
-
-Usuń nieużywane dependencies + zaktualizuj lockfiles + rebuild + **usuń nieużywany kod** (ruff + npm lint).
-PO: `pip install -r requirements.txt && cd frontend && npm install && npm run build && docker-compose build api`.
-Checklist: [ ] Analyze Python deps [ ] Analyze Node deps [ ] Delete unused [ ] Update lockfiles [ ] Rebuild [ ] Test [ ] Działa.
-
----
 
 ## 📚 Appendix: Komendy i Narzędzia
 
