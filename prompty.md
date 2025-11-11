@@ -191,11 +191,11 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 85. Global: Sprawdź nieużywane dependencies (requirements.txt, package.json)
 
 ### 🔵 P3: Documentation
-- [ ] 71. docs/BACKEND.md split
-- [ ] 72. docs/AI_ML.md split
-- [ ] 73. docs/QA.md optimization
-- [ ] 74. docs/INFRASTRUKTURA.md optimization
-- [ ] 75. workflows docs move to docs/workflows/
+- [ ] 71. docs/BACKEND.md - aktualizacja o refaktoryzacje 1-35 (service layer split, nowa struktura folderów)
+- [ ] 72. docs/AI_ML.md - aktualizacja o zmiany RAG (zadania 3,6), persona generation (1,4,8-10)
+- [ ] 73. docs/ROADMAP.md - dodaj "Completed 2024" (zadania 1-51), zaktualizuj Q1 2025 priorities (86-115)
+- [ ] 74. docs/CLAUDE.md - aktualizuj Referencję Kluczowych Plików po refaktoryzacjach, przykłady importów
+- [ ] 75. docs/README.md - zaktualizuj linki i opisy, dodaj nowe sekcje jeśli potrzebne
 
 ### 🟠 P2.6: Audyt Post-Split (NOWE - 2025-11-11)
 - [ ] 86. Frontend: Audyt WorkflowEditor, PersonaPanel, AISummaryPanel po splitach - usuń nieużywane funkcje/importy/komponenty
@@ -218,7 +218,6 @@ Odznaczaj po zakończeniu każdego promptu:
 
 ### 🟡 P1: Features & Infrastructure (NOWE - Q1 2025)
 - [ ] 99. Export PDF/DOCX - generate PDF reports personas/focus groups/surveys (WeasyPrint, python-docx, charts, watermarks dla free tier, download <5s)
-- [ ] 100. Stripe Payment Integration - checkout flow, subscription management, webhooks, billing portal (subscribe Pro $49/mo, auto-upgrade, webhook handling)
 - [ ] 101. Team Accounts - multi-user/team accounts (share projects, invite teammates, activity log, permissions, team dashboard)
 - [ ] 102. Enhanced Monitoring & Alerting - Cloud Monitoring dashboards, PagerDuty integration, alerts (error rate >5%, downtime, cost spikes, MTTR <20min)
 - [ ] 103. E2E Tests Expansion - expand E2E test suite 12→30+ testów (Playwright, cover critical paths: persona generation, focus groups, workflows 90%+)
@@ -231,6 +230,207 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 108. N+1 Query Problem - fix N+1 queries w loops (use selectinload/joinedload, API latency <300ms p90, 0 N+1 w critical paths)
 - [ ] 109. Neo4j Connection Leaks - fix connection leaks (context managers `async with`, memory usage stable, monitoring alerts)
 - [ ] 110. Missing Database Indexes - add indexes based on pg_stat_statements analysis (all queries <100ms p95, indexes documented)
+
+### 🟢 P2.8: Repository Cleanup (NOWE - 2025-11-11)
+- [ ] 111. Cleanup cache directories - usuń .pytest_cache, .ruff_cache, __pycache__, .pyc files (dodaj do .gitignore jeśli brak)
+- [ ] 112. Cleanup macOS files - usuń wszystkie .DS_Store files (dodaj do .gitignore)
+- [ ] 113. Archive/Delete obsolete .md files - przenieś do archive/ lub usuń: STUDY_DESIGNER_IMPLEMENTATION.md, STUDY_DESIGNER_SUMMARY.md, IMPLEMENTATION_PROGRESS.md, frontend/DARK_MODE_AUDIT_2025_11_08.md
+- [ ] 114. Cleanup root directory - uporządkuj root (przenieś DEMO_DATA_INFO.md do docs/ jeśli potrzebny, oceń docker-compose.prod.yml)
+- [ ] 115. Docker volumes cleanup - sprawdź czy docker-compose volumes są używane, cleanup nieużywanych (local Neo4j data, PostgreSQL data)
+
+---
+
+## 🧹 Prompty Cleanup - NOWE ZADANIA (86-115)
+
+### 🟠 P2.6: Audyt Post-Split
+
+#### 86. Frontend: Audyt WorkflowEditor, PersonaPanel, AISummaryPanel
+
+Prompt: Audyt plików po splitach 40-42. Sprawdź `WorkflowEditor.tsx` (549→191), `PersonaPanel.tsx` (314→139), `AISummaryPanel.tsx` (253→78). Find unused: `npm run lint | grep -E "unused|never used"`. Remove unused imports, functions, components, variables. Fix all warnings. Verify: `npm run build && npm run lint` (0 warnings w tych plikach).
+
+---
+
+#### 87. Frontend: Audyt Personas, FocusGroupView, Surveys, Settings
+
+Prompt: Audyt plików 36-37,43,45. Check `Personas.tsx` (653→488), `FocusGroupView.tsx` (972→637), `Surveys.tsx` (506→222), `Settings.tsx` (601→95). Find unused exports: `rg "export (const|function)" [plik] | cut -d: -f2`. Check if used: `rg "[name]" frontend/src`. Remove unused. Lint: `npm run lint`. Verify: `npm run build`.
+
+---
+
+#### 88. Backend: Audyt plików po splitach 1-35
+
+Prompt: Audyt backend po 1-35. Large files: `find app/services -name "*.py" -size +10k`. Check functions: `rg "^def |^class " [plik]`. Find unused: `rg "[func_name]" app tests` (0 results = unused). Remove unused functions, imports (`ruff check --select F401`), commented code. Verify: `pytest tests/unit -v`.
+
+---
+
+#### 89. Backend: Audyt utility functions
+
+Prompt: Find utils: `find app -name "*utils*.py" -o -name "*helpers*.py"`. List functions: `rg "^def " [plik]`. Check usage: `rg -c "[func]" app tests`. Remove 0-usage functions, dead code. Verify: `pytest -v`.
+
+---
+
+#### 90. Dependencies audyt
+
+Prompt: **Frontend**: `npm ls --depth=0 | cut -d@ -f1`. Check usage: `rg "from '[pkg]'|import '[pkg]'" frontend/src`. Remove unused: `npm uninstall [pkg]`. **Backend**: `pip freeze > installed.txt`. Check: `rg "^import|^from" app | sort -u`. Compare, remove unused: `pip uninstall [pkg]`. Verify: `npm run build && pytest -v`.
+
+---
+
+### 🟡 P2.7: Backend Re-Split
+
+#### 91. hybrid_search_service.py re-split (1074→<400)
+
+Prompt: Zadanie 3 failed (still 1074 lines). Split `app/services/rag/rag_hybrid_search_service.py` → 4 modules: `hybrid_search/search_orchestrator.py` (~300, main), `vector_search.py` (~350, pgvector), `keyword_search.py` (~250, Neo4j), `rrf_fusion.py` (~150, algorithm). Grep: `rg "RagHybridSearchService" app tests`. Update imports in `app/api/rag.py`. Verify: `pytest tests/unit/test_rag* -v && docker-compose restart api`. Each <400 lines.
+
+---
+
+#### 92. segment_brief_service.py re-split (820→<350)
+
+Prompt: Task 7 failed (still 820). Split `app/services/personas/segment_brief_service.py` → 3: `segment_brief/brief_generator.py` (~350, LLM logic), `brief_cache.py` (~250, Redis), `brief_formatter.py` (~200, formatting). Grep: `rg "SegmentBriefService" app`. Update imports. Verify: `pytest -k segment_brief -v`. Each <350.
+
+---
+
+#### 93. dashboard_core.py split (674→<300)
+
+Prompt: Split `app/services/dashboard/dashboard_core.py` (674) → 3: `dashboard/dashboard_metrics.py` (~280), `dashboard_usage.py` (~220), `dashboard_costs.py` (~170). Grep: `rg "DashboardCore" app`. Update `app/api/dashboard.py` imports. Verify: `pytest -k dashboard -v`. Each <300.
+
+---
+
+### 🔴 P0: Security & Critical
+
+#### 94. RBAC Implementation
+
+Prompt: Implement RBAC (Admin/Researcher/Viewer). **Migration**: `alembic revision -m "add_user_role"` → add `users.role ENUM`. **Middleware**: `app/middleware/rbac.py` → `@requires_role('admin')` decorator. **API**: Protect endpoints (Admin: DELETE /users, Researcher: POST /personas, Viewer: GET only). **Tests**: `pytest tests/unit/test_rbac.py --cov=app/middleware/rbac` (90%+). Verify: role enforcement works, 403 on unauthorized.
+
+---
+
+#### 95. Security Audit
+
+Prompt: Security audit. **OWASP**: SQL injection, XSS, CSRF checks. **Bandit**: `bandit -r app/ -ll` → fix high/medium. **Safety**: `safety check` → update vulnerable deps. **Manual**: JWT expiry, secrets in code (`rg "api_key|password|secret" app`). **Report**: Document findings + fixes. Success: 0 high/critical vulns, report ready.
+
+---
+
+#### 96. Staging Environment
+
+Prompt: Setup staging. **Cloud Run**: `sight-api-staging` service. **DB**: `sight-staging-db` Cloud SQL. **CI/CD**: `.github/workflows/deploy-staging.yml` → auto-deploy `staging` branch. **Migrations**: Test on staging first. **Env**: Separate vars (STAGING=true). Success: staging live, migrations tested, CI/CD works.
+
+---
+
+#### 97. Secrets Scanning CI/CD
+
+Prompt: Secrets scan. **Workflow**: `.github/workflows/secrets-scan.yml` → TruffleHog, GitGuardian. **Config**: `.trufflehog.yaml`. **Alerts**: Fail build, Slack #security. **Historical**: `trufflehog git file://.` → scan all. Success: CI/CD scan works, 0 secrets found, alerts fire.
+
+---
+
+#### 98. Automated Rollback
+
+Prompt: Auto rollback. **Health**: `/health` endpoint (DB, Redis, Neo4j checks). **Policy**: If 5xx>5% OR latency>2s for 2min → rollback. **Config**: `gcloud run services update --health-check=/health`. **Alerts**: Slack on rollback. **Test**: Crash endpoint, verify rollback <2min. Success: rollback works, MTTR<2min.
+
+---
+
+### 🟡 P1: Features & Infrastructure
+
+#### 99. Export PDF/DOCX
+
+Prompt: PDF/DOCX export. **Backend**: `app/services/export/pdf_generator.py` (WeasyPrint), `docx_generator.py` (python-docx). **API**: `POST /api/export/personas/{id}/pdf`. **Features**: Charts, watermarks (free tier), TOC. **Performance**: Background task, <5s download. **Frontend**: Download button. Success: PDF works, <5s, watermarks, tests 85%+.
+
+---
+
+#### 100. Stripe Integration
+
+Prompt: Stripe payments. **Models**: `app/models/subscription.py`. **API**: `POST /api/payments/checkout`, `/webhooks/stripe`. **Plans**: Free, Pro $49/mo. **Webhooks**: `checkout.session.completed`, `invoice.payment_succeeded`. **Portal**: Billing portal link. **Frontend**: Pricing page, checkout. Success: subscribe works, webhooks handled, tests 90%+.
+
+---
+
+#### 101. Team Accounts
+
+Prompt: Teams. **Models**: `app/models/team.py`, `team_members.py`. **API**: `POST /api/teams`, `/teams/{id}/invite`, `/teams/{id}/projects`. **Permissions**: Owner/Member/Viewer. **Projects**: Add `team_id`, share. **Activity**: Audit log. **Frontend**: Team dashboard. Success: teams work, shared projects, tests 85%+.
+
+---
+
+#### 102. Monitoring & Alerting
+
+Prompt: Enhanced monitoring. **Dashboards**: Cloud Monitoring (latency p50/p90/p99, errors, users, costs). **Alerts**: Error>5%, downtime>1min, cost spike>$100/day. **PagerDuty**: Integration, on-call. **Metrics**: Custom (personas/hour, tokens/min). **Reports**: Weekly email. Success: dashboards live, alerts fire, PagerDuty works, MTTR<20min.
+
+---
+
+#### 103. E2E Tests Expansion (12→30+)
+
+Prompt: E2E expansion. **Current**: 12 tests. **Target**: 30+. **Coverage**: Persona flow (create→generate→view), Focus groups (setup→discuss→results), Workflows (create→execute→export), Surveys, Settings. **Framework**: Playwright `tests/e2e/`. **CI**: GitHub Actions. **Critical**: 90%+ coverage. Success: 30+ tests, critical paths covered, CI works, flaky<5%.
+
+---
+
+#### 104. Multi-LLM Support
+
+Prompt: Multi-provider. **Abstraction**: `app/services/shared/llm_router.py`. **Providers**: Gemini, OpenAI, Anthropic. **Fallback**: Gemini→OpenAI→Anthropic. **Cost Routing**: Prefer cheaper for simple tasks. **Config**: `config/models.yaml` per-domain. **Tracking**: Tokens/cost per provider. Success: 3 providers work, fallback tested, cost tracking accurate.
+
+---
+
+#### 105. Connection Pooling Optimization
+
+Prompt: Optimize pooling. **Current**: pool_size=10. **Analysis**: `pg_stat_activity` → check exhaustion. **Optimize**: pool_size=20, max_overflow=10, timeout=30s. **Config**: `app/db/session.py` engine. **Monitor**: Track usage, alert>80%. **Load Test**: `locust --users 100`. Success: 0 exhaustion, stable, load test passes.
+
+---
+
+### 🟢 P2: Performance & Tech Debt
+
+#### 106. Bundle Size Reduction (2.5MB→1.5MB)
+
+Prompt: Reduce bundle. **Current**: 2.5MB. **Target**: <1.5MB. **Techniques**: Lazy loading, code splitting (`manualChunks`), tree shaking, remove unused deps (task 90). **Analysis**: `npm run build --stats && npx vite-bundle-visualizer`. **Optimize**: Split vendor chunks, dynamic imports. **Lighthouse**: >80. Success: <1.5MB, initial<1MB, Lighthouse>80, <3s on 3G.
+
+---
+
+#### 107. Lazy Loading Routes
+
+Prompt: Lazy routes. **Current**: All eager. **Target**: All lazy. **Implementation**: `const Personas = lazy(() => import('./Personas'))`, wrap `<Suspense>`. **Routes**: Personas, FocusGroups, Workflows, Dashboard, Settings, Surveys. **Fallback**: LoadingSpinner. **Preload**: On hover. Success: all lazy, fallbacks work, initial<1MB, transitions smooth.
+
+---
+
+#### 108. N+1 Query Problem
+
+Prompt: Fix N+1. **Identify**: SQL logging (echo=True), `pg_stat_statements`. **Patterns**: Loops loading related data. **Fix**: `selectinload(Persona.focus_groups)`, `joinedload(Project.personas)`. **Critical**: `/api/personas` (with focus_groups), `/api/projects/{id}` (with personas). **Validate**: Count queries (O(1) not O(n)). Success: 0 N+1 in critical, latency<300ms p90, optimal counts.
+
+---
+
+#### 109. Neo4j Connection Leaks
+
+Prompt: Fix leaks. **Problem**: Connections not closed. **Fix**: Always `async with neo4j_connection.session() as session:`. **Audit**: `rg "neo4j_connection\\.session\\(\\)" app` → check all. **Monitor**: Track `neo4j.bolt.connections.active`. **Validate**: Stress test, memory stable. Success: 0 leaks, memory stable, monitoring works.
+
+---
+
+#### 110. Missing DB Indexes
+
+Prompt: Add indexes. **Analysis**: `SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMIT 20` → slow queries. **Slow**: `personas WHERE project_id AND deleted_at IS NULL`. **Indexes**: Composite `CREATE INDEX idx_personas_project_deleted ON personas(project_id, deleted_at)`, similar for focus_groups, surveys. **Migration**: Alembic. **Validate**: Queries<100ms p95. Success: all<100ms, indexes documented.
+
+---
+
+### 🟢 P2.8: Repository Cleanup
+
+#### 111. Cleanup cache
+
+Prompt: Remove cache. **Dirs**: `.pytest_cache`, `.ruff_cache`, `__pycache__`, `*.pyc`. **Command**: `rm -rf .pytest_cache .ruff_cache && find . -name "__pycache__" -exec rm -rf {} + && find . -name "*.pyc" -delete`. **Gitignore**: Add to `.gitignore`. Success: cache removed, gitignore updated.
+
+---
+
+#### 112. Cleanup .DS_Store
+
+Prompt: Remove .DS_Store. **Find**: `find . -name ".DS_Store"` (7 found). **Remove**: `find . -name ".DS_Store" -delete`. **Gitignore**: Add `.DS_Store`. **Global**: `echo ".DS_Store" >> ~/.gitignore_global`. Success: removed, gitignore updated.
+
+---
+
+#### 113. Archive obsolete .md
+
+Prompt: Archive old docs. **Files**: `STUDY_DESIGNER_*.md`, `IMPLEMENTATION_PROGRESS.md`, `frontend/DARK_MODE_AUDIT_*.md`. **Archive**: `mkdir -p docs/archive && mv [files] docs/archive/`. **Commit**: "chore: archive obsolete docs". Success: archived, root cleaner.
+
+---
+
+#### 114. Cleanup root
+
+Prompt: Clean root. **Review**: `ls -la | grep .md`. **Move**: `DEMO_DATA_INFO.md` → `docs/` or delete. **Evaluate**: `docker-compose.prod.yml` (if unused, delete). **Keep**: `README.md`, `CLAUDE.md`, `prompty.md`, `docker-compose.yml`. Success: root cleaner, only essentials.
+
+---
+
+#### 115. Docker volumes cleanup
+
+Prompt: Cleanup volumes. **Check**: `docker volume ls`. **Data**: Neo4j `./data/neo4j`, PostgreSQL `./data/postgres`. **Decision**: Keep or cleanup. **Cleanup**: `docker-compose down -v && rm -rf ./data/*`. **Gitignore**: `data/` in `.gitignore`. **Fresh**: `docker-compose up -d && python scripts/init_neo4j_indexes.py`. Success: reviewed, decision made, fresh start works.
 
 ---
 
@@ -1276,12 +1476,39 @@ vulture app/ tests/
 ---
 
 **Wygenerowano:** 2025-11-11
-**Wersja:** 1.2
+**Wersja:** 1.3
 **Utrzymanie:** Aktualizuj checklist i dodawaj nowe prompty według potrzeb
 
 ---
 
 ## 📝 Historia Zmian
+
+### 2025-11-11 (Wersja 1.3) - Cleanup Repo + Poprawki Dokumentacji
+**Autor:** Claude Code
+**Typ:** Dodanie zadań cleanup + korekta zadań dokumentacji
+
+**Zmiany:**
+1. ✅ **Dodano sekcję P2.8: Repository Cleanup (zadania 111-115)**
+   - 111: Cleanup cache directories (.pytest_cache, .ruff_cache, __pycache__)
+   - 112: Cleanup macOS files (.DS_Store)
+   - 113: Archive/Delete obsolete .md files (STUDY_DESIGNER, IMPLEMENTATION_PROGRESS, DARK_MODE_AUDIT)
+   - 114: Cleanup root directory (DEMO_DATA_INFO.md, docker-compose.prod.yml)
+   - 115: Docker volumes cleanup (local data)
+
+2. ✅ **Poprawiono zadania dokumentacji (71-75):**
+   - Zmieniono z "split" na "aktualizacja"
+   - 71: BACKEND.md - aktualizuj o refaktoryzacje 1-35
+   - 72: AI_ML.md - aktualizuj o zmiany RAG i persona generation
+   - 73: ROADMAP.md - dodaj "Completed 2024", zaktualizuj Q1 2025
+   - 74: CLAUDE.md - aktualizuj referencje plików
+   - 75: README.md - zaktualizuj linki
+
+3. 📊 **Zaktualizowano statystyki:**
+   - Total zadań: 110→115 (75 oryginalnych + 40 nowych)
+   - Zakończone: 51/115 (44%)
+   - Do zrobienia: 64/115 (56%)
+
+---
 
 ### 2025-11-11 (Wersja 1.2) - Rozszerzenie Zadań: Security, Features, Performance
 **Autor:** Claude Code
@@ -1326,9 +1553,9 @@ vulture app/ tests/
    - Zadanie 46-48: Poprawione nazwy plików (PersonaReasoningPanel, WorkflowsListPage, ExecutionHistory)
 
 7. 📊 **Zaktualizowano statystyki:**
-   - Total zadań: 85→110 (75 oryginalnych + 35 nowych)
-   - Zakończone: 50→51/110 (46%)
-   - Do zrobienia: 35→59/110 (54%)
+   - Total zadań: 85→115 (75 oryginalnych + 40 nowych)
+   - Zakończone: 50→51/115 (44%)
+   - Do zrobienia: 35→64/115 (56%)
 
 ---
 
@@ -1361,10 +1588,10 @@ vulture app/ tests/
    - Potencjalnie nieużywane: FigmaDashboard.tsx, StatsOverlay.tsx, FloatingControls.tsx
 
 4. 📊 **Nowe statystyki:**
-   - **Total zadań:** 110 (75 oryginalnych + 10 audytowych + 25 nowych)
-   - **Estimated Time:** 8-12 tygodni (z audytem + nowymi zadaniami)
-   - **Zakończone:** 51/110 (46%)
-   - **Do zrobienia:** 59/110 (54%)
+   - **Total zadań:** 115 (75 oryginalnych + 10 audytowych + 30 nowych)
+   - **Estimated Time:** 9-13 tygodni (z audytem + nowymi zadaniami)
+   - **Zakończone:** 51/115 (44%)
+   - **Do zrobienia:** 64/115 (56%)
 
 **Uzasadnienie:**
 Po zakończeniu zadań 1-35 (backend refaktoryzacja), przeprowadzono audyt skuteczności zmian. Odkryto:
