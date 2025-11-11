@@ -15,7 +15,7 @@ Pokrycie:
 """
 import pytest
 
-from app.services.focus_groups.discussion_summarizer import detect_input_language
+from app.services.focus_groups.nlp.language_detection import detect_input_language
 
 
 class TestDetectInputLanguage:

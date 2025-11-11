@@ -7,9 +7,9 @@ Serwisy odpowiedzialne za symulacje grup fokusowych i ich analizę:
 - MemoryServiceLangChain - Event sourcing dla person (pamięć długoterminowa)
 """
 
-from .focus_group_service_langchain import FocusGroupServiceLangChain
-from .discussion_summarizer import DiscussionSummarizerService
-from .memory_service_langchain import MemoryServiceLangChain
+from .discussion import FocusGroupServiceLangChain
+from .summaries import DiscussionSummarizerService
+from .memory import MemoryServiceLangChain
 
 __all__ = [
     "FocusGroupServiceLangChain",

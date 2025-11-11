@@ -10,7 +10,7 @@ with Polish text examples to ensure proper classification into:
 """
 
 import pytest
-from app.services.focus_groups.insight_classification import classify_insight_type
+from app.services.focus_groups.summaries.insight_classification import classify_insight_type
 
 
 @pytest.fixture

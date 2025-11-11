@@ -22,7 +22,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
+    from app.services.rag import PolishSocietyRAG
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ def get_polish_society_rag() -> "PolishSocietyRAG":
 
     if _POLISH_RAG_INSTANCE is None:
         logger.info("🔄 Initializing PolishSocietyRAG singleton (first call)")
-        from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
+        from app.services.rag import PolishSocietyRAG
 
         _POLISH_RAG_INSTANCE = PolishSocietyRAG()
         logger.info("✅ PolishSocietyRAG singleton initialized successfully")

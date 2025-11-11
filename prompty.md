@@ -130,9 +130,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 29. services/personas/ folder structure ✅ (Fix importów wewnętrznych)
 - [x] 30. services/dashboard/ folder structure ✅ (Struktura metrics/, usage/, insights/, costs/)
 - [x] 31. services/workflows/ folder structure ✅ (Struktura execution/, templates/, validation/ + docs przeniesione)
-- [ ] 32. services/rag/ folder structure
-- [ ] 33. services/focus_groups/ folder structure
-- [ ] 34. services/surveys/ folder structure
+- [x] 32. services/rag/ folder structure ✅ (Struktura search/, graph/, documents/, clients/)
+- [x] 33. services/focus_groups/ folder structure ✅ (Struktura discussion/, summaries/, memory/)
+- [x] 34. services/surveys/ folder structure ✅ (Importy zaktualizowane, struktura wystarczająca)
 - [ ] 35. services/shared/ folder structure
 
 ### 🟢 P2: Frontend Components

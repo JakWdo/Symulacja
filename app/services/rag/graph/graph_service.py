@@ -14,12 +14,12 @@ import logging
 from typing import Any
 
 from app.services.shared.clients import build_chat_model
-from app.services.rag.rag_clients import get_graph_store, get_vector_store
+from app.services.rag.clients import get_graph_store, get_vector_store
 
 # Import modułów
-from app.services.rag.graph_query_builder import generate_cypher_query
-from app.services.rag.graph_traversal import GraphTraversal
-from app.services.rag.graph_insights_extractor import (
+from .query_builder import generate_cypher_query
+from .traversal import GraphTraversal
+from .insights_extractor import (
     enrich_graph_nodes,
     answer_question as answer_question_impl
 )

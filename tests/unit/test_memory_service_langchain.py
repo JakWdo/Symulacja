@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.services.focus_groups.memory_service_langchain import MemoryServiceLangChain
+from app.services.focus_groups.memory.memory_service import MemoryServiceLangChain
 
 
 class DummyEmbeddings:

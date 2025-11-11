@@ -33,8 +33,7 @@ from app.schemas.rag import (
     RAGQueryRequest,
     RAGQueryResponse,
 )
-from app.services.rag.rag_document_service import RAGDocumentService
-from app.services.rag.rag_graph_service import GraphRAGService
+from app.services.rag import RAGDocumentService, GraphRAGService
 from app.services.shared import get_polish_society_rag
 
 router = APIRouter(prefix="/rag", tags=["RAG Knowledge Base"])

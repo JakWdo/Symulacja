@@ -203,7 +203,7 @@ async def _run_survey_task(survey_id: UUID):
     try:
         async with AsyncSessionLocal() as db:
             # Import serwisu (leniwe ładowanie, aby uniknąć zapętlenia importów)
-            from app.services.surveys.survey_response_generator import SurveyResponseGenerator
+            from app.services.surveys import SurveyResponseGenerator
 
             service = SurveyResponseGenerator()
             logger.info("📦 Service created, calling generate_responses...")
@@ -252,7 +252,7 @@ async def get_survey_results(
         404: Ankieta nie istnieje
         400: Ankieta nie została jeszcze uruchomiona
     """
-    from app.services.surveys.survey_response_generator import SurveyResponseGenerator
+    from app.services.surveys import SurveyResponseGenerator
 
     survey = await get_survey_for_user(survey_id, current_user, db)
 
