@@ -23,9 +23,7 @@ Performance:
 
 import asyncio
 import logging
-import re
 import time
-import unicodedata
 from typing import Any
 from uuid import UUID
 
@@ -33,205 +31,24 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
 
-from app.db import AsyncSessionLocal
 from app.models import Persona
 from app.services.personas.persona_audit_service import PersonaAuditService
-from app.services.personas.persona_needs_service import PersonaNeedsService
-from app.services.personas.segment_brief_service import SegmentBriefService
-from app.core.redis import redis_get_json, redis_set_json, redis_delete
-from app.schemas.persona_details import PersonaDetailsResponse, PersonaAuditEntry
+from app.core.redis import redis_get_json, redis_set_json
+from app.schemas.persona_details import PersonaDetailsResponse
+
+# Import funkcji z nowych modułów
+from .details_enrichment import (
+    ensure_segment_metadata,
+    fetch_needs_and_pains,
+    fetch_segment_brief,
+)
+from .details_crud import (
+    fetch_audit_log,
+    log_view_event,
+    persist_persona_field,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _gender_label_for_persona(gender: str | None) -> str:
-    if not gender:
-        return "Osoby"
-    lowered = gender.strip().lower()
-    if lowered.startswith("k"):
-        return "Kobiety"
-    if lowered.startswith("m"):
-        return "Mężczyźni"
-    return "Osoby"
-
-
-def _slugify_segment_name(name: str) -> str:
-    normalized = unicodedata.normalize("NFKD", name)
-    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
-    ascii_text = re.sub(r"[^a-zA-Z0-9]+", "-", ascii_text.lower()).strip("-")
-    return ascii_text
-
-
-def _sanitize_context_text(text: str | None, max_length: int = 900) -> str | None:
-    if not text:
-        return None
-    cleaned = re.sub(r"[`*_#>\[\]]+", "", str(text))
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    if not cleaned:
-        return None
-    if max_length and len(cleaned) > max_length:
-        truncated = cleaned[:max_length].rsplit(" ", 1)[0]
-        return f"{truncated}..."
-    return cleaned
-
-
-def _build_segment_name_from_persona(persona: Persona) -> str:
-    gender_label = _gender_label_for_persona(persona.gender)
-    parts: list[str] = [gender_label]
-
-    if persona.age:
-        parts.append(f"{persona.age} lat")
-    if persona.education_level:
-        parts.append(persona.education_level)
-    if persona.location and persona.location.lower() not in {"polska", "kraj"}:
-        parts.append(persona.location)
-
-    name = " ".join(part for part in parts if part).strip()
-    if not name:
-        name = "Segment demograficzny"
-    if len(name) > 60:
-        name = name[:57].rstrip() + "..."
-    return name
-
-
-def _build_segment_description_from_persona(persona: Persona, segment_name: str) -> str:
-    gender_label = _gender_label_for_persona(persona.gender)
-    if persona.age:
-        subject = f"{gender_label.lower()} w wieku około {persona.age} lat"
-    else:
-        subject = gender_label.lower()
-
-    sentences = [f"{segment_name} obejmuje {subject}."]
-
-    details: list[str] = []
-    if persona.education_level:
-        details.append(f"z wykształceniem {persona.education_level}")
-    if persona.income_bracket:
-        details.append(f"osiągające dochody około {persona.income_bracket}")
-    if persona.location:
-        if persona.location.lower() in {"polska", "kraj"}:
-            details.append("rozproszone w całej Polsce")
-        else:
-            details.append(f"mieszkające w {persona.location}")
-
-    if details:
-        sentences.append(f"W tej grupie dominują osoby {', '.join(details)}.")
-
-    return " ".join(sentences)
-
-
-def _build_segment_social_context(persona: Persona, details: dict[str, Any], fallback_description: str) -> str:
-    orchestration = dict((details.get("orchestration_reasoning") or {}))
-    demographics = orchestration.get("demographics") or details.get("demographics") or {
-        "age": persona.age,
-        "gender": persona.gender,
-        "education": persona.education_level,
-        "income": persona.income_bracket,
-        "location": persona.location,
-    }
-    if not isinstance(demographics, dict):
-        try:
-            demographics = dict(demographics)
-        except Exception:
-            demographics = {
-                "age": persona.age,
-                "gender": persona.gender,
-                "education": persona.education_level,
-                "income": persona.income_bracket,
-                "location": persona.location,
-            }
-
-    segment_name = (
-        orchestration.get("segment_name")
-        or details.get("segment_name")
-        or persona.segment_name
-        or _build_segment_name_from_persona(persona)
-    )
-
-    def first_sentences(text: str, limit: int = 2) -> str:
-        sentences = re.split(r"(?<=[.!?])\s+", text)
-        return " ".join(sentences[:limit]).strip()
-
-    raw_characteristics = orchestration.get("segment_characteristics") or details.get("segment_characteristics") or []
-    characteristics = [str(item).strip() for item in raw_characteristics if str(item).strip()]
-
-    description = _build_segment_description_from_persona(persona, segment_name or "Segment demograficzny")
-    sentences = [description]
-
-    allocation_summary = orchestration.get("allocation_reasoning") or details.get("allocation_reasoning")
-    allocation_summary = _sanitize_context_text(allocation_summary, max_length=220)
-    if allocation_summary:
-        sentences.append(first_sentences(allocation_summary))
-
-    if characteristics:
-        sentences.append("Kluczowe wyróżniki: " + ", ".join(characteristics[:4]) + ".")
-
-    combined = " ".join(sentences).strip()
-    return _sanitize_context_text(combined, max_length=400) or "Kontekst segmentu nie został jeszcze zdefiniowany."
-
-
-def _ensure_segment_metadata(persona: Persona) -> dict[str, Any] | None:
-    details = persona.rag_context_details or {}
-    if not isinstance(details, dict):
-        return details
-
-    details_copy: dict[str, Any] = dict(details)
-    orchestration = dict(details_copy.get("orchestration_reasoning") or {})
-    mutated = False
-
-    existing_segment_name = orchestration.get("segment_name") or details_copy.get("segment_name")
-    segment_name = persona.segment_name or existing_segment_name
-    if segment_name and segment_name != existing_segment_name:
-        mutated = True
-    if not segment_name:
-        segment_name = _build_segment_name_from_persona(persona)
-        mutated = True
-
-    existing_segment_id = orchestration.get("segment_id") or details_copy.get("segment_id")
-    segment_id = persona.segment_id or existing_segment_id
-    if segment_id and segment_id != existing_segment_id:
-        mutated = True
-    if not segment_id and segment_name:
-        slug = _slugify_segment_name(segment_name)
-        segment_id = slug or f"segment-{persona.id}"
-        mutated = True
-
-    segment_description = (
-        orchestration.get("segment_description")
-        or details_copy.get("segment_description")
-    )
-    if not segment_description and segment_name:
-        segment_description = _build_segment_description_from_persona(persona, segment_name)
-        mutated = True
-
-    segment_social_context = (
-        orchestration.get("segment_social_context")
-        or details_copy.get("segment_social_context")
-    )
-    computed_social_context = _build_segment_social_context(persona, details_copy, segment_description or "")
-    if computed_social_context and computed_social_context != segment_social_context:
-        segment_social_context = computed_social_context
-        mutated = True
-    elif not segment_social_context and computed_social_context:
-        segment_social_context = computed_social_context
-        mutated = True
-
-    if mutated:
-        if segment_name:
-            orchestration["segment_name"] = segment_name
-            details_copy["segment_name"] = segment_name
-        if segment_id:
-            orchestration["segment_id"] = segment_id
-            details_copy["segment_id"] = segment_id
-        if segment_description:
-            orchestration["segment_description"] = segment_description
-            details_copy["segment_description"] = segment_description
-        if segment_social_context:
-            orchestration["segment_social_context"] = segment_social_context
-            details_copy["segment_social_context"] = segment_social_context
-
-    details_copy["orchestration_reasoning"] = orchestration
-    return details_copy
 
 
 class PersonaDetailsService:
@@ -311,7 +128,7 @@ class PersonaDetailsService:
             if cached:
                 try:
                     cached_response = PersonaDetailsResponse.model_validate(cached)
-                    asyncio.create_task(self._log_view_event(persona_id, user_id))
+                    asyncio.create_task(log_view_event(persona_id, user_id))
 
                     total_elapsed_ms = int((time.time() - start_time) * 1000)
                     logger.info(
@@ -325,7 +142,6 @@ class PersonaDetailsService:
                     return cached_response
                 except ValidationError as e:
                     logger.warning("Invalid cached data for persona %s: %s", persona_id, e)
-                    await redis_delete(cache_key)
 
         # === PARALLEL FETCH COMPUTED DATA ===
         # Używamy asyncio.gather dla równoległego fetchowania (non-blocking)
@@ -333,9 +149,9 @@ class PersonaDetailsService:
 
         parallel_start = time.time()
         needs_and_pains, audit_log, segment_brief_data = await asyncio.gather(
-            self._fetch_needs_and_pains(persona, force_refresh=force_refresh),
-            self._fetch_audit_log(persona_id),
-            self._fetch_segment_brief(persona, force_refresh=force_refresh),
+            fetch_needs_and_pains(self.db, persona, force_refresh=force_refresh),
+            fetch_audit_log(persona_id, self.db, self.audit_service),
+            fetch_segment_brief(self.db, persona, force_refresh=force_refresh),
             return_exceptions=True,  # Nie failuj całego requesta jeśli 1 operacja failuje
         )
         parallel_elapsed_ms = int((time.time() - parallel_start) * 1000)
@@ -367,7 +183,7 @@ class PersonaDetailsService:
             segment_brief_data = None
 
         # Enrich RAG details with segment brief data
-        enriched_rag_details = _ensure_segment_metadata(persona)
+        enriched_rag_details = ensure_segment_metadata(persona)
         if segment_brief_data and enriched_rag_details:
             # Merge segment brief into orchestration_reasoning
             orchestration = enriched_rag_details.get("orchestration_reasoning") or {}
@@ -432,9 +248,12 @@ class PersonaDetailsService:
 
         # === LOG VIEW EVENT ===
         # Async non-blocking (używamy create_task aby nie czekać na commit)
-        asyncio.create_task(
-            self._log_view_event(persona_id, user_id)
-        )
+        asyncio.create_task(log_view_event(persona_id, user_id))
+
+        # === PERSIST NEEDS IF FRESHLY GENERATED ===
+        # Jeśli needs_and_pains zostały wygenerowane, zapisz asynchronicznie
+        if needs_and_pains and needs_and_pains != persona.needs_and_pains:
+            asyncio.create_task(persist_persona_field(persona.id, "needs_and_pains", needs_and_pains))
 
         total_elapsed_ms = int((time.time() - start_time) * 1000)
         logger.info(
@@ -450,193 +269,3 @@ class PersonaDetailsService:
         )
 
         return response
-
-    async def _fetch_needs_and_pains(
-        self,
-        persona: Persona,
-        *,
-        force_refresh: bool,
-    ) -> dict[str, Any] | None:
-        """
-        Fetch needs & pains analysis from cache or generate via LLM with RAG context.
-
-        Args:
-            persona: Persona object
-            force_refresh: Whether to bypass cache
-
-        Returns:
-            Dict with JTBD, desired outcomes, and pain points
-
-        Performance:
-            - Cache hit: < 10ms (return persona.needs_and_pains)
-            - Cache miss: < 2s (LLM with structured output + RAG context)
-        """
-        service = PersonaNeedsService(self.db)
-        try:
-            if persona.needs_and_pains and not force_refresh:
-                return persona.needs_and_pains
-
-            # Extract RAG context for consistency with segment data
-            rag_context = self._extract_rag_context(persona)
-
-            # Generate needs with RAG context
-            needs_data = await service.generate_needs_analysis(persona, rag_context=rag_context)
-            persona.needs_and_pains = needs_data
-            asyncio.create_task(self._persist_persona_field(persona.id, "needs_and_pains", needs_data))
-            return needs_data
-        except Exception as exc:
-            logger.error("Failed to generate needs for persona %s: %s", persona.id, exc, exc_info=True)
-            return persona.needs_and_pains
-
-    async def _fetch_audit_log(self, persona_id: UUID) -> list[PersonaAuditEntry]:
-        """
-        Fetch audit log (last 20 actions)
-
-        Args:
-            persona_id: UUID persony
-
-        Returns:
-            Lista PersonaAuditEntry (last 20 actions)
-
-        Performance:
-            - Index na (persona_id, timestamp DESC)
-            - Limit 20 entries
-        """
-        try:
-            logs = await self.audit_service.get_audit_log(persona_id, self.db, limit=20)
-            return [
-                PersonaAuditEntry(
-                    id=log.id,
-                    action=log.action,
-                    details=log.details,
-                    user_id=log.user_id,
-                    timestamp=log.timestamp,
-                )
-                for log in logs
-            ]
-        except Exception as e:
-            logger.error(
-                f"Failed to fetch audit log for persona {persona_id}: {e}", exc_info=e
-            )
-            return []
-
-    async def _log_view_event(self, persona_id: UUID, user_id: UUID):
-        """
-        Log view event (async, non-blocking)
-
-        Args:
-            persona_id: UUID persony
-            user_id: UUID użytkownika
-
-        Note:
-            To jest async task (create_task) - nie blokuje HTTP response
-            Jeśli failuje, logujemy warning ale nie propagujemy exception
-        """
-        try:
-            async with AsyncSessionLocal() as audit_db:
-                await self.audit_service.log_action(
-                    persona_id=persona_id,
-                    user_id=user_id,
-                    action="view",
-                    details={"source": "detail_view", "device": "web"},
-                    db=audit_db,
-                )
-        except Exception as e:
-            logger.warning("Failed to log view event: %s", e)
-
-    async def _persist_persona_field(self, persona_id: UUID, field_name: str, value: dict[str, Any]) -> None:
-        """Persist a JSONB field on Persona in a dedicated transaction."""
-        try:
-            async with AsyncSessionLocal() as session:
-                result = await session.execute(select(Persona).where(Persona.id == persona_id))
-                persona = result.scalars().first()
-                if not persona:
-                    logger.warning("Persona %s not found when persisting %s", persona_id, field_name)
-                    return
-
-                setattr(persona, field_name, value)
-                await session.commit()
-                logger.debug("Persisted %s for persona %s", field_name, persona_id)
-                await redis_delete(f"persona_details:{persona_id}")
-        except Exception as exc:
-            logger.warning("Failed to persist %s for persona %s: %s", field_name, persona_id, exc)
-
-    def _extract_rag_context(self, persona: Persona) -> str | None:
-        details = persona.rag_context_details or {}
-        reasoning = details.get("orchestration_reasoning") or {}
-        context_candidates = [
-            reasoning.get("segment_social_context"),
-            reasoning.get("overall_context"),
-            details.get("graph_context"),
-        ]
-        for candidate in context_candidates:
-            if isinstance(candidate, str) and candidate.strip():
-                return candidate.strip()
-        return None
-
-    async def _fetch_segment_brief(
-        self,
-        persona: Persona,
-        *,
-        force_refresh: bool,
-    ) -> dict[str, Any] | None:
-        """
-        Fetch segment brief i persona uniqueness używając SegmentBriefService.
-
-        Args:
-            persona: Persona object
-            force_refresh: Whether to bypass cache
-
-        Returns:
-            Dict z segment_brief i persona_uniqueness lub None jeśli failuje
-
-        Performance:
-            - Cache hit (segment brief): < 50ms
-            - Cache miss: < 5s (RAG + LLM dla briefu + uniqueness)
-        """
-        try:
-            segment_service = SegmentBriefService(self.db)
-
-            # Przygotuj demographics z persony
-            demographics = {
-                "age": persona.age or "unknown",
-                "gender": persona.gender or "unknown",
-                "education": persona.education_level or "unknown",
-                "location": persona.location or "unknown",
-                "income": persona.income_bracket or "unknown",
-            }
-
-            # Generuj/pobierz segment brief (z cache jeśli !force_refresh)
-            segment_brief = await segment_service.generate_segment_brief(
-                demographics=demographics,
-                project_id=persona.project_id,
-                max_example_personas=3,
-                force_refresh=force_refresh
-            )
-
-            # Generuj persona uniqueness
-            persona_uniqueness = await segment_service.generate_persona_uniqueness(
-                persona=persona,
-                segment_brief=segment_brief
-            )
-
-            logger.info(
-                "✅ Segment brief fetched for persona %s (segment: %s, from_cache: %s)",
-                persona.id,
-                segment_brief.segment_id,
-                not force_refresh
-            )
-
-            return {
-                "segment_brief": segment_brief.model_dump(mode="json"),
-                "persona_uniqueness": persona_uniqueness,
-            }
-
-        except Exception as exc:
-            logger.error(
-                "Failed to generate segment brief for persona %s: %s",
-                persona.id,
-                exc,
-                exc_info=True
-            )
-            return None

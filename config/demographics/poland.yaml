@@ -5,6 +5,30 @@
 #   locations = demographics_poland['locations']
 #   occupations = demographics_poland['occupations']
 
+# Polish labels for persona details (używane w formatowaniu segmentów)
+labels:
+  gender:
+    female: "Kobiety"
+    male: "Mężczyźni"
+    other: "Osoby"
+    unknown: "Osoby"
+
+  segment:
+    default_name: "Segment demograficzny"
+    age_suffix: "lat"
+
+  descriptions:
+    includes: "obejmuje"
+    age_about: "w wieku około"
+    years: "lat"
+    with_education: "z wykształceniem"
+    income_about: "osiągające dochody około"
+    distributed_poland: "rozproszone w całej Polsce"
+    living_in: "mieszkające w"
+    group_dominant: "W tej grupie dominują osoby"
+    key_characteristics: "Kluczowe wyróżniki:"
+    context_undefined: "Kontekst segmentu nie został jeszcze zdefiniowany."
+
 locations:
   Warszawa: 0.20
   Kraków: 0.10
