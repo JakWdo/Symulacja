@@ -1,7 +1,15 @@
 import { create } from 'zustand';
 import type { Project, Persona, FocusGroup, GraphData, GraphQueryResponse } from '@/types';
+import {
+  type PanelKey,
+  type GraphLayout,
+  DEFAULT_PANEL_POSITIONS,
+  DEFAULT_TRIGGER_POSITIONS,
+  GRAPH_LAYOUTS
+} from '@/constants/ui';
 
-export type PanelKey = 'projects' | 'personas' | 'focus-groups' | 'analysis' | 'rag';
+// Re-export for backward compatibility
+export type { PanelKey };
 
 type Position = {
   x: number;
@@ -9,17 +17,13 @@ type Position = {
 };
 
 interface AppState {
-  // Selected entities
+  // Selected entities (UI state only - data comes from TanStack Query)
   selectedProject: Project | null;
   selectedPersona: Persona | null;
   selectedFocusGroup: FocusGroup | null;
 
-  // Data
-  projects: Project[];
-  personas: Persona[];
-  focusGroups: FocusGroup[];
+  // Graph data (not duplicated by TanStack Query)
   graphData: GraphData | null;
-  pendingSummaries: Record<string, boolean>;
   graphAsk: GraphAskState;
 
   // UI State
@@ -33,16 +37,13 @@ interface AppState {
   // Graph View State
   hoveredNode: string | null;
   selectedNodes: string[];
-  graphLayout: '2d' | '3d';
+  graphLayout: GraphLayout;
   showLabels: boolean;
 
   // Actions
   setSelectedProject: (project: Project | null) => void;
   setSelectedPersona: (persona: Persona | null) => void;
   setSelectedFocusGroup: (focusGroup: FocusGroup | null) => void;
-  setProjects: (projects: Project[]) => void;
-  setPersonas: (personas: Persona[]) => void;
-  setFocusGroups: (focusGroups: FocusGroup[]) => void;
   setGraphData: (data: GraphData | null) => void;
   setActivePanel: (panel: AppState['activePanel']) => void;
   setLoading: (loading: boolean) => void;
@@ -54,7 +55,6 @@ interface AppState {
   toggleLabels: () => void;
   setPanelPosition: (panel: PanelKey, position: Position) => void;
   setTriggerPosition: (panel: PanelKey, position: Position) => void;
-  setSummaryPending: (focusGroupId: string, pending: boolean) => void;
   setGraphAskQuestion: (question: string) => void;
   setGraphAskResult: (result: GraphQueryResponse | null) => void;
   setGraphAskStatus: (status: GraphAskState['status'], error?: string | null) => void;
@@ -77,11 +77,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedProject: null,
   selectedPersona: null,
   selectedFocusGroup: null,
-  projects: [],
-  personas: [],
-  focusGroups: [],
   graphData: null,
-  pendingSummaries: {},
   graphAsk: {
     focusGroupId: null,
     question: '',
@@ -95,30 +91,15 @@ export const useAppStore = create<AppState>((set) => ({
   shouldOpenProjectCreation: false,
   hoveredNode: null,
   selectedNodes: [],
-  graphLayout: '3d',
+  graphLayout: GRAPH_LAYOUTS.THREE_D,
   showLabels: true,
-  panelPositions: {
-    projects: { x: 80, y: 140 },
-    personas: { x: 440, y: 160 },
-    'focus-groups': { x: 820, y: 180 },
-    analysis: { x: 1200, y: 160 },
-    rag: { x: 1260, y: 420 },
-  },
-  triggerPositions: {
-    projects: { x: 40, y: 200 },
-    personas: { x: 40, y: 320 },
-    'focus-groups': { x: 40, y: 440 },
-    analysis: { x: 40, y: 560 },
-    rag: { x: 40, y: 680 },
-  },
+  panelPositions: DEFAULT_PANEL_POSITIONS as Record<PanelKey, Position>,
+  triggerPositions: DEFAULT_TRIGGER_POSITIONS as Record<PanelKey, Position>,
 
   // Actions
   setSelectedProject: (project) => set({ selectedProject: project }),
   setSelectedPersona: (persona) => set({ selectedPersona: persona }),
   setSelectedFocusGroup: (focusGroup) => set({ selectedFocusGroup: focusGroup }),
-  setProjects: (projects) => set({ projects }),
-  setPersonas: (personas) => set({ personas }),
-  setFocusGroups: (focusGroups) => set({ focusGroups }),
   setGraphData: (data) => set({ graphData: data }),
   setActivePanel: (panel) => set({ activePanel: panel }),
   setLoading: (loading) => set({ isLoading: loading }),
@@ -141,23 +122,6 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       triggerPositions: { ...state.triggerPositions, [panel]: position },
     })),
-  setSummaryPending: (focusGroupId, pending) =>
-    set((state) => {
-      const currentlyPending = !!state.pendingSummaries[focusGroupId];
-      if (pending === currentlyPending) {
-        return {};
-      }
-
-      if (pending) {
-        return {
-          pendingSummaries: { ...state.pendingSummaries, [focusGroupId]: true },
-        };
-      }
-
-      const rest = { ...state.pendingSummaries };
-      delete rest[focusGroupId];
-      return { pendingSummaries: rest };
-    }),
   setGraphAskQuestion: (question) =>
     set((state) => ({
       graphAsk: {

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { OverviewDashboard } from '@/components/layout/OverviewDashboard';
@@ -27,19 +26,16 @@ import { WorkflowsListPage } from '@/components/workflows/WorkflowsListPage';
 import { StudyDesignerView } from '@/components/study-designer/StudyDesignerView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppStore } from '@/store/appStore';
-import { personasApi, focusGroupsApi } from '@/lib/api';
 import { useTheme } from '@/hooks/use-theme';
 import type { Project, FocusGroup, Survey, Workflow } from '@/types';
 
 export default function App() {
   // Initialize theme
   useTheme();
-  const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Use Zustand selectors to prevent unnecessary re-renders
   const selectedProject = useAppStore(state => state.selectedProject);
-  const setPersonas = useAppStore(state => state.setPersonas);
   const setSelectedPersona = useAppStore(state => state.setSelectedPersona);
 
   const [currentView, setCurrentView] = useState('dashboard');
@@ -48,25 +44,12 @@ export default function App() {
   const [viewSurvey, setViewSurvey] = useState<Survey | null>(null);
   const [viewWorkflow, setViewWorkflow] = useState<Workflow | null>(null);
 
-  // Fetch personas for selected project
-  const { data: personas } = useQuery({
-    queryKey: ['personas', selectedProject?.id],
-    queryFn: async () => {
-      if (!selectedProject) return [];
-      return await personasApi.getByProject(selectedProject.id);
-    },
-    enabled: !!selectedProject,
-  });
-
-  // Sync fetched personas with the global store
+  // Clear selected persona when project changes
   useEffect(() => {
     if (!selectedProject) {
-      setPersonas([]);
       setSelectedPersona(null);
-    } else if (personas) {
-      setPersonas(personas);
     }
-  }, [selectedProject, personas]);
+  }, [selectedProject, setSelectedPersona]);
 
   const renderContent = () => {
     switch (currentView) {

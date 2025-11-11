@@ -254,7 +254,6 @@ export function PersonaPanel() {
   const setActivePanel = useAppStore(state => state.setActivePanel);
   const selectedProject = useAppStore(state => state.selectedProject);
   const selectedPersona = useAppStore(state => state.selectedPersona);
-  const setPersonas = useAppStore(state => state.setPersonas);
   const setSelectedPersona = useAppStore(state => state.setSelectedPersona);
   const [showWizard, setShowWizard] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -264,7 +263,7 @@ export function PersonaPanel() {
   const [activeGenerationProjectId, setActiveGenerationProjectId] = useState<string | null>(null);
   const projectLabel = selectedProject?.name ?? 'Unknown project';
 
-  const { data: personas, isLoading, isFetching } = useQuery({
+  const { data: personas = [], isLoading, isFetching } = useQuery({
     queryKey: ['personas', selectedProject?.id],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -281,13 +280,6 @@ export function PersonaPanel() {
       return (!data || data.length === 0) ? 5000 : false;
     },
   });
-
-  // Sync personas to global store
-  useEffect(() => {
-    if (personas) {
-      setPersonas(personas);
-    }
-  }, [personas, setPersonas]);
 
   // Track previous personas length for toast notification
   const prevPersonasLength = useRef<number>(0);

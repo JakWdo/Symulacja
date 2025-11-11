@@ -664,9 +664,6 @@ export function FocusGroupPanel() {
   const setActivePanel = useAppStore(state => state.setActivePanel);
   const selectedProject = useAppStore(state => state.selectedProject);
   const selectedFocusGroup = useAppStore(state => state.selectedFocusGroup);
-  const personas = useAppStore(state => state.personas);
-  const focusGroups = useAppStore(state => state.focusGroups);
-  const setFocusGroups = useAppStore(state => state.setFocusGroups);
   const setSelectedFocusGroup = useAppStore(state => state.setSelectedFocusGroup);
   const [formState, setFormState] = useState<
     | { mode: 'create' }
@@ -674,12 +671,22 @@ export function FocusGroupPanel() {
     | null
   >(null);
 
-  const { isLoading, isError, error } = useQuery<FocusGroup[]>({
+  // Fetch personas from TanStack Query
+  const { data: personas = [] } = useQuery({
+    queryKey: ['personas', selectedProject?.id],
+    queryFn: async () => {
+      if (!selectedProject) return [];
+      return await personasApi.getByProject(selectedProject.id);
+    },
+    enabled: !!selectedProject,
+  });
+
+  // Fetch focus groups from TanStack Query
+  const { data: focusGroups = [], isLoading, isError, error } = useQuery<FocusGroup[]>({
     queryKey: ['focus-groups', selectedProject?.id],
     queryFn: async () => {
-      const data = await focusGroupsApi.getByProject(selectedProject!.id);
-      setFocusGroups(data);
-      return data;
+      if (!selectedProject) return [];
+      return await focusGroupsApi.getByProject(selectedProject.id);
     },
     enabled: !!selectedProject,
     refetchOnWindowFocus: 'always',
@@ -689,12 +696,6 @@ export function FocusGroupPanel() {
       query.state.data?.some((group) => group.status === 'running') ? 2000 : false,
     refetchIntervalInBackground: true,
   });
-
-  useEffect(() => {
-    if (!selectedProject) {
-      setFocusGroups([]);
-    }
-  }, [selectedProject, setFocusGroups]);
 
   const handleFormSaved = (group: FocusGroup) => {
     setFormState(null);
