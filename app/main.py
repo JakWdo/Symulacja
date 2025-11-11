@@ -14,7 +14,7 @@ Kluczowe endpointy:
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,7 +27,7 @@ from app.core.logging_config import configure_logging
 from app.core.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
-from app.api import projects, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal, study_designer
+from app.api import project_crud, project_demographics, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal, study_designer
 from app.api.dependencies import get_current_admin_user, get_db
 from app.api.exception_handlers import register_exception_handlers
 from app.services.maintenance.cleanup_service import CleanupService
@@ -168,7 +168,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth.router, prefix=app_config.api_prefix, tags=["Auth"])
 
 # Chronione endpointy (wymagają uwierzytelnienia)
-app.include_router(projects.router, prefix=app_config.api_prefix, tags=["Projects"])
+# Projekty - podzielone na CRUD i soft delete operations
+app.include_router(project_crud.router, prefix=app_config.api_prefix)
+app.include_router(project_demographics.router, prefix=app_config.api_prefix)
 app.include_router(personas.router, prefix=app_config.api_prefix, tags=["Personas"])
 app.include_router(focus_groups.router, prefix=app_config.api_prefix, tags=["Focus Groups"])
 app.include_router(surveys.router, prefix=app_config.api_prefix, tags=["Surveys"])
