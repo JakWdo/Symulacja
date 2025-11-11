@@ -94,9 +94,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 2. discussion_summarizer.py split ✅ (1143→341 linii + 7 modułów)
 - [x] 3. rag_hybrid_search_service.py split ✅ (1074 + 6 modułów: cache, search, reranking, graph)
 - [x] 4. persona_orchestration.py split ✅ (987→185 linii + 7 modułów)
-- [ ] 5. dashboard_orchestrator.py split ⚠️ (struktura folderów utworzona)
-- [ ] 6. rag_graph_service.py split
-- [ ] 7. segment_brief_service.py cleanup
+- [x] 5. dashboard_orchestrator.py split ✅ (1028→543 linii + 4 moduły)
+- [x] 6. rag_graph_service.py split ✅ (665→114 linii + 3 moduły)
+- [x] 7. segment_brief_service.py cleanup ✅ (TTL z config/features.yaml)
 - [ ] 8. persona_details_service.py cleanup
 - [ ] 9. distribution_builder.py cleanup
 - [ ] 10. demographics_formatter.py cleanup
