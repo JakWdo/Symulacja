@@ -22,7 +22,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from app.services.rag.rag_hybrid_search_service import PolishSocietyRAG
+from app.services.rag import PolishSocietyRAG
 from app.core.config import get_settings
 
 pytestmark = pytest.mark.manual

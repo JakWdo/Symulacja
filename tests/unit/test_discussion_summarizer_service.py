@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from app.services.focus_groups.discussion_summarizer import DiscussionSummarizerService
+from app.services.focus_groups.summaries.discussion_summarizer import DiscussionSummarizerService
 from app.services.focus_groups.nlp.sentiment_analysis import simple_sentiment_score
-from app.services.focus_groups.data_preparation import prepare_discussion_data, prepare_prompt_variables
+from app.services.focus_groups.discussion.data_preparation import prepare_discussion_data, prepare_prompt_variables
 
 
 class DummyFocusGroup:

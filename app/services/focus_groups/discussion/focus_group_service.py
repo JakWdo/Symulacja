@@ -20,7 +20,7 @@ from uuid import UUID
 
 
 from app.models import FocusGroup, Persona, PersonaResponse
-from app.services.focus_groups.memory_service_langchain import MemoryServiceLangChain
+from app.services.focus_groups.memory import MemoryServiceLangChain
 from app.db import AsyncSessionLocal
 from app.services.shared.clients import build_chat_model
 from app.services.dashboard.usage import (

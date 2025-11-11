@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.models.survey import Survey, SurveyResponse
 from app.models import Persona, Project
-from app.services.surveys.survey_response_generator import SurveyResponseGenerator
+from app.services.surveys import SurveyResponseGenerator
 
 
 @pytest.mark.integration

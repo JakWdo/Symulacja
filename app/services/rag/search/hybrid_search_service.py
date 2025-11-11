@@ -23,7 +23,7 @@ import redis.asyncio as redis
 from langchain_core.documents import Document
 
 from config import rag, app
-from app.services.rag.rag_clients import get_vector_store
+from app.services.rag.clients import get_vector_store
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ class PolishSocietyRAG:
     def graph_rag_service(self):
         """Leniwa inicjalizacja GraphRAGService dla dostępu do strukturalnego kontekstu."""
         if self._graph_rag_service is None:
-            from app.services.rag.rag_graph_service import GraphRAGService
+            from app.services.rag.graph import GraphRAGService
 
             self._graph_rag_service = GraphRAGService()
         return self._graph_rag_service

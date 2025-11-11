@@ -35,7 +35,7 @@ from app.core.rag_config import (
 from config import prompts
 from app.models.rag_document import RAGDocument
 from app.services.shared.clients import build_chat_model
-from app.services.rag.rag_clients import get_graph_store, get_vector_store
+from app.services.rag.clients import get_graph_store, get_vector_store
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +168,7 @@ class RAGDocumentService:
                     graph_documents = await transformer.aconvert_to_graph_documents(chunks)
 
                     # Wzbogacenie węzłów o metadane dokumentu (współdzielona logika GraphRAGService)
-                    from app.services.rag.rag_graph_service import GraphRAGService
+                    from app.services.rag.graph import GraphRAGService
                     enriched_graph_documents = GraphRAGService.enrich_graph_nodes(
                         graph_documents,
                         doc_id=str(doc_id),

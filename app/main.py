@@ -306,7 +306,7 @@ async def startup_probe():
 
     try:
         # Sprawdź Neo4j connectivity (krytyczne dla RAG)
-        from app.services.rag.rag_clients import _connect_with_retry
+        from app.services.rag.clients.rag_clients import _connect_with_retry
         from neo4j import GraphDatabase
 
         def test_neo4j_connection():
