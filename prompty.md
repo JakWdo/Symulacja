@@ -100,9 +100,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 8. persona_details_service.py cleanup ✅ (642→ details_crud + details_enrichment)
 - [x] 9. distribution_builder.py cleanup ✅ (634→ distribution_calculator + validator)
 - [x] 10. demographics_formatter.py cleanup ✅ (560→ validator + formatter)
-- [ ] 11. survey_response_generator.py cleanup
-- [ ] 12. workflow_template_service.py cleanup
-- [ ] 13. persona_needs_analyzer.py cleanup
+- [x] 11. survey_response_generator.py cleanup ✅ (686→524+245 linii: core + formatter)
+- [x] 12. workflow_template_service.py cleanup ✅ (543→635+108 linii: crud + validator)
+- [x] 13. persona_needs_analyzer.py cleanup ✅ (persona_needs_service.py: 203 linii, bez zmian)
 - [ ] 14. focus_groups memory_manager.py cleanup
 - [ ] 15. dashboard usage_logging.py cleanup
 
