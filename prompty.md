@@ -103,8 +103,8 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 11. survey_response_generator.py cleanup ✅ (686→524+245 linii: core + formatter)
 - [x] 12. workflow_template_service.py cleanup ✅ (543→635+108 linii: crud + validator)
 - [x] 13. persona_needs_analyzer.py cleanup ✅ (persona_needs_service.py: 203 linii, bez zmian)
-- [ ] 14. focus_groups memory_manager.py cleanup
-- [ ] 15. dashboard usage_logging.py cleanup
+- [x] 14. focus_groups memory_manager.py cleanup ✅ (memory_service_langchain.py: 256 linii, bez zmian)
+- [x] 15. dashboard usage_logging.py cleanup ✅ (usage_logging.py: 182 linii, brak print(), bez zmian)
 
 ### 🟡 P1: Backend API + Schemas
 - [ ] 16. api/personas/generation.py split
