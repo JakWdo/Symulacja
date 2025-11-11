@@ -3,6 +3,8 @@
 Ten pakiet zawiera helper functions i models używane przez PersonaOrchestrationService:
 
 Modules:
+- persona_orchestration: PersonaOrchestrationService - główna orkiestracja alokacji person
+- segment_brief_service: SegmentBriefService - generowanie briefów segmentów
 - models: Pydantic models (GraphInsight, DemographicGroup, PersonaAllocationPlan)
 - graph_context_fetcher: Pobieranie Graph RAG context z hybrid search
 - prompt_builder: Długi edukacyjny prompt dla Gemini 2.5 Pro
@@ -12,6 +14,8 @@ Modules:
 - filtering_utils: Filtrowanie insights i citations per segment
 """
 
+from .persona_orchestration import PersonaOrchestrationService
+from .segment_brief_service import SegmentBriefService
 from .models import (
     GraphInsight,
     DemographicGroup,
@@ -29,6 +33,9 @@ from .filtering_utils import (
 )
 
 __all__ = [
+    # Services
+    "PersonaOrchestrationService",
+    "SegmentBriefService",
     # Models
     "GraphInsight",
     "DemographicGroup",
