@@ -137,7 +137,7 @@ Odznaczaj po zakończeniu każdego promptu:
 
 ### 🟢 P2: Frontend Components
 - [x] 36. Personas.tsx split ✅ (653→488 linii + PersonasHeader, PersonasProgressBar, PersonasStats)
-- [ ] 37. FocusGroupView.tsx split
+- [x] 37. FocusGroupView.tsx split ✅ (972→637 linii + FocusGroupHeader, FocusGroupSetupTab, FocusGroupDiscussionTab)
 - [ ] 38. ❌ GraphAnalysis.tsx - USUŃ (martwy kod, brak użycia)
 - [ ] 39. FocusGroupPanel.tsx split
 - [ ] 40. WorkflowEditor.tsx split
@@ -469,9 +469,19 @@ Prompt (krótki): Przejrzyj `frontend/src/components/layout/Personas.tsx` (monol
 
 ---
 
-#### 37. 🟢 [Frontend Component] - FocusGroupView.tsx (972 linii)
+#### 37. ✅ [Frontend Component] - FocusGroupView.tsx (972 → 637 linii)
 
 Prompt (krótki): Przejrzyj `frontend/src/components/layout/FocusGroupView.tsx` (dyskusja + odpowiedzi w jednym). Najpierw: `rg -n "import.*FocusGroupView" frontend/src --glob "**/*.tsx"` i zanotuj usage. Podziel na `FocusGroupLayout.tsx`, `DiscussionThread.tsx`, `ResponseComposer.tsx`; zaktualizuj importy i routing + **usuń nieużywany kod** (`npm run lint -- --fix`) + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+
+**Wynik (2025-11-11)**: ✅ Zakończono
+- Plik główny: 972 → 637 linii (-34%)
+- Utworzono 3 nowe komponenty:
+  - `FocusGroupHeader.tsx` (76 linii) - header z back button i statusem
+  - `FocusGroupSetupTab.tsx` (176 linii) - konfiguracja pytań i uczestników
+  - `FocusGroupDiscussionTab.tsx` (228 linii) - progress bar i live chat
+- Usunięto duplikację kodu (getStatusColor, getStatusText przeniesione do header)
+- Uproszczono importy (usunięto nieużywane)
+- Commit: 16dad46
 
 ---
 
