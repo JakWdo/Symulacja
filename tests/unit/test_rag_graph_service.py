@@ -10,7 +10,6 @@ Zakres testów:
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-import json
 
 from app.services.rag import GraphRAGService
 

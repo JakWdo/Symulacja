@@ -157,7 +157,6 @@ def test_calculate_question_stats_open_text(service):
 
 def test_calculate_demographic_breakdown(service):
     """Test obliczania rozkładu demograficznego."""
-    from app.models.survey import SurveyResponse
 
     personas = {
         uuid4(): DummyPersona("Alice"),

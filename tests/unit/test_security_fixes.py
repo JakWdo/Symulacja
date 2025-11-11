@@ -14,11 +14,7 @@ Uruchom:
 """
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
-from fastapi.testclient import TestClient
-from fastapi import HTTPException, status
-from datetime import datetime
-import io
+from unittest.mock import Mock, AsyncMock
 
 # Tests będą działać tylko jeśli slowapi jest zainstalowane
 try:

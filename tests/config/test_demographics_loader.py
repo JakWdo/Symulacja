@@ -3,7 +3,7 @@ Tests for DemographicsLoader - Polish, International, and Common demographics.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from config.demographics_loader import (
     DemographicsConfig,
@@ -92,7 +92,7 @@ class TestPolandDemographics:
         assert len(demographics.poland.values) > 0
 
         # Check some common Polish values
-        values_str = " ".join(demographics.poland.values)
+        " ".join(demographics.poland.values)
         assert any("rodzina" in v.lower() for v in demographics.poland.values)
 
     def test_interests_loaded(self, demographics):
@@ -259,7 +259,7 @@ class TestCommonDemographics:
         assert len(demographics.common.family_situations) > 0
 
         # Check common family situations exist
-        situations_str = " ".join(demographics.common.family_situations).lower()
+        " ".join(demographics.common.family_situations).lower()
         assert any("single" in s.lower() or "married" in s.lower() or "children" in s.lower()
                    for s in demographics.common.family_situations)
 

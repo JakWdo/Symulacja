@@ -7,8 +7,7 @@ Tworzy 4 projekty (2 PL + 2 INT) z personami, ankietami i focus groups.
 
 import asyncio
 import httpx
-import json
-from typing import Dict, List, Any
+from typing import Dict, List
 
 API_BASE = "http://localhost:8000/api/v1"
 TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZGJkOWVhOS1lMGI4LTRmZTMtYmRjNC1mOTQzYzNjYTBlZjYiLCJlbWFpbCI6ImRlbW9Ac2lnaHQucGwiLCJleHAiOjE3NjI1MDE3NTcsImlhdCI6MTc2MjQ5OTk1N30.NkHMxii7H26BAVdAh_jj4kV7TZW02UE-nD-o4tAqJo8"
@@ -30,7 +29,7 @@ async def create_project(client: httpx.AsyncClient, data: Dict) -> str:
 async def generate_personas(client: httpx.AsyncClient, project_id: str, num: int) -> None:
     """Generuje persony (background task)."""
     data = {"num_personas": num, "adversarial_mode": False, "use_rag": False}
-    response = await client.post(
+    await client.post(
         f"{API_BASE}/projects/{project_id}/personas/generate",
         json=data,
         headers=HEADERS
@@ -73,7 +72,7 @@ async def create_survey(client: httpx.AsyncClient, project_id: str, data: Dict) 
 
 async def run_survey(client: httpx.AsyncClient, survey_id: str) -> None:
     """Uruchamia zbieranie odpowiedzi ankiety."""
-    response = await client.post(
+    await client.post(
         f"{API_BASE}/surveys/{survey_id}/run",
         headers=HEADERS
     )
@@ -95,7 +94,7 @@ async def create_focus_group(client: httpx.AsyncClient, project_id: str, data: D
 
 async def run_focus_group(client: httpx.AsyncClient, fg_id: str) -> None:
     """Uruchamia symulację focus group."""
-    response = await client.post(
+    await client.post(
         f"{API_BASE}/focus-groups/{fg_id}/run",
         headers=HEADERS
     )

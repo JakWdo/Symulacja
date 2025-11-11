@@ -4,7 +4,6 @@ Tests for ConfigLoader - YAML loading, environment layering
 
 import pytest
 import yaml
-from pathlib import Path
 from unittest.mock import patch
 
 from config.loader import ConfigLoader
@@ -179,7 +178,7 @@ class TestEnvironmentLayering:
 
         # Load with env overrides
         loader.environment = "production"
-        with_env = loader.load_with_env_overrides("models.yaml")
+        loader.load_with_env_overrides("models.yaml")
 
         # Original base should still be unchanged
         base_after = loader.load_yaml("models.yaml")

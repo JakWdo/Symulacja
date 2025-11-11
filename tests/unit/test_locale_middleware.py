@@ -12,7 +12,7 @@ Pokrycie:
 - Edge cases (empty headers, niepoprawne kody)
 """
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 from fastapi import Request
 
 from app.middleware.locale import normalize_language, get_locale

@@ -11,7 +11,7 @@ UWAGA: Te testy używają mocków do symulacji błędów.
 """
 
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import patch, AsyncMock
 from uuid import uuid4
 
 

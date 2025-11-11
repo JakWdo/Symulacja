@@ -2,12 +2,10 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 from datetime import datetime, timezone
 
 from app.main import app
-from app.core.security import get_password_hash, create_access_token
 
 
 client = TestClient(app, raise_server_exceptions=False)

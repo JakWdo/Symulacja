@@ -1,8 +1,7 @@
 """Testy jednostkowe i integracyjne dla FocusGroupServiceLangChain."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -83,7 +82,7 @@ def mock_db():
 async def test_context_retrieval_for_multi_question(service, mock_db):
     """Test pobierania kontekstu dla kolejnych pytań."""
     persona = DummyPersona("Alice")
-    focus_group_id = str(uuid4())
+    str(uuid4())
 
     # Mock memory service zwracający kontekst
     service.memory_service.get_relevant_context = AsyncMock(return_value=[

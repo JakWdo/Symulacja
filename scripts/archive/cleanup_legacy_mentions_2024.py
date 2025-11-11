@@ -35,8 +35,7 @@ import argparse
 import sys
 import logging
 from pathlib import Path
-from typing import Dict, Any, List
-from datetime import datetime
+from typing import Dict, Any
 
 # Dodaj root directory do path
 sys.path.insert(0, str(Path(__file__).parent.parent))

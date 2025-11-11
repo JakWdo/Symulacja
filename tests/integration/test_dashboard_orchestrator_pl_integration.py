@@ -13,7 +13,6 @@ These are integration tests that require database fixtures.
 
 import pytest
 from datetime import datetime
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import InsightEvidence, Project, FocusGroup

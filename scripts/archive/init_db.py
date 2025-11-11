@@ -23,7 +23,6 @@ if str(ROOT) not in sys.path:
 
 from sqlalchemy import text
 from app.db import engine, Base
-from app.models import Project, Persona, PersonaEvent, PersonaResponse, FocusGroup
 
 
 async def init_db():

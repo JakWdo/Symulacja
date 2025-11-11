@@ -3,7 +3,7 @@ Tests for FeaturesLoader - Feature flags and performance configuration.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from config.features_loader import (
     FeaturesConfig,

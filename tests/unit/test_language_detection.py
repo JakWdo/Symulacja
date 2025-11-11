@@ -13,7 +13,6 @@ Pokrycie:
 - Mixed content (polski + angielski)
 - Tekst bez wyraźnych wskaźników języka
 """
-import pytest
 
 from app.services.focus_groups.nlp.language_detection import detect_input_language
 

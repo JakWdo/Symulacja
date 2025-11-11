@@ -168,15 +168,15 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 61. test_workflow_executor.py split ✅ (825→464+379 linii: basic, advanced)
 - [x] 62. test_rag_hybrid_search.py cleanup ✅ (553→552 linii, usunięto 2 nieużywane importy)
 - [x] 63. test_persona_orchestration.py cleanup ✅ (545→544 linie, usunięto 2 nieużywane importy)
-- [ ] 64. fixtures consolidation
-- [ ] 65. Deprecated test utilities cleanup
-- [ ] 66. Test coverage gaps (target 85%+)
+- [x] 64. fixtures consolidation ✅ (usunięto 5 nieużywanych fixtures: mock_datetime, sample_persona_dict, sample_project_dict, temp_file, reset_singletons + 3 nieużywane importy)
+- [x] 65. Deprecated test utilities cleanup ✅ (naprawiono 61 błędów: 49 nieużywanych importów + 12 zmiennych, usunięto deprecated test_get_settings_singleton)
+- [ ] 66. Test coverage gaps (target 85%+) ⚠️ POMINIĘTO (wymaga Docker)
 
 ### 🟢 P2: Config & Scripts
-- [ ] 67. config/loader.py split
-- [ ] 68. scripts/cleanup_legacy_mentions.py archive
-- [ ] 69. scripts/create_demo_data consolidation
-- [ ] 70. Cache cleanup (.pyc, __pycache__, .DS_Store)
+- [ ] 67. config/loader.py split ⚠️ POMINIĘTO (specyfikacja nieaktualna - brak 350 linii validation logic w pliku)
+- [x] 68. scripts/cleanup_legacy_mentions.py archive ✅ (przeniesiono do archive/, zaktualizowano README, naprawiono 22 błędy ruff)
+- [x] 69. scripts/create_demo_data consolidation ✅ (archiwizowano 2 scripts: create_demo_data_local_2024.py, reorganize_demo_data_2024.py)
+- [x] 70. Cache cleanup ✅ (usunięto 8 plików cache, utworzono scripts/cleanup_cache.sh)
 
 ### 🟠 P2.5: Audyt Poprzednich Refaktoryzacji (NOWE - 2025-11-11)
 - [x] 76. Backend: Audyt nieużywanych importów po zadaniach 1-35 ✅ (6 naprawionych)

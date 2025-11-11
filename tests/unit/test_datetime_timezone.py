@@ -13,10 +13,10 @@ Pokrycie:
 """
 
 import pytest
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from uuid import uuid4
 
-from app.models import FocusGroup, InsightEvidence, Project, User
+from app.models import FocusGroup, InsightEvidence, Project
 from app.services.dashboard.insights import QuickActionsService
 from app.services.dashboard.dashboard_orchestrator import DashboardOrchestrator
 from app.services.dashboard.metrics import ProjectHealthService

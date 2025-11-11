@@ -261,7 +261,7 @@ class TestConversationStateMachineExecution:
         # Act
         # This will fail at LLM call but we can test message addition
         try:
-            result = await machine.process_message(state, user_message)
+            await machine.process_message(state, user_message)
         except Exception:
             # Expected - we're not mocking LLM here
             pass

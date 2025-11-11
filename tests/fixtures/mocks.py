@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -34,19 +33,4 @@ def mock_llm():
     return llm
 
 
-@pytest.fixture
-def mock_datetime():
-    """
-    Provide a helper to freeze datetime.now() inside a context manager.
-    """
-
-    class DatetimeMock:
-        def __init__(self) -> None:
-            self.fixed_time = None
-
-        def __call__(self, time_str: str):
-            self.fixed_time = datetime.fromisoformat(time_str)
-            return patch("datetime.datetime", **{"now.return_value": self.fixed_time})
-
-    return DatetimeMock()
 
