@@ -136,7 +136,7 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 35. services/shared/ folder structure ✅ (Dodano get_embeddings do __init__.py, brak nieużywanego kodu)
 
 ### 🟢 P2: Frontend Components
-- [ ] 36. Personas.tsx split (częściowo: constants extracted)
+- [x] 36. Personas.tsx split ✅ (653→488 linii + PersonasHeader, PersonasProgressBar, PersonasStats)
 - [ ] 37. FocusGroupView.tsx split
 - [ ] 38. ❌ GraphAnalysis.tsx - USUŃ (martwy kod, brak użycia)
 - [ ] 39. FocusGroupPanel.tsx split
@@ -453,9 +453,19 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] D
 
 ### 🟢 P2: Frontend Components
 
-#### 36. ✅ [Frontend Component] - Personas.tsx (1195 linii → 653 linii)
+#### 36. ✅ [Frontend Component] - Personas.tsx (1195 → 653 → 488 linii)
 
 Prompt (krótki): Przejrzyj `frontend/src/components/layout/Personas.tsx` (monolityczny komponent). Najpierw: `rg -n "import.*Personas" frontend/src --glob "**/*.{ts,tsx}"` i zanotuj zależności. Podziel na `PersonasLayout.tsx`, `PersonasList.tsx`, `PersonaFilters.tsx`, `PersonaActions.tsx`; przenieś hardcoded labels (linia 76-99) do `frontend/src/constants/personas.ts` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+
+**Wynik (2025-11-11)**: ✅ Zakończono
+- Plik główny: 653 → 488 linii (-25%)
+- Utworzono 3 nowe komponenty:
+  - `PersonasHeader.tsx` (85 linii) - header z akcjami
+  - `PersonasProgressBar.tsx` (62 linie) - progress bar generacji
+  - `PersonasStats.tsx` (98 linii) - statystyki demograficzne
+- PersonasList i PersonaFilters już istniały jako osobne komponenty
+- Usunięto nieużywany kod (currentPersonaName, currentPersonaAgeLabel)
+- Commit: d50896a
 
 ---
 
