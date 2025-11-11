@@ -140,9 +140,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 37. FocusGroupView.tsx split
 - [ ] 38. ❌ GraphAnalysis.tsx - USUŃ (martwy kod, brak użycia)
 - [ ] 39. FocusGroupPanel.tsx split
-- [ ] 40. WorkflowEditor.tsx split
-- [ ] 41. PersonaPanel.tsx split
-- [ ] 42. AISummaryPanel.tsx split
+- [x] 40. WorkflowEditor.tsx split ✅ (WorkflowToolbar.tsx, WorkflowCanvas.tsx)
+- [x] 41. PersonaPanel.tsx split ✅ (PersonaList.tsx, PersonaDetailsView.tsx)
+- [x] 42. AISummaryPanel.tsx split ✅ (AISummaryInsights.tsx, AISummarySections.tsx)
 - [ ] 43. Surveys.tsx cleanup
 - [ ] 44. Dashboard.tsx cleanup
 - [ ] 45. ❌ ProjectSettings.tsx - NIE ISTNIEJE (jest Settings.tsx)
