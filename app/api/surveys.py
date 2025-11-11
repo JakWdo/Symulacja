@@ -11,7 +11,7 @@ Ten moduł zawiera endpoints do zarządzania ankietami syntetycznymi:
 Ankiety działają asynchronicznie - tworzenie jest natychmiastowe,
 ale wykonanie (run) działa w tle i może trwać kilkadziesiąt sekund.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
@@ -136,7 +136,6 @@ async def get_survey(
 @router.post("/surveys/{survey_id}/run", status_code=202)
 async def run_survey(
     survey_id: UUID,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -151,7 +150,6 @@ async def run_survey(
 
     Args:
         survey_id: UUID ankiety
-        background_tasks: FastAPI BackgroundTasks
         db: Sesja bazy danych
 
     Returns:

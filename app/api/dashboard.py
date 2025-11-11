@@ -17,7 +17,6 @@ Wszystkie endpointy dla dashboardu Sight:
 - POST /dashboard/notifications/{id}/done - Mark notification as done
 """
 
-from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException

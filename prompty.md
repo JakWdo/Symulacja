@@ -113,12 +113,12 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 19. schemas/workflow.py split ✅ (994→480+589+120 linii: base + nodes + wrapper)
 - [x] 20. schemas/persona.py cleanup ✅ (477 linii - bez zmian potrzebnych)
 - [x] 21. schemas/focus_group.py cleanup ✅ (131 linii - bez zmian potrzebnych)
-- [x] 22. api/focus_groups.py cleanup ✅ (230 linii - bez zmian potrzebnych)
-- [x] 23. api/surveys.py cleanup ✅ (311 linii - bez zmian potrzebnych)
-- [x] 24. api/rag.py cleanup ✅ (270 linii - bez zmian potrzebnych)
-- [x] 25. api/dashboard.py cleanup ✅ (279 linii - bez zmian potrzebnych, 1 TODO informacyjne)
-- [x] 26. api/study_designer.py cleanup ✅ (330 linii - bez zmian potrzebnych)
-- [x] 27. schemas/project.py cleanup ✅ (219 linii - bez zmian potrzebnych)
+- [x] 22. api/focus_groups.py cleanup ✅ (230→228 linii, usunięto BackgroundTasks)
+- [x] 23. api/surveys.py cleanup ✅ (311→308 linii, usunięto BackgroundTasks)
+- [x] 24. api/rag.py cleanup ✅ (270 linii - brak martwego kodu)
+- [x] 25. api/dashboard.py cleanup ✅ (279→278 linii, usunięto datetime)
+- [x] 26. api/study_designer.py cleanup ✅ (330 linii - brak martwego kodu)
+- [x] 27. schemas/project.py cleanup ✅ (219 linii - brak martwego kodu)
 - [ ] 28. schemas/dashboard.py cleanup
 
 ### 🟡 P1: Backend Services Folders
