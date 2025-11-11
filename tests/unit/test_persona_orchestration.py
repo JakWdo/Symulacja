@@ -13,9 +13,8 @@ Dokumentacja: app/services/persona_orchestration.py
 
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from app.services.personas import (
-    PersonaOrchestrationService,
     PersonaAllocationPlan,
     DemographicGroup,
     GraphInsight
