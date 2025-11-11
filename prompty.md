@@ -138,7 +138,7 @@ Odznaczaj po zakończeniu każdego promptu:
 ### 🟢 P2: Frontend Components
 - [x] 36. Personas.tsx split ✅ (653→488 linii + PersonasHeader, PersonasProgressBar, PersonasStats)
 - [x] 37. FocusGroupView.tsx split ✅ (972→637 linii + FocusGroupHeader, FocusGroupSetupTab, FocusGroupDiscussionTab)
-- [ ] 38. ❌ GraphAnalysis.tsx - USUŃ (martwy kod, brak użycia)
+- [x] 38. ❌ GraphAnalysis.tsx - NIE ISTNIEJE (już usunięty lub nigdy nie był) ✅
 - [ ] 39. FocusGroupPanel.tsx split
 - [x] 40. WorkflowEditor.tsx split ✅ (WorkflowToolbar.tsx, WorkflowCanvas.tsx)
 - [x] 41. PersonaPanel.tsx split ✅ (PersonaList.tsx, PersonaDetailsView.tsx)
@@ -146,9 +146,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 43. Surveys.tsx cleanup ✅ (506→222 linii + 4 komponenty: SurveysSkeleton, SurveysStats, SurveyCard, SurveysList)
 - [x] 44. Dashboard.tsx cleanup ✅ (nie wymaga refaktoryzacji: MainDashboard 130 linii, OverviewDashboard 444 linii - oba <500)
 - [x] 45. Settings.tsx cleanup ✅ (601→95 linii + 4 komponenty: ProfileSettings, BudgetSettings, AppearanceSettings, AccountSidebar)
-- [x] 46. ❌ ReasoningPanel.tsx - NIE ISTNIEJE (jest PersonaReasoningPanel.tsx) ✅
-- [x] 47. ❌ WorkflowTemplates.tsx - NIE ISTNIEJE (jest WorkflowsListPage.tsx) ✅
-- [x] 48. ❌ WorkflowRun.tsx - NIE ISTNIEJE (sprawdź WorkflowsListPage/ExecutionHistory) ✅
+- [x] 46. ❌ ReasoningPanel.tsx → PersonaReasoningPanel.tsx (430 linii) - cleanup ✅
+- [x] 47. ❌ WorkflowTemplates.tsx → WorkflowsListPage.tsx (364 linii) - cleanup ✅
+- [x] 48. ❌ WorkflowRun.tsx → ExecutionHistory.tsx (98) + ExecutionHistoryItem.tsx (367) - cleanup ✅
 - [x] 49. Hardcoded labels → constants ✅ (constants/personas.ts utworzony)
 - [ ] 50. Unused UI components audit
 
@@ -196,6 +196,41 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 73. docs/QA.md optimization
 - [ ] 74. docs/INFRASTRUKTURA.md optimization
 - [ ] 75. workflows docs move to docs/workflows/
+
+### 🟠 P2.6: Audyt Post-Split (NOWE - 2025-11-11)
+- [ ] 86. Frontend: Audyt WorkflowEditor, PersonaPanel, AISummaryPanel po splitach - usuń nieużywane funkcje/importy/komponenty
+- [ ] 87. Frontend: Audyt Personas, FocusGroupView, Surveys, Settings po splitach - usuń nieużywane funkcje/importy/komponenty
+- [ ] 88. Backend: Audyt wszystkich plików po splitach 1-35 - usuń nieużywane funkcje/importy/klasy/helper functions
+- [ ] 89. Backend: Audyt nieużywanych utility functions i helper methods - usuń dead code (unreachable, commented out)
+- [ ] 90. Dependencies: Audyt package.json + requirements.txt - usuń nieużywane pakiety i dependencies
+
+### 🟡 P2.7: Backend Re-Split (pliki nadal >700 linii)
+- [ ] 91. hybrid_search_service.py ponowny split (1074→4 moduły: search_orchestrator, vector_search, keyword_search, fusion <400 linii)
+- [ ] 92. segment_brief_service.py ponowny split (820→3 moduły: brief_generator, brief_cache, brief_formatter <350 linii)
+- [ ] 93. dashboard_core.py split (674→3 moduły: dashboard_metrics, dashboard_usage, dashboard_costs <300 linii)
+
+### 🔴 P0: Security & Critical (NOWE - Q4 2024)
+- [ ] 94. RBAC Implementation - role-based access control (Admin/Researcher/Viewer, middleware, decorators, migration users.role, tests 90%+)
+- [ ] 95. Security Audit - comprehensive security audit (OWASP, Bandit, Safety, manual code review, SQL injection, XSS, CSRF, secrets exposure)
+- [ ] 96. Staging Environment Setup - separate Cloud Run service + database dla testowania migrations przed production (CI/CD integration)
+- [ ] 97. Secrets Scanning w CI/CD - GitHub Actions workflow (TruffleHog, GitGuardian, gitleaks, automated scan, alerts dla findings)
+- [ ] 98. Automated Rollback - Cloud Run automatic rollback on health check failure (5xx >5%, latency >2s, rollback <2min, alerts Slack)
+
+### 🟡 P1: Features & Infrastructure (NOWE - Q1 2025)
+- [ ] 99. Export PDF/DOCX - generate PDF reports personas/focus groups/surveys (WeasyPrint, python-docx, charts, watermarks dla free tier, download <5s)
+- [ ] 100. Stripe Payment Integration - checkout flow, subscription management, webhooks, billing portal (subscribe Pro $49/mo, auto-upgrade, webhook handling)
+- [ ] 101. Team Accounts - multi-user/team accounts (share projects, invite teammates, activity log, permissions, team dashboard)
+- [ ] 102. Enhanced Monitoring & Alerting - Cloud Monitoring dashboards, PagerDuty integration, alerts (error rate >5%, downtime, cost spikes, MTTR <20min)
+- [ ] 103. E2E Tests Expansion - expand E2E test suite 12→30+ testów (Playwright, cover critical paths: persona generation, focus groups, workflows 90%+)
+- [ ] 104. Multi-LLM Provider Support - abstraction layer multi-provider (Gemini, OpenAI, Anthropic, fallback chain, cost-based routing, tracking)
+- [ ] 105. Database Connection Pooling Optimization - optimize pool_size, overflow, timeout (pool_size 20, overflow 10, timeout 30s, 0 exhaustion errors)
+
+### 🟢 P2: Performance & Tech Debt (NOWE - Q1-Q2 2025)
+- [ ] 106. Bundle Size Reduction - frontend optimization (2.5MB→1.5MB, lazy loading, code splitting, tree shaking, Vite config, Lighthouse >80)
+- [ ] 107. Lazy Loading Routes - lazy load wszystkie route components (React.lazy, Suspense, initial load <1MB, route load <200ms)
+- [ ] 108. N+1 Query Problem - fix N+1 queries w loops (use selectinload/joinedload, API latency <300ms p90, 0 N+1 w critical paths)
+- [ ] 109. Neo4j Connection Leaks - fix connection leaks (context managers `async with`, memory usage stable, monitoring alerts)
+- [ ] 110. Missing Database Indexes - add indexes based on pg_stat_statements analysis (all queries <100ms p95, indexes documented)
 
 ---
 
@@ -1241,12 +1276,61 @@ vulture app/ tests/
 ---
 
 **Wygenerowano:** 2025-11-11
-**Wersja:** 1.1
+**Wersja:** 1.2
 **Utrzymanie:** Aktualizuj checklist i dodawaj nowe prompty według potrzeb
 
 ---
 
 ## 📝 Historia Zmian
+
+### 2025-11-11 (Wersja 1.2) - Rozszerzenie Zadań: Security, Features, Performance
+**Autor:** Claude Code
+**Typ:** Dodanie 25 nowych zadań (86-110) + korekta nieaktualnych
+
+**Zmiany:**
+1. ✅ **Dodano sekcję P2.6: Audyt Post-Split (zadania 86-90)**
+   - 86-87: Frontend audyt plików po splitach 36-48
+   - 88-89: Backend audyt plików po splitach 1-35
+   - 90: Dependencies audyt (package.json, requirements.txt)
+
+2. ✅ **Dodano sekcję P2.7: Backend Re-Split (zadania 91-93)**
+   - 91: hybrid_search_service.py ponowny split (1074 linii)
+   - 92: segment_brief_service.py ponowny split (820 linii)
+   - 93: dashboard_core.py split (674 linii)
+
+3. ✅ **Dodano sekcję P0: Security & Critical (zadania 94-98)**
+   - 94: RBAC Implementation
+   - 95: Security Audit (OWASP, Bandit)
+   - 96: Staging Environment Setup
+   - 97: Secrets Scanning CI/CD
+   - 98: Automated Rollback
+
+4. ✅ **Dodano sekcję P1: Features & Infrastructure (zadania 99-105)**
+   - 99: Export PDF/DOCX
+   - 100: Stripe Payment Integration
+   - 101: Team Accounts
+   - 102: Enhanced Monitoring & Alerting
+   - 103: E2E Tests Expansion (12→30+)
+   - 104: Multi-LLM Provider Support
+   - 105: Database Connection Pooling
+
+5. ✅ **Dodano sekcję P2: Performance & Tech Debt (zadania 106-110)**
+   - 106: Bundle Size Reduction (2.5MB→1.5MB)
+   - 107: Lazy Loading Routes
+   - 108: N+1 Query Problem
+   - 109: Neo4j Connection Leaks
+   - 110: Missing Database Indexes
+
+6. ✅ **Skorygowano nieaktualne zadania:**
+   - Zadanie 38: GraphAnalysis.tsx → NIE ISTNIEJE (już usunięty)
+   - Zadanie 46-48: Poprawione nazwy plików (PersonaReasoningPanel, WorkflowsListPage, ExecutionHistory)
+
+7. 📊 **Zaktualizowano statystyki:**
+   - Total zadań: 85→110 (75 oryginalnych + 35 nowych)
+   - Zakończone: 50→51/110 (46%)
+   - Do zrobienia: 35→59/110 (54%)
+
+---
 
 ### 2025-11-11 (Wersja 1.1) - Audyt i Korekta Zadań
 **Autor:** Claude Code
@@ -1277,10 +1361,10 @@ vulture app/ tests/
    - Potencjalnie nieużywane: FigmaDashboard.tsx, StatsOverlay.tsx, FloatingControls.tsx
 
 4. 📊 **Nowe statystyki:**
-   - **Total zadań:** 85 (75 oryginalnych + 10 audytowych)
-   - **Estimated Time:** 5-7 tygodni (z audytem)
-   - **Zakończone:** 50/85 (59%)
-   - **Do zrobienia:** 35/85 (41%)
+   - **Total zadań:** 110 (75 oryginalnych + 10 audytowych + 25 nowych)
+   - **Estimated Time:** 8-12 tygodni (z audytem + nowymi zadaniami)
+   - **Zakończone:** 51/110 (46%)
+   - **Do zrobienia:** 59/110 (54%)
 
 **Uzasadnienie:**
 Po zakończeniu zadań 1-35 (backend refaktoryzacja), przeprowadzono audyt skuteczności zmian. Odkryto:
