@@ -3,7 +3,6 @@ Tests for PromptRegistry - prompt loading, rendering, versioning, hashing
 """
 
 import pytest
-from pathlib import Path
 
 from config import PromptRegistry, Prompt
 

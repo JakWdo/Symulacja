@@ -23,7 +23,6 @@ class TestOrchestrationSmoke:
 
     def test_orchestration_models(self):
         """Test czy używane są prawidłowe modele."""
-        from config import models
 
         # Orchestration powinien używać Gemini 2.5 Pro
         service = PersonaOrchestrationService()

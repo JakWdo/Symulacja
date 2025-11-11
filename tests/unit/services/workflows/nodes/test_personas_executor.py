@@ -126,7 +126,7 @@ class TestGeneratePersonasExecutor:
             mock_orchestrator_class.return_value = mock_orchestrator
 
             # Act
-            result = await executor.execute(node, context)
+            await executor.execute(node, context)
 
             # Assert - orchestrator called with project demographics
             call_kwargs = mock_orchestrator.create_persona_allocation_plan.call_args[1]
@@ -249,7 +249,7 @@ class TestGeneratePersonasExecutor:
             mock_orchestrator_class.return_value = mock_orchestrator
 
             # Act
-            result = await executor.execute(node, context)
+            await executor.execute(node, context)
 
             # Assert - advanced_options applied
             call_kwargs = mock_orchestrator.create_persona_allocation_plan.call_args[1]
@@ -469,7 +469,7 @@ class TestGeneratePersonasExecutor:
             mock_orchestrator_class.return_value = mock_orchestrator
 
             # Act
-            result = await executor.execute(node, context)
+            await executor.execute(node, context)
 
             # Assert - additional_context passed
             call_kwargs = mock_orchestrator.create_persona_allocation_plan.call_args[1]

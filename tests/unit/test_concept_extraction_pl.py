@@ -138,7 +138,7 @@ class TestPolishConceptExtraction:
 
         # If "jakość produktu" appears multiple times, it should be in top concepts
         # Either as a bigram or at least both words should appear
-        has_bigram = any(len(c.split()) >= 2 for c in concepts[:5])
+        any(len(c.split()) >= 2 for c in concepts[:5])
         # Relaxed assertion: just check we have some concepts
         assert len(concepts) > 0, "Should extract concepts with priority for n-grams"
 

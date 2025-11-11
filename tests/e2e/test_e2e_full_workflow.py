@@ -46,10 +46,6 @@ async def test_complete_research_workflow_end_to_end(db_session):
     from fastapi.testclient import TestClient
     from app.main import app
     from sqlalchemy import select
-    from app.models.user import User
-    from app.models.project import Project
-    from app.models.persona import Persona
-    from app.models.focus_group import FocusGroup
     from app.models.persona_response import PersonaResponse
 
     client = TestClient(app, raise_server_exceptions=False)

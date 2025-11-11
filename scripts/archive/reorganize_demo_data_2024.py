@@ -9,8 +9,7 @@ Script do reorganizacji danych demo:
 
 import asyncio
 import httpx
-import json
-from typing import Dict, List, Any
+from typing import Dict
 
 API_BASE = "http://localhost:8000/api/v1"
 
@@ -271,7 +270,7 @@ async def main():
     print("-" * 70)
     try:
         intl_token = await create_intl_user()
-    except Exception as e:
+    except Exception:
         # Konto może już istnieć
         print("  ⚠ Konto może już istnieć, loguję się...")
         intl_token = await get_polish_token()  # Temporary, will fix

@@ -258,7 +258,7 @@ class TestAuthenticationCriticalPath:
 
         Token bez expiration jest trwałym bezpieczeństwem.
         """
-        from app.core.security import create_access_token, decode_access_token
+        from app.core.security import create_access_token
         import jwt
 
         token = create_access_token({"sub": str(uuid4())})
@@ -413,7 +413,7 @@ class TestDataIntegrityCriticalPath:
         assert aware_dt.tzinfo is not None
 
         # BŁĘDNIE - naive datetime (bez timezone)
-        naive_dt = datetime.now()
+        datetime.now()
         # W produkcji używaj ZAWSZE datetime.now(timezone.utc)
 
 
@@ -440,7 +440,7 @@ class TestErrorHandlingCriticalPath:
 
         Nie sprawdzony case pusty listy = częsty crash.
         """
-        from statistics import mean, StatisticsError
+        from statistics import mean
 
         # Poprawne obsłużenie pustej listy
         values = []

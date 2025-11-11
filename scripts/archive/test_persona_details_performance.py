@@ -30,7 +30,6 @@ from app.services.persona_journey_service import PersonaJourneyService
 from app.services.persona_needs_service import PersonaNeedsService
 from app.services.persona_messaging_service import PersonaMessagingService
 from app.services.persona_kpi_service import PersonaKPIService
-from app.services.persona_details_service import PersonaDetailsService
 from app.services.persona_batch_processor import PersonaBatchProcessor
 
 settings = get_settings()
@@ -188,7 +187,7 @@ async def test_kpi_service():
         # Test 2: Cached calculation
         start_time = time.time()
         try:
-            kpi_cached = await service.calculate_kpi_snapshot(persona)
+            await service.calculate_kpi_snapshot(persona)
             elapsed_ms = int((time.time() - start_time) * 1000)
 
             print(f"✓ KPI calculated (cached) in {elapsed_ms}ms")

@@ -7,10 +7,9 @@ Wersja Cloud Run z parametryzacją, retry logic i lepszym loggingiem.
 
 import asyncio
 import httpx
-import json
 import argparse
 import sys
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
 
 # Domyślne wartości

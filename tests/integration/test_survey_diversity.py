@@ -14,12 +14,11 @@ Coverage: Integration testing z rzeczywistą bazą danych + mocked LLM
 
 import pytest
 import numpy as np
-from typing import List, Dict
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.models.survey import Survey, SurveyResponse
-from app.models import Persona, Project
+from app.models import Persona
 from app.services.surveys import SurveyResponseGenerator
 
 

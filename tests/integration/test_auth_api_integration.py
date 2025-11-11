@@ -1,7 +1,5 @@
 """Integration coverage for FastAPI authentication endpoints."""
 
-import time
-from uuid import uuid4
 
 import pytest
 from sqlalchemy import select

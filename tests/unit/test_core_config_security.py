@@ -1,21 +1,12 @@
-"""Testy modułów konfiguracyjnych i bezpieczeństwa.
+"""Testy modułów security (password hashing, JWT, encryption).
 
-UWAGA: Test get_settings_singleton został SKIPPED - funkcja get_settings została usunięta
-w refactoringu PR4 (migracja do config/* modules). Nowy system nie używa get_settings().
+HISTORIA: Deprecated test test_get_settings_singleton został usunięty (2025-11-11)
+po migracji do config/* modules w PR4. Plik zawiera teraz tylko testy security functions.
 """
 
 import re
-from datetime import timedelta
-
-import pytest
 
 from app.core import security
-
-
-@pytest.mark.skip(reason="get_settings() removed in PR4 - migrated to config/* modules")
-def test_get_settings_singleton(monkeypatch):
-    """DEPRECATED: Sprawdza czy get_settings zwraca cache'owaną instancję."""
-    pytest.skip("get_settings() removed - use config.* modules instead")
 
 
 def test_password_hashing_roundtrip():

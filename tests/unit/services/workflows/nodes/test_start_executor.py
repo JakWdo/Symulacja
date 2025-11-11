@@ -72,7 +72,7 @@ class TestStartExecutor:
         original_context = context.copy()
 
         # Act
-        result = await executor.execute(node, context)
+        await executor.execute(node, context)
 
         # Assert - context should be unchanged
         assert context["workflow_id"] == original_context["workflow_id"]

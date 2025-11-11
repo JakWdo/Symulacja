@@ -1,20 +1,9 @@
-"""Utility fixtures with cross-cutting concerns."""
+"""Utility fixtures with cross-cutting concerns.
 
-import pytest
+This module is currently empty as all utility fixtures have been removed.
+The reset_singletons fixture was removed as it no longer served any purpose
+after the config system migration (PR4).
+"""
 
-
-@pytest.fixture
-def temp_file(tmp_path):
-    """Yield a temporary file path that is cleaned up automatically."""
-    file_path = tmp_path / "test_file.txt"
-    yield file_path
-
-
-@pytest.fixture(autouse=True)
-def reset_singletons():
-    """Reset cached singletons between tests to avoid state bleed."""
-    yield
-    # Note: Config system migrated from get_settings() to config module (PR4)
-    # No cache clearing needed for new config system
-
+# No fixtures defined yet - add here when needed
 

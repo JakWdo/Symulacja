@@ -9,7 +9,6 @@ Zakres testów:
 - Chunk enrichment z graph context
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from langchain_core.documents import Document
 
@@ -255,7 +254,7 @@ class TestHybridSearch:
             mock_settings.return_value.RAG_USE_RERANKING = True
             mock_settings.return_value.RAG_RERANK_CANDIDATES = 20
 
-            results = await service.hybrid_search("test query", top_k=5)
+            await service.hybrid_search("test query", top_k=5)
 
         # Should call reranking
         service._rerank_with_cross_encoder.assert_called_once()

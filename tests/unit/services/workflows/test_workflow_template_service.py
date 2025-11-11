@@ -12,10 +12,8 @@ Target coverage: 85%+ dla workflow_template_service.py
 
 from __future__ import annotations
 
-from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

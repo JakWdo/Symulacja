@@ -9,7 +9,6 @@ Ten test weryfikuje:
 - Graceful handling błędów
 """
 
-import asyncio
 import json
 import logging
 from uuid import uuid4
