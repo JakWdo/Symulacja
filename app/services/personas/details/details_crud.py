@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import AsyncSessionLocal
 from app.models import Persona
-from app.services.personas.persona_audit_service import PersonaAuditService
+from app.services.personas.validation.persona_audit_service import PersonaAuditService
 from app.schemas.persona_details import PersonaAuditEntry
 from app.core.redis import redis_delete
 

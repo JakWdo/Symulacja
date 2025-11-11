@@ -14,8 +14,8 @@ import unicodedata
 from typing import Any
 
 from app.models import Persona
-from app.services.personas.persona_needs_service import PersonaNeedsService
-from app.services.personas.segment_brief_service import SegmentBriefService
+from app.services.personas.generation.persona_needs_service import PersonaNeedsService
+from app.services.personas.orchestration.segment_brief_service import SegmentBriefService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import labels z config

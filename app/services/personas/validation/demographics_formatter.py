@@ -206,7 +206,7 @@ class DemographicsFormatter:
         if raw_education:
             return raw_education
         # Fallback - losuj z rozkładu Polski
-        from app.services.personas.distribution_builder import DistributionBuilder
+        from app.services.personas.validation.distribution_builder import DistributionBuilder
         return DistributionBuilder.select_weighted(demographics.poland.education_levels) or "Średnie ogólnokształcące"
 
     @staticmethod
@@ -234,7 +234,7 @@ class DemographicsFormatter:
         if raw_income:
             return raw_income
         # Fallback - losuj z rozkładu Polski
-        from app.services.personas.distribution_builder import DistributionBuilder
+        from app.services.personas.validation.distribution_builder import DistributionBuilder
         return DistributionBuilder.select_weighted(demographics.poland.income_brackets) or "5 000 - 7 500 zł"
 
     @staticmethod
@@ -291,7 +291,7 @@ class DemographicsFormatter:
         if story_city:
             return story_city
         # Fallback - losuj z rozkładu Polski
-        from app.services.personas.distribution_builder import DistributionBuilder
+        from app.services.personas.validation.distribution_builder import DistributionBuilder
         fallback = DistributionBuilder.select_weighted(demographics.poland.locations) or "Warszawa"
         return fallback
 
@@ -366,7 +366,7 @@ class DemographicsFormatter:
                         return DemographicsFormatter.format_job_title(job)
 
         # Jeżeli AI nie zwróciło spójnego polskiego zawodu – losuj realistyczny zawód z rozkładu
-        from app.services.personas.distribution_builder import DistributionBuilder
+        from app.services.personas.validation.distribution_builder import DistributionBuilder
         occupation = DistributionBuilder.select_weighted(demographics.poland.occupations)
         if occupation:
             return occupation

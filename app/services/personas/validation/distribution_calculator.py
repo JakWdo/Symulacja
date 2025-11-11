@@ -12,8 +12,8 @@ import logging
 import random
 from typing import Any
 
-from app.services.personas.persona_generator_langchain import DemographicDistribution
-from app.services.personas.distribution_validators import age_group_bounds, age_group_overlaps
+from app.services.personas.generation.persona_generator_langchain import DemographicDistribution
+from app.services.personas.validation.distribution_validators import age_group_bounds, age_group_overlaps
 
 logger = logging.getLogger(__name__)
 
