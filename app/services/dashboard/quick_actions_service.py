@@ -16,7 +16,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import FocusGroup, InsightEvidence, Project, User
+from app.models import InsightEvidence, Project, User
 from app.services.dashboard.health_service import ProjectHealthService
 from app.utils import get_utc_now
 

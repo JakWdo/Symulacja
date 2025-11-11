@@ -8,7 +8,7 @@ Tracking kosztów LLM operations:
 - Budget alerts (>90% usage)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 

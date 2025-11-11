@@ -6,7 +6,6 @@ Stores insights extracted from discussion summaries into the database.
 
 import logging
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -18,7 +18,7 @@ Blockers:
 - no_insights: Brak insightów mimo ukończonych focus groups (MEDIUM)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -26,7 +26,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import FocusGroup, InsightEvidence, Project, ProjectHealthLog
+from app.models import InsightEvidence, Project, ProjectHealthLog
 from app.utils import get_utc_now
 
 

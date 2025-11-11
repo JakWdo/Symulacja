@@ -1,5 +1,4 @@
 """Utility helpers for logging LLM token usage to UsageMetric."""
-from __future__ import annotations
 
 import asyncio
 import logging

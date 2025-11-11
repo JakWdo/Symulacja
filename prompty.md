@@ -44,7 +44,12 @@ Każdy prompt wymaga wykonania 6 kroków:
 1. **[ ] Grep:** Znajdź wszystkie zależności przed zmianami
 2. **[ ] Podział:** Podziel plik na moduły według specyfikacji
 3. **[ ] Importy:** Zaktualizuj wszystkie importy w zależnych plikach
-4. **[ ] Fixes:** Napraw TODO/hardcoded/deprecated code
+4. **[ ] Fixes:** Napraw TODO/hardcoded/deprecated code + **USUŃ NIEUŻYWANY KOD**
+   - Przeszukaj nieużywane importy (`rg` lub IDE)
+   - Usuń nieużywane funkcje i zmienne
+   - Usuń nieużywane parametry funkcji
+   - Usuń zakomentowany martwy kod
+   - Dla Python: można użyć `autoflake --remove-all-unused-imports --remove-unused-variables`
 5. **[ ] Testy:** Uruchom testy regresyjne (`pytest -v`)
 6. **[ ] Działa:** Zweryfikuj działanie (`docker-compose restart` lub `npm run build`)
 
@@ -110,15 +115,15 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 16. api/personas/generation.py split ✅ (1360→394+224+804 linii: endpoints + orchestration + validation)
 - [x] 17. api/workflows.py split ✅ (879→442+286+207 linii: crud + execution + templates)
 - [x] 18. api/projects.py split ✅ (693→175+549 linii: crud + demographics)
-- [ ] 19. schemas/workflow.py split
-- [ ] 20. schemas/persona.py cleanup
-- [ ] 21. schemas/focus_group.py cleanup
-- [ ] 22. api/focus_groups.py cleanup
-- [ ] 23. api/surveys.py cleanup
-- [ ] 24. api/rag.py cleanup
-- [ ] 25. api/dashboard.py cleanup
-- [ ] 26. api/study_designer.py cleanup
-- [ ] 27. schemas/project.py cleanup
+- [x] 19. schemas/workflow.py split ✅ (994→480+589+120 linii: base + nodes + wrapper)
+- [x] 20. schemas/persona.py cleanup ✅ (477 linii - bez zmian potrzebnych)
+- [x] 21. schemas/focus_group.py cleanup ✅ (131 linii - bez zmian potrzebnych)
+- [x] 22. api/focus_groups.py cleanup ✅ (230→228 linii, usunięto BackgroundTasks)
+- [x] 23. api/surveys.py cleanup ✅ (311→308 linii, usunięto BackgroundTasks)
+- [x] 24. api/rag.py cleanup ✅ (270 linii - brak martwego kodu)
+- [x] 25. api/dashboard.py cleanup ✅ (279→278 linii, usunięto datetime)
+- [x] 26. api/study_designer.py cleanup ✅ (330 linii - brak martwego kodu)
+- [x] 27. schemas/project.py cleanup ✅ (219 linii - brak martwego kodu)
 - [ ] 28. schemas/dashboard.py cleanup
 
 ### 🟡 P1: Backend Services Folders

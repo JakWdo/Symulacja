@@ -7,8 +7,7 @@ Zarządzanie notyfikacjami:
 - Pobieranie pending notifications
 """
 
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import and_, select
