@@ -136,8 +136,8 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 35. services/shared/ folder structure ✅ (Dodano get_embeddings do __init__.py, brak nieużywanego kodu)
 
 ### 🟢 P2: Frontend Components
-- [ ] 36. Personas.tsx split (częściowo: constants extracted)
-- [ ] 37. FocusGroupView.tsx split
+- [x] 36. Personas.tsx split ✅ (653→488 linii + PersonasHeader, PersonasProgressBar, PersonasStats)
+- [x] 37. FocusGroupView.tsx split ✅ (972→637 linii + FocusGroupHeader, FocusGroupSetupTab, FocusGroupDiscussionTab)
 - [ ] 38. ❌ GraphAnalysis.tsx - USUŃ (martwy kod, brak użycia)
 - [ ] 39. FocusGroupPanel.tsx split
 - [ ] 40. WorkflowEditor.tsx split
@@ -453,15 +453,35 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] D
 
 ### 🟢 P2: Frontend Components
 
-#### 36. ✅ [Frontend Component] - Personas.tsx (1195 linii → 653 linii)
+#### 36. ✅ [Frontend Component] - Personas.tsx (1195 → 653 → 488 linii)
 
 Prompt (krótki): Przejrzyj `frontend/src/components/layout/Personas.tsx` (monolityczny komponent). Najpierw: `rg -n "import.*Personas" frontend/src --glob "**/*.{ts,tsx}"` i zanotuj zależności. Podziel na `PersonasLayout.tsx`, `PersonasList.tsx`, `PersonaFilters.tsx`, `PersonaActions.tsx`; przenieś hardcoded labels (linia 76-99) do `frontend/src/constants/personas.ts` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
+**Wynik (2025-11-11)**: ✅ Zakończono
+- Plik główny: 653 → 488 linii (-25%)
+- Utworzono 3 nowe komponenty:
+  - `PersonasHeader.tsx` (85 linii) - header z akcjami
+  - `PersonasProgressBar.tsx` (62 linie) - progress bar generacji
+  - `PersonasStats.tsx` (98 linii) - statystyki demograficzne
+- PersonasList i PersonaFilters już istniały jako osobne komponenty
+- Usunięto nieużywany kod (currentPersonaName, currentPersonaAgeLabel)
+- Commit: d50896a
+
 ---
 
-#### 37. 🟢 [Frontend Component] - FocusGroupView.tsx (972 linii)
+#### 37. ✅ [Frontend Component] - FocusGroupView.tsx (972 → 637 linii)
 
 Prompt (krótki): Przejrzyj `frontend/src/components/layout/FocusGroupView.tsx` (dyskusja + odpowiedzi w jednym). Najpierw: `rg -n "import.*FocusGroupView" frontend/src --glob "**/*.tsx"` i zanotuj usage. Podziel na `FocusGroupLayout.tsx`, `DiscussionThread.tsx`, `ResponseComposer.tsx`; zaktualizuj importy i routing + **usuń nieużywany kod** (`npm run lint -- --fix`) + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+
+**Wynik (2025-11-11)**: ✅ Zakończono
+- Plik główny: 972 → 637 linii (-34%)
+- Utworzono 3 nowe komponenty:
+  - `FocusGroupHeader.tsx` (76 linii) - header z back button i statusem
+  - `FocusGroupSetupTab.tsx` (176 linii) - konfiguracja pytań i uczestników
+  - `FocusGroupDiscussionTab.tsx` (228 linii) - progress bar i live chat
+- Usunięto duplikację kodu (getStatusColor, getStatusText przeniesione do header)
+- Uproszczono importy (usunięto nieużywane)
+- Commit: 16dad46
 
 ---
 
@@ -475,9 +495,19 @@ Prompt (krótki): Przejrzyj `frontend/src/components/layout/GraphAnalysis.tsx` i
 
 ---
 
-#### 39. 🟢 [Frontend Component] - FocusGroupPanel.tsx (783 linii)
+#### 39. ✅ [Frontend Component] - FocusGroupPanel.tsx (783 linii)
 
 Prompt (krótki): Przejrzyj `frontend/src/components/panels/FocusGroupPanel.tsx` (panel + details razem). Najpierw: `rg -n "import.*FocusGroupPanel" frontend/src --glob "**/*.tsx"` i zanotuj usage. Podziel na `FocusGroupPanel.tsx` (panel) i `FocusGroupDetails.tsx` (szczegóły) i zaktualizuj importy w komponentach nadrzędnych + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+
+**Wynik (2025-11-11)**: ✅ Zakończono
+- Plik główny: 783 → 136 linii (-83%)
+- Utworzono 3 nowe komponenty:
+  - `StatusBadge.tsx` (52 linie) - badge z ikonami dla statusów (pending, running, completed, failed)
+  - `FocusGroupCard.tsx` (204 linie) - karta grupy z animacjami, metrykami, akcjami
+  - `FocusGroupForm.tsx` (410 linii) - formularz tworzenia/edycji z walidacją
+- Usunięto 3 inline funkcje z głównego pliku
+- Wyczyszczono nieużywane importy (14 importów usuniętych)
+- Commit: 47b9c06
 
 ---
 
