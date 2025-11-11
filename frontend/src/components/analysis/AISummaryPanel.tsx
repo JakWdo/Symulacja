@@ -1,19 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Sparkles,
-  Lightbulb,
-  AlertTriangle,
-  Users,
-  Target,
-  TrendingUp,
-  ChevronDown,
-  Zap,
-} from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { motion } from 'framer-motion';
+import { Sparkles, Lightbulb, AlertTriangle, Target, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toastStore';
 import axios from 'axios';
@@ -22,8 +11,8 @@ import type { AISummary } from '@/types';
 import { Logo } from '@/components/ui/logo';
 import { useAISummaryStore } from '@/store/aiSummaryStore';
 import { useDateFormat } from '@/hooks/useDateFormat';
-
-import { normalizeMarkdown } from '@/lib/markdown';
+import { AISummaryInsights } from './AISummaryInsights';
+import { AISummarySections } from './AISummarySections';
 
 interface AISummaryPanelProps {
   focusGroupId: string;
@@ -206,43 +195,6 @@ export function AISummaryPanel({
     });
   };
 
-  const SectionHeader = ({
-    id,
-    icon: Icon,
-    title,
-    count,
-  }: {
-    id: string;
-    icon: React.ElementType;
-    title: string;
-    count?: number;
-  }) => {
-    const isExpanded = expandedSections.has(id);
-
-    return (
-      <button
-        onClick={() => toggleSection(id)}
-        className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-lg transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <Icon className="w-5 h-5 text-primary-600" />
-          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-          {count !== undefined && (
-            <span className="text-xs px-2 py-1 rounded-full bg-primary-100 text-primary-700 font-medium">
-              {count}
-            </span>
-          )}
-        </div>
-        <motion.div
-          animate={{ rotate: isExpanded ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <ChevronDown className="w-5 h-5 text-slate-400" />
-        </motion.div>
-      </button>
-    );
-  };
-
   if (!summary && !showLoading) {
     return (
       <div className="floating-panel p-8">
@@ -397,186 +349,23 @@ export function AISummaryPanel({
         </div>
       </div>
 
-      {/* Executive Summary */}
-      <div className="floating-panel overflow-hidden">
-        <SectionHeader id="executive" icon={Sparkles} title={t('analysis.executiveSummary.title')} />
-        <AnimatePresence>
-          {expandedSections.has('executive') && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="px-6 pb-6"
-            >
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(summary.executive_summary)}</ReactMarkdown>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {/* Sections: Executive Summary, Segment Analysis, Sentiment */}
+      <AISummarySections
+        executiveSummary={summary.executive_summary}
+        segmentAnalysis={summary.segment_analysis}
+        sentimentNarrative={summary.sentiment_narrative}
+        expandedSections={expandedSections}
+        onToggleSection={toggleSection}
+      />
 
-      {/* Key Insights */}
-      <div className="floating-panel overflow-hidden">
-        <SectionHeader
-          id="insights"
-          icon={Lightbulb}
-          title={t('analysis.keyInsights.title')}
-          count={summary.key_insights.length}
-        />
-        <AnimatePresence>
-          {expandedSections.has('insights') && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="px-6 pb-6"
-            >
-              <div className="space-y-3">
-                {summary.key_insights.map((insight, idx) => (
-                  <div
-                    key={idx}
-                    className="flex gap-3 p-4 bg-primary-50 border border-primary-200 rounded-lg"
-                  >
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-bold">
-                      {idx + 1}
-                    </div>
-                    <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(insight)}</ReactMarkdown>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Surprising Findings */}
-      {summary.surprising_findings.length > 0 && (
-        <div className="floating-panel overflow-hidden">
-          <SectionHeader
-            id="surprising"
-            icon={AlertTriangle}
-            title={t('analysis.surprisingFindings.title')}
-            count={summary.surprising_findings.length}
-          />
-          <AnimatePresence>
-            {expandedSections.has('surprising') && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="px-6 pb-6"
-              >
-                <div className="space-y-3">
-                  {summary.surprising_findings.map((finding, idx) => (
-                    <div
-                      key={idx}
-                      className="flex gap-3 p-4 bg-accent-50 border border-accent-200 rounded-lg"
-                  >
-                    <AlertTriangle className="w-5 h-5 text-accent-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(finding)}</ReactMarkdown>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {/* Segment Analysis */}
-      {Object.keys(summary.segment_analysis).length > 0 && (
-        <div className="floating-panel overflow-hidden">
-          <SectionHeader
-            id="segments"
-            icon={Users}
-            title={t('analysis.segments.title')}
-            count={Object.keys(summary.segment_analysis).length}
-          />
-          <AnimatePresence>
-            {expandedSections.has('segments') && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="px-6 pb-6"
-              >
-                <div className="space-y-3">
-                  {Object.entries(summary.segment_analysis).map(([segment, analysis]) => (
-                    <div key={segment} className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                      <h4 className="text-sm font-semibold text-slate-900 mb-2">{segment}</h4>
-                      <div className="text-sm text-slate-700 leading-relaxed prose prose-sm max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(analysis)}</ReactMarkdown>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {/* Strategic Recommendations */}
-      {summary.recommendations.length > 0 && (
-        <div className="floating-panel overflow-hidden">
-          <SectionHeader
-            id="recommendations"
-            icon={Target}
-            title={t('analysis.recommendations.title')}
-            count={summary.recommendations.length}
-          />
-          <AnimatePresence>
-            {expandedSections.has('recommendations') && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="px-6 pb-6"
-              >
-                <div className="space-y-3">
-                  {summary.recommendations.map((rec, idx) => (
-                    <div
-                      key={idx}
-                    className="flex gap-3 p-4 bg-green-50 border border-green-200 rounded-lg"
-                  >
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold">
-                      {idx + 1}
-                    </div>
-                    <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(rec)}</ReactMarkdown>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {/* Sentiment Narrative */}
-      <div className="floating-panel overflow-hidden">
-        <SectionHeader id="sentiment" icon={TrendingUp} title={t('analysis.aiSummary.sentimentNarrative')} />
-        <AnimatePresence>
-          {expandedSections.has('sentiment') && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="px-6 pb-6"
-            >
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(summary.sentiment_narrative)}</ReactMarkdown>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {/* Insights: Key Insights, Surprising Findings, Recommendations */}
+      <AISummaryInsights
+        keyInsights={summary.key_insights}
+        surprisingFindings={summary.surprising_findings}
+        recommendations={summary.recommendations}
+        expandedSections={expandedSections}
+        onToggleSection={toggleSection}
+      />
     </div>
   );
 }
