@@ -495,9 +495,19 @@ Prompt (krótki): Przejrzyj `frontend/src/components/layout/GraphAnalysis.tsx` i
 
 ---
 
-#### 39. 🟢 [Frontend Component] - FocusGroupPanel.tsx (783 linii)
+#### 39. ✅ [Frontend Component] - FocusGroupPanel.tsx (783 linii)
 
 Prompt (krótki): Przejrzyj `frontend/src/components/panels/FocusGroupPanel.tsx` (panel + details razem). Najpierw: `rg -n "import.*FocusGroupPanel" frontend/src --glob "**/*.tsx"` i zanotuj usage. Podziel na `FocusGroupPanel.tsx` (panel) i `FocusGroupDetails.tsx` (szczegóły) i zaktualizuj importy w komponentach nadrzędnych + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+
+**Wynik (2025-11-11)**: ✅ Zakończono
+- Plik główny: 783 → 136 linii (-83%)
+- Utworzono 3 nowe komponenty:
+  - `StatusBadge.tsx` (52 linie) - badge z ikonami dla statusów (pending, running, completed, failed)
+  - `FocusGroupCard.tsx` (204 linie) - karta grupy z animacjami, metrykami, akcjami
+  - `FocusGroupForm.tsx` (410 linii) - formularz tworzenia/edycji z walidacją
+- Usunięto 3 inline funkcje z głównego pliku
+- Wyczyszczono nieużywane importy (14 importów usuniętych)
+- Commit: 47b9c06
 
 ---
 
