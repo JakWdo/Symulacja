@@ -25,6 +25,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { AlertCircle, ChevronDown, Users, Sparkles, Circle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { normalizeMarkdown } from '@/lib/markdown';
 
 interface PersonaReasoningPanelProps {
   persona: Persona;
@@ -427,4 +428,3 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
     </div>
   );
 }
-import { normalizeMarkdown } from '@/lib/markdown';
