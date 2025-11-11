@@ -8,11 +8,11 @@ Ten moduł testuje czy RAG config parameters są w sensible ranges:
 - MAX_CONTEXT bounds
 - Reranker model availability
 
-Dokumentacja: app/core/config.py (RAG_ prefixed settings)
+UWAGA: Migracja do config/* modules (PR4) - używamy config.rag zamiast get_settings()
 """
 
 import pytest
-from app.core.config import get_settings
+from config import rag as rag_config
 
 
 class TestChunkSizeValidation:
@@ -27,9 +27,9 @@ class TestChunkSizeValidation:
         - Too large (>2000): Poor precision, irrelevant content
         - Optimal: 800-1200 dla balanced precision/recall
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        chunk_size = settings.RAG_CHUNK_SIZE
+        chunk_size = rag_config.chunking.chunk_size
 
         # Verify bounds
         assert 500 <= chunk_size <= 2000, (
@@ -45,10 +45,10 @@ class TestChunkSizeValidation:
         - Too small (<10%): Koncepty mogą być split between chunks
         - Too large (>50%): Excessive duplication, slower indexing
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        chunk_size = settings.RAG_CHUNK_SIZE
-        overlap = settings.RAG_CHUNK_OVERLAP
+        chunk_size = rag_config.chunking.chunk_size
+        overlap = rag_config.chunking.chunk_overlap
 
         # Calculate percentage
         overlap_pct = (overlap / chunk_size) * 100
@@ -65,10 +65,10 @@ class TestChunkSizeValidation:
 
         Edge case: Overlap >= chunk_size jest nonsensical.
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        chunk_size = settings.RAG_CHUNK_SIZE
-        overlap = settings.RAG_CHUNK_OVERLAP
+        chunk_size = rag_config.chunking.chunk_size
+        overlap = rag_config.chunking.chunk_overlap
 
         assert overlap < chunk_size, (
             f"CHUNK_OVERLAP {overlap} >= CHUNK_SIZE {chunk_size}. "
@@ -88,9 +88,9 @@ class TestTopKValidation:
         - Too large (>20): Noise, slower reranking, context overflow
         - Optimal: 5-10 dla balanced coverage
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        top_k = settings.RAG_TOP_K
+        top_k = rag_config.retrieval.top_k
 
         assert 3 <= top_k <= 20, (
             f"TOP_K {top_k} out of bounds [3, 20]. "
@@ -108,12 +108,12 @@ class TestTopKValidation:
 
         RERANK_CANDIDATES musi być >= TOP_K aby reranking miał sens.
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        top_k = settings.RAG_TOP_K
-        rerank_candidates = settings.RAG_RERANK_CANDIDATES
+        top_k = rag_config.retrieval.top_k
+        rerank_candidates = rag_config.retrieval.rerank_candidates
 
-        if settings.RAG_USE_RERANKING:
+        if rag_config.retrieval.use_reranking:
             assert rerank_candidates >= top_k, (
                 f"RERANK_CANDIDATES {rerank_candidates} < TOP_K {top_k}. "
                 "Reranking wymaga więcej candidates niż final TOP_K."
@@ -136,9 +136,9 @@ class TestRRFKValidation:
 
         Valid range: 20-100
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        rrf_k = settings.RAG_RRF_K
+        rrf_k = rag_config.retrieval.rrf_k
 
         assert 20 <= rrf_k <= 100, (
             f"RRF_K {rrf_k} out of bounds [20, 100]. "
@@ -158,11 +158,11 @@ class TestMaxContextValidation:
 
         Warning threshold: MAX_CONTEXT < TOP_K * 1000
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        top_k = settings.RAG_TOP_K
-        chunk_size = settings.RAG_CHUNK_SIZE
-        max_context = settings.RAG_MAX_CONTEXT
+        top_k = rag_config.retrieval.top_k
+        chunk_size = rag_config.chunking.chunk_size
+        max_context = rag_config.retrieval.max_context_length
 
         # Estimate min required (assume chunk_size as average)
         min_required = top_k * chunk_size
@@ -181,9 +181,9 @@ class TestMaxContextValidation:
 
         Edge case: MAX_CONTEXT <= 0 jest invalid.
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        max_context = settings.RAG_MAX_CONTEXT
+        max_context = rag_config.retrieval.max_context_length
 
         assert max_context > 0, (
             f"MAX_CONTEXT {max_context} <= 0. Musi być positive."
@@ -204,9 +204,9 @@ class TestVectorWeightValidation:
         Valid range: 0.0 (keyword only) to 1.0 (vector only)
         Optimal: 0.6-0.8 (favor semantic but include keywords)
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        vector_weight = settings.RAG_VECTOR_WEIGHT
+        vector_weight = rag_config.retrieval.vector_weight
 
         assert 0.0 <= vector_weight <= 1.0, (
             f"VECTOR_WEIGHT {vector_weight} out of range [0.0, 1.0]. "
@@ -220,9 +220,9 @@ class TestVectorWeightValidation:
         Warning jeśli weight = 0.0 lub 1.0 (single mode only).
         Hybrid search działa best z balanced weights.
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        vector_weight = settings.RAG_VECTOR_WEIGHT
+        vector_weight = rag_config.retrieval.vector_weight
 
         if vector_weight == 0.0:
             pytest.skip(
@@ -246,10 +246,10 @@ class TestRerankerConfiguration:
         Reranking wymaga cross-encoder model.
         Default: "cross-encoder/ms-marco-MiniLM-L-6-v2" (multilingual)
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        if settings.RAG_USE_RERANKING:
-            rerank_model = settings.RAG_RERANK_MODEL
+        if rag_config.retrieval.use_reranking:
+            rerank_model = rag_config.retrieval.rerank_model
 
             assert rerank_model is not None, (
                 "RAG_USE_RERANKING=True but RAG_RERANK_MODEL not specified."
@@ -265,9 +265,9 @@ class TestRerankerConfiguration:
         Edge case: sentence-transformers może nie być installed.
         Jeśli USE_RERANKING=True, library musi być available.
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        if settings.RAG_USE_RERANKING:
+        if rag_config.retrieval.use_reranking:
             try:
                 from sentence_transformers import CrossEncoder
                 # Verify import works
@@ -289,10 +289,10 @@ class TestConfigConsistency:
         Jeśli HYBRID_SEARCH=False, vector_weight powinno być 1.0
         (vector only) lub 0.0 (keyword only).
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
-        use_hybrid = settings.RAG_USE_HYBRID_SEARCH
-        vector_weight = settings.RAG_VECTOR_WEIGHT
+        use_hybrid = rag_config.retrieval.use_hybrid_search
+        vector_weight = rag_config.retrieval.vector_weight
 
         if not use_hybrid:
             # Jeśli hybrid disabled, weight powinno być extreme
@@ -312,10 +312,10 @@ class TestConfigConsistency:
 
         Ten test jest summary check dla overall consistency.
         """
-        settings = get_settings()
+        # settings = get_settings()  # Migrated to config.rag
 
         # All individual checks already done
         # Ten test jest placeholder dla future consistency checks
-        assert settings.RAG_CHUNK_SIZE > 0
-        assert settings.RAG_TOP_K > 0
-        assert settings.RAG_RRF_K > 0
+        assert rag_config.chunking.chunk_size > 0
+        assert rag_config.retrieval.top_k > 0
+        assert rag_config.retrieval.rrf_k > 0

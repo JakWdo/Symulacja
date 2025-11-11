@@ -62,9 +62,9 @@ PersonaGenerator = PersonaGeneratorLangChain
 MemoryService = MemoryServiceLangChain
 FocusGroupService = FocusGroupServiceLangChain
 
-# DemographicDistribution - legacy export (now in PersonaGeneratorLangChain)
+# DemographicDistribution - legacy export (refactored to demographic_sampling)
 try:
-    from .personas.persona_generator_langchain import DemographicDistribution
+    from .personas import DemographicDistribution
 except ImportError:
     DemographicDistribution = None
 

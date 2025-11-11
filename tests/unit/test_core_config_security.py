@@ -1,24 +1,21 @@
-"""Testy modułów konfiguracyjnych i bezpieczeństwa."""
+"""Testy modułów konfiguracyjnych i bezpieczeństwa.
+
+UWAGA: Test get_settings_singleton został SKIPPED - funkcja get_settings została usunięta
+w refactoringu PR4 (migracja do config/* modules). Nowy system nie używa get_settings().
+"""
 
 import re
 from datetime import timedelta
 
 import pytest
 
-from app.core.config import get_settings, Settings
 from app.core import security
 
 
+@pytest.mark.skip(reason="get_settings() removed in PR4 - migrated to config/* modules")
 def test_get_settings_singleton(monkeypatch):
-    """Sprawdza czy get_settings zwraca cache'owaną instancję."""
-    # Wymuszenie świeżych ustawień poprzez reset cache
-    get_settings.cache_clear()  # type: ignore[attr-defined]
-
-    first = get_settings()
-    second = get_settings()
-
-    assert first is second
-    assert isinstance(first, Settings)
+    """DEPRECATED: Sprawdza czy get_settings zwraca cache'owaną instancję."""
+    pytest.skip("get_settings() removed - use config.* modules instead")
 
 
 def test_password_hashing_roundtrip():

@@ -4,10 +4,9 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from app.services.focus_groups.discussion_summarizer import (
-    DiscussionSummarizerService,
-    _simple_sentiment_score,
-)
+from app.services.focus_groups.discussion_summarizer import DiscussionSummarizerService
+from app.services.focus_groups.nlp.sentiment_analysis import simple_sentiment_score
+from app.services.focus_groups.data_preparation import prepare_discussion_data, prepare_prompt_variables
 
 
 class DummyFocusGroup:
@@ -32,14 +31,12 @@ class DummyPersona:
 def test_simple_sentiment_score_balanced():
     """Analiza sentymentu powinna rozpoznawać pozytywne i negatywne słowa."""
     text = "I love the idea but I hate the execution"
-    score = _simple_sentiment_score(text)
+    score = simple_sentiment_score(text)
     assert np.isclose(score, 0.0)
 
 
 def test_prepare_discussion_data_builds_structure():
     """Metoda powinna grupować odpowiedzi oraz liczyć sentyment."""
-    service = DiscussionSummarizerService.__new__(DiscussionSummarizerService)
-
     focus_group = DummyFocusGroup()
     responses = [
         SimpleNamespace(
@@ -60,7 +57,7 @@ def test_prepare_discussion_data_builds_structure():
         "2": DummyPersona(45, "male", "Bachelor", "Manager"),
     }
 
-    data = service._prepare_discussion_data(focus_group, responses, personas, True)
+    data = prepare_discussion_data(focus_group, responses, personas, True)
 
     assert data["topic"] == focus_group.name
     assert data["total_responses"] == 2
@@ -71,7 +68,6 @@ def test_prepare_discussion_data_builds_structure():
 
 def test_create_summary_prompt_contains_sections():
     """Prompt powinien zawierać kluczowe nagłówki do analizy."""
-    service = DiscussionSummarizerService.__new__(DiscussionSummarizerService)
     discussion = {
         "topic": "Produkt",
         "description": "Opis",
@@ -88,11 +84,12 @@ def test_create_summary_prompt_contains_sections():
         },
     }
 
-    prompt = service._create_summary_prompt(discussion, include_recommendations=True)
+    prompt_vars = prepare_prompt_variables(discussion, include_recommendations=True)
 
-    assert "EXECUTIVE SUMMARY" in prompt
-    assert "STRATEGIC RECOMMENDATIONS" in prompt
-    assert "SENTIMENT NARRATIVE" in prompt
+    # Check that key sections are included in the variables
+    assert "recommendations_section" in prompt_vars
+    assert "STRATEGIC RECOMMENDATIONS" in prompt_vars["recommendations_section"]
+    assert "language_instruction" in prompt_vars
 
 
 def test_parse_ai_response_splits_sections():

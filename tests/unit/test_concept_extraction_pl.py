@@ -1,7 +1,7 @@
 """
 Unit tests for Polish concept extraction
 
-Tests the _extract_concepts method from DiscussionSummarizer
+Tests the extract_concepts function from nlp.concept_extraction module
 with Polish text examples to ensure:
 - Polish stopwords are filtered out
 - N-grams (bigrams, trigrams) are extracted
@@ -10,13 +10,18 @@ with Polish text examples to ensure:
 """
 
 import pytest
-from app.services.focus_groups.discussion_summarizer import DiscussionSummarizerService
+from app.services.focus_groups.nlp.concept_extraction import extract_concepts
 
 
 @pytest.fixture
 def summarizer():
-    """Create a DiscussionSummarizerService instance for testing."""
-    return DiscussionSummarizerService()
+    """Fixture compatibility - extract_concepts is now a standalone function."""
+    # Return a simple object that provides _extract_concepts as an alias
+    class ConceptExtractor:
+        def _extract_concepts(self, text, min_frequency=2, max_concepts=15):
+            return extract_concepts(text, min_frequency, max_concepts)
+
+    return ConceptExtractor()
 
 
 class TestPolishConceptExtraction:

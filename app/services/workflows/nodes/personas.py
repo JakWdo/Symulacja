@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from app.models import Project
 from app.schemas.workflow import GeneratePersonasNodeConfig
-from app.services.personas.persona_orchestration import PersonaOrchestrationService
+from app.services.personas import PersonaOrchestrationService
 from app.services.workflows.nodes.base import NodeExecutor
 
 logger = logging.getLogger(__name__)

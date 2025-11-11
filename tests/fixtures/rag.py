@@ -180,7 +180,7 @@ async def polish_society_rag_with_mocks(mock_vector_store, mock_embeddings):
 @pytest_asyncio.fixture
 async def persona_orchestration_with_mocks(mock_gemini_2_5_pro, polish_society_rag_with_mocks):
     """Return PersonaOrchestrationService with mocked Gemini and RAG dependencies."""
-    from app.services.personas.persona_orchestration import PersonaOrchestrationService
+    from app.services.personas import PersonaOrchestrationService
 
     service = PersonaOrchestrationService()
     service.llm = mock_gemini_2_5_pro

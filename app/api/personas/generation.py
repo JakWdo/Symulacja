@@ -22,7 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.db import AsyncSessionLocal, get_db
 from app.models import Project, Persona, User, GenerationProgress, GenerationStage
-from app.services.personas.persona_orchestration import PersonaOrchestrationService
+from app.services.personas import PersonaOrchestrationService
 from app.api.dependencies import get_current_user, get_project_for_user
 from app.schemas.persona import PersonaGenerateRequest
 from app.services.personas import PersonaValidator

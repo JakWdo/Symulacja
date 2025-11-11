@@ -11,8 +11,7 @@ Ten moduł testuje kluczowe funkcjonalności generatora person:
 
 import pytest
 import numpy as np
-from app.core.config import get_settings
-from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain as PersonaGenerator, DemographicDistribution
+from app.services.personas import PersonaGeneratorLangChain as PersonaGenerator, DemographicDistribution
 
 
 @pytest.fixture
@@ -56,10 +55,10 @@ def generator():
     Tworzy obiekt przy użyciu __new__ i ręcznie ustawia wymagane atrybuty,
     aby uniknąć inicjalizacji modeli LLM podczas testów.
     """
+    from config import features
 
     gen = PersonaGenerator.__new__(PersonaGenerator)
-    gen.settings = get_settings()
-    gen._rng = np.random.default_rng(gen.settings.RANDOM_SEED)
+    gen._rng = np.random.default_rng(features.performance.random_seed)
     return gen
 
 

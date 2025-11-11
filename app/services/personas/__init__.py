@@ -19,6 +19,19 @@ from .persona_needs_service import PersonaNeedsService
 from .persona_audit_service import PersonaAuditService
 from .segment_brief_service import SegmentBriefService
 
+# Re-export z orchestration submodule (dla backward compatibility)
+from .orchestration import (
+    GraphInsight,
+    DemographicGroup,
+    PersonaAllocationPlan,
+)
+
+# Re-export z nowych modułów pomocniczych (dla backward compatibility)
+from .demographic_sampling import DemographicDistribution
+from .psychological_profiles import sample_big_five_traits, sample_cultural_dimensions
+from .statistical_validation import validate_distribution
+from .rag_integration import get_rag_context_for_persona
+
 __all__ = [
     "PersonaGeneratorLangChain",
     "PersonaOrchestrationService",
@@ -27,4 +40,14 @@ __all__ = [
     "PersonaNeedsService",
     "PersonaAuditService",
     "SegmentBriefService",
+    # Orchestration models
+    "GraphInsight",
+    "DemographicGroup",
+    "PersonaAllocationPlan",
+    # Helper modules exports
+    "DemographicDistribution",
+    "sample_big_five_traits",
+    "sample_cultural_dimensions",
+    "validate_distribution",
+    "get_rag_context_for_persona",
 ]

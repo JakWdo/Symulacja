@@ -6,7 +6,7 @@ NIE testują quality ani szczegółów - tylko czy kod się wykonuje bez błęd�
 """
 
 import pytest
-from app.services.personas.persona_orchestration import PersonaOrchestrationService, PersonaAllocationPlan
+from app.services.personas import PersonaOrchestrationService, PersonaAllocationPlan
 
 
 class TestOrchestrationSmoke:
@@ -23,15 +23,14 @@ class TestOrchestrationSmoke:
 
     def test_orchestration_models(self):
         """Test czy używane są prawidłowe modele."""
-        from app.core.config import get_settings
-        settings = get_settings()
+        from config import models
 
         # Orchestration powinien używać Gemini 2.5 Pro
         service = PersonaOrchestrationService()
         assert "2.5-pro" in service.llm.model.lower()
 
         # Individual generation używa Flash (sprawdzamy w generator)
-        from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain
+        from app.services.personas import PersonaGeneratorLangChain
         generator = PersonaGeneratorLangChain()
         # Generator może używać różnych modeli, ale sprawdzamy że się inicjalizuje
         assert generator.llm is not None
@@ -51,7 +50,7 @@ class TestOrchestrationSmoke:
 
     def test_graph_insight_structure(self):
         """Test struktury GraphInsight (Pydantic validation)."""
-        from app.services.personas.persona_orchestration import GraphInsight
+        from app.services.personas import GraphInsight
 
         insight = GraphInsight(
             type="Indicator",
@@ -69,7 +68,7 @@ class TestOrchestrationSmoke:
 
     def test_demographic_group_structure(self):
         """Test struktury DemographicGroup (Pydantic validation)."""
-        from app.services.personas.persona_orchestration import DemographicGroup, GraphInsight
+        from app.services.personas import DemographicGroup, GraphInsight
 
         group = DemographicGroup(
             count=5,
@@ -92,29 +91,29 @@ class TestOrchestrationSmoke:
 
     def test_persona_orchestration_prompt_building(self):
         """Test czy prompt building działa."""
-        service = PersonaOrchestrationService()
+        from app.services.personas.orchestration.graph_context_fetcher import _format_graph_context
 
-        # Test pomocniczej metody format_graph_context
+        # Test pomocniczej funkcji format_graph_context
         test_docs = []  # Empty docs
-        formatted = service._format_graph_context(test_docs)
+        formatted = _format_graph_context(test_docs)
 
         assert "Brak dostępnego kontekstu" in formatted
 
     def test_json_extraction(self):
         """Test ekstrakcji JSON z odpowiedzi LLM."""
-        service = PersonaOrchestrationService()
+        from app.services.personas.orchestration.json_parser import extract_json_from_response
 
         # Test z markdown code blocks
         response_with_markdown = '''```json
         {"test": "value"}
         ```'''
 
-        result = service._extract_json_from_response(response_with_markdown)
+        result = extract_json_from_response(response_with_markdown)
         assert result == {"test": "value"}
 
         # Test bez markdown
         response_plain = '{"test": "value"}'
-        result = service._extract_json_from_response(response_plain)
+        result = extract_json_from_response(response_plain)
         assert result == {"test": "value"}
 
 
@@ -123,7 +122,7 @@ class TestPersonaGeneratorOrchestration:
 
     def test_generator_accepts_orchestration_brief(self):
         """Test czy generator akceptuje orchestration brief w advanced_options."""
-        from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain
+        from app.services.personas import PersonaGeneratorLangChain
 
         generator = PersonaGeneratorLangChain()
 

@@ -31,10 +31,9 @@ class TestPersonaGenerationCriticalPath:
 
         Wartości poza zakresem mogą spowodować błędy w analizie.
         """
-        from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain
+        from app.services.personas import PersonaGeneratorLangChain
 
         gen = PersonaGeneratorLangChain.__new__(PersonaGeneratorLangChain)
-        gen.settings = type('obj', (object,), {'RANDOM_SEED': 42})()
 
         import numpy as np
         gen._rng = np.random.default_rng(42)
@@ -72,10 +71,9 @@ class TestPersonaGenerationCriticalPath:
 
         Jeśli wszystkie persony mają ten sam wiek, test powinien failować.
         """
-        from app.services.personas.persona_generator_langchain import PersonaGeneratorLangChain, DemographicDistribution
+        from app.services.personas import PersonaGeneratorLangChain, DemographicDistribution
 
         gen = PersonaGeneratorLangChain.__new__(PersonaGeneratorLangChain)
-        gen.settings = type('obj', (object,), {'RANDOM_SEED': 42})()
 
         import numpy as np
         gen._rng = np.random.default_rng(42)

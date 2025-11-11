@@ -83,10 +83,10 @@ class TestRAGFileSizeLimit:
     @pytest.mark.asyncio
     async def test_rag_upload_rejects_oversized_file(self):
         """Test że plik >50MB jest odrzucany z HTTP 413"""
-        from app.core.config import get_settings
+        from config import app as app_config
 
-        settings = get_settings()
-        max_size_bytes = settings.MAX_DOCUMENT_SIZE_MB * 1024 * 1024
+        # settings = get_settings()  # Migrated to config.app
+        max_size_bytes = app_config.max_document_size_mb * 1024 * 1024
 
         # Symuluj plik 100MB
         file_size = 100 * 1024 * 1024
@@ -101,10 +101,10 @@ class TestRAGFileSizeLimit:
     @pytest.mark.asyncio
     async def test_rag_upload_accepts_normal_file(self):
         """Test że plik <50MB jest akceptowany"""
-        from app.core.config import get_settings
+        from config import app as app_config
 
-        settings = get_settings()
-        max_size_bytes = settings.MAX_DOCUMENT_SIZE_MB * 1024 * 1024
+        # settings = get_settings()  # Migrated to config.app
+        max_size_bytes = app_config.max_document_size_mb * 1024 * 1024
 
         # Symuluj plik 10MB
         file_size = 10 * 1024 * 1024

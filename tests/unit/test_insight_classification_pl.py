@@ -1,7 +1,7 @@
 """
 Unit tests for Polish insight type classification
 
-Tests the _classify_insight_type method from DiscussionSummarizer
+Tests the classify_insight_type function from insight_classification module
 with Polish text examples to ensure proper classification into:
 - opportunity (szanse)
 - risk (ryzyka)
@@ -10,13 +10,18 @@ with Polish text examples to ensure proper classification into:
 """
 
 import pytest
-from app.services.focus_groups.discussion_summarizer import DiscussionSummarizerService
+from app.services.focus_groups.insight_classification import classify_insight_type
 
 
 @pytest.fixture
 def summarizer():
-    """Create a DiscussionSummarizerService instance for testing."""
-    return DiscussionSummarizerService()
+    """Fixture compatibility - classify_insight_type is now a standalone function."""
+    # Return a simple object that provides _classify_insight_type as an alias
+    class InsightClassifier:
+        def _classify_insight_type(self, text):
+            return classify_insight_type(text)
+
+    return InsightClassifier()
 
 
 class TestPolishInsightClassification:

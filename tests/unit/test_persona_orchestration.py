@@ -14,7 +14,7 @@ Dokumentacja: app/services/persona_orchestration.py
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.services.personas.persona_orchestration import (
+from app.services.personas import (
     PersonaOrchestrationService,
     PersonaAllocationPlan,
     DemographicGroup,
@@ -291,14 +291,14 @@ class TestJSONParsing:
 
     def test_extract_json_from_markdown_block(self):
         """
-        Test: _extract_json_from_response parsuje JSON w ```json block.
+        Test: extract_json_from_response parsuje JSON w ```json block.
 
         LLM może zwrócić:
         ```json
         {"key": "value"}
         ```
         """
-        service = PersonaOrchestrationService()
+        from app.services.personas.orchestration.json_parser import extract_json_from_response
 
         response = """
         Here is the allocation plan:
@@ -315,7 +315,7 @@ class TestJSONParsing:
         """
 
         # Execute
-        result = service._extract_json_from_response(response)
+        result = extract_json_from_response(response)
 
         # Verify
         assert isinstance(result, dict)
@@ -331,7 +331,7 @@ class TestJSONParsing:
         {"key": "value"}
         ```
         """
-        service = PersonaOrchestrationService()
+        from app.services.personas.orchestration.json_parser import extract_json_from_response
 
         response = """
         ```
@@ -339,7 +339,7 @@ class TestJSONParsing:
         ```
         """
 
-        result = service._extract_json_from_response(response)
+        result = extract_json_from_response(response)
 
         assert result["total_personas"] == 10
 
@@ -352,7 +352,7 @@ class TestJSONParsing:
         {"key": "value"}
         More text...
         """
-        service = PersonaOrchestrationService()
+        from app.services.personas.orchestration.json_parser import extract_json_from_response
 
         response = """
         Let me explain the allocation.
@@ -362,7 +362,7 @@ class TestJSONParsing:
         This is my reasoning.
         """
 
-        result = service._extract_json_from_response(response)
+        result = extract_json_from_response(response)
 
         assert result["total_personas"] == 15
 
@@ -372,13 +372,13 @@ class TestJSONParsing:
 
         Edge case: LLM zwróci invalid JSON lub no JSON at all.
         """
-        service = PersonaOrchestrationService()
+        from app.services.personas.orchestration.json_parser import extract_json_from_response
 
         response = "This is just plain text without any JSON."
 
         # Execute - powinno raise ValueError
         with pytest.raises(ValueError, match="nie zwrócił poprawnego JSON"):
-            service._extract_json_from_response(response)
+            extract_json_from_response(response)
 
 
 class TestOrchestrationPromptBuilding:
@@ -386,7 +386,7 @@ class TestOrchestrationPromptBuilding:
 
     def test_build_orchestration_prompt_structure(self):
         """
-        Test: _build_orchestration_prompt buduje długi, szczegółowy prompt.
+        Test: build_orchestration_prompt buduje długi, szczegółowy prompt.
 
         Sections:
         1. STYL KOMUNIKACJI (konwersacyjny, edukacyjny)
@@ -395,9 +395,9 @@ class TestOrchestrationPromptBuilding:
         4. TWOJE ZADANIE (with detailed instructions)
         5. OUTPUT FORMAT (JSON schema)
         """
-        service = PersonaOrchestrationService()
+        from app.services.personas.orchestration.prompt_builder import build_orchestration_prompt
 
-        prompt = service._build_orchestration_prompt(
+        prompt = build_orchestration_prompt(
             target_demographics={"age_group": {"25-34": 1.0}},
             num_personas=20,
             graph_context="Sample graph context from RAG",
@@ -425,7 +425,7 @@ class TestOrchestrationPromptBuilding:
         [1] Fragment 1...
         [2] Fragment 2...
         """
-        service = PersonaOrchestrationService()
+        from app.services.personas.orchestration.prompt_builder import build_orchestration_prompt
 
         graph_context = """
         === KONTEKST Z GRAPH RAG ===
@@ -433,7 +433,7 @@ class TestOrchestrationPromptBuilding:
         [2] Ceny mieszkań 15000 zł/m2
         """
 
-        prompt = service._build_orchestration_prompt(
+        prompt = build_orchestration_prompt(
             target_demographics={},
             num_personas=10,
             graph_context=graph_context,
