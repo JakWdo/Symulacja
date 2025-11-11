@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 async def configure_details_node(state: ConversationState) -> ConversationState:
     """Configure Details node."""
-    session_id = state["session_id"]
     user_message = get_last_user_message(state) or ""
 
     template = prompts.get("study_designer.configure_details")

@@ -8,7 +8,7 @@ Zawiera:
 """
 
 import numpy as np
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 
 def create_persona_prompt(

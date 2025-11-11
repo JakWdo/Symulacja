@@ -18,7 +18,6 @@ Blockers:
 - no_insights: Brak insightów mimo ukończonych focus groups (MEDIUM)
 """
 
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 

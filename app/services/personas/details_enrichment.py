@@ -12,7 +12,6 @@ import logging
 import re
 import unicodedata
 from typing import Any
-from uuid import UUID
 
 from app.models import Persona
 from app.services.personas.persona_needs_service import PersonaNeedsService

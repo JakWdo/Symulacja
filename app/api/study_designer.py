@@ -30,7 +30,6 @@ from app.services.study_designer.orchestrator import StudyDesignerOrchestrator
 from app.schemas.study_designer import (
     SessionCreate,
     SessionCreateResponse,
-    MessageChunk,
     MessageSend,
     MessageSendResponse,
     PlanApproval,

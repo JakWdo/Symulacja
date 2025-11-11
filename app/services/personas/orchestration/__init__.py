@@ -18,10 +18,7 @@ from .models import (
     PersonaAllocationPlan,
     map_graph_node_to_insight
 )
-from .graph_context_fetcher import (
-    get_comprehensive_graph_context,
-    _format_graph_context
-)
+from .graph_context_fetcher import get_comprehensive_graph_context
 from .prompt_builder import build_orchestration_prompt
 from .json_parser import extract_json_from_response
 from .segment_naming import generate_segment_name

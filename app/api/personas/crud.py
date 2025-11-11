@@ -13,7 +13,7 @@ from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.models import Persona, Project, User
+from app.models import Persona, User
 from app.api.dependencies import get_current_user, get_project_for_user, get_persona_for_user
 from app.schemas.persona import PersonaResponse
 from app.schemas.persona_details import (

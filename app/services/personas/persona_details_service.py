@@ -24,7 +24,6 @@ Performance:
 import asyncio
 import logging
 import time
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select

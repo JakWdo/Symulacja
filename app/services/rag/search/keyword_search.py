@@ -11,7 +11,6 @@ import logging
 from typing import List, Tuple
 
 from langchain_core.documents import Document
-from config import rag
 
 logger = logging.getLogger(__name__)
 
