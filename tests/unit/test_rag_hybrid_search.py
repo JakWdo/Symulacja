@@ -10,8 +10,7 @@ Ten moduł testuje kluczowe komponenty hybrydowego wyszukiwania:
 Dokumentacja: docs/RAG.md
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from langchain_core.documents import Document
 
 

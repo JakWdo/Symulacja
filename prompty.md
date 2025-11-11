@@ -166,8 +166,8 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 59. test_workflow_validator.py split ✅ (1310→475+538+340 linii: basic, nodes, edges)
 - [x] 60. test_workflow_service.py split ✅ (873→526+367 linii: crud, logic)
 - [x] 61. test_workflow_executor.py split ✅ (825→464+379 linii: basic, advanced)
-- [ ] 62. test_rag_hybrid_search.py cleanup
-- [ ] 63. test_persona_orchestration.py cleanup
+- [x] 62. test_rag_hybrid_search.py cleanup ✅ (553→552 linii, usunięto 2 nieużywane importy)
+- [x] 63. test_persona_orchestration.py cleanup ✅ (545→544 linie, usunięto 2 nieużywane importy)
 - [ ] 64. fixtures consolidation
 - [ ] 65. Deprecated test utilities cleanup
 - [ ] 66. Test coverage gaps (target 85%+)
