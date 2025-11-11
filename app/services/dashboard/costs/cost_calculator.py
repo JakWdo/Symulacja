@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models import User
-from app.services.dashboard.usage_tracking_service import UsageTrackingService
+from app.services.dashboard.usage import UsageTrackingService
 from app.core.redis import redis_get_json, redis_set_json
 
 

@@ -12,12 +12,10 @@ Zawiera:
 """
 
 from .dashboard_orchestrator import DashboardOrchestrator
-from .health_service import ProjectHealthService
-from .insight_traceability_service import InsightTraceabilityService
-from .metrics_service import DashboardMetricsService
+from .metrics import ProjectHealthService, DashboardMetricsService
+from .insights import InsightTraceabilityService, QuickActionsService
+from .usage import UsageTrackingService
 from .notification_service import NotificationService
-from .quick_actions_service import QuickActionsService
-from .usage_tracking_service import UsageTrackingService
 
 __all__ = [
     "DashboardMetricsService",

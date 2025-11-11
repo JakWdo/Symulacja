@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from app.db.session import AsyncSessionLocal
-from app.services.dashboard.usage_tracking_service import UsageTrackingService
+from .usage_tracking_service import UsageTrackingService
 
 logger = logging.getLogger(__name__)
 

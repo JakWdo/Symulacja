@@ -18,7 +18,7 @@ import re
 import unicodedata
 from typing import Any
 
-from app.services.personas.demographics_formatter import DemographicsFormatter
+from app.services.personas.validation.demographics_formatter import DemographicsFormatter
 
 logger = logging.getLogger(__name__)
 

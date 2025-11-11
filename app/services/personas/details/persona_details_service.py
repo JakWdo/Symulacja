@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
 
 from app.models import Persona
-from app.services.personas.persona_audit_service import PersonaAuditService
+from app.services.personas.validation.persona_audit_service import PersonaAuditService
 from app.core.redis import redis_get_json, redis_set_json
 from app.schemas.persona_details import PersonaDetailsResponse
 

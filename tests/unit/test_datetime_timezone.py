@@ -17,10 +17,10 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from app.models import FocusGroup, InsightEvidence, Project, User
-from app.services.dashboard.quick_actions_service import QuickActionsService
+from app.services.dashboard.insights import QuickActionsService
 from app.services.dashboard.dashboard_orchestrator import DashboardOrchestrator
-from app.services.dashboard.health_service import ProjectHealthService
-from app.services.dashboard.metrics_service import DashboardMetricsService
+from app.services.dashboard.metrics import ProjectHealthService
+from app.services.dashboard.metrics import DashboardMetricsService
 from app.utils import get_utc_now
 
 
