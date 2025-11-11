@@ -85,8 +85,10 @@ class SegmentBriefService:
                 exc
             )
 
-        # Cache TTL (7 dni)
-        self.CACHE_TTL_SECONDS = 7 * 24 * 60 * 60  # 604800 sekund
+        # Cache TTL z config/features.yaml
+        from config import features
+        ttl_days = features.segment_cache.ttl_days if hasattr(features, 'segment_cache') else 7
+        self.CACHE_TTL_SECONDS = ttl_days * 24 * 60 * 60  # Convert days to seconds
 
     @staticmethod
     def generate_segment_id(demographics: dict[str, Any]) -> str:
