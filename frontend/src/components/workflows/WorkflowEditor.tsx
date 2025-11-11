@@ -34,13 +34,9 @@ import {
 import { useDebouncedCallback } from 'use-debounce';
 import { toast } from 'sonner';
 
-import {
-  useWorkflow,
-  useUpdateWorkflow,
-  useSaveCanvas,
-  useValidateWorkflow,
-  useExecuteWorkflow,
-} from '@/hooks/useWorkflows';
+import { useWorkflow, useUpdateWorkflow } from '@/hooks/useWorkflowCrud';
+import { useSaveCanvas, useValidateWorkflow } from '@/hooks/useWorkflowValidation';
+import { useExecuteWorkflow } from '@/hooks/useWorkflowExecution';
 
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';

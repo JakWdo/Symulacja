@@ -25,7 +25,7 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, History, AlertCircle } from 'lucide-react';
 
-import { useWorkflowExecutions } from '@/hooks/useWorkflows';
+import { useWorkflowExecutions } from '@/hooks/useWorkflowExecution';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ExecutionHistoryItem } from './ExecutionHistoryItem';
