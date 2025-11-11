@@ -385,57 +385,57 @@ Checklist: [✅] Grep [✅] Podział [N/A] Importy [✅] Fixes [✅] Testy [✅]
 
 #### 29. 🟡 [Backend Services Folder] - services/personas/ restructure
 
-Przejrzyj `app/services/personas/` (struktura i długość plików). PRZED: `ls -lh app/services/personas && find app/services/personas -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `generation/`, `orchestration/`, `details/`, `validation/`, przenieś moduły, uzupełnij `__init__.py` o re-exports i zaktualizuj importy w `app/api/personas/`, `tests/unit/services/personas/`.
+Przejrzyj `app/services/personas/` (struktura i długość plików). PRZED: `ls -lh app/services/personas && find app/services/personas -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `generation/`, `orchestration/`, `details/`, `validation/`, przenieś moduły, uzupełnij `__init__.py` o re-exports i zaktualizuj importy w `app/api/personas/`, `tests/unit/services/personas/` + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
 PO: `pytest tests/unit/test_persona_generator.py -v tests/unit/test_persona_orchestration.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] Działa.
 
 ---
 
 #### 30. 🟡 [Backend Services Folder] - services/dashboard/ restructure
 
-Przejrzyj `app/services/dashboard/` (struktura). PRZED: `ls -lh app/services/dashboard && find app/services/dashboard -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `metrics/`, `usage/`, `costs/`, przenieś moduły, uzupełnij `__init__.py` i zaktualizuj importy w `app/api/dashboard.py`, `tests/`.
+Przejrzyj `app/services/dashboard/` (struktura). PRZED: `ls -lh app/services/dashboard && find app/services/dashboard -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `metrics/`, `usage/`, `costs/`, przenieś moduły, uzupełnij `__init__.py` i zaktualizuj importy w `app/api/dashboard.py`, `tests/` + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
 PO: `pytest tests/integration/test_dashboard_api.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] Działa.
 
 ---
 
 #### 31. 🟡 [Backend Services Folder] - services/workflows/ restructure
 
-Przejrzyj `app/services/workflows/` (struktura + folder z dokumentacją). PRZED: `ls -lh app/services/workflows && find app/services/workflows -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `execution/`, `templates/`, `validation/`, przenieś `docs/*.md` do `docs/workflows/` i zaktualizuj importy w `app/api/workflows.py`, `tests/`.
+Przejrzyj `app/services/workflows/` (struktura + folder z dokumentacją). PRZED: `ls -lh app/services/workflows && find app/services/workflows -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `execution/`, `templates/`, `validation/`, przenieś `docs/*.md` do `docs/workflows/` i zaktualizuj importy w `app/api/workflows.py`, `tests/` + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
 PO: `pytest tests/unit/services/workflows -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] Działa.
 
 ---
 
 #### 32. 🟡 [Backend Services Folder] - services/rag/ restructure
 
-Przejrzyj `app/services/rag/` (struktura). PRZED: `ls -lh app/services/rag && find app/services/rag -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `search/` (hybrid + graph), `documents/`, `embeddings/`, przenieś moduły i zaktualizuj importy w `app/api/rag.py`, `app/services/personas/`, `tests/`.
+Przejrzyj `app/services/rag/` (struktura). PRZED: `ls -lh app/services/rag && find app/services/rag -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `search/` (hybrid + graph), `documents/`, `embeddings/`, przenieś moduły i zaktualizuj importy w `app/api/rag.py`, `app/services/personas/`, `tests/` + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
 PO: `pytest tests/unit/test_rag_document_service.py -v tests/unit/test_rag_hybrid_search_service.py -v tests/unit/test_rag_graph_service.py -v && docker-compose restart api neo4j`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] Działa.
 
 ---
 
 #### 33. 🟡 [Backend Services Folder] - services/focus_groups/ restructure
 
-Przejrzyj `app/services/focus_groups/` (struktura). PRZED: `ls -lh app/services/focus_groups && find app/services/focus_groups -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `discussion/`, `summaries/`, `memory/`, przenieś moduły i zaktualizuj importy w `app/api/focus_groups.py`, `tests/`.
+Przejrzyj `app/services/focus_groups/` (struktura). PRZED: `ls -lh app/services/focus_groups && find app/services/focus_groups -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: utwórz `discussion/`, `summaries/`, `memory/`, przenieś moduły i zaktualizuj importy w `app/api/focus_groups.py`, `tests/` + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
 PO: `pytest tests/unit/test_focus_group_service.py -v tests/unit/test_discussion_summarizer_service.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] Działa.
 
 ---
 
 #### 34. 🟡 [Backend Services Folder] - services/surveys/ restructure
 
-Przejrzyj `app/services/surveys/` (struktura). PRZED: `ls -lh app/services/surveys && find app/services/surveys -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: jeśli potrzeba, utwórz `generation/`, `responses/`, przenieś moduły i zaktualizuj importy w `app/api/surveys.py`, `tests/`.
+Przejrzyj `app/services/surveys/` (struktura). PRZED: `ls -lh app/services/surveys && find app/services/surveys -name "*.py" -exec wc -l {} +`. Zrestrukturyzuj: jeśli potrzeba, utwórz `generation/`, `responses/`, przenieś moduły i zaktualizuj importy w `app/api/surveys.py`, `tests/` + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
 PO: `pytest tests/unit/test_survey_response_generator.py -v tests/integration/test_surveys_api_integration.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] Działa.
 
 ---
 
 #### 35. 🟡 [Backend Services Folder] - services/shared/ cleanup
 
-Przejrzyj `app/services/shared/` (nieużywane moduły). PRZED: `ls -lh app/services/shared && rg -n "from app.services.shared" app tests | cut -d: -f2 | sort | uniq -c`. Cleanup: usuń nieużywane moduły, konsoliduj `clients.py` z `rag_provider.py` jeśli duplikują logikę, zaktualizuj importy i usuń deprecated utilities.
+Przejrzyj `app/services/shared/` (nieużywane moduły). PRZED: `ls -lh app/services/shared && rg -n "from app.services.shared" app tests | cut -d: -f2 | sort | uniq -c`. Cleanup: usuń nieużywane moduły, konsoliduj `clients.py` z `rag_provider.py` jeśli duplikują logikę, zaktualizuj importy i usuń deprecated utilities + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
 PO: `pytest tests/unit -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] Działa.
 
 ---
 
@@ -443,25 +443,25 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
 
 #### 36. 🟢 [Frontend Component] - Personas.tsx (1195 linii)
 
-Prompt (krótki): Przejrzyj `frontend/src/components/layout/Personas.tsx` (monolityczny komponent). Najpierw: `rg -n "import.*Personas" frontend/src --glob "**/*.{ts,tsx}"` i zanotuj zależności. Podziel na `PersonasLayout.tsx`, `PersonasList.tsx`, `PersonaFilters.tsx`, `PersonaActions.tsx`; przenieś hardcoded labels (linia 76-99) do `frontend/src/constants/personas.ts` i zaktualizuj importy. Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+Prompt (krótki): Przejrzyj `frontend/src/components/layout/Personas.tsx` (monolityczny komponent). Najpierw: `rg -n "import.*Personas" frontend/src --glob "**/*.{ts,tsx}"` i zanotuj zależności. Podziel na `PersonasLayout.tsx`, `PersonasList.tsx`, `PersonaFilters.tsx`, `PersonaActions.tsx`; przenieś hardcoded labels (linia 76-99) do `frontend/src/constants/personas.ts` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
 ---
 
 #### 37. 🟢 [Frontend Component] - FocusGroupView.tsx (972 linii)
 
-Prompt (krótki): Przejrzyj `frontend/src/components/layout/FocusGroupView.tsx` (dyskusja + odpowiedzi w jednym). Najpierw: `rg -n "import.*FocusGroupView" frontend/src --glob "**/*.tsx"` i zanotuj usage. Podziel na `FocusGroupLayout.tsx`, `DiscussionThread.tsx`, `ResponseComposer.tsx`; zaktualizuj importy i routing. Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+Prompt (krótki): Przejrzyj `frontend/src/components/layout/FocusGroupView.tsx` (dyskusja + odpowiedzi w jednym). Najpierw: `rg -n "import.*FocusGroupView" frontend/src --glob "**/*.tsx"` i zanotuj usage. Podziel na `FocusGroupLayout.tsx`, `DiscussionThread.tsx`, `ResponseComposer.tsx`; zaktualizuj importy i routing + **usuń nieużywany kod** (`npm run lint -- --fix`) + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
 ---
 
 #### 38. 🟢 [Frontend Component] - GraphAnalysis.tsx (788 linii)
 
-Prompt (krótki): Przejrzyj `frontend/src/components/layout/GraphAnalysis.tsx` (wizualizacja + kontrolki razem). Najpierw: `rg -n "import.*GraphAnalysis" frontend/src --glob "**/*.tsx"` i zinwentaryzuj zależności. Podziel na `GraphAnalysisLayout.tsx`, `GraphVisualization.tsx`, `GraphControls.tsx` i zaktualizuj importy. Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+Prompt (krótki): Przejrzyj `frontend/src/components/layout/GraphAnalysis.tsx` (wizualizacja + kontrolki razem). Najpierw: `rg -n "import.*GraphAnalysis" frontend/src --glob "**/*.tsx"` i zinwentaryzuj zależności. Podziel na `GraphAnalysisLayout.tsx`, `GraphVisualization.tsx`, `GraphControls.tsx` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
 ---
 
 #### 39. 🟢 [Frontend Component] - FocusGroupPanel.tsx (783 linii)
 
-Prompt (krótki): Przejrzyj `frontend/src/components/panels/FocusGroupPanel.tsx` (panel + details razem). Najpierw: `rg -n "import.*FocusGroupPanel" frontend/src --glob "**/*.tsx"` i zanotuj usage. Podziel na `FocusGroupPanel.tsx` (panel) i `FocusGroupDetails.tsx` (szczegóły) i zaktualizuj importy w komponentach nadrzędnych. Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+Prompt (krótki): Przejrzyj `frontend/src/components/panels/FocusGroupPanel.tsx` (panel + details razem). Najpierw: `rg -n "import.*FocusGroupPanel" frontend/src --glob "**/*.tsx"` i zanotuj usage. Podziel na `FocusGroupPanel.tsx` (panel) i `FocusGroupDetails.tsx` (szczegóły) i zaktualizuj importy w komponentach nadrzędnych + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
 ---
 
@@ -471,7 +471,7 @@ Przejrzyj `frontend/src/components/workflows/WorkflowEditor.tsx` (740 linii, pro
 PRZED: `grep -r "import.*WorkflowEditor" frontend/src/ --include="*.tsx"` && zanotuj dependencies.
 Podziel na 3 komponenty: `WorkflowEditor.tsx` (główny editor 350 linii), `NodePalette.tsx` (dostępne node types 250 linii), `EdgeEditor.tsx` (edge connections 200 linii) + zaktualizuj importy.
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -481,7 +481,7 @@ Przejrzyj `frontend/src/components/panels/PersonaPanel.tsx` (574 linii, problem:
 PRZED: `grep -r "import.*PersonaPanel" frontend/src/ --include="*.tsx"` && zanotuj usage.
 Podziel na 3 komponenty: `PersonaPanel.tsx` (główny panel 250 linii), `PersonaTabs.tsx` (tab navigation 200 linii), `PersonaContent.tsx` (tab content 200 linii) + zaktualizuj importy.
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -491,7 +491,7 @@ Przejrzyj `frontend/src/components/analysis/AISummaryPanel.tsx` (582 linii, prob
 PRZED: `grep -r "import.*AISummaryPanel" frontend/src/ --include="*.tsx"` && zanotuj dependencies.
 Podziel na 3 komponenty: `AISummaryPanel.tsx` (główny panel 250 linii), `InsightsList.tsx` (insights display 200 linii), `ThemesView.tsx` (themes visualization 200 linii) + zaktualizuj importy.
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -501,7 +501,7 @@ Przejrzyj `frontend/src/components/layout/Surveys.tsx` (506 linii, cleanup).
 PRZED: `wc -l frontend/src/components/layout/Surveys.tsx && grep -r "import.*Surveys" frontend/src/ --include="*.tsx"`.
 Wyodrębnij: `SurveysList.tsx` (lista 250 linii), `SurveyForm.tsx` (form 300 linii) jeśli potrzeba + zaktualizuj importy + usuń nieużywane state variables.
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -511,7 +511,7 @@ Przejrzyj `frontend/src/components/layout/Dashboard.tsx` (sprawdź rzeczywistą 
 PRZED: `wc -l frontend/src/components/layout/Dashboard.tsx && grep -r "import.*Dashboard" frontend/src/ --include="*.tsx"`.
 Jeśli >500 linii: wyodrębnij `DashboardMetrics.tsx`, `DashboardCharts.tsx`, `DashboardUsage.tsx` + zaktualizuj importy.
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -521,7 +521,7 @@ Przejrzyj `frontend/src/components/layout/ProjectSettings.tsx` (sprawdź rzeczyw
 PRZED: `wc -l frontend/src/components/layout/ProjectSettings.tsx && grep -r "import.*ProjectSettings" frontend/src/ --include="*.tsx"`.
 Jeśli >500 linii: wyodrębnij `GeneralSettings.tsx`, `DemographicsSettings.tsx`, `IntegrationSettings.tsx` + zaktualizuj importy.
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -531,7 +531,7 @@ Przejrzyj `frontend/src/components/panels/ReasoningPanel.tsx` (sprawdź rzeczywi
 PRZED: `wc -l frontend/src/components/panels/ReasoningPanel.tsx && grep -r "import.*ReasoningPanel" frontend/src/ --include="*.tsx"`.
 Jeśli >500 linii: wyodrębnij `OrchestrationBrief.tsx`, `GraphInsights.tsx`, `Troubleshooting.tsx` + zaktualizuj importy.
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -541,7 +541,7 @@ Przejrzyj `frontend/src/components/workflows/WorkflowTemplates.tsx` (sprawdź rz
 PRZED: `wc -l frontend/src/components/workflows/WorkflowTemplates.tsx && grep -r "import.*WorkflowTemplates" frontend/src/ --include="*.tsx"`.
 Jeśli >500 linii: wyodrębnij `TemplatesList.tsx`, `TemplatePreview.tsx`, `TemplateInstantiate.tsx` + zaktualizuj importy.
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -551,7 +551,7 @@ Przejrzyj `frontend/src/components/workflows/WorkflowRun.tsx` (sprawdź rzeczywi
 PRZED: `wc -l frontend/src/components/workflows/WorkflowRun.tsx && grep -r "import.*WorkflowRun" frontend/src/ --include="*.tsx"`.
 Jeśli >500 linii: wyodrębnij `RunStatus.tsx`, `RunLogs.tsx`, `RunResults.tsx` + zaktualizuj importy.
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -559,9 +559,9 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Build [ ] Działa.
 
 Przejrzyj `frontend/src/components/layout/Personas.tsx` (linia 76-99: hardcoded demographic labels).
 PRZED: `grep -n "const.*label.*=" frontend/src/components/layout/Personas.tsx | head -30`.
-Utwórz: `frontend/src/constants/personas.ts` z eksportowanymi labels (AGE_GROUPS, EDUCATION_LEVELS, OCCUPATIONS, etc.) + zastąp hardcoded values importami + sprawdź inne komponenty z hardcoded labels.
+Utwórz: `frontend/src/constants/personas.ts` z eksportowanymi labels (AGE_GROUPS, EDUCATION_LEVELS, OCCUPATIONS, etc.) + zastąp hardcoded values importami + sprawdź inne komponenty z hardcoded labels + **usuń nieużywany kod** (`npm run lint -- --fix`).
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Utwórz constants [ ] Zastąp imports [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Utwórz constants [ ] Zastąp imports [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -569,7 +569,7 @@ Checklist: [ ] Grep [ ] Utwórz constants [ ] Zastąp imports [ ] Build [ ] Dzia
 
 Przejrzyj `frontend/src/components/ui/` (nieużywane shadcn components).
 PRZED: `ls frontend/src/components/ui/ && grep -r "from.*components/ui" frontend/src/ --include="*.tsx" | cut -d: -f2 | sort | uniq -c`.
-Usuń nieużywane: `aspect-ratio.tsx`, `input-otp.tsx`, `breadcrumb.tsx` jeśli nie są używane + zaktualizuj `ui/index.ts` jeśli istnieje.
+Usuń nieużywane: `aspect-ratio.tsx`, `input-otp.tsx`, `breadcrumb.tsx` jeśli nie są używane + **usuń nieużywany kod** (`npm run lint -- --fix`) + zaktualizuj `ui/index.ts` jeśli istnieje.
 PO: `cd frontend && npm run build && npm run preview`.
 Checklist: [ ] Grep [ ] Usuń unused [ ] Build [ ] Działa.
 
@@ -581,9 +581,9 @@ Checklist: [ ] Grep [ ] Usuń unused [ ] Build [ ] Działa.
 
 Przejrzyj `frontend/src/lib/api.ts` (846 linii, problem: wszystkie API calls w jednym pliku).
 PRZED: `grep -r "from.*lib/api" frontend/src/ --include="*.tsx" --include="*.ts"` && zanotuj usage patterns.
-Podziel na moduły: `api/personas.ts` (persona endpoints 250 linii), `api/projects.ts` (project endpoints 200 linii), `api/workflows.ts` (workflow endpoints 200 linii), `api/focus-groups.ts` (focus group endpoints 200 linii) + utwórz `api/index.ts` z re-exports + zaktualizuj importy we wszystkich komponentach.
+Podziel na moduły: `api/personas.ts` (persona endpoints 250 linii), `api/projects.ts` (project endpoints 200 linii), `api/workflows.ts` (workflow endpoints 200 linii), `api/focus-groups.ts` (focus group endpoints 200 linii) + utwórz `api/index.ts` z re-exports + zaktualizuj importy we wszystkich komponentach + **usuń nieużywany kod** (`npm run lint -- --fix`).
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -591,9 +591,9 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Build [ ] Działa.
 
 Przejrzyj `frontend/src/types/index.ts` (887 linii, problem: wszystkie typy w jednym pliku).
 PRZED: `grep -r "from.*types" frontend/src/ --include="*.tsx" --include="*.ts"` && zanotuj usage.
-Podziel na domain types: `types/persona.ts`, `types/project.ts`, `types/workflow.ts`, `types/focus-group.ts`, `types/survey.ts`, `types/dashboard.ts` + utwórz `types/index.ts` z re-exports + zaktualizuj importy.
+Podziel na domain types: `types/persona.ts`, `types/project.ts`, `types/workflow.ts`, `types/focus-group.ts`, `types/survey.ts`, `types/dashboard.ts` + utwórz `types/index.ts` z re-exports + zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`).
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
@@ -601,39 +601,39 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Build [ ] Działa.
 
 Przejrzyj `frontend/src/hooks/useWorkflows.ts` (639 linii, problem: zbyt wiele responsibilności).
 PRZED: `grep -r "useWorkflows" frontend/src/ --include="*.tsx"` && zanotuj usage patterns.
-Podziel na 4 hooks: `useWorkflowCrud.ts` (CRUD operations 200 linii), `useWorkflowExecution.ts` (execution 200 linii), `useWorkflowTemplates.ts` (templates 150 linii), `useWorkflowValidation.ts` (validation 150 linii) + zaktualizuj importy w komponentach workflows.
+Podziel na 4 hooks: `useWorkflowCrud.ts` (CRUD operations 200 linii), `useWorkflowExecution.ts` (execution 200 linii), `useWorkflowTemplates.ts` (templates 150 linii), `useWorkflowValidation.ts` (validation 150 linii) + zaktualizuj importy w komponentach workflows + **usuń nieużywany kod** (`npm run lint -- --fix`).
 PO: `cd frontend && npm run build && npm run preview`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Build [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
 #### 54. 🟢 [Frontend Hooks] - hooks/usePersonas.ts
 
-Prompt (krótki): Przejrzyj `frontend/src/hooks/usePersonas.ts` (sprawdź długość i odpowiedzialności). Najpierw: `wc -l frontend/src/hooks/usePersonas.ts && rg -n "usePersonas" frontend/src --glob "**/*.{ts,tsx}"`. Jeśli >500 linii, wydziel `usePersonaGeneration.ts`, `usePersonaDetails.ts`, `usePersonaFilters.ts` i zaktualizuj importy. Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+Prompt (krótki): Przejrzyj `frontend/src/hooks/usePersonas.ts` (sprawdź długość i odpowiedzialności). Najpierw: `wc -l frontend/src/hooks/usePersonas.ts && rg -n "usePersonas" frontend/src --glob "**/*.{ts,tsx}"`. Jeśli >500 linii, wydziel `usePersonaGeneration.ts`, `usePersonaDetails.ts`, `usePersonaFilters.ts` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`) + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
 ---
 
 #### 55. 🟢 [Frontend Hooks] - hooks/useFocusGroups.ts
 
-Prompt (krótki): Przejrzyj `frontend/src/hooks/useFocusGroups.ts` (sprawdź długość i odpowiedzialności). Najpierw: `wc -l frontend/src/hooks/useFocusGroups.ts && rg -n "useFocusGroups" frontend/src --glob "**/*.{ts,tsx}"`. Jeśli >500 linii, wydziel `useFocusGroupDiscussion.ts` i `useFocusGroupSummaries.ts` i zaktualizuj importy. Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+Prompt (krótki): Przejrzyj `frontend/src/hooks/useFocusGroups.ts` (sprawdź długość i odpowiedzialności). Najpierw: `wc -l frontend/src/hooks/useFocusGroups.ts && rg -n "useFocusGroups" frontend/src --glob "**/*.{ts,tsx}"`. Jeśli >500 linii, wydziel `useFocusGroupDiscussion.ts` i `useFocusGroupSummaries.ts` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
 ---
 
 #### 56. 🟢 [Frontend Lib] - lib/utils.ts
 
-Prompt (krótki): Przejrzyj `frontend/src/lib/utils.ts` (sprawdź długość i zakres). Najpierw: `wc -l frontend/src/lib/utils.ts && rg -n "from .*lib/utils" frontend/src --glob "**/*.{ts,tsx}"`. Jeśli >500 linii, wydziel `formatting.ts`, `validation.ts`, `date-utils.ts` i zaktualizuj importy. Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+Prompt (krótki): Przejrzyj `frontend/src/lib/utils.ts` (sprawdź długość i zakres). Najpierw: `wc -l frontend/src/lib/utils.ts && rg -n "from .*lib/utils" frontend/src --glob "**/*.{ts,tsx}"`. Jeśli >500 linii, wydziel `formatting.ts`, `validation.ts`, `date-utils.ts` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
 ---
 
 #### 57. 🟢 [Frontend Stores] - stores/zustand cleanup
 
-Prompt (krótki): Przejrzyj `frontend/src/stores/` (konsolidacja Zustand stores). Najpierw: `ls -lh frontend/src/stores && find frontend/src/stores -name "*.ts" -exec wc -l {} +`. Usuń nieużywane slices, unikaj duplikowania stanu TanStack Query i zaktualizuj importy. Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+Prompt (krótki): Przejrzyj `frontend/src/stores/` (konsolidacja Zustand stores). Najpierw: `ls -lh frontend/src/stores && find frontend/src/stores -name "*.ts" -exec wc -l {} +`. Usuń nieużywane slices, unikaj duplikowania stanu TanStack Query i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`) + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
 ---
 
 #### 58. 🟢 [Frontend Constants] - constants/ consolidation
 
-Prompt (krótki): Przejrzyj `frontend/src/` i zinwentaryzuj constants. Najpierw: `rg -n "constants|DEFAULT|LABEL|OPTIONS" frontend/src --glob "**/*.{ts,tsx}"`. Utwórz `frontend/src/constants/{personas.ts,workflows.ts,ui.ts}` i przenieś hardcoded wartości; zaktualizuj importy. Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+Prompt (krótki): Przejrzyj `frontend/src/` i zinwentaryzuj constants. Najpierw: `rg -n "constants|DEFAULT|LABEL|OPTIONS" frontend/src --glob "**/*.{ts,tsx}"`. Utwórz `frontend/src/constants/{personas.ts,workflows.ts,ui.ts}` i przenieś hardcoded wartości; zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
 ---
 
@@ -645,7 +645,7 @@ Przejrzyj `tests/unit/services/workflows/test_workflow_validator.py` (1310 linii
 PRZED: `grep -n "^def test_" tests/unit/services/workflows/test_workflow_validator.py | wc -l` && zanotuj liczbę testów.
 Podziel na 3 pliki: `test_validator_basic.py` (basic validation 500 linii), `test_validator_nodes.py` (node validation 450 linii), `test_validator_edges.py` (edge validation 400 linii) + zaktualizuj fixtures imports.
 PO: `pytest tests/unit/services/workflows/test_workflow_validator*.py -v`.
-Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Pytest [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Fixes (cleanup) [ ] Pytest [ ] Działa.
 
 ---
 
@@ -655,7 +655,7 @@ Przejrzyj `tests/unit/services/workflows/test_workflow_service.py` (873 linii, p
 PRZED: `grep -n "^def test_" tests/unit/services/workflows/test_workflow_service.py | wc -l`.
 Podziel na 2 pliki: `test_workflow_crud.py` (CRUD tests 450 linii), `test_workflow_logic.py` (business logic 450 linii) + zaktualizuj fixtures.
 PO: `pytest tests/unit/services/workflows/test_workflow*.py -v`.
-Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Pytest [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Fixes (cleanup) [ ] Pytest [ ] Działa.
 
 ---
 
@@ -663,9 +663,9 @@ Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Pytest [ ] Działa.
 
 Przejrzyj `tests/unit/services/workflows/test_workflow_executor.py` (825 linii, problem: zbyt wiele execution scenarios).
 PRZED: `grep -n "^def test_" tests/unit/services/workflows/test_workflow_executor.py | wc -l`.
-Podziel na 2 pliki: `test_executor_basic.py` (basic execution 450 linii), `test_executor_advanced.py` (advanced scenarios 400 linii) + zaktualizuj fixtures.
+Podziel na 2 pliki: `test_executor_basic.py` (basic execution 450 linii), `test_executor_advanced.py` (advanced scenarios 400 linii) + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`) + zaktualizuj fixtures.
 PO: `pytest tests/unit/services/workflows/test_workflow_executor*.py -v`.
-Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Pytest [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Fixes (cleanup) [ ] Pytest [ ] Działa.
 
 ---
 
@@ -675,7 +675,7 @@ Przejrzyj `tests/unit/test_rag_hybrid_search.py` (553 linii, cleanup).
 PRZED: `wc -l tests/unit/test_rag_hybrid_search.py && grep -n "^def test_" tests/unit/test_rag_hybrid_search.py | wc -l`.
 Jeśli potrzeba: podziel na `test_vector_search.py` + `test_keyword_search.py` + `test_rrf_fusion.py` + zaktualizuj fixtures + usuń deprecated test utilities.
 PO: `pytest tests/unit/test_rag*.py -v`.
-Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Pytest [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Fixes (cleanup) [ ] Pytest [ ] Działa.
 
 ---
 
@@ -685,7 +685,7 @@ Przejrzyj `tests/unit/test_persona_orchestration.py` (545 linii, cleanup).
 PRZED: `wc -l tests/unit/test_persona_orchestration.py && grep -n "^def test_" tests/unit/test_persona_orchestration.py | wc -l`.
 Jeśli potrzeba: podziel na `test_orchestration_core.py` + `test_segment_creation.py` + zaktualizuj fixtures.
 PO: `pytest tests/unit/test_persona*.py -v`.
-Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Pytest [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Fixes (cleanup) [ ] Pytest [ ] Działa.
 
 ---
 
@@ -693,9 +693,9 @@ Checklist: [ ] Grep [ ] Podział [ ] Fixtures [ ] Pytest [ ] Działa.
 
 Przejrzyj `tests/fixtures/` i `tests/conftest.py` (sprawdź duplikaty).
 PRZED: `find tests/ -name "conftest.py" -o -name "*fixtures*" | xargs grep -h "^def " | sort | uniq -c | sort -rn`.
-Konsoliduj: usuń duplikaty fixtures + przenieś współdzielone do `tests/fixtures/shared.py` + zaktualizuj importy we wszystkich testach + usuń nieużywane fixtures.
+Konsoliduj: usuń duplikaty fixtures + przenieś współdzielone do `tests/fixtures/shared.py` + zaktualizuj importy we wszystkich testach + usuń nieużywane fixtures + **usuń nieużywany kod** (`ruff check tests/ --select F401,F841 --fix`).
 PO: `pytest tests/ -v --collect-only | grep "test session starts"`.
-Checklist: [ ] Find duplicates [ ] Konsoliduj [ ] Importy [ ] Pytest [ ] Działa.
+Checklist: [ ] Find duplicates [ ] Konsoliduj [ ] Importy [ ] Fixes (cleanup) [ ] Pytest [ ] Działa.
 
 ---
 
@@ -703,9 +703,9 @@ Checklist: [ ] Find duplicates [ ] Konsoliduj [ ] Importy [ ] Pytest [ ] Działa
 
 Przejrzyj `tests/` (sprawdź deprecated utilities).
 PRZED: `grep -r "deprecated" tests/ --include="*.py" && grep -r "legacy" tests/ --include="*.py"`.
-Usuń: deprecated mock utilities + legacy test helpers + stare fixtures (sprawdź daty last modified) + zaktualizuj testy używające deprecated utils.
+Usuń: deprecated mock utilities + legacy test helpers + stare fixtures (sprawdź daty last modified) + zaktualizuj testy używające deprecated utils + **usuń nieużywany kod** (`ruff check tests/ --select F401,F841 --fix`).
 PO: `pytest tests/ -v`.
-Checklist: [ ] Grep deprecated [ ] Usuń [ ] Aktualizuj testy [ ] Pytest [ ] Działa.
+Checklist: [ ] Grep deprecated [ ] Usuń [ ] Aktualizuj testy [ ] Fixes (cleanup) [ ] Pytest [ ] Działa.
 
 ---
 
@@ -713,9 +713,9 @@ Checklist: [ ] Grep deprecated [ ] Usuń [ ] Aktualizuj testy [ ] Pytest [ ] Dzi
 
 Przejrzyj pokrycie testami repo (sprawdź luki w coverage).
 PRZED: `pytest --cov=app --cov-report=term-missing --cov-report=html && open htmlcov/index.html`.
-Zidentyfikuj: moduły <85% coverage (szczególnie services/) + dodaj testy dla uncovered branches + priorytet: critical paths (persona generation, focus groups) + zaktualizuj existing tests jeśli przestarzałe.
+Zidentyfikuj: moduły <85% coverage (szczególnie services/) + dodaj testy dla uncovered branches + priorytet: critical paths (persona generation, focus groups) + zaktualizuj existing tests jeśli przestarzałe + **usuń nieużywany kod z testów** (`ruff check tests/ --select F401,F841 --fix`).
 PO: `pytest --cov=app --cov-report=term && grep "TOTAL" | awk '{print $4}'` (sprawdź czy >85%).
-Checklist: [ ] Coverage report [ ] Identify gaps [ ] Add tests [ ] Pytest [ ] >85% coverage.
+Checklist: [ ] Coverage report [ ] Identify gaps [ ] Add tests [ ] Fixes (cleanup) [ ] Pytest [ ] >85% coverage.
 
 ---
 
@@ -725,9 +725,9 @@ Checklist: [ ] Coverage report [ ] Identify gaps [ ] Add tests [ ] Pytest [ ] >8
 
 Przejrzyj `config/loader.py` (681 linii, problem: loading + validation razem).
 PRZED: `grep -r "from config.loader import" app/ tests/ scripts/ --include="*.py"` && zanotuj dependencies.
-Wyodrębnij: `config/validators.py` (YAML validation logic 350 linii), zostaw loading w oryginalnym pliku (350 linii) + zaktualizuj importy w `config/__init__.py`, `config/models.py`, `config/prompts.py`.
+Wyodrębnij: `config/validators.py` (YAML validation logic 350 linii), zostaw loading w oryginalnym pliku (350 linii) + zaktualizuj importy w `config/__init__.py`, `config/models.py`, `config/prompts.py` + **usuń nieużywany kod** (`ruff check config/ --select F401,F841 --fix`).
 PO: `python scripts/config_validate.py && pytest tests/unit/test_config.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Validation script [ ] Testy [ ] Działa.
+Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Validation script [ ] Testy [ ] Działa.
 
 ---
 
@@ -735,9 +735,9 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Validation script [ ] Testy [ ]
 
 Przejrzyj `scripts/cleanup_legacy_mentions.py` (782 linii, problem: przestarzały script).
 PRZED: `git log --oneline scripts/cleanup_legacy_mentions.py | head -5` && sprawdź last modified date.
-Archiwizuj: przenieś do `scripts/archive/cleanup_legacy_mentions_2024.py` + dodaj README w `scripts/archive/` z opisem przestarzałych scripts + usuń z głównego folderu scripts/.
+Archiwizuj: przenieś do `scripts/archive/cleanup_legacy_mentions_2024.py` + dodaj README w `scripts/archive/` z opisem przestarzałych scripts + usuń z głównego folderu scripts/ + **usuń nieużywany kod z pozostałych skryptów** (`ruff check scripts/ --select F401,F841 --fix`).
 PO: `ls -lh scripts/ && ls -lh scripts/archive/`.
-Checklist: [ ] Git log [ ] Przenieś archive [ ] README [ ] Verify [ ] Działa.
+Checklist: [ ] Git log [ ] Przenieś archive [ ] Fixes (cleanup) [ ] README [ ] Verify [ ] Działa.
 
 ---
 
@@ -745,9 +745,9 @@ Checklist: [ ] Git log [ ] Przenieś archive [ ] README [ ] Verify [ ] Działa.
 
 Przejrzyj `scripts/create_demo_data*.py` (sprawdź ile wersji istnieje).
 PRZED: `ls -lh scripts/create_demo_data* && grep -h "^def " scripts/create_demo_data*.py | sort | uniq -c`.
-Konsoliduj: zachowaj najnowszą wersję `create_demo_data.py` + przenieś stare do `scripts/archive/` + usuń duplikaty funkcji + zaktualizuj README w scripts/ z instrukcją użycia.
+Konsoliduj: zachowaj najnowszą wersję `create_demo_data.py` + przenieś stare do `scripts/archive/` + usuń duplikaty funkcji + zaktualizuj README w scripts/ z instrukcją użycia + **usuń nieużywany kod** (`ruff check scripts/ --select F401,F841 --fix`).
 PO: `python scripts/create_demo_data.py --help && ls scripts/archive/`.
-Checklist: [ ] List versions [ ] Konsoliduj [ ] Archive old [ ] README [ ] Test script.
+Checklist: [ ] List versions [ ] Konsoliduj [ ] Archive old [ ] Fixes (cleanup) [ ] README [ ] Test script.
 
 ---
 
@@ -755,9 +755,9 @@ Checklist: [ ] List versions [ ] Konsoliduj [ ] Archive old [ ] README [ ] Test 
 
 Przejrzyj repo (cache files, temp files).
 PRZED: `find . -name "*.pyc" -o -name "__pycache__" -o -name ".DS_Store" -o -name "*.egg-info" | wc -l`.
-Cleanup: `find . -name "*.pyc" -delete && find . -name "__pycache__" -type d -delete && find . -name ".DS_Store" -delete` + dodaj do `.gitignore` jeśli nie ma + utwórz `scripts/cleanup_cache.sh` dla future use.
+Cleanup: `find . -name "*.pyc" -delete && find . -name "__pycache__" -type d -delete && find . -name ".DS_Store" -delete` + dodaj do `.gitignore` jeśli nie ma + utwórz `scripts/cleanup_cache.sh` dla future use + **usuń nieużywany kod z całego repo** (`ruff check . --select F401,F841 --fix`).
 PO: `find . -name "*.pyc" -o -name "__pycache__" -o -name ".DS_Store" | wc -l` (powinno być 0).
-Checklist: [ ] Find cache [ ] Delete [ ] Update .gitignore [ ] Create script [ ] Verify.
+Checklist: [ ] Find cache [ ] Delete [ ] Fixes (cleanup) [ ] Update .gitignore [ ] Create script [ ] Verify.
 
 ---
 
