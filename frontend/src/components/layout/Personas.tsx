@@ -43,6 +43,15 @@ import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import {
+  GENDER_LABELS,
+  EDUCATION_LABELS,
+  INCOME_LABELS,
+  POLISH_CITY_NAMES,
+  POLISH_CITY_LOOKUP,
+  LOCATION_ALIASES,
+  normalizeText,
+} from '@/constants/personas';
 
 
 // Display-friendly Persona interface
@@ -71,93 +80,6 @@ interface DisplayPersona {
 /**
  * Transform API Persona to display-friendly format
  */
-
-// Mapowania i pomocnicze funkcje do polonizacji danych wyświetlanych w UI
-const GENDER_LABELS: Record<string, string> = {
-  female: 'Kobieta',
-  kobieta: 'Kobieta',
-  male: 'Mężczyzna',
-  mężczyzna: 'Mężczyzna',
-  man: 'Mężczyzna',
-  woman: 'Kobieta',
-  'non-binary': 'Osoba niebinarna',
-  nonbinary: 'Osoba niebinarna',
-  other: 'Osoba niebinarna',
-};
-
-const EDUCATION_LABELS: Record<string, string> = {
-  'high school': 'Średnie ogólnokształcące',
-  'some college': 'Policealne',
-  "bachelor's degree": 'Wyższe licencjackie',
-  "master's degree": 'Wyższe magisterskie',
-  "masters degree": 'Wyższe magisterskie',
-  doctorate: 'Doktorat',
-  phd: 'Doktorat',
-  'technical school': 'Średnie techniczne',
-  'trade school': 'Zasadnicze zawodowe',
-  vocational: 'Zasadnicze zawodowe',
-};
-
-const INCOME_LABELS: Record<string, string> = {
-  '< $25k': '< 3 000 zł',
-  '$25k-$50k': '3 000 - 5 000 zł',
-  '$50k-$75k': '5 000 - 7 500 zł',
-  '$75k-$100k': '7 500 - 10 000 zł',
-  '$100k-$150k': '10 000 - 15 000 zł',
-  '> $150k': '> 15 000 zł',
-  '$150k+': '> 15 000 zł',
-};
-
-const POLISH_CITY_NAMES = [
-  'Warszawa',
-  'Kraków',
-  'Wrocław',
-  'Gdańsk',
-  'Poznań',
-  'Łódź',
-  'Katowice',
-  'Szczecin',
-  'Lublin',
-  'Białystok',
-  'Bydgoszcz',
-  'Gdynia',
-  'Częstochowa',
-  'Radom',
-  'Toruń',
-  'Inne miasta',
-];
-
-const POLISH_CITY_LOOKUP: Record<string, string> = POLISH_CITY_NAMES.reduce((acc, city) => {
-  acc[normalizeText(city)] = city;
-  return acc;
-}, {} as Record<string, string>);
-
-const LOCATION_ALIASES: Record<string, string> = {
-  warsaw: 'Warszawa',
-  krakow: 'Kraków',
-  wroclaw: 'Wrocław',
-  poznan: 'Poznań',
-  lodz: 'Łódź',
-  gdansk: 'Gdańsk',
-  gdynia: 'Gdynia',
-  szczecin: 'Szczecin',
-  lublin: 'Lublin',
-  bialystok: 'Białystok',
-  bydgoszcz: 'Bydgoszcz',
-  katowice: 'Katowice',
-  czestochowa: 'Częstochowa',
-  torun: 'Toruń',
-  radom: 'Radom',
-};
-
-function normalizeText(value?: string | null): string {
-  if (!value) return '';
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-}
 
 function detectCityFromStory(story?: string | null): string | null {
   if (!story) return null;
