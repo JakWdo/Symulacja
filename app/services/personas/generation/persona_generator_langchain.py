@@ -28,7 +28,7 @@ from langchain_core.output_parsers import JsonOutputParser
 
 from config import models, features, demographics
 from app.services.shared.clients import build_chat_model
-from app.services.dashboard.usage_logging import (
+from app.services.dashboard.usage import (
     UsageLogContext,
     context_with_model,
     schedule_usage_logging,

@@ -17,19 +17,13 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import select, and_, func
 
 from app.models import DashboardMetric, InsightEvidence, Project
-from app.services.dashboard.health_service import ProjectHealthService
-from app.services.dashboard.insight_traceability_service import InsightTraceabilityService
-from app.services.dashboard.metrics_service import DashboardMetricsService
+from app.services.dashboard.metrics import ProjectHealthService, DashboardMetricsService, get_weekly_completion
+from app.services.dashboard.insights import InsightTraceabilityService, QuickActionsService
+from app.services.dashboard.usage import UsageTrackingService, get_insight_analytics
+from app.services.dashboard.costs import get_usage_budget
 from app.services.dashboard.notification_service import NotificationService
-from app.services.dashboard.quick_actions_service import QuickActionsService
-from app.services.dashboard.usage_tracking_service import UsageTrackingService
 from app.core.redis import redis_get_json, redis_set_json
 from app.utils import get_utc_now
-
-# Import delegated functions
-from app.services.dashboard.metrics_aggregator import get_weekly_completion
-from app.services.dashboard.cost_calculator import get_usage_budget
-from app.services.dashboard.usage_trends import get_insight_analytics
 
 
 class DashboardOrchestrator:

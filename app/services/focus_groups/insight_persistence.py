@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import FocusGroup
-from app.services.dashboard.insight_traceability_service import InsightTraceabilityService
+from app.services.dashboard.insights import InsightTraceabilityService
 from .nlp.concept_extraction import extract_concepts
 from .insight_classification import (
     determine_sentiment,

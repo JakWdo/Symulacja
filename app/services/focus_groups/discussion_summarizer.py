@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import FocusGroup, PersonaResponse, Persona, Project
 from app.services.shared.clients import build_chat_model
-from app.services.dashboard.usage_logging import log_usage_from_metadata, UsageLogContext
+from app.services.dashboard.usage import log_usage_from_metadata, UsageLogContext
 from app.services.dashboard.cache_invalidation import invalidate_dashboard_cache
 
 # Import modularized utilities

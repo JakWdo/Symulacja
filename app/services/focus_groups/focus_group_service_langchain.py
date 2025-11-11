@@ -23,7 +23,7 @@ from app.models import FocusGroup, Persona, PersonaResponse
 from app.services.focus_groups.memory_service_langchain import MemoryServiceLangChain
 from app.db import AsyncSessionLocal
 from app.services.shared.clients import build_chat_model
-from app.services.dashboard.usage_logging import (
+from app.services.dashboard.usage import (
     UsageLogContext,
     context_with_model,
     schedule_usage_logging,
