@@ -92,9 +92,9 @@ Odznaczaj po zakończeniu każdego promptu:
 ### 🔴 P0: Backend Core Services
 - [x] 1. persona_generator_langchain.py split ✅ (1074→543 linii + 5 modułów)
 - [x] 2. discussion_summarizer.py split ✅ (1143→341 linii + 7 modułów)
-- [ ] 3. rag_hybrid_search_service.py split ⚠️ (częściowo: cache + lucene)
+- [x] 3. rag_hybrid_search_service.py split ✅ (1074 + 6 modułów: cache, search, reranking, graph)
 - [x] 4. persona_orchestration.py split ✅ (987→185 linii + 7 modułów)
-- [ ] 5. dashboard_orchestrator.py split
+- [ ] 5. dashboard_orchestrator.py split ⚠️ (struktura folderów utworzona)
 - [ ] 6. rag_graph_service.py split
 - [ ] 7. segment_brief_service.py cleanup
 - [ ] 8. persona_details_service.py cleanup
