@@ -179,9 +179,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 70. Cache cleanup (.pyc, __pycache__, .DS_Store)
 
 ### 🟠 P2.5: Audyt Poprzednich Refaktoryzacji (NOWE - 2025-11-11)
-- [ ] 76. Backend: Audyt nieużywanych importów po zadaniach 1-35
-- [ ] 77. Frontend: Usunięcie martwego kodu (GraphAnalysis.tsx, etc.)
-- [ ] 78. Backend: Sprawdzenie TODO/FIXME z zadań 1-35
+- [x] 76. Backend: Audyt nieużywanych importów po zadaniach 1-35 ✅ (6 naprawionych)
+- [x] 77. Frontend: Usunięcie martwego kodu (GraphAnalysis.tsx, etc.) ✅ (897 linii)
+- [x] 78. Backend: Sprawdzenie TODO/FIXME z zadań 1-35 ✅ (5 TODO skatalogowanych)
 - [ ] 79. Frontend: Audyt komponentów UI shadcn (50+ plików)
 - [ ] 80. Backend: Sprawdzenie BackgroundTasks usage
 - [ ] 81. Full repo: Znajdź duplikaty kodu (copy-paste)
