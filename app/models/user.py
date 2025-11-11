@@ -7,7 +7,6 @@ Zawiera dane profilowe, ustawienia notyfikacji, szyfrowany API key i relacje do 
 from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Integer, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
 from app.db.base import Base
 

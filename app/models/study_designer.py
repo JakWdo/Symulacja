@@ -19,7 +19,6 @@ import enum
 import uuid
 
 from sqlalchemy import (
-    Boolean,
     Column,
     DateTime,
     ForeignKey,
