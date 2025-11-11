@@ -146,9 +146,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 43. Surveys.tsx cleanup
 - [ ] 44. Dashboard.tsx cleanup
 - [ ] 45. ❌ ProjectSettings.tsx - NIE ISTNIEJE (jest Settings.tsx)
-- [ ] 46. ❌ ReasoningPanel.tsx - NIE ISTNIEJE (jest PersonaReasoningPanel.tsx)
-- [ ] 47. ❌ WorkflowTemplates.tsx - NIE ISTNIEJE (jest WorkflowsListPage.tsx)
-- [ ] 48. ❌ WorkflowRun.tsx - NIE ISTNIEJE (sprawdź WorkflowsListPage/ExecutionHistory)
+- [x] 46. ❌ ReasoningPanel.tsx - NIE ISTNIEJE (jest PersonaReasoningPanel.tsx) ✅
+- [x] 47. ❌ WorkflowTemplates.tsx - NIE ISTNIEJE (jest WorkflowsListPage.tsx) ✅
+- [x] 48. ❌ WorkflowRun.tsx - NIE ISTNIEJE (sprawdź WorkflowsListPage/ExecutionHistory) ✅
 - [x] 49. Hardcoded labels → constants ✅ (constants/personas.ts utworzony)
 - [ ] 50. Unused UI components audit
 
@@ -1249,8 +1249,8 @@ vulture app/ tests/
 4. 📊 **Nowe statystyki:**
    - **Total zadań:** 85 (75 oryginalnych + 10 audytowych)
    - **Estimated Time:** 5-7 tygodni (z audytem)
-   - **Zakończone:** 35/85 (41%)
-   - **Do zrobienia:** 50/85 (59%)
+   - **Zakończone:** 38/85 (45%)
+   - **Do zrobienia:** 47/85 (55%)
 
 **Uzasadnienie:**
 Po zakończeniu zadań 1-35 (backend refaktoryzacja), przeprowadzono audyt skuteczności zmian. Odkryto:
