@@ -22,7 +22,7 @@ from app.db import get_db
 from app.models import User, GenerationProgress, GenerationStage
 from app.api.dependencies import get_current_user, get_project_for_user
 from app.schemas.persona import PersonaGenerateRequest
-from config import demographics, features
+from config import features
 
 # Import background task z validation_endpoints
 from .validation_endpoints import _generate_personas_task, _running_tasks

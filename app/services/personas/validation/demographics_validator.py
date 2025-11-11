@@ -16,7 +16,6 @@ Użycie:
 import logging
 import re
 import unicodedata
-from typing import Any
 
 logger = logging.getLogger(__name__)
 

@@ -20,10 +20,8 @@ from app.db import AsyncSessionLocal
 from app.models import Project, Persona
 from app.services.personas import PersonaOrchestrationService
 from app.services.personas import PersonaValidator
-from app.services.personas.persona_generator_langchain import DemographicDistribution
-from app.services.personas.demographics_formatter import DemographicsFormatter
-from app.services.personas.distribution_builder import DistributionBuilder
-from app.services.personas.segment_constructor import SegmentConstructor
+from app.services.personas.generation import DemographicDistribution, SegmentConstructor
+from app.services.personas.validation import DemographicsFormatter, DistributionBuilder
 from config import demographics, features
 
 # Import helper functions z generation_endpoints

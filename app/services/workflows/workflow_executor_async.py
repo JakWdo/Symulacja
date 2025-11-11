@@ -7,7 +7,6 @@ from google.cloud import tasks_v2
 from google.protobuf import timestamp_pb2
 from datetime import datetime, timedelta
 import json
-from typing import Optional
 from uuid import UUID
 import os
 import logging

@@ -45,7 +45,7 @@ NEGATIVE_KEYWORDS_PL = {
 # ==============================
 # Try to load NLTK stopwords, fallback to hardcoded list if not available
 try:
-    import nltk
+    import nltk  # noqa: F401 - używany w try/except do sprawdzenia dostępności
     from nltk.corpus import stopwords
     NLTK_AVAILABLE = True
     try:

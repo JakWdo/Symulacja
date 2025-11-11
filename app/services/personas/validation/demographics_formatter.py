@@ -16,7 +16,6 @@ Użycie:
 import logging
 import random
 import re
-import unicodedata
 from typing import Any
 
 from config import demographics

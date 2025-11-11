@@ -6,12 +6,11 @@ Zawiera logikę do:
 - Walidacji czy wygenerowane persony pasują do oczekiwanych rozkładów
 """
 
-import numpy as np
 from scipy import stats
-from typing import Dict, List, Any
+from typing import Any
 from config import features
 
-from .demographic_sampling import DemographicDistribution
+from ..generation.demographic_sampling import DemographicDistribution
 
 
 def validate_distribution(

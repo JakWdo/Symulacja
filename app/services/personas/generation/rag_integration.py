@@ -8,7 +8,7 @@ Zawiera logikę do:
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 

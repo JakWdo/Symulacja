@@ -19,7 +19,7 @@ from app.api.dependencies import get_current_user, get_persona_for_user
 from app.schemas.persona import PersonaResponse, PersonaReasoningResponse, GraphInsightResponse
 from app.schemas.persona_details import PersonaDetailsResponse
 from app.services.personas import PersonaDetailsService
-from app.services.personas.segment_constructor import SegmentConstructor
+from app.services.personas.generation import SegmentConstructor
 from .helpers import _graph_node_to_insight_response
 
 

@@ -9,7 +9,6 @@ Funkcje pomocnicze do:
 """
 
 import logging
-import re
 import unicodedata
 
 logger = logging.getLogger(__name__)

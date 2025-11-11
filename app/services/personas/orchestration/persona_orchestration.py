@@ -18,12 +18,10 @@ import logging
 from typing import Any
 
 from app.services.shared import build_chat_model, get_polish_society_rag
-from .orchestration import (
-    PersonaAllocationPlan,
-    get_comprehensive_graph_context,
-    build_orchestration_prompt,
-    extract_json_from_response,
-)
+from .models import PersonaAllocationPlan
+from .graph_context_fetcher import get_comprehensive_graph_context
+from .prompt_builder import build_orchestration_prompt
+from .json_parser import extract_json_from_response
 
 logger = logging.getLogger(__name__)
 

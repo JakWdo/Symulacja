@@ -167,7 +167,7 @@ async def get_insight_detail(
     """Pobierz insight detail z evidence trail (traceability)"""
     try:
         return await orchestrator.get_insight_detail(insight_id, current_user.id)
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=404, detail="Insight not found")
 
 

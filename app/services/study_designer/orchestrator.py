@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 from uuid import UUID
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,7 +26,6 @@ from app.services.study_designer.state_schema import (
     create_initial_state,
     serialize_state,
     deserialize_state,
-    update_last_activity,
 )
 from app.services.study_designer.study_executor import StudyExecutor
 

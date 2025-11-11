@@ -25,7 +25,7 @@ from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader
 from langchain_experimental.graph_transformers.llm import LLMGraphTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from config import rag, app
+from config import rag
 from app.core.rag_config import (
     GRAPH_TRANSFORMER_ALLOWED_NODES,
     GRAPH_TRANSFORMER_ALLOWED_RELATIONSHIPS,

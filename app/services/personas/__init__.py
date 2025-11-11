@@ -11,13 +11,11 @@ Serwisy odpowiedzialne za generowanie, walidację i zarządzanie personami:
 - SegmentBriefService - Generowanie briefów segmentów (NEW)
 """
 
-from .persona_generator_langchain import PersonaGeneratorLangChain
-from .persona_orchestration import PersonaOrchestrationService
-from .persona_validator import PersonaValidator
-from .persona_details_service import PersonaDetailsService
-from .persona_needs_service import PersonaNeedsService
-from .persona_audit_service import PersonaAuditService
-from .segment_brief_service import SegmentBriefService
+# Import głównych serwisów z podmodułów
+from .generation import PersonaGeneratorLangChain, PersonaNeedsService
+from .orchestration import PersonaOrchestrationService, SegmentBriefService
+from .validation import PersonaValidator, PersonaAuditService
+from .details import PersonaDetailsService
 
 # Re-export z orchestration submodule (dla backward compatibility)
 from .orchestration import (
@@ -27,10 +25,13 @@ from .orchestration import (
 )
 
 # Re-export z nowych modułów pomocniczych (dla backward compatibility)
-from .demographic_sampling import DemographicDistribution
-from .psychological_profiles import sample_big_five_traits, sample_cultural_dimensions
-from .statistical_validation import validate_distribution
-from .rag_integration import get_rag_context_for_persona
+from .generation import (
+    DemographicDistribution,
+    sample_big_five_traits,
+    sample_cultural_dimensions,
+    get_rag_context_for_persona,
+)
+from .validation import validate_distribution
 
 __all__ = [
     "PersonaGeneratorLangChain",
