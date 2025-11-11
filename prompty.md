@@ -97,9 +97,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 5. dashboard_orchestrator.py split ✅ (1028→543 linii + 4 moduły)
 - [x] 6. rag_graph_service.py split ✅ (665→114 linii + 3 moduły)
 - [x] 7. segment_brief_service.py cleanup ✅ (TTL z config/features.yaml)
-- [ ] 8. persona_details_service.py cleanup
-- [ ] 9. distribution_builder.py cleanup
-- [ ] 10. demographics_formatter.py cleanup
+- [x] 8. persona_details_service.py cleanup ✅ (642→ details_crud + details_enrichment)
+- [x] 9. distribution_builder.py cleanup ✅ (634→ distribution_calculator + validator)
+- [x] 10. demographics_formatter.py cleanup ✅ (560→ validator + formatter)
 - [ ] 11. survey_response_generator.py cleanup
 - [ ] 12. workflow_template_service.py cleanup
 - [ ] 13. persona_needs_analyzer.py cleanup
