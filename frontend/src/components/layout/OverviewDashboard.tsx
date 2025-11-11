@@ -14,7 +14,7 @@ interface DashboardProps {
   onSelectProject?: (project: Project) => void;
 }
 
-export function FigmaDashboard({ onNavigate, onSelectProject }: DashboardProps) {
+export function OverviewDashboard({ onNavigate, onSelectProject }: DashboardProps) {
   const { t, i18n } = useTranslation('dashboard');
 
   // Fetch all projects
