@@ -69,6 +69,7 @@ class PolandDemographics:
     education_levels: dict[str, float] = field(default_factory=dict)
     communication_styles: list[str] = field(default_factory=list)
     decision_styles: list[str] = field(default_factory=list)
+    labels: dict[str, Any] = field(default_factory=dict)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
