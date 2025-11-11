@@ -140,9 +140,9 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 37. FocusGroupView.tsx split ✅ (972→637 linii + FocusGroupHeader, FocusGroupSetupTab, FocusGroupDiscussionTab)
 - [ ] 38. ❌ GraphAnalysis.tsx - USUŃ (martwy kod, brak użycia)
 - [ ] 39. FocusGroupPanel.tsx split
-- [ ] 40. WorkflowEditor.tsx split
-- [ ] 41. PersonaPanel.tsx split
-- [ ] 42. AISummaryPanel.tsx split
+- [x] 40. WorkflowEditor.tsx split ✅ (WorkflowToolbar.tsx, WorkflowCanvas.tsx)
+- [x] 41. PersonaPanel.tsx split ✅ (PersonaList.tsx, PersonaDetailsView.tsx)
+- [x] 42. AISummaryPanel.tsx split ✅ (AISummaryInsights.tsx, AISummarySections.tsx)
 - [x] 43. Surveys.tsx cleanup ✅ (506→222 linii + 4 komponenty: SurveysSkeleton, SurveysStats, SurveyCard, SurveysList)
 - [x] 44. Dashboard.tsx cleanup ✅ (nie wymaga refaktoryzacji: MainDashboard 130 linii, OverviewDashboard 444 linii - oba <500)
 - [x] 45. Settings.tsx cleanup ✅ (601→95 linii + 4 komponenty: ProfileSettings, BudgetSettings, AppearanceSettings, AccountSidebar)
@@ -1279,8 +1279,8 @@ vulture app/ tests/
 4. 📊 **Nowe statystyki:**
    - **Total zadań:** 85 (75 oryginalnych + 10 audytowych)
    - **Estimated Time:** 5-7 tygodni (z audytem)
-   - **Zakończone:** 35/85 (41%)
-   - **Do zrobienia:** 50/85 (59%)
+   - **Zakończone:** 47/85 (55%)
+   - **Do zrobienia:** 38/85 (45%)
 
 **Uzasadnienie:**
 Po zakończeniu zadań 1-35 (backend refaktoryzacja), przeprowadzono audyt skuteczności zmian. Odkryto:
