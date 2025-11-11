@@ -97,7 +97,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Process request
         try:
             response = await call_next(request)
-        except Exception as exc:
+        except Exception:
             # TYLKO unhandled exceptions (critical errors)
             duration_ms = (time.time() - start_time) * 1000
             logger.error(

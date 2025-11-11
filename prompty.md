@@ -138,17 +138,17 @@ Odznaczaj po zakończeniu każdego promptu:
 ### 🟢 P2: Frontend Components
 - [ ] 36. Personas.tsx split (częściowo: constants extracted)
 - [ ] 37. FocusGroupView.tsx split
-- [ ] 38. GraphAnalysis.tsx split
+- [ ] 38. ❌ GraphAnalysis.tsx - USUŃ (martwy kod, brak użycia)
 - [ ] 39. FocusGroupPanel.tsx split
 - [ ] 40. WorkflowEditor.tsx split
 - [ ] 41. PersonaPanel.tsx split
 - [ ] 42. AISummaryPanel.tsx split
 - [ ] 43. Surveys.tsx cleanup
 - [ ] 44. Dashboard.tsx cleanup
-- [ ] 45. ProjectSettings.tsx cleanup
-- [ ] 46. ReasoningPanel.tsx cleanup
-- [ ] 47. WorkflowTemplates.tsx cleanup
-- [ ] 48. WorkflowRun.tsx cleanup
+- [ ] 45. ❌ ProjectSettings.tsx - NIE ISTNIEJE (jest Settings.tsx)
+- [ ] 46. ❌ ReasoningPanel.tsx - NIE ISTNIEJE (jest PersonaReasoningPanel.tsx)
+- [ ] 47. ❌ WorkflowTemplates.tsx - NIE ISTNIEJE (jest WorkflowsListPage.tsx)
+- [ ] 48. ❌ WorkflowRun.tsx - NIE ISTNIEJE (sprawdź WorkflowsListPage/ExecutionHistory)
 - [x] 49. Hardcoded labels → constants ✅ (constants/personas.ts utworzony)
 - [ ] 50. Unused UI components audit
 
@@ -177,6 +177,18 @@ Odznaczaj po zakończeniu każdego promptu:
 - [ ] 68. scripts/cleanup_legacy_mentions.py archive
 - [ ] 69. scripts/create_demo_data consolidation
 - [ ] 70. Cache cleanup (.pyc, __pycache__, .DS_Store)
+
+### 🟠 P2.5: Audyt Poprzednich Refaktoryzacji (NOWE - 2025-11-11)
+- [x] 76. Backend: Audyt nieużywanych importów po zadaniach 1-35 ✅ (6 naprawionych)
+- [x] 77. Frontend: Usunięcie martwego kodu (GraphAnalysis.tsx, etc.) ✅ (897 linii)
+- [x] 78. Backend: Sprawdzenie TODO/FIXME z zadań 1-35 ✅ (5 TODO skatalogowanych)
+- [ ] 79. Frontend: Audyt komponentów UI shadcn (50+ plików)
+- [ ] 80. Backend: Sprawdzenie BackgroundTasks usage
+- [ ] 81. Full repo: Znajdź duplikaty kodu (copy-paste)
+- [ ] 82. Frontend: Sprawdź nieużywane hooki i utility functions
+- [ ] 83. Backend: Sprawdź czy stare serwisy mają deprecated metody
+- [ ] 84. Tests: Usuń martwe fixtures i test utilities
+- [ ] 85. Global: Sprawdź nieużywane dependencies (requirements.txt, package.json)
 
 ### 🔵 P3: Documentation
 - [ ] 71. docs/BACKEND.md split
@@ -441,7 +453,7 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] D
 
 ### 🟢 P2: Frontend Components
 
-#### 36. 🟢 [Frontend Component] - Personas.tsx (1195 linii)
+#### 36. ✅ [Frontend Component] - Personas.tsx (1195 linii → 653 linii)
 
 Prompt (krótki): Przejrzyj `frontend/src/components/layout/Personas.tsx` (monolityczny komponent). Najpierw: `rg -n "import.*Personas" frontend/src --glob "**/*.{ts,tsx}"` i zanotuj zależności. Podziel na `PersonasLayout.tsx`, `PersonasList.tsx`, `PersonaFilters.tsx`, `PersonaActions.tsx`; przenieś hardcoded labels (linia 76-99) do `frontend/src/constants/personas.ts` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
@@ -453,9 +465,13 @@ Prompt (krótki): Przejrzyj `frontend/src/components/layout/FocusGroupView.tsx` 
 
 ---
 
-#### 38. 🟢 [Frontend Component] - GraphAnalysis.tsx (788 linii)
+#### 38. ❌ [Frontend Component] - GraphAnalysis.tsx - USUŃ (martwy kod)
 
-Prompt (krótki): Przejrzyj `frontend/src/components/layout/GraphAnalysis.tsx` (wizualizacja + kontrolki razem). Najpierw: `rg -n "import.*GraphAnalysis" frontend/src --glob "**/*.tsx"` i zinwentaryzuj zależności. Podziel na `GraphAnalysisLayout.tsx`, `GraphVisualization.tsx`, `GraphControls.tsx` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
+**UWAGA:** GraphAnalysis.tsx (788 linii) NIE JEST UŻYWANY NIGDZIE w aplikacji - to martwy kod!
+
+Prompt (krótki): Przejrzyj `frontend/src/components/layout/GraphAnalysis.tsx` i zweryfikuj że nie jest używany. Najpierw: `rg -l "GraphAnalysis" frontend/src --glob "**/*.tsx" --glob "**/*.ts"` (powinien zwrócić tylko sam plik). Sprawdź routing w `App.tsx` - nie ma case'a dla graph analysis. **USUŃ PLIK** zamiast go dzielić + sprawdź czy inne pliki w `layout/` też nie są martwe (FigmaDashboard.tsx, StatsOverlay.tsx, FloatingControls.tsx) + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview && rg "GraphAnalysis" frontend/src` (powinno być 0 wyników).
+
+**To zadanie zostało zastąpione przez zadanie 77 w sekcji P2.5 Audyt.**
 
 ---
 
@@ -515,42 +531,38 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] D
 
 ---
 
-#### 45. 🟢 [Frontend Component] - ProjectSettings.tsx
+#### 45. ❌ [Frontend Component] - ProjectSettings.tsx - NIE ISTNIEJE
 
-Przejrzyj `frontend/src/components/layout/ProjectSettings.tsx` (sprawdź rzeczywistą długość).
-PRZED: `wc -l frontend/src/components/layout/ProjectSettings.tsx && grep -r "import.*ProjectSettings" frontend/src/ --include="*.tsx"`.
-Jeśli >500 linii: wyodrębnij `GeneralSettings.tsx`, `DemographicsSettings.tsx`, `IntegrationSettings.tsx` + zaktualizuj importy.
-PO: `cd frontend && npm run build && npm run preview`.
+**UWAGA:** Plik `ProjectSettings.tsx` NIE ISTNIEJE! Jest natomiast `Settings.tsx` (601 linii).
+
+Prompt (krótki): Przejrzyj `frontend/src/components/Settings.tsx` (601 linii, settings aplikacji). PRZED: `wc -l frontend/src/components/Settings.tsx && rg -n "import.*Settings" frontend/src --glob "**/*.tsx"`. Jeśli >500 linii: wyodrębnij `GeneralSettings.tsx`, `AppearanceSettings.tsx`, `NotificationSettings.tsx` + zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). PO: `cd frontend && npm run build && npm run preview`.
 Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
-#### 46. 🟢 [Frontend Component] - ReasoningPanel.tsx
+#### 46. ❌ [Frontend Component] - ReasoningPanel.tsx - NIE ISTNIEJE
 
-Przejrzyj `frontend/src/components/panels/ReasoningPanel.tsx` (sprawdź rzeczywistą długość).
-PRZED: `wc -l frontend/src/components/panels/ReasoningPanel.tsx && grep -r "import.*ReasoningPanel" frontend/src/ --include="*.tsx"`.
-Jeśli >500 linii: wyodrębnij `OrchestrationBrief.tsx`, `GraphInsights.tsx`, `Troubleshooting.tsx` + zaktualizuj importy.
-PO: `cd frontend && npm run build && npm run preview`.
+**UWAGA:** Plik `ReasoningPanel.tsx` NIE ISTNIEJE w `panels/`! Jest natomiast `PersonaReasoningPanel.tsx` w `personas/`.
+
+Prompt (krótki): Przejrzyj `frontend/src/components/personas/PersonaReasoningPanel.tsx` (sprawdź długość). PRZED: `wc -l frontend/src/components/personas/PersonaReasoningPanel.tsx && rg -n "PersonaReasoningPanel" frontend/src --glob "**/*.tsx"`. Jeśli >500 linii: wyodrębnij `OrchestrationBrief.tsx`, `GraphInsights.tsx`, `Troubleshooting.tsx` + zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). PO: `cd frontend && npm run build && npm run preview`.
 Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
-#### 47. 🟢 [Frontend Component] - WorkflowTemplates.tsx
+#### 47. ❌ [Frontend Component] - WorkflowTemplates.tsx - NIE ISTNIEJE
 
-Przejrzyj `frontend/src/components/workflows/WorkflowTemplates.tsx` (sprawdź rzeczywistą długość).
-PRZED: `wc -l frontend/src/components/workflows/WorkflowTemplates.tsx && grep -r "import.*WorkflowTemplates" frontend/src/ --include="*.tsx"`.
-Jeśli >500 linii: wyodrębnij `TemplatesList.tsx`, `TemplatePreview.tsx`, `TemplateInstantiate.tsx` + zaktualizuj importy.
-PO: `cd frontend && npm run build && npm run preview`.
+**UWAGA:** Plik `WorkflowTemplates.tsx` NIE ISTNIEJE! Jest natomiast `WorkflowsListPage.tsx` (zawiera listę + templates).
+
+Prompt (krótki): Przejrzyj `frontend/src/components/workflows/WorkflowsListPage.tsx` (sprawdź długość). PRZED: `wc -l frontend/src/components/workflows/WorkflowsListPage.tsx && rg -n "WorkflowsListPage" frontend/src --glob "**/*.tsx"`. Jeśli >500 linii: wyodrębnij `WorkflowsList.tsx`, `TemplatesList.tsx`, `WorkflowActions.tsx` + zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). PO: `cd frontend && npm run build && npm run preview`.
 Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
 
-#### 48. 🟢 [Frontend Component] - WorkflowRun.tsx
+#### 48. ❌ [Frontend Component] - WorkflowRun.tsx - NIE ISTNIEJE
 
-Przejrzyj `frontend/src/components/workflows/WorkflowRun.tsx` (sprawdź rzeczywistą długość).
-PRZED: `wc -l frontend/src/components/workflows/WorkflowRun.tsx && grep -r "import.*WorkflowRun" frontend/src/ --include="*.tsx"`.
-Jeśli >500 linii: wyodrębnij `RunStatus.tsx`, `RunLogs.tsx`, `RunResults.tsx` + zaktualizuj importy.
-PO: `cd frontend && npm run build && npm run preview`.
+**UWAGA:** Plik `WorkflowRun.tsx` NIE ISTNIEJE! Funkcjonalność workflow runs jest w `ExecutionHistory.tsx` i `ExecutionHistoryItem.tsx`.
+
+Prompt (krótki): Przejrzyj `frontend/src/components/workflows/ExecutionHistory.tsx` i `ExecutionHistoryItem.tsx` (sprawdź długości). PRZED: `wc -l frontend/src/components/workflows/Execution*.tsx && rg -n "ExecutionHistory" frontend/src --glob "**/*.tsx"`. Jeśli któryś >500 linii: wyodrębnij `RunStatus.tsx`, `RunLogs.tsx`, `RunResults.tsx` + zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). PO: `cd frontend && npm run build && npm run preview`.
 Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Build [ ] Działa.
 
 ---
@@ -813,6 +825,187 @@ Checklist: [ ] List files [ ] Create dir [ ] Move [ ] Update links [ ] Remove ol
 
 ---
 
+### 🟠 P2.5: Audyt Poprzednich Refaktoryzacji
+
+**UWAGA:** Ta sekcja powstała 2025-11-11 po odkryciu martwego kodu (GraphAnalysis.tsx) i nieistniejących komponentów w oryginalnych zadaniach 36-48. Zadania 76-85 sprawdzają skutki poprzednich refaktoryzacji i usuwają martwy kod.
+
+#### 76. 🟠 [Backend Audit] - Nieużywane importy po zadaniach 1-35
+
+Przejrzyj wszystkie moduły backendu zrefaktoryzowane w zadaniach 1-35 (sprawdź martwe importy po podziale plików).
+PRZED: `ruff check app/services --select F401 --statistics` && zanotuj liczbę nieużywanych importów.
+Cleanup: uruchom `ruff check app/services --select F401,F841 --fix` (usuwa unused imports i variables) + ręcznie sprawdź `app/api` i `tests/` czy nie ma importów do starych nieistniejących modułów + zaktualizuj wszystkie `__init__.py` pliki żeby eksportowały tylko używane symbole.
+PO: `ruff check app/ --select F401,F841 && pytest tests/unit -v && docker-compose restart api`.
+Checklist: [ ] Ruff statistics [ ] Auto-fix [ ] Manual review [ ] Update __init__ [ ] Pytest [ ] Działa.
+
+---
+
+#### 77. 🟠 [Frontend Audit] - Usunięcie martwego kodu
+
+Przejrzyj frontend i usuń komponenty które nie są używane nigdzie w aplikacji.
+PRZED: `rg -l "GraphAnalysis|import.*GraphAnalysis" frontend/src --glob "*.tsx" --glob "*.ts"` && zweryfikuj że GraphAnalysis.tsx jest używany tylko w samym sobie.
+Usuń martwe komponenty:
+- `frontend/src/components/layout/GraphAnalysis.tsx` (788 linii, 0 użyć)
+- Sprawdź routing w `App.tsx` czy nie ma martwych case'ów
+- Sprawdź czy `FigmaDashboard.tsx` jest używany (może być legacy)
+- Sprawdź `StatsOverlay.tsx`, `FloatingControls.tsx` (małe pliki, mogą być nieużywane)
+Usuń imports: `rg "import.*GraphAnalysis" frontend/src -l` i usuń wszystkie importy + zaktualizuj routing + **usuń nieużywany kod** (`npm run lint -- --fix`).
+PO: `cd frontend && npm run build && npm run preview && rg "GraphAnalysis" frontend/src` (powinno być 0 wyników).
+Checklist: [ ] Identify dead code [ ] Delete files [ ] Remove imports [ ] Update routing [ ] Fixes (lint) [ ] Build [ ] Działa.
+
+---
+
+#### 78. 🟠 [Backend Audit] - TODO/FIXME z zadań 1-35
+
+Przejrzyj TODO/FIXME markers pozostawione po refaktoryzacji zadań 1-35 i zdecyduj: fix now, create issue, or delete.
+PRZED: `rg "TODO|FIXME|XXX|HACK" app/services --glob "*.py" -n | tee /tmp/todos.txt && wc -l /tmp/todos.txt`.
+Kategoryzuj:
+- **Fix now:** TODO które są łatwe do naprawienia (np. cache TTL z config)
+- **Create GitHub issue:** Większe TODO wymagające osobnego zadania (np. weighted sampling)
+- **Delete:** Przestarzałe TODO z starego kodu
+Znalezione TODO:
+- `app/services/workflows/execution/workflow_executor.py:180` - Map node_id → WorkflowStep.id
+- `app/services/workflows/nodes/personas.py:100,107,175` - Integracja z segment-based generation
+- `app/services/workflows/validation/workflow_validator.py:422` - Validate template exists
+Napraw/utwórz issues/usuń + zaktualizuj kod + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
+PO: `rg "TODO|FIXME" app/services --glob "*.py" -n | wc -l` (powinno być <10) `&& pytest tests/unit -v`.
+Checklist: [ ] List TODOs [ ] Kategoryzuj [ ] Fix/Issue/Delete [ ] Update code [ ] Pytest [ ] Działa.
+
+---
+
+#### 79. 🟠 [Frontend Audit] - Komponenty UI shadcn (56 plików)
+
+Przejrzyj `frontend/src/components/ui/` (56 komponentów shadcn) i usuń nieużywane.
+PRZED: `ls frontend/src/components/ui/*.tsx | wc -l && for f in frontend/src/components/ui/*.tsx; do name=$(basename "$f" .tsx); uses=$(rg -l "@/components/ui/$name|components/ui/$name" frontend/src --glob "*.tsx" | grep -v "ui/$name.tsx" | wc -l); echo "$uses - $name"; done | sort -n | head -20`.
+Usuń komponenty z 0-1 użyciami (mogą być nieużywane):
+- Sprawdź `aspect-ratio.tsx`, `input-otp.tsx`, `breadcrumb.tsx`
+- Sprawdź `resizable.tsx`, `sonner.tsx`, `toggle-group.tsx`
+- Sprawdź `pagination.tsx`, `navigation-menu.tsx`
+Uwaga: zachowaj podstawowe (button, input, card, dialog, label, select, textarea, checkbox, radio-group, switch, slider, tabs, toast, tooltip, dropdown-menu, popover, avatar, badge, separator, skeleton, progress, alert, scroll-area, sheet, table).
+Usuń nieużywane + zaktualizuj `ui/index.ts` jeśli istnieje + **usuń nieużywany kod** (`npm run lint -- --fix`).
+PO: `cd frontend && npm run build && ls frontend/src/components/ui/*.tsx | wc -l` (powinno być <40).
+Checklist: [ ] List UI components [ ] Check usage [ ] Delete unused [ ] Update index [ ] Fixes (lint) [ ] Build [ ] Działa.
+
+---
+
+#### 80. 🟠 [Backend Audit] - BackgroundTasks usage
+
+Przejrzyj użycie `BackgroundTasks` w API - sprawdź czy po zadaniach 22-23 jest nadal potrzebny lub został zastąpiony asynchronicznymi taskami.
+PRZED: `rg "BackgroundTasks|background_tasks" app/api --glob "*.py" -n` && zanotuj wszystkie użycia.
+Znalezione użycia:
+- `app/api/rag.py` - używa BackgroundTasks
+- `app/api/personas/generation_endpoints.py` - używa BackgroundTasks
+Sprawdź czy te operacje mogą być wykonane synchronicznie async/await lub czy wymagają prawdziwych background tasks (Celery/Redis Queue). Jeśli operacje są szybkie (<2s), rozważ zamianę na bezpośrednie async calls. Jeśli długie (>5s), dodaj TODO dla Celery integration.
+Cleanup/decision + zaktualizuj kod + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
+PO: `rg "BackgroundTasks" app/api --glob "*.py" -n && pytest tests/integration -v`.
+Checklist: [ ] List usage [ ] Analyze necessity [ ] Decision (keep/remove/Celery) [ ] Update code [ ] Pytest [ ] Działa.
+
+---
+
+#### 81. 🟠 [Full Repo Audit] - Duplikaty kodu (copy-paste detection)
+
+Znajdź duplikaty kodu w całym repo (copy-paste anti-pattern) i wydziel do wspólnych utility functions.
+PRZED: zainstaluj `pip install vulture pylint` (dla Python) i użyj `rg` dla TypeScript patterns.
+Szukaj duplikatów:
+```bash
+# Python: funkcje >10 linii powtórzone 2+ razy
+rg "def \w+\(" app/ -A 10 | sort | uniq -cd | sort -rn | head -20
+
+# TypeScript: funkcje >10 linii powtórzone 2+ razy
+rg "function \w+\(|const \w+ = \(" frontend/src -A 10 | sort | uniq -cd | sort -rn | head -20
+```
+Znalezione duplikaty → wydziel do:
+- Backend: `app/services/shared/utils.py` lub domain-specific utils
+- Frontend: `frontend/src/lib/utils.ts` lub domain-specific utils
+Refaktoryzuj duplikaty + zaktualizuj importy + **usuń nieużywany kod** (ruff + npm lint).
+PO: `pytest tests/unit -v && cd frontend && npm run build`.
+Checklist: [ ] Detect duplicates [ ] Extract to utils [ ] Update imports [ ] Fixes (lint) [ ] Tests [ ] Działa.
+
+---
+
+#### 82. 🟠 [Frontend Audit] - Nieużywane hooki i utility functions
+
+Przejrzyj `frontend/src/hooks/` i `frontend/src/lib/` i usuń nieużywane hooki oraz utility functions.
+PRZED:
+```bash
+# Lista wszystkich hooks
+find frontend/src/hooks -name "*.ts" -o -name "*.tsx"
+
+# Dla każdego hooka sprawdź usage
+for hook in $(find frontend/src/hooks -name "use*.ts" -o -name "use*.tsx"); do
+  name=$(basename "$hook" .ts | sed 's/.tsx//')
+  uses=$(rg -l "$name" frontend/src --glob "*.tsx" --glob "*.ts" | grep -v "hooks/$name" | wc -l)
+  echo "$uses - $name"
+done | sort -n
+```
+Usuń hooki z 0 użyciami + sprawdź `lib/` utility functions (np. `formatters.ts`, `validators.ts`) + **usuń nieużywany kod** (`npm run lint -- --fix`).
+PO: `cd frontend && npm run build && npm run type-check`.
+Checklist: [ ] List hooks [ ] Check usage [ ] Delete unused [ ] Check lib utils [ ] Fixes (lint) [ ] Build [ ] Type-check.
+
+---
+
+#### 83. 🟠 [Backend Audit] - Deprecated metody w serwisach
+
+Przejrzyj serwisy backendu i usuń przestarzałe metody które nie są już używane po refaktoryzacji.
+PRZED: `rg "@deprecated|# deprecated|# legacy|# old" app/services --glob "*.py" -n` && zanotuj wszystkie deprecated markers.
+Sprawdź każdy serwis czy nie ma:
+- Metod oznaczonych `@deprecated` lub komentarzem `# deprecated`
+- Metod typu `legacy_*` lub `old_*`
+- Metod nie używanych nigdzie: `for method in $(rg "^    def \w+\(" app/services/surveys/survey_response_generator.py -o | sed 's/def //'); do echo "$method - $(rg "$method" app tests --glob "*.py" | wc -l)"; done`
+Przykład z zadania 11: `legacy_survey_format()` w survey_response_generator.py.
+Usuń deprecated metody + zaktualizuj testy + **usuń nieużywany kod** (`ruff check --select F401,F841 --fix`).
+PO: `rg "@deprecated|legacy_|old_" app/services --glob "*.py" -n && pytest tests/unit -v`.
+Checklist: [ ] Find deprecated [ ] Check usage [ ] Delete unused [ ] Update tests [ ] Fixes (ruff) [ ] Pytest [ ] Działa.
+
+---
+
+#### 84. 🟠 [Tests Audit] - Martwe fixtures i test utilities
+
+Przejrzyj `tests/fixtures/` i `tests/conftest.py` i usuń nieużywane fixtures oraz test utilities.
+PRZED:
+```bash
+# Lista wszystkich fixtures
+find tests/ -name "conftest.py" -o -name "*fixtures*" | xargs rg "^def \w+\(" -o | sed 's/def //' | sed 's/(//' | sort | uniq
+
+# Sprawdź usage każdej fixture
+for fixture in $(find tests/ -name "conftest.py" | xargs rg "@pytest.fixture" -A 1 | rg "^def \w+" -o | sed 's/def //'); do
+  uses=$(rg "$fixture" tests/ --glob "*.py" | grep -v "def $fixture" | wc -l)
+  echo "$uses - $fixture"
+done | sort -n | head -20
+```
+Usuń fixtures z 0-1 użyciami (poza fixtures używanymi jako dependencies innych fixtures) + sprawdź `tests/utils/` czy nie ma deprecated test helpers + konsoliduj duplikaty fixtures (zadanie 64).
+Cleanup + zaktualizuj testy + **usuń nieużywany kod** (`ruff check tests/ --select F401,F841 --fix`).
+PO: `pytest tests/ -v --collect-only && pytest tests/unit -v`.
+Checklist: [ ] List fixtures [ ] Check usage [ ] Delete unused [ ] Consolidate duplicates [ ] Fixes (ruff) [ ] Pytest [ ] Działa.
+
+---
+
+#### 85. 🟠 [Global Audit] - Nieużywane dependencies
+
+Przejrzyj `requirements.txt` i `frontend/package.json` i usuń nieużywane dependencies.
+PRZED:
+```bash
+# Python: sprawdź imports vs requirements
+pip install pipreqs
+pipreqs . --force --savepath /tmp/actual_requirements.txt
+diff requirements.txt /tmp/actual_requirements.txt
+
+# Frontend: sprawdź imports vs package.json
+npx depcheck frontend/
+```
+Backend - potencjalnie nieużywane:
+- Sprawdź czy wszystkie biblioteki w requirements.txt są importowane w app/
+- Sprawdź optionalne dependencies w pyproject.toml [llm-providers], [document-processing]
+
+Frontend - potencjalnie nieużywane:
+- Sprawdź devDependencies vs dependencies
+- Sprawdź czy biblioteki UI (lucide-react, radix-ui) są wszystkie używane
+
+Usuń nieużywane dependencies + zaktualizuj lockfiles + rebuild + **usuń nieużywany kod** (ruff + npm lint).
+PO: `pip install -r requirements.txt && cd frontend && npm install && npm run build && docker-compose build api`.
+Checklist: [ ] Analyze Python deps [ ] Analyze Node deps [ ] Delete unused [ ] Update lockfiles [ ] Rebuild [ ] Test [ ] Działa.
+
+---
+
 ## 📚 Appendix: Komendy i Narzędzia
 
 ### Grep Patterns (Znajdowanie Dependencies)
@@ -1018,5 +1211,68 @@ vulture app/ tests/
 ---
 
 **Wygenerowano:** 2025-11-11
-**Wersja:** 1.0
+**Wersja:** 1.1
 **Utrzymanie:** Aktualizuj checklist i dodawaj nowe prompty według potrzeb
+
+---
+
+## 📝 Historia Zmian
+
+### 2025-11-11 (Wersja 1.1) - Audyt i Korekta Zadań
+**Autor:** Claude Code
+**Typ:** Audyt poprzednich refaktoryzacji + korekta nieistniejących zadań
+
+**Zmiany:**
+1. ✅ **Dodano sekcję P2.5: Audyt Poprzednich Refaktoryzacji (zadania 76-85)**
+   - 76: Backend - Audyt nieużywanych importów po zadaniach 1-35
+   - 77: Frontend - Usunięcie martwego kodu (GraphAnalysis.tsx, etc.)
+   - 78: Backend - Sprawdzenie TODO/FIXME z zadań 1-35
+   - 79: Frontend - Audyt komponentów UI shadcn (56 plików)
+   - 80: Backend - Sprawdzenie BackgroundTasks usage
+   - 81: Full repo - Znajdź duplikaty kodu (copy-paste detection)
+   - 82: Frontend - Sprawdź nieużywane hooki i utility functions
+   - 83: Backend - Sprawdź deprecated metody w serwisach
+   - 84: Tests - Usuń martwe fixtures i test utilities
+   - 85: Global - Sprawdź nieużywane dependencies
+
+2. ❌ **Skorygowano nieistniejące zadania:**
+   - Zadanie 38: GraphAnalysis.tsx → USUŃ (martwy kod, 0 użyć)
+   - Zadanie 45: ProjectSettings.tsx → Settings.tsx (601 linii)
+   - Zadanie 46: ReasoningPanel.tsx → PersonaReasoningPanel.tsx (w personas/)
+   - Zadanie 47: WorkflowTemplates.tsx → WorkflowsListPage.tsx
+   - Zadanie 48: WorkflowRun.tsx → ExecutionHistory.tsx + ExecutionHistoryItem.tsx
+
+3. 🔍 **Wykryto martwy kod:**
+   - `frontend/src/components/layout/GraphAnalysis.tsx` (788 linii, 0 użyć) → do usunięcia
+   - Potencjalnie nieużywane: FigmaDashboard.tsx, StatsOverlay.tsx, FloatingControls.tsx
+
+4. 📊 **Nowe statystyki:**
+   - **Total zadań:** 85 (75 oryginalnych + 10 audytowych)
+   - **Estimated Time:** 5-7 tygodni (z audytem)
+   - **Zakończone:** 35/85 (41%)
+   - **Do zrobienia:** 50/85 (59%)
+
+**Uzasadnienie:**
+Po zakończeniu zadań 1-35 (backend refaktoryzacja), przeprowadzono audyt skuteczności zmian. Odkryto:
+- Martwy kod (GraphAnalysis.tsx nie jest używany nigdzie)
+- Nieaktualne zadania (4 komponenty z innymi nazwami lub nieistniejące)
+- Brak systematycznego audytu po refaktoryzacjach
+
+Sekcja P2.5 wprowadza systematyczny audyt: nieużywane importy, martwy kod, TODO markers, duplikaty kodu, deprecated metody, nieużywane dependencies.
+
+**Następne kroki:**
+1. Rozpocząć od zadania 36-37 (Personas.tsx, FocusGroupView.tsx split)
+2. Wykonać zadanie 77 (usunięcie martwego kodu frontend) przed dalszymi refaktoryzacjami
+3. Po zakończeniu P2 (zadania 36-70) → wykonać pełny audyt P2.5 (zadania 76-85)
+
+---
+
+### 2025-11-11 (Wersja 1.0) - Wersja Początkowa
+**Autor:** Oryginalny autor
+**Typ:** Utworzenie dokumentu z 75 zadaniami cleanup
+
+75 zadań cleanup zorganizowanych w priorytety P0-P3:
+- 🔴 P0: Backend Core Services (1-15) - ✅ ZAKOŃCZONE
+- 🟡 P1: Backend API + Schemas + Services Folders (16-35) - ✅ ZAKOŃCZONE
+- 🟢 P2: Frontend Components + Lib/Hooks/Types + Tests + Config (36-70) - ⏳ W TRAKCIE
+- 🔵 P3: Documentation (71-75) - ⏳ OCZEKUJE

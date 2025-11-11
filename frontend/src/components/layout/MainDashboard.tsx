@@ -1,5 +1,5 @@
 /**
- * Sight Dashboard - Production Dashboard with KPIs
+ * Main Dashboard - Production Dashboard with KPIs
  *
  * Phase 2 Complete - All sections:
  * - Active Projects Section
@@ -26,11 +26,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MessageSquarePlus, Sparkles } from 'lucide-react';
 
-interface SightDashboardProps {
+interface MainDashboardProps {
   onNavigate?: (view: string) => void;
 }
 
-export function SightDashboard({ onNavigate }: SightDashboardProps) {
+export function MainDashboard({ onNavigate }: MainDashboardProps) {
   const navigateTo = useDashboardNavigation(onNavigate);
   const { t } = useTranslation('dashboard');
 

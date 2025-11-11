@@ -2,33 +2,20 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  MoreVertical,
   Plus,
   Users,
-  Eye,
   TrendingUp,
   BarChart3,
-  ChevronLeft,
-  ChevronRight,
   Filter,
   Database,
-  Trash2,
   AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  Keyboard,
 } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { PersonaDetailsDrawer } from '@/components/personas/PersonaDetailsDrawer';
 import { DeletePersonaDialog } from '@/components/personas/DeletePersonaDialog';
@@ -43,161 +30,9 @@ import { SpinnerLogo } from '@/components/ui/spinner-logo';
 import { useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import {
-  GENDER_LABELS,
-  EDUCATION_LABELS,
-  INCOME_LABELS,
-  POLISH_CITY_NAMES,
-  POLISH_CITY_LOOKUP,
-  LOCATION_ALIASES,
-  normalizeText,
-} from '@/constants/personas';
-
-
-// Display-friendly Persona interface
-interface DisplayPersona {
-  id: string;
-  name: string;
-  age: number;
-  occupation: string;
-  interests: string[];
-  background: string;
-  demographics: {
-    gender: string;
-    location: string;
-    income: string;
-    education: string;
-  };
-  psychographics: {
-    personality: string[];
-    values: string[];
-    lifestyle: string;
-  };
-  createdAt: string;
-  projectId: string;
-}
-
-/**
- * Transform API Persona to display-friendly format
- */
-
-function detectCityFromStory(story?: string | null): string | null {
-  if (!story) return null;
-  const normalizedStory = normalizeText(story);
-  for (const city of POLISH_CITY_NAMES) {
-    const normalizedCity = normalizeText(city);
-    if (!normalizedCity) continue;
-    if (normalizedStory.includes(normalizedCity)) return city;
-    if (normalizedStory.includes(`${normalizedCity}u`)) return city;
-    if (normalizedStory.includes(`${normalizedCity}ie`)) return city;
-    if (normalizedStory.includes(`${normalizedCity}iu`)) return city;
-  }
-  return null;
-}
-
-function polishifyLocation(location?: string | null, story?: string | null): string {
-  const normalized = normalizeText(location);
-  if (normalized) {
-    if (POLISH_CITY_LOOKUP[normalized]) {
-      return POLISH_CITY_LOOKUP[normalized];
-    }
-    if (LOCATION_ALIASES[normalized]) {
-      return LOCATION_ALIASES[normalized];
-    }
-    const parts = normalized.split(/[,/]/).map(part => part.trim());
-    for (const part of parts) {
-      if (POLISH_CITY_LOOKUP[part]) return POLISH_CITY_LOOKUP[part];
-      if (LOCATION_ALIASES[part]) return LOCATION_ALIASES[part];
-    }
-  }
-  const fromStory = detectCityFromStory(story);
-  if (fromStory) return fromStory;
-  return 'Warszawa';
-}
-
-function polishifyGender(gender?: string | null): string {
-  const normalized = normalizeText(gender);
-  return GENDER_LABELS[normalized] ?? (gender ? gender : 'Kobieta');
-}
-
-function polishifyEducation(education?: string | null): string {
-  const normalized = normalizeText(education);
-  if (normalized && EDUCATION_LABELS[normalized]) {
-    return EDUCATION_LABELS[normalized];
-  }
-  return education ?? 'Średnie ogólnokształcące';
-}
-
-function polishifyIncome(income?: string | null): string {
-  if (!income) return '5 000 - 7 500 zł';
-  const normalized = income.replace(/\s/g, '');
-  if (INCOME_LABELS[income]) return INCOME_LABELS[income];
-  if (INCOME_LABELS[normalized]) return INCOME_LABELS[normalized];
-  return income;
-}
-
-function formatAge(age: number): string {
-  const mod10 = age % 10;
-  const mod100 = age % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${age} rok`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${age} lata`;
-  return `${age} lat`;
-}
-
-function extractFirstName(fullName?: string | null): string {
-  if (!fullName) return 'Persona';
-  const parts = fullName.trim().split(/\s+/);
-  return parts.length > 0 ? parts[0] : fullName;
-}
-
-function transformPersona(apiPersona: APIPersona): DisplayPersona {
-  // Zbuduj opis tła i zadbaj o brakujące dane
-  const background = (apiPersona.background_story || apiPersona.headline || 'Brak opisu persony').trim();
-
-  // Cechy osobowości Big Five w uproszczonym języku polskim
-  const personality: string[] = [];
-  if (apiPersona.openness && apiPersona.openness > 0.6) personality.push('Otwartość na zmiany');
-  if (apiPersona.conscientiousness && apiPersona.conscientiousness > 0.6) personality.push('Wysoka sumienność');
-  if (apiPersona.extraversion && apiPersona.extraversion > 0.6) personality.push('Ekstrawersja');
-  if (apiPersona.agreeableness && apiPersona.agreeableness > 0.6) personality.push('Ugodowość');
-  if (apiPersona.neuroticism && apiPersona.neuroticism < 0.4) personality.push('Spokój emocjonalny');
-
-  // Styl życia zależny od poziomu indywidualizmu
-  let lifestyle = 'Zrównoważony styl życia';
-  if (apiPersona.individualism && apiPersona.individualism > 0.7) {
-    lifestyle = 'Niezależny i samodzielny styl życia';
-  } else if (apiPersona.individualism && apiPersona.individualism < 0.3) {
-    lifestyle = 'Skupienie na społeczności i współpracy';
-  }
-
-  const gender = polishifyGender(apiPersona.gender);
-  const education = polishifyEducation(apiPersona.education_level);
-  const income = polishifyIncome(apiPersona.income_bracket);
-  const location = polishifyLocation(apiPersona.location, background);
-
-  return {
-    id: apiPersona.id,
-    name: apiPersona.full_name || apiPersona.persona_title || 'Nieznana persona',
-    age: apiPersona.age,
-    occupation: apiPersona.occupation || apiPersona.persona_title || 'Zawód nieokreślony',
-    interests: Array.isArray(apiPersona.interests) ? apiPersona.interests : [],
-    background,
-    demographics: {
-      gender,
-      location,
-      income,
-      education,
-    },
-    psychographics: {
-      personality,
-      values: Array.isArray(apiPersona.values) ? apiPersona.values : [],
-      lifestyle,
-    },
-    createdAt: apiPersona.created_at,
-    projectId: apiPersona.project_id,
-  };
-}
-
+import { transformPersona, formatAge, extractFirstName, type DisplayPersona } from '@/components/personas/helpers/transformers';
+import { PersonaFilters } from '@/components/personas/PersonaFilters';
+import { PersonasList } from '@/components/personas/PersonasList';
 
 export function Personas() {
   // Use Zustand selectors to prevent unnecessary re-renders
@@ -758,328 +593,29 @@ export function Personas() {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Filters Sidebar - collapsed na mobile */}
-            <div className={cn(
-              "lg:col-span-4",
-              // Mobile: Collapsed by default
-              !filtersExpanded && "hidden lg:block"
-            )}>
-              <Card className="bg-card border border-border overflow-y-auto lg:sticky lg:top-6" style={{ maxHeight: '600px' }}>
-                <CardHeader>
-                  <CardTitle className="text-card-foreground flex items-center gap-2">
-                    <Filter className="w-5 h-5" />
-                    {t('page.filters.title')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Gender Filter */}
-                  <div className="space-y-3">
-                    <Label className="text-sm">{t('page.filters.gender')}</Label>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="gender-female"
-                          checked={selectedGenders.includes('Kobieta')}
-                          onCheckedChange={(checked) => {
-                            setSelectedGenders(checked
-                              ? [...selectedGenders, 'Kobieta']
-                              : selectedGenders.filter(g => g !== 'Kobieta')
-                            );
-                          }}
-                        />
-                        <label htmlFor="gender-female" className="text-sm text-card-foreground">
-                          {t('page.filters.genderOptions.female')}
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="gender-male"
-                          checked={selectedGenders.includes('Mężczyzna')}
-                          onCheckedChange={(checked) => {
-                            setSelectedGenders(checked
-                              ? [...selectedGenders, 'Mężczyzna']
-                              : selectedGenders.filter(g => g !== 'Mężczyzna')
-                            );
-                          }}
-                        />
-                        <label htmlFor="gender-male" className="text-sm text-card-foreground">
-                          {t('page.filters.genderOptions.male')}
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="gender-other"
-                          checked={selectedGenders.includes('Osoba niebinarna')}
-                          onCheckedChange={(checked) => {
-                            setSelectedGenders(checked
-                              ? [...selectedGenders, 'Osoba niebinarna']
-                              : selectedGenders.filter(g => g !== 'Osoba niebinarna')
-                            );
-                          }}
-                        />
-                        <label htmlFor="gender-other" className="text-sm text-card-foreground">
-                          {t('page.filters.genderOptions.nonbinary')}
-                        </label>
-                      </div>
-                    </div>
-                  </div>
+              {/* Filters Sidebar */}
+              <PersonaFilters
+                selectedGenders={selectedGenders}
+                onGendersChange={setSelectedGenders}
+                ageRange={ageRange}
+                onAgeRangeChange={setAgeRange}
+                selectedOccupations={selectedOccupations}
+                onOccupationsChange={setSelectedOccupations}
+                filtersExpanded={filtersExpanded}
+                onToggleExpanded={() => setFiltersExpanded(!filtersExpanded)}
+              />
 
-                  {/* Age Range Filter */}
-                  <div className="space-y-3">
-                    <Label className="text-sm">{t('page.filters.ageRange')}</Label>
-                    <div className="px-2">
-                      <Slider
-                        value={ageRange}
-                        onValueChange={(value) => setAgeRange(value as [number, number])}
-                        min={18}
-                        max={65}
-                        step={1}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>{ageRange[0]}</span>
-                        <span>{ageRange[1]}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Occupation Filter */}
-                  <div className="space-y-3">
-                    <Label className="text-sm">{t('page.filters.occupation')}</Label>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="occupation-tech" />
-                        <label htmlFor="occupation-tech" className="text-sm text-card-foreground">
-                          {t('page.occupationFilter.technology')} (35%)
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="occupation-healthcare" />
-                        <label htmlFor="occupation-healthcare" className="text-sm text-card-foreground">
-                          {t('page.occupationFilter.healthcare')} (25%)
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="occupation-education" />
-                        <label htmlFor="occupation-education" className="text-sm text-card-foreground">
-                          {t('page.occupationFilter.education')} (20%)
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="occupation-business" />
-                        <label htmlFor="occupation-business" className="text-sm text-card-foreground">
-                          {t('page.occupationFilter.business')} (20%)
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setSelectedGenders([]);
-                      setAgeRange([18, 65]);
-                      setSelectedOccupations([]);
-                    }}
-                  >
-                    {t('page.filters.clearFilters')}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Persona Carousel */}
-            <div className="lg:col-span-8 space-y-4">
-              {/* Mobile: Toggle button */}
-              <div className="lg:hidden">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2"
-                  onClick={() => setFiltersExpanded(!filtersExpanded)}
-                >
-                  <Filter className="w-4 h-4" />
-                  {filtersExpanded ? 'Ukryj filtry' : 'Pokaż filtry'}
-                  {filtersExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </Button>
-              </div>
-
-              <Card
-                className="bg-card border border-border overflow-y-auto focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
-                style={{ maxHeight: '600px' }}
-                tabIndex={0}
-                role="region"
-                aria-label="Karuzela person"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPersonaIndex(Math.max(0, currentPersonaIndex - 1))}
-                        disabled={currentPersonaIndex === 0}
-                        className="h-8 w-8 p-0"
-                        aria-label="Poprzednia persona"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        {currentPersonaIndex + 1} {t('page.carousel.of')} {filteredPersonas.length}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPersonaIndex(Math.min(filteredPersonas.length - 1, currentPersonaIndex + 1))}
-                        disabled={currentPersonaIndex === filteredPersonas.length - 1}
-                        className="h-8 w-8 p-0"
-                        aria-label="Następna persona"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-
-                      {/* Keyboard shortcuts tooltip */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <Keyboard className="w-4 h-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">
-                            <p><kbd className="px-1 py-0.5 bg-muted rounded">←</kbd> <kbd className="px-1 py-0.5 bg-muted rounded">→</kbd> Nawigacja</p>
-                            <p><kbd className="px-1 py-0.5 bg-muted rounded">Home</kbd> Pierwsza | <kbd className="px-1 py-0.5 bg-muted rounded">End</kbd> Ostatnia</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-
-                    <div className="flex gap-2">
-                      {filteredPersonas.map((_, index) => (
-                        <button
-                          key={index}
-                          className={`w-2 h-2 rounded-full transition-colors ${
-                            index === currentPersonaIndex ? 'bg-primary' : 'bg-muted'
-                          }`}
-                          onClick={() => setCurrentPersonaIndex(index)}
-                          aria-label={`Przejdź do persony ${index + 1}`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Aktualnie wybrana persona */}
-                  {currentPersona && (
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-xl text-card-foreground mb-1">
-                            {currentPersonaName ? `${currentPersonaName}, ${currentPersonaAgeLabel}` : `${currentPersona.name}`}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {currentPersona.occupation}
-                          </p>
-                          <p className="text-muted-foreground">
-                            {currentPersona.demographics.location}
-                          </p>
-                        </div>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => setSelectedPersonaForDetails(currentPersona.id)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              {t('page.carousel.viewDetails')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPersonaToDelete(currentPersona);
-                                setShowDeleteDialog(true);
-                              }}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              {t('page.carousel.deletePersona')}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      {/* Background */}
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-card-foreground">{t('page.carousel.context')}</h4>
-                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
-                          {currentPersona.background}
-                        </p>
-                      </div>
-
-                      {/* Demographics Grid - responsive */}
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">{t('page.carousel.demographics.gender')}</p>
-                          <p className="text-sm text-card-foreground">{currentPersona.demographics.gender}</p>
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">{t('page.carousel.demographics.education')}</p>
-                          <p className="text-sm text-card-foreground">{currentPersona.demographics.education}</p>
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">{t('page.carousel.demographics.income')}</p>
-                          <p className="text-sm text-card-foreground">{currentPersona.demographics.income}</p>
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="text-xs text-muted-foreground">{t('page.carousel.demographics.lifestyle')}</p>
-                          <p className="text-sm text-card-foreground line-clamp-1">{currentPersona.psychographics.lifestyle}</p>
-                        </div>
-                      </div>
-
-                      {/* Interests */}
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-card-foreground">{t('page.carousel.interestsAndValues')}</h4>
-                        <div className="space-y-1.5">
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">{t('page.carousel.interests')}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {currentPersona.interests.slice(0, 5).map((interest, index) => (
-                                <Badge key={index} variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs py-0">
-                                  {interest}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">{t('page.carousel.values')}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {currentPersona.psychographics.values.slice(0, 5).map((value, index) => (
-                                <Badge key={index} variant="outline" className="border-secondary text-secondary text-xs py-0">
-                                  {value}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Creation Date */}
-                      <div className="pt-2">
-                        <p className="text-xs text-muted-foreground text-right">
-                          {t('page.carousel.createdOn')} {new Date(filteredPersonas[currentPersonaIndex].createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+              {/* Persona Carousel */}
+              <PersonasList
+                filteredPersonas={filteredPersonas}
+                currentPersonaIndex={currentPersonaIndex}
+                onIndexChange={setCurrentPersonaIndex}
+                onViewDetails={setSelectedPersonaForDetails}
+                onDelete={(persona) => {
+                  setPersonaToDelete(persona);
+                  setShowDeleteDialog(true);
+                }}
+              />
           </div>
           </>
         )}

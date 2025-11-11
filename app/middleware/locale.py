@@ -23,7 +23,6 @@ Usage:
 """
 import logging
 from fastapi import Request
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

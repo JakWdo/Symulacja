@@ -33,7 +33,6 @@ This class is an ADAPTER that delegates to config loaders from config/.
 - Feature Flags: Deprecation warnings (migrate to config.features)
 """
 
-from functools import lru_cache
 import os
 import warnings
 

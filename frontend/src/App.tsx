@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
-import { FigmaDashboard } from '@/components/layout/FigmaDashboard';
-import { SightDashboard } from '@/components/layout/SightDashboard';
+import { OverviewDashboard } from '@/components/layout/OverviewDashboard';
+import { MainDashboard } from '@/components/layout/MainDashboard';
 import { Projects } from '@/components/layout/Projects';
 import { ProjectDetail } from '@/components/layout/ProjectDetail';
 import { FocusGroups } from '@/components/layout/FocusGroups';
@@ -72,7 +72,7 @@ export default function App() {
     switch (currentView) {
       case 'dashboard':
         return (
-          <SightDashboard
+          <MainDashboard
             onNavigate={setCurrentView}
           />
         );
@@ -219,7 +219,7 @@ export default function App() {
           />
         );
       default:
-        return <FigmaDashboard onNavigate={setCurrentView} />;
+        return <OverviewDashboard onNavigate={setCurrentView} />;
     }
   };
 
