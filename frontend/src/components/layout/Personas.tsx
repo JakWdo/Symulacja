@@ -1,38 +1,26 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  Plus,
-  Users,
-  TrendingUp,
-  BarChart3,
-  Filter,
-  Database,
-  AlertCircle,
-} from 'lucide-react';
-import { cn } from '@/components/ui/utils';
+import { Plus, Users, Filter, AlertCircle } from 'lucide-react';
 import { PersonaGenerationWizard, type PersonaGenerationConfig } from '@/components/personas/PersonaGenerationWizard';
 import { PersonaDetailsDrawer } from '@/components/personas/PersonaDetailsDrawer';
 import { DeletePersonaDialog } from '@/components/personas/DeletePersonaDialog';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { projectsApi, personasApi } from '@/lib/api';
-import type { GeneratePersonasPayload, GeneratePersonasResponse } from '@/lib/api';
+import type { GeneratePersonasPayload } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { Persona as APIPersona } from '@/types';
 import { toast } from '@/components/ui/toastStore';
-import { estimateGenerationDuration, formatDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
-import { SpinnerLogo } from '@/components/ui/spinner-logo';
+import { estimateGenerationDuration, transformWizardConfigToPayload } from '@/lib/personaGeneration';
 import { useTranslation } from 'react-i18next';
-import { Info } from 'lucide-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { transformPersona, formatAge, extractFirstName, type DisplayPersona } from '@/components/personas/helpers/transformers';
+import { transformPersona, type DisplayPersona } from '@/components/personas/helpers/transformers';
 import { PersonaFilters } from '@/components/personas/PersonaFilters';
 import { PersonasList } from '@/components/personas/PersonasList';
+import { PersonasHeader } from '@/components/personas/PersonasHeader';
+import { PersonasProgressBar } from '@/components/personas/PersonasProgressBar';
+import { PersonasStats } from '@/components/personas/PersonasStats';
 
 export function Personas() {
   // Use Zustand selectors to prevent unnecessary re-renders
@@ -204,10 +192,6 @@ export function Personas() {
     }, {} as Record<string, number>);
   }, [filteredPersonas]);
 
-  const currentPersona = filteredPersonas[currentPersonaIndex] ?? null;
-  const currentPersonaName = currentPersona ? extractFirstName(currentPersona.name) : '';
-  const currentPersonaAgeLabel = currentPersona ? formatAge(currentPersona.age) : '';
-
   // Top interests computation (OPTIMIZED with useMemo)
   const topInterests = useMemo(() => {
     return filteredPersonas.flatMap(p => p.interests)
@@ -356,182 +340,33 @@ export function Personas() {
       <div className="w-full h-full overflow-y-auto">
         <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
       {/* Header */}
-      <PageHeader
-        title={t('page.title')}
-        subtitle={t('page.subtitle')}
-        actions={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              className="border-border text-card-foreground"
-              onClick={() => setActivePanel('rag')}
-            >
-              <Database className="w-4 h-4 mr-2" />
-              {t('page.ragDocumentsButton')}
-            </Button>
-            <Select
-              value={selectedProject?.id || ''}
-              onValueChange={(value) => {
-                const project = projects.find(p => p.id === value);
-                if (project) setGlobalProject(project);
-              }}
-            >
-              <SelectTrigger className="bg-muted border-0 rounded-md px-3.5 py-2 h-9 hover:bg-muted/80 transition-colors">
-                <SelectValue
-                  placeholder={t('page.selectProjectPlaceholder')}
-                  className="font-['Crimson_Text',_serif] text-[14px] text-foreground leading-5"
-                />
-              </SelectTrigger>
-              <SelectContent className="bg-muted border-border">
-                {projectsLoading ? (
-                  <div className="flex items-center justify-center p-2">
-                    <SpinnerLogo className="w-4 h-4" />
-                  </div>
-                ) : projects.length === 0 ? (
-                  <div className="p-2 text-sm text-muted-foreground">{t('page.noProjectsFound')}</div>
-                ) : (
-                  projects.map((project) => (
-                    <SelectItem
-                      key={project.id}
-                      value={project.id}
-                      className="font-['Crimson_Text',_serif] text-[14px] text-foreground focus:bg-accent"
-                    >
-                      {project.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={() => setShowPersonaWizard(true)}
-              className="bg-brand hover:bg-brand/90 text-brand-foreground"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              {t('page.generateButton')}
-            </Button>
-          </>
-        }
+      <PersonasHeader
+        selectedProject={selectedProject}
+        projects={projects}
+        projectsLoading={projectsLoading}
+        onProjectChange={(value) => {
+          const project = projects.find(p => p.id === value);
+          if (project) setGlobalProject(project);
+        }}
+        onGenerateClick={() => setShowPersonaWizard(true)}
+        onRagDocumentsClick={() => setActivePanel('rag')}
       />
 
-      {showProgressBar && (
-        <div className="rounded-lg border border-border bg-card/80 p-4 space-y-3 shadow-sm">
-          {/* Header z czasem */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <SpinnerLogo className="w-4 h-4" />
-              <span className="font-medium text-card-foreground">
-                {t('page.generating')}
-              </span>
-            </div>
-
-            {/* Szacowany czas */}
-            {progressMeta && (
-              <div className="text-xs text-muted-foreground tabular-nums">
-                Czas: ~{formatDuration(progressMeta.duration)}
-                {newlyGeneratedCount > 0 && (
-                  <span className="ml-2 text-primary font-medium">
-                    {newlyGeneratedCount}/{requestedCount}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Progress bar */}
-          <Progress value={Math.min(generationProgress, 100)} className="h-2" />
-
-          {/* Info tooltip */}
-          <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 rounded p-2">
-            <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-            <p className="leading-tight">
-              <strong>Generowanie person trwa dłużej niż zwykle</strong> gdy używasz RAG
-              (wyszukiwanie demograficzne + tworzenie briefów segmentów).
-              Możesz kontynuować pracę - otrzymasz powiadomienie po zakończeniu.
-            </p>
-          </div>
-        </div>
+      {showProgressBar && progressMeta && (
+        <PersonasProgressBar
+          generationProgress={generationProgress}
+          progressMeta={progressMeta}
+          newlyGeneratedCount={newlyGeneratedCount}
+          requestedCount={requestedCount}
+        />
       )}
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-card border border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('page.stats.allPersonas')}</p>
-                <p className="text-2xl brand-orange">{filteredPersonas.length}</p>
-              </div>
-              <Users className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('page.stats.ageRange')}</p>
-                <p className="text-2xl brand-orange">
-                  {filteredPersonas.length > 0 ? `${Math.min(...filteredPersonas.map(p => p.age))} - ${Math.max(...filteredPersonas.map(p => p.age))}` : 'N/A'}
-                </p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('page.stats.topInterest')}</p>
-                <p className="text-2xl brand-orange">
-                  {sortedInterests[0]?.[0] || 'N/A'}
-                </p>
-              </div>
-              <BarChart3 className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Population Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="bg-card border border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground">{t('page.ageDistribution')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Object.entries(ageGroups).map(([ageGroup, count]) => (
-              <div key={ageGroup} className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{ageGroup}</span>
-                  <span className="text-card-foreground">{count} ({Math.round((count / filteredPersonas.length) * 100)}%)</span>
-                </div>
-                <Progress value={(count / filteredPersonas.length) * 100} className="h-2" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground">{t('page.topInterests')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {sortedInterests.map(([interest, count]) => (
-              <div key={interest} className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{interest}</span>
-                  <span className="text-card-foreground">{count} {t('page.personCount')}</span>
-                </div>
-                <Progress value={(count / filteredPersonas.length) * 100} className="h-2" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      <PersonasStats
+        filteredPersonas={filteredPersonas}
+        ageGroups={ageGroups}
+        sortedInterests={sortedInterests}
+      />
 
       {/* Persona Carousel */}
       <div className="space-y-4">
