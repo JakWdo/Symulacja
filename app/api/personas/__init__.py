@@ -3,7 +3,9 @@ Persona API Module
 
 This module aggregates all persona-related API endpoints from submodules:
 - crud: CRUD operations (list, summary, delete, undo, bulk-delete)
-- generation: Persona generation endpoint + background task
+- generation_endpoints: Persona generation endpoints (split from generation.py)
+- orchestration_endpoints: SSE streaming helpers for generation progress
+- validation_endpoints: Background task for persona generation with validation
 - details: Detail/read operations (reasoning, details, archived)
 - helpers: Shared utility functions
 
@@ -13,7 +15,7 @@ The main router combines all sub-routers for clean organization.
 from fastapi import APIRouter
 
 from .crud import router as crud_router
-from .generation import router as generation_router
+from .generation_endpoints import router as generation_router
 from .details import router as details_router
 
 

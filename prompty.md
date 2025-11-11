@@ -100,16 +100,16 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 8. persona_details_service.py cleanup ✅ (642→ details_crud + details_enrichment)
 - [x] 9. distribution_builder.py cleanup ✅ (634→ distribution_calculator + validator)
 - [x] 10. demographics_formatter.py cleanup ✅ (560→ validator + formatter)
-- [ ] 11. survey_response_generator.py cleanup
-- [ ] 12. workflow_template_service.py cleanup
-- [ ] 13. persona_needs_analyzer.py cleanup
-- [ ] 14. focus_groups memory_manager.py cleanup
-- [ ] 15. dashboard usage_logging.py cleanup
+- [x] 11. survey_response_generator.py cleanup ✅ (686→524+245 linii: core + formatter)
+- [x] 12. workflow_template_service.py cleanup ✅ (543→635+108 linii: crud + validator)
+- [x] 13. persona_needs_analyzer.py cleanup ✅ (persona_needs_service.py: 203 linii, bez zmian)
+- [x] 14. focus_groups memory_manager.py cleanup ✅ (memory_service_langchain.py: 256 linii, bez zmian)
+- [x] 15. dashboard usage_logging.py cleanup ✅ (usage_logging.py: 182 linii, brak print(), bez zmian)
 
 ### 🟡 P1: Backend API + Schemas
-- [ ] 16. api/personas/generation.py split
-- [ ] 17. api/workflows.py split
-- [ ] 18. api/projects.py split
+- [x] 16. api/personas/generation.py split ✅ (1360→394+224+804 linii: endpoints + orchestration + validation)
+- [x] 17. api/workflows.py split ✅ (879→442+286+207 linii: crud + execution + templates)
+- [x] 18. api/projects.py split ✅ (693→175+549 linii: crud + demographics)
 - [ ] 19. schemas/workflow.py split
 - [ ] 20. schemas/persona.py cleanup
 - [ ] 21. schemas/focus_group.py cleanup
@@ -302,24 +302,27 @@ Prompt (krótki): Przejrzyj `app/api/projects.py` (zarządzanie projektami + dem
 
 ---
 
-#### 19. 🟡 [Backend Schemas] - schemas/workflow.py (994 linii)
+#### 19. ✅ [Backend Schemas] - schemas/workflow.py (994 linii → podzielony)
 
 Przejrzyj `app/schemas/workflow.py` (zbyt wiele modeli w jednym miejscu). Przed: `rg -n "from app.schemas.workflow import" app tests` i zinwentaryzuj importy. Podziel na `workflow_base.py` i `workflow_nodes.py`; zaktualizuj importy w `app/api/workflows.py`, `app/services/workflows/`, `tests/`. Po: `pytest tests/unit/services/workflows/test_workflow_validator.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [✅] Grep [✅] Podział [✅] Importy (wrapper) [✅] Fixes [✅] Testy [✅] Działa.
+**Wynik**: Podzielono na workflow_base.py (480 linii), workflow_nodes.py (589 linii), wrapper (120 linii). 14 plików importujących zachowało backward compatibility.
 
 ---
 
-#### 20. 🟡 [Backend Schemas] - schemas/persona.py
+#### 20. ✅ [Backend Schemas] - schemas/persona.py
 
 Przejrzyj `app/schemas/persona.py` (sprawdź rozmiar i zakres). Przed: `wc -l app/schemas/persona.py && rg -n "from app.schemas.persona import" app tests`. Jeśli >500 linii, wydziel `persona_generation.py` i `persona_details.py`; zaktualizuj importy w `app/api/personas/`, `tests/`. Po: `pytest tests/unit/test_persona_generator.py -v tests/unit/test_persona_orchestration.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [✅] Grep [✅] Podział [N/A] Importy [N/A] Fixes [✅] Testy [✅] Działa.
+**Wynik**: 477 linii - poniżej progu 500 linii, **bez zmian potrzebnych**.
 
 ---
 
-#### 21. 🟡 [Backend Schemas] - schemas/focus_group.py
+#### 21. ✅ [Backend Schemas] - schemas/focus_group.py
 
 Przejrzyj `app/schemas/focus_group.py` (sprawdź rozmiar i zakres). Przed: `wc -l app/schemas/focus_group.py && rg -n "from app.schemas.focus_group import" app tests`. Jeśli >500 linii, wydziel `focus_group_base.py`, `focus_group_responses.py`, `focus_group_summaries.py` i zaktualizuj importy. Po: `pytest tests/unit/test_focus_group_service.py -v && docker-compose restart api`.
-Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes [ ] Testy [ ] Działa.
+Checklist: [✅] Grep [✅] Podział [N/A] Importy [N/A] Fixes [✅] Testy [✅] Działa.
+**Wynik**: 131 linii - poniżej progu 500 linii, **bez zmian potrzebnych**.
 
 ---
 
