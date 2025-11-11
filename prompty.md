@@ -453,7 +453,7 @@ Checklist: [ ] Grep [ ] Podział [ ] Importy [ ] Fixes (cleanup) [ ] Testy [ ] D
 
 ### 🟢 P2: Frontend Components
 
-#### 36. 🟢 [Frontend Component] - Personas.tsx (1195 linii)
+#### 36. ✅ [Frontend Component] - Personas.tsx (1195 linii → 653 linii)
 
 Prompt (krótki): Przejrzyj `frontend/src/components/layout/Personas.tsx` (monolityczny komponent). Najpierw: `rg -n "import.*Personas" frontend/src --glob "**/*.{ts,tsx}"` i zanotuj zależności. Podziel na `PersonasLayout.tsx`, `PersonasList.tsx`, `PersonaFilters.tsx`, `PersonaActions.tsx`; przenieś hardcoded labels (linia 76-99) do `frontend/src/constants/personas.ts` i zaktualizuj importy + **usuń nieużywany kod** (`npm run lint -- --fix`). Zweryfikuj: `cd frontend && npm run build && npm run preview`.
 
