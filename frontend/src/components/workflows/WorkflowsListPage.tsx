@@ -32,7 +32,7 @@ import {
   Layers,
 } from 'lucide-react';
 
-import { useWorkflows, useDeleteWorkflow, useDuplicateWorkflow } from '@/hooks/useWorkflows';
+import { useWorkflows, useDeleteWorkflow, useDuplicateWorkflow } from '@/hooks/useWorkflowCrud';
 import { WorkflowNameDialog } from './WorkflowNameDialog';
 import { workflowTemplates } from './templateMetadata';
 import type { Workflow } from '@/types';

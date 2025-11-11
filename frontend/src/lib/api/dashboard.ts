@@ -4,7 +4,7 @@
  * Wszystkie API calls dla dashboardu używając istniejącego apiClient
  */
 
-import axios from 'axios';
+import { api } from './client';
 import type {
   OverviewResponse,
   QuickAction,
@@ -19,35 +19,6 @@ import type {
   UsageBreakdownResponse,
   Notification,
 } from '@/types/dashboard';
-
-const baseUrl = import.meta.env.VITE_API_BASE_URL
-  ? `${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/api/v1`
-  : '/api/v1';
-
-const api = axios.create({
-  baseURL: baseUrl,
-});
-
-// Add auth interceptor - attach JWT token to all requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Handle 401 errors globally - redirect to login
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('access_token');
-      window.location.href = '/';
-    }
-    return Promise.reject(error);
-  }
-);
 
 export const dashboardApi = {
   // Overview

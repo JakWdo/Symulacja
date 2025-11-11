@@ -34,7 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 
-import { useInstantiateTemplate } from '@/hooks/useWorkflows';
+import { useInstantiateTemplate } from '@/hooks/useWorkflowTemplates';
 import type { Workflow } from '@/types';
 
 interface WorkflowNameDialogProps {

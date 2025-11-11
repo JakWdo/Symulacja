@@ -139,7 +139,7 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 36. Personas.tsx split ✅ (653→488 linii + PersonasHeader, PersonasProgressBar, PersonasStats)
 - [x] 37. FocusGroupView.tsx split ✅ (972→637 linii + FocusGroupHeader, FocusGroupSetupTab, FocusGroupDiscussionTab)
 - [x] 38. ❌ GraphAnalysis.tsx - NIE ISTNIEJE (już usunięty lub nigdy nie był) ✅
-- [ ] 39. FocusGroupPanel.tsx split
+- [x] 39. FocusGroupPanel.tsx split ✅ (783→136 linii + StatusBadge, FocusGroupCard, FocusGroupForm)
 - [x] 40. WorkflowEditor.tsx split ✅ (WorkflowToolbar.tsx, WorkflowCanvas.tsx)
 - [x] 41. PersonaPanel.tsx split ✅ (PersonaList.tsx, PersonaDetailsView.tsx)
 - [x] 42. AISummaryPanel.tsx split ✅ (AISummaryInsights.tsx, AISummarySections.tsx)
@@ -150,17 +150,17 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 47. ❌ WorkflowTemplates.tsx → WorkflowsListPage.tsx (364 linii) - cleanup ✅
 - [x] 48. ❌ WorkflowRun.tsx → ExecutionHistory.tsx (98) + ExecutionHistoryItem.tsx (367) - cleanup ✅
 - [x] 49. Hardcoded labels → constants ✅ (constants/personas.ts utworzony)
-- [ ] 50. Unused UI components audit
+- [x] 50. Unused UI components audit ✅ (18 komponentów usunięto: 1825 linii)
 
 ### 🟢 P2: Frontend Lib/Hooks/Types
-- [ ] 51. lib/api.ts split
-- [ ] 52. types/index.ts split
-- [ ] 53. hooks/useWorkflows.ts split
-- [ ] 54. hooks/usePersonas.ts cleanup
-- [ ] 55. hooks/useFocusGroups.ts cleanup
-- [ ] 56. lib/utils.ts cleanup
-- [ ] 57. stores/zustand cleanup
-- [ ] 58. constants/ consolidation
+- [x] 51. lib/api.ts split ✅ (846→1003 linii w 10 modułach: client, index, auth, dashboard, focus-groups, personas, projects, rag, surveys, workflows)
+- [x] 52. types/index.ts split ✅ (887→1069 linii w 7 modułach: persona 233, project 70, focus-group 390, survey 70, rag 116, graph 137, index 53)
+- [x] 53. hooks/useWorkflows.ts split ✅ (639→736 linii w 4 hooki: useWorkflowCrud 307, useWorkflowExecution 188, useWorkflowTemplates 111, useWorkflowValidation 130)
+- [x] 54. hooks/usePersonas.ts cleanup ✅ (już podzielony wcześniej: hooks/personas/, usePersonaDetails, useDeletePersona, useUndoDeletePersona)
+- [x] 55. hooks/useFocusGroups.ts cleanup ✅ (już podzielony wcześniej: hooks/focus-group/ z 5 modułami)
+- [x] 56. lib/utils.ts cleanup ✅ (20 linii - nie wymaga podziału)
+- [x] 57. stores/zustand cleanup ✅ (folder stores/ pusty - brak plików Zustand)
+- [x] 58. constants/ consolidation ✅ (constants/personas.ts 100 linii - główne stałe przeniesione w zadaniu 49)
 
 ### 🟢 P2: Tests
 - [ ] 59. test_workflow_validator.py split
