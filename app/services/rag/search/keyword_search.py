@@ -75,32 +75,8 @@ async def keyword_search(
         driver = vector_store._driver
 
         def search() -> List[Tuple[Document, float]]:
-            session_ctx = driver.session()
-            cleanup = None
-
-            if hasattr(session_ctx, "__enter__"):
-                session = session_ctx.__enter__()
-
-                def _cleanup() -> None:
-                    session_ctx.__exit__(None, None, None)
-
-                cleanup = _cleanup
-            elif hasattr(session_ctx, "__aenter__"):
-                session = session_ctx.__aenter__()
-                if asyncio.iscoroutine(session):
-                    session = asyncio.run(session)
-
-                def _async_cleanup():
-                    result = session_ctx.__aexit__(None, None, None)
-                    if asyncio.iscoroutine(result):
-                        asyncio.run(result)
-
-                cleanup = _async_cleanup
-            else:
-                session = session_ctx
-                cleanup = getattr(session, "close", None)
-
-            try:
+            # Użyj context managera aby zapewnić prawidłowe zamykanie sesji
+            with driver.session() as session:
                 result = session.run(
                     """
                     CALL db.index.fulltext.queryNodes('rag_fulltext_index', $search_query)
@@ -157,12 +133,6 @@ async def keyword_search(
                     documents_with_scores.append((doc, score))
 
                 return documents_with_scores
-            finally:
-                try:
-                    if cleanup:
-                        cleanup()
-                except Exception:  # pragma: no cover - best-effort cleanup
-                    pass
 
         documents_with_scores = await asyncio.to_thread(search)
         logger.info("Keyword search zwróciło %s wyników", len(documents_with_scores))
