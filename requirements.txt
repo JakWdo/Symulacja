@@ -56,7 +56,6 @@ langchain-neo4j>=0.1.0,<0.2.0
 numpy
 # pandas - moved to pyproject.toml [project.optional-dependencies] experimental (currently unused)
 scikit-learn
-scipy
 
 # API & Web
 httpx
@@ -69,22 +68,18 @@ python-jose[cryptography]
 PyJWT  # Required for direct JWT import in tests (python-jose uses it internally)
 bcrypt
 python-dotenv
-email-validator
-slowapi  # Rate limiting for FastAPI
 
 # Utilities
 python-dateutil
 pytz
 # tenacity - moved to pyproject.toml [project.optional-dependencies] experimental (currently unused)
 aiofiles
-Pillow
 
 # Scheduled Jobs
 apscheduler==3.10.4
 
 # Google Cloud (dla Cloud Tasks integration)
 google-cloud-tasks>=2.16.0,<3.0.0
-prometheus-client>=0.20.0,<1.0.0  # Metrics dla monitoring
 
 # Development
 pytest
@@ -101,4 +96,3 @@ jinja2  # Used by config/loader.py for prompt templates
 # RAG System - Document Processing
 # pypdf - moved to pyproject.toml [project.optional-dependencies] document-processing
 # python-docx - moved to pyproject.toml [project.optional-dependencies] document-processing
-sentence-transformers==2.7.0  # Used for RAG reranking
