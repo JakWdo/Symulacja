@@ -191,16 +191,16 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 70. Cache cleanup ✅ (usunięto 8 plików cache, utworzono scripts/cleanup_cache.sh)
 
 ### 🟠 P2.5: Audyt Poprzednich Refaktoryzacji (NOWE - 2025-11-11)
-- [x] 71. Backend: Audyt nieużywanych importów po zadaniach 1-35 ✅ (6 naprawionych)
-- [x] 72. Frontend: Usunięcie martwego kodu (GraphAnalysis.tsx, etc.) ✅ (897 linii)
-- [x] 73. Backend: Sprawdzenie TODO/FIXME z zadań 1-35 ✅ (5 TODO skatalogowanych)
-- [ ] 74. Frontend: Audyt komponentów UI shadcn (50+ plików)
-- [ ] 75. Backend: Sprawdzenie BackgroundTasks usage
-- [ ] 76. Full repo: Znajdź duplikaty kodu (copy-paste)
-- [ ] 77. Frontend: Sprawdź nieużywane hooki i utility functions
-- [ ] 78. Backend: Sprawdź czy stare serwisy mają deprecated metody
-- [ ] 79. Tests: Usuń martwe fixtures i test utilities
-- [ ] 80. Global: Sprawdź nieużywane dependencies (requirements.txt, package.json)
+- [x] 71. Backend: Audyt nieużywanych importów po zadaniach 1-35 ✅ (0 błędów - kod czysty)
+- [x] 72. Frontend: Usunięcie martwego kodu (GraphAnalysis.tsx, etc.) ✅ (już usunięte w zadaniu 50)
+- [x] 73. Backend: Sprawdzenie TODO/FIXME z zadań 1-35 ✅ (14 TODO udokumentowanych w docs/TODO_TRACKING.md)
+- [x] 74. Frontend: Audyt komponentów UI shadcn (38→34 pliki) ✅ (usunięto 4 komponenty)
+- [x] 75. Backend: Sprawdzenie BackgroundTasks usage ✅ (usunięto 1 nieużywany parameter)
+- [x] 76. Full repo: Znajdź duplikaty kodu (copy-paste) ✅ (analiza w docs/CODE_DUPLICATION_ANALYSIS.md)
+- [x] 77. Frontend: Sprawdź nieużywane hooki i utility functions ✅ (usunięto 4 hooks)
+- [x] 78. Backend: Sprawdź czy stare serwisy mają deprecated metody ✅ (0 deprecated - czysty kod)
+- [x] 79. Tests: Usuń martwe fixtures i test utilities ✅ (0 błędów - czyste fixtures)
+- [x] 80. Global: Sprawdź nieużywane dependencies ✅ (analiza w docs/DEPENDENCIES_AUDIT.md)
 
 ### 🟠 P2.5: Audyt Poprzednich Refaktoryzacji
 

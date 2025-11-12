@@ -136,7 +136,9 @@ async def delete_persona(
 
     RBAC:
         - MVP: Wszyscy zalogowani użytkownicy mogą usuwać własne persony
-        - Production: Tylko Admin może usuwać (TODO: add RBAC check)
+        - Production: Tylko Admin może usuwać
+        - 🔴 SECURITY TODO: Add RBAC check (@requires_role('admin'))
+        - See: docs/TODO_TRACKING.md #1 (P0 Security)
 
     Audit:
         - Loguje delete action z reason w persona_audit_log
@@ -270,7 +272,9 @@ async def bulk_delete_personas(
 
     RBAC:
         - MVP: Wszyscy zalogowani użytkownicy mogą usuwać własne persony
-        - Production: Tylko Admin może usuwać (TODO: add RBAC check)
+        - Production: Tylko Admin może usuwać
+        - 🔴 SECURITY TODO: Add RBAC check (@requires_role('admin'))
+        - See: docs/TODO_TRACKING.md #1 (P0 Security)
 
     Audit:
         - Loguje delete action dla każdej persony z reason w persona_audit_log

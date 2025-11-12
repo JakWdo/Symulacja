@@ -12,7 +12,7 @@ import re
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -186,7 +186,6 @@ async def generate_personas(
     request: Request,  # Required by slowapi limiter
     project_id: UUID,
     generate_request: PersonaGenerateRequest,
-    _background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),  # Potrzebne do weryfikacji projektu przed uruchomieniem zadania
     current_user: User = Depends(get_current_user),
 ):
@@ -204,7 +203,6 @@ async def generate_personas(
     Args:
         project_id: UUID projektu
         request: Parametry generowania (num_personas, adversarial_mode, advanced_options)
-        _background_tasks: FastAPI BackgroundTasks do uruchomienia zadania w tle (obecnie niewykorzystane)
         db: Sesja bazy (tylko do weryfikacji projektu)
 
     Returns:
