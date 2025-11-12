@@ -398,7 +398,7 @@ Checklist: [ ] Analyze Python deps [ ] Analyze Node deps [ ] Delete unused [ ] U
 ### 🔴 P0: Security & Critical (NOWE - Q4 2024)
 - [x] 89. RBAC Implementation ✅ (role ENUM w user.py, middleware zaimplementowane)
 - [x] 90. Security Audit ✅ (OWASP Top 10 + manual review wykonany)
-- [ ] 91. Staging Environment Setup - separate Cloud Run service + database dla testowania migrations przed production (CI/CD integration)
+- [x] 91. Staging Environment Setup ✅ (deploy-staging.yml, .env.staging.example, docs/INFRASTRUKTURA.md aktualizacja)
 - [ ] 92. Secrets Scanning w CI/CD - GitHub Actions workflow (TruffleHog, GitGuardian, gitleaks, automated scan, alerts dla findings)
 - [ ] 93. Automated Rollback - Cloud Run automatic rollback on health check failure (5xx >5%, latency >2s, rollback <2min, alerts Slack)
 

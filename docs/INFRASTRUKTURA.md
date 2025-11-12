@@ -1,8 +1,8 @@
 # Infrastruktura i Deployment - Sight Platform
 
-**Ostatnia aktualizacja:** 2025-11-03
-**Wersja:** 2.0
-**Status:** Production-ready
+**Ostatnia aktualizacja:** 2025-11-12
+**Wersja:** 2.1
+**Status:** Production-ready (+ Staging Environment)
 
 ---
 
@@ -12,9 +12,10 @@
 2. [Architektura Docker](#architektura-docker)
 3. [Local Development](#local-development)
 4. [Cloud Run Production](#cloud-run-production)
-5. [External Services](#external-services)
-6. [CI/CD Pipeline](#cicd-pipeline)
-7. [Monitoring & Observability](#monitoring--observability)
+5. [CI/CD Pipeline](#cicd-pipeline)
+6. [Staging Environment](#staging-environment)
+7. [External Services](#external-services)
+8. [Monitoring & Observability](#monitoring--observability)
 
 ---
 
@@ -404,6 +405,232 @@ gcloud artifacts repositories create sight-containers \
 
 # Skonfiguruj Docker authentication
 gcloud auth configure-docker europe-central2-docker.pkg.dev
+```
+
+---
+
+## Staging Environment
+
+### Przegląd
+
+Środowisko staging jest oddzielnym deployment aplikacji Sight, używanym do testowania migracji baz danych, nowych funkcji i zmian konfiguracyjnych przed wdrożeniem na produkcję. Staging jest identyczny pod względem architektury z produkcją (Cloud Run + Cloud SQL + Neo4j + Redis), ale z mniejszymi zasobami i oddzielnymi credentials.
+
+**Kluczowe cele staging:**
+- **Migration Testing**: Testowanie migracji Alembic na prawdziwej bazie danych przed produkcją
+- **Integration Testing**: Weryfikacja integracji z zewnętrznymi serwisami (Gemini API, Neo4j Aura, Upstash Redis)
+- **Performance Testing**: Testowanie pod obciążeniem z realistycznymi danymi
+- **Configuration Validation**: Weryfikacja zmiennych środowiskowych i secrets przed produkcją
+
+### Infrastruktura Staging
+
+**Cloud Run Service:**
+- Nazwa: `sight-staging`
+- Region: `europe-central2` (Warsaw)
+- Resources: 2Gi RAM, 1 CPU (połowa produkcji)
+- Max instances: 2 (produkcja: 5)
+- Auto-scaling: Scale to zero when idle
+
+**Cloud SQL Database:**
+- Instance: `sight-staging-db`
+- Region: `europe-central2`
+- Type: PostgreSQL 15 z pgvector
+- Storage: 10GB SSD
+- Backups: Automated daily (7-day retention)
+
+**External Services:**
+- Neo4j: Oddzielna instancja AuraDB Free (50k nodes)
+- Redis: Oddzielna instancja Upstash Free (10k requests/day)
+- Gemini API: Osobny API key z limitami dla testowania
+
+### CI/CD Pipeline - Staging
+
+Pipeline staging jest zdefiniowany w `.github/workflows/deploy-staging.yml` i uruchamia się automatycznie przy push do brancha `staging`:
+
+**Workflow Steps:**
+1. **Checkout Code**: Pobranie kodu z brancha `staging`
+2. **Authenticate to GCP**: Workload Identity Federation
+3. **Pull Cache**: Pobranie poprzedniego image dla cachingu
+4. **Build Docker Image**: Build z BuildKit inline cache
+5. **Push to Registry**: Tag `sight-staging:latest` i `sight-staging:$SHA`
+6. **Run Migrations**: Alembic upgrade head na staging DB
+7. **Deploy to Cloud Run**: Deploy `sight-staging` service
+8. **Smoke Tests**: Health check + Frontend accessibility
+9. **Summary**: Wyświetlenie URL i statusu deploymentu
+
+**Przykładowy workflow trigger:**
+
+```bash
+# 1. Utwórz branch staging z main
+git checkout main
+git pull origin main
+git checkout -b staging
+git push -u origin staging
+
+# 2. Push zmian do staging (auto-deploy)
+git checkout staging
+git merge main  # Lub cherry-pick specific commits
+git push origin staging
+
+# 3. Pipeline automatycznie:
+#    - Builduje image
+#    - Testuje migracje
+#    - Deployuje do sight-staging
+#    - Weryfikuje smoke tests
+```
+
+**Total time:** ~8-10 minut (z cache'owaniem)
+
+### Deployment Staging
+
+Manual deployment (bez GitHub Actions):
+
+```bash
+# 1. Build local image
+docker build -f Dockerfile.cloudrun -t sight-staging:local .
+
+# 2. Tag i push do Artifact Registry
+docker tag sight-staging:local \
+  europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight-staging:latest
+
+docker push europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight-staging:latest
+
+# 3. Run migrations (BEFORE deploy)
+gcloud run jobs execute db-migrate-staging --region=europe-central2 --wait
+
+# 4. Deploy to Cloud Run
+gcloud run deploy sight-staging \
+  --image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight-staging:latest \
+  --region=europe-central2 \
+  --platform=managed \
+  --memory=2Gi \
+  --cpu=1 \
+  --max-instances=2 \
+  --set-secrets=DATABASE_URL=DATABASE_URL_STAGING:latest,GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest \
+  --set-env-vars=ENVIRONMENT=staging,DEBUG=True
+
+# 5. Verify deployment
+curl https://sight-staging-xxxxx.a.run.app/health
+```
+
+### Konfiguracja Environment Variables
+
+Staging używa oddzielnych secrets w Google Secret Manager:
+
+**Required Secrets (staging-specific):**
+- `DATABASE_URL_STAGING`: Connection string do Cloud SQL staging
+- `GOOGLE_API_KEY_STAGING`: Osobny Gemini API key
+- `NEO4J_URI_STAGING`: Neo4j Aura staging instance
+- `NEO4J_PASSWORD_STAGING`: Neo4j staging password
+- `REDIS_URL_STAGING`: Upstash Redis staging
+- `SECRET_KEY_STAGING`: JWT signing key (DIFFERENT from production!)
+
+**Tworzenie secrets:**
+
+```bash
+# Database URL
+echo -n "postgresql+asyncpg://sight:PASSWORD@/sight_staging_db?host=/cloudsql/PROJECT:REGION:INSTANCE" | \
+  gcloud secrets create DATABASE_URL_STAGING --data-file=-
+
+# API Keys
+echo -n "YOUR_STAGING_GEMINI_KEY" | \
+  gcloud secrets create GOOGLE_API_KEY_STAGING --data-file=-
+
+# Secret Key (generate new!)
+openssl rand -hex 32 | \
+  gcloud secrets create SECRET_KEY_STAGING --data-file=-
+```
+
+### Testing Workflow - Staging → Production
+
+**Typowy workflow testowania:**
+
+1. **Develop Locally**: Implementacja i testy jednostkowe lokalnie
+2. **Push to Staging**: Merge do brancha `staging`, auto-deploy
+3. **Test on Staging**: Manualne testy, smoke tests, performance tests
+4. **Verify Migrations**: Sprawdzenie że migracje działają poprawnie
+5. **Push to Production**: Merge `staging` → `main`, auto-deploy produkcji
+
+**Migration Testing (kluczowy krok):**
+
+```bash
+# 1. Deploy do staging (auto-runs migrations)
+git push origin staging
+
+# 2. Verify migration succeeded
+gcloud run jobs executions list --job=db-migrate-staging --region=europe-central2 --limit=1
+
+# 3. Check migration logs
+gcloud run jobs executions logs EXECUTION_ID
+
+# 4. Test application with new schema
+curl https://sight-staging-xxxxx.a.run.app/health
+# Manual testing w UI
+
+# 5. If migrations OK, push to production
+git checkout main
+git merge staging
+git push origin main  # Auto-deploys to production
+```
+
+### Monitoring Staging
+
+**Cloud Console URLs:**
+- Cloud Run: https://console.cloud.google.com/run/detail/europe-central2/sight-staging
+- Logs: https://console.cloud.google.com/logs (filter: `resource.labels.service_name="sight-staging"`)
+- Metrics: Cloud Run Metrics dashboard
+- SQL: https://console.cloud.google.com/sql/instances/sight-staging-db
+
+**Useful Commands:**
+
+```bash
+# Tail logs
+gcloud run services logs tail sight-staging --region=europe-central2
+
+# Get service URL
+gcloud run services describe sight-staging --region=europe-central2 --format="value(status.url)"
+
+# Check revisions
+gcloud run revisions list --service=sight-staging --region=europe-central2
+
+# Rollback to previous revision
+gcloud run services update-traffic sight-staging --to-revisions=PREVIOUS=100 --region=europe-central2
+```
+
+### Cost Optimization
+
+Staging jest skonfigurowany z mniejszymi zasobami niż produkcja:
+
+| Resource | Production | Staging | Savings |
+|----------|-----------|---------|---------|
+| RAM | 4Gi | 2Gi | 50% |
+| CPU | 2 cores | 1 core | 50% |
+| Max instances | 5 | 2 | 60% |
+| Cloud SQL | db-n1-standard-2 | db-f1-micro | 80% |
+
+**Estimated costs (staging):**
+- Cloud Run: ~$5-10/month (scale to zero + limited traffic)
+- Cloud SQL: ~$10-15/month (db-f1-micro + 10GB storage)
+- Egress: ~$2-5/month
+- **Total: ~$20-30/month**
+
+Production costs: ~$150-200/month (10x więcej traffic, większe resources)
+
+### Cleanup Staging (jeśli niepotrzebny)
+
+```bash
+# Delete Cloud Run service
+gcloud run services delete sight-staging --region=europe-central2
+
+# Delete Cloud SQL instance (CAUTION: irreversible!)
+gcloud sql instances delete sight-staging-db
+
+# Delete migration job
+gcloud run jobs delete db-migrate-staging --region=europe-central2
+
+# Delete secrets
+gcloud secrets delete DATABASE_URL_STAGING
+gcloud secrets delete GOOGLE_API_KEY_STAGING
+gcloud secrets delete SECRET_KEY_STAGING
 ```
 
 ---
