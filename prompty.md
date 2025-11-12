@@ -514,50 +514,6 @@ Prompt: Secrets scan. **Workflow**: `.github/workflows/secrets-scan.yml` → Tru
 
 ---
 
-#### 93. Automated Rollback
-
-Prompt: Auto rollback. **Health**: `/health` endpoint (DB, Redis, Neo4j checks). **Policy**: If 5xx>5% OR latency>2s for 2min → rollback. **Config**: `gcloud run services update --health-check=/health`. **Alerts**: Slack on rollback. **Test**: Crash endpoint, verify rollback <2min. Success: rollback works, MTTR<2min.
-
----
-
-### 🟡 P1: Features & Infrastructure
-
-#### 94. Export PDF/DOCX
-
-Prompt: PDF/DOCX export. **Backend**: `app/services/export/pdf_generator.py` (WeasyPrint), `docx_generator.py` (python-docx). **API**: `POST /api/export/personas/{id}/pdf`. **Features**: Charts, watermarks (free tier), TOC. **Performance**: Background task, <5s download. **Frontend**: Download button. Success: PDF works, <5s, watermarks, tests 85%+.
-
----
-
-#### 95. Stripe Integration
-
-Prompt: Stripe payments. **Models**: `app/models/subscription.py`. **API**: `POST /api/payments/checkout`, `/webhooks/stripe`. **Plans**: Free, Pro $49/mo. **Webhooks**: `checkout.session.completed`, `invoice.payment_succeeded`. **Portal**: Billing portal link. **Frontend**: Pricing page, checkout. Success: subscribe works, webhooks handled, tests 90%+.
-
----
-
-#### 96. Team Accounts
-
-Prompt: Teams. **Models**: `app/models/team.py`, `team_members.py`. **API**: `POST /api/teams`, `/teams/{id}/invite`, `/teams/{id}/projects`. **Permissions**: Owner/Member/Viewer. **Projects**: Add `team_id`, share. **Activity**: Audit log. **Frontend**: Team dashboard. Success: teams work, shared projects, tests 85%+.
-
----
-
-#### 97. Monitoring & Alerting
-
-Prompt: Enhanced monitoring. **Dashboards**: Cloud Monitoring (latency p50/p90/p99, errors, users, costs). **Alerts**: Error>5%, downtime>1min, cost spike>$100/day. **PagerDuty**: Integration, on-call. **Metrics**: Custom (personas/hour, tokens/min). **Reports**: Weekly email. Success: dashboards live, alerts fire, PagerDuty works, MTTR<20min.
-
----
-
-#### 98. E2E Tests Expansion (12→30+)
-
-Prompt: E2E expansion. **Current**: 12 tests. **Target**: 30+. **Coverage**: Persona flow (create→generate→view), Focus groups (setup→discuss→results), Workflows (create→execute→export), Surveys, Settings. **Framework**: Playwright `tests/e2e/`. **CI**: GitHub Actions. **Critical**: 90%+ coverage. Success: 30+ tests, critical paths covered, CI works, flaky<5%.
-
----
-
-#### 99. Multi-LLM Support
-
-Prompt: Multi-provider. **Abstraction**: `app/services/shared/llm_router.py`. **Providers**: Gemini, OpenAI, Anthropic. **Fallback**: Gemini→OpenAI→Anthropic. **Cost Routing**: Prefer cheaper for simple tasks. **Config**: `config/models.yaml` per-domain. **Tracking**: Tokens/cost per provider. Success: 3 providers work, fallback tested, cost tracking accurate.
-
----
-
 ### 🟢 P2: Performance & Tech Debt
 
 #### 100. Bundle Size Reduction (2.5MB→1.5MB)
