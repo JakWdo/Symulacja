@@ -193,10 +193,10 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 93. Automated Rollback ✅ (/health endpoint, InfrastructureHealthService, configure_cloud_run_health_check.sh, docs)
 
 ### 🟡 P1: Features & Infrastructure
-- [ ] 94. Export PDF/DOCX - PDF reports personas/focus groups/surveys (WeasyPrint, python-docx, charts, watermarks free tier, <5s)
-- [ ] 97. Enhanced Monitoring - Cloud Monitoring dashboards, PagerDuty, alerts (error >5%, downtime, costs, MTTR <20min)
-- [ ] 98. E2E Tests Expansion - 12→30+ testów (Playwright, critical paths 90%+: personas, focus groups, workflows)
-- [ ] 99. Multi-LLM Support - abstraction multi-provider (Gemini, OpenAI, Anthropic, fallback, cost routing)
+- [x] 94. Export PDF/DOCX - PDF reports personas/focus groups/surveys (WeasyPrint, python-docx, charts, watermarks free tier, <5s) ✅
+- [x] 97. Enhanced Monitoring - Cloud Monitoring dashboards, PagerDuty, alerts (error >5%, downtime, costs, MTTR <20min) ✅
+- [x] 98. E2E Tests Expansion - 12→30+ testów (Playwright, critical paths 90%+: personas, focus groups, workflows) ✅
+- [x] 99. Multi-LLM Support - abstraction multi-provider (Gemini, OpenAI, Anthropic, fallback, cost routing) ✅
 
 ### 🟢 P2: Performance & Tech Debt
 - [ ] 100. Bundle Size Reduction - 2.5MB→1.5MB (lazy loading, code splitting, tree shaking, Lighthouse >80)
