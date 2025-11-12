@@ -1,0 +1,285 @@
+# Enhanced Google Cloud Monitoring Alerts - Sight Platform
+# Konfiguracja alertów dla comprehensive monitoring
+
+displayName: "Sight Platform - Enhanced Monitoring Alerts"
+
+# Notification channels (ustaw w GCP Console)
+# Email, Slack, PagerDuty, SMS
+notificationChannels:
+  - projects/${PROJECT_ID}/notificationChannels/${EMAIL_CHANNEL_ID}
+  - projects/${PROJECT_ID}/notificationChannels/${PAGERDUTY_CHANNEL_ID}
+  - projects/${PROJECT_ID}/notificationChannels/${SLACK_CHANNEL_ID}
+
+# Warunki alertów
+conditions:
+
+  # ====== CRITICAL ALERTS (P0) ======
+
+  # Alert 1: High Error Rate (>5% dla 2 minut)
+  - displayName: "🚨 CRITICAL: High Error Rate >5%"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        resource.labels.service_name = "sight-api"
+        metric.type = "run.googleapis.com/request_count"
+        metric.label.response_code_class = "5xx"
+      comparison: COMPARISON_GT
+      thresholdValue: 0.05  # >5% error rate
+      duration: 120s  # 2 minuty
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_RATE
+          crossSeriesReducer: REDUCE_MEAN
+          groupByFields: []
+
+  # Alert 2: Service Downtime (brak healthy responses >1 min)
+  - displayName: "🚨 CRITICAL: Service Downtime >1min"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        resource.labels.service_name = "sight-api"
+        metric.type = "run.googleapis.com/request_count"
+        metric.label.response_code = "200"
+      comparison: COMPARISON_LT
+      thresholdValue: 1  # Brak successful requests
+      duration: 60s  # 1 minuta
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_RATE
+
+  # Alert 3: Database Connection Failures
+  - displayName: "🚨 CRITICAL: Database Connection Failures"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        metric.type = "logging.googleapis.com/user/database_connection_error"
+      comparison: COMPARISON_GT
+      thresholdValue: 5
+      duration: 60s
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_RATE
+
+  # ====== HIGH PRIORITY ALERTS (P1) ======
+
+  # Alert 4: High Latency p99 (>2s)
+  - displayName: "⚠️ HIGH: API Latency p99 >2s"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        resource.labels.service_name = "sight-api"
+        metric.type = "run.googleapis.com/request_latencies"
+      comparison: COMPARISON_GT
+      thresholdValue: 2000  # 2000ms = 2s
+      duration: 300s  # 5 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_PERCENTILE_99
+
+  # Alert 5: High Latency p90 (>500ms)
+  - displayName: "⚠️ HIGH: API Latency p90 >500ms"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        resource.labels.service_name = "sight-api"
+        metric.type = "run.googleapis.com/request_latencies"
+      comparison: COMPARISON_GT
+      thresholdValue: 500  # 500ms
+      duration: 600s  # 10 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_PERCENTILE_90
+
+  # Alert 6: Cost Spike (>$100/day)
+  - displayName: "⚠️ HIGH: Daily Cost Spike >$100"
+    conditionThreshold:
+      filter: |
+        resource.type = "global"
+        metric.type = "billing.googleapis.com/project/cost"
+      comparison: COMPARISON_GT
+      thresholdValue: 100  # $100/day
+      duration: 3600s  # 1 godzina
+      aggregations:
+        - alignmentPeriod: 3600s
+          perSeriesAligner: ALIGN_DELTA
+          crossSeriesReducer: REDUCE_SUM
+
+  # Alert 7: Gemini API Rate Limit
+  - displayName: "⚠️ HIGH: Gemini API Rate Limit Exceeded"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        metric.type = "logging.googleapis.com/user/gemini_rate_limit_error"
+      comparison: COMPARISON_GT
+      thresholdValue: 10
+      duration: 300s  # 5 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_RATE
+
+  # ====== MEDIUM PRIORITY ALERTS (P2) ======
+
+  # Alert 8: High Memory Usage (>85%)
+  - displayName: "📊 MEDIUM: High Memory Usage >85%"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        resource.labels.service_name = "sight-api"
+        metric.type = "run.googleapis.com/container/memory/utilizations"
+      comparison: COMPARISON_GT
+      thresholdValue: 0.85  # 85%
+      duration: 300s  # 5 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_PERCENTILE_95
+
+  # Alert 9: High CPU Usage (>90%)
+  - displayName: "📊 MEDIUM: High CPU Usage >90%"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        resource.labels.service_name = "sight-api"
+        metric.type = "run.googleapis.com/container/cpu/utilizations"
+      comparison: COMPARISON_GT
+      thresholdValue: 0.9  # 90%
+      duration: 600s  # 10 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_PERCENTILE_99
+
+  # Alert 10: Low Persona Generation Rate (performance degradation)
+  - displayName: "📊 MEDIUM: Low Persona Generation Rate"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        metric.type = "custom.googleapis.com/sight/personas_generated_per_hour"
+      comparison: COMPARISON_LT
+      thresholdValue: 10  # <10 personas/hour (możliwy problem)
+      duration: 1800s  # 30 minut
+      aggregations:
+        - alignmentPeriod: 3600s
+          perSeriesAligner: ALIGN_RATE
+
+  # Alert 11: High Token Usage Rate (cost optimization)
+  - displayName: "📊 MEDIUM: High Token Usage Rate"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        metric.type = "custom.googleapis.com/sight/tokens_per_minute"
+      comparison: COMPARISON_GT
+      thresholdValue: 50000  # >50k tokens/min
+      duration: 600s  # 10 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_RATE
+
+  # ====== LOW PRIORITY ALERTS (P3) ======
+
+  # Alert 12: Increased Cold Start Rate
+  - displayName: "ℹ️ LOW: Increased Cold Start Rate"
+    conditionThreshold:
+      filter: |
+        resource.type = "cloud_run_revision"
+        metric.type = "run.googleapis.com/container/instance_count"
+        metric.label.state = "starting"
+      comparison: COMPARISON_GT
+      thresholdValue: 5
+      duration: 600s  # 10 minut
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_MEAN
+
+# Combiner - OR means any condition triggers alert
+combiner: OR
+
+# Dokumentacja alertu
+documentation:
+  content: |
+    # Sight Platform - Enhanced Monitoring Alerts
+
+    ## CRITICAL ALERTS (P0) - Immediate Action Required (MTTR <20min)
+
+    ### 🚨 High Error Rate >5%
+    **Severity:** P0 | **MTTR Target:** <20min
+    **Actions:**
+    1. Check Cloud Run logs: `gcloud logging read "resource.type=cloud_run_revision AND severity>=ERROR" --limit 50 --format json`
+    2. Verify database connectivity: `gcloud sql instances describe sight-db`
+    3. Check recent deployments: `gcloud run revisions list --service sight-api`
+    4. Rollback if needed: `gcloud run services update-traffic sight-api --to-revisions=PREVIOUS_REVISION=100`
+
+    ### 🚨 Service Downtime >1min
+    **Severity:** P0 | **MTTR Target:** <10min
+    **Actions:**
+    1. Check service status: `gcloud run services describe sight-api`
+    2. Verify health endpoint: `curl https://sight-api-xxx.run.app/health`
+    3. Check for incidents: GCP Status Dashboard
+    4. Immediate rollback if deployment-related
+
+    ### 🚨 Database Connection Failures
+    **Severity:** P0 | **MTTR Target:** <15min
+    **Actions:**
+    1. Check Cloud SQL status: `gcloud sql instances describe sight-db`
+    2. Verify connection strings in Secret Manager
+    3. Check connection pool limits
+    4. Review recent schema migrations
+
+    ## HIGH PRIORITY ALERTS (P1) - Action within 1 hour
+
+    ### ⚠️ API Latency p99 >2s
+    **Severity:** P1 | **MTTR Target:** <1hr
+    **Actions:**
+    1. Review slow queries: `SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMIT 10`
+    2. Check N+1 query patterns
+    3. Review recent code changes affecting database access
+    4. Consider adding database indexes
+
+    ### ⚠️ Daily Cost Spike >$100
+    **Severity:** P1 | **MTTR Target:** <2hr
+    **Actions:**
+    1. Check billing dashboard: https://console.cloud.google.com/billing
+    2. Review Gemini API usage: Check token usage metrics
+    3. Identify high-cost operations in usage logs
+    4. Adjust rate limits if needed
+
+    ### ⚠️ Gemini API Rate Limit
+    **Severity:** P1 | **MTTR Target:** <1hr
+    **Actions:**
+    1. Review current rate limits: Check Gemini API quota
+    2. Implement exponential backoff in code
+    3. Consider upgrading API quota
+    4. Batch requests if possible
+
+    ## MEDIUM PRIORITY ALERTS (P2) - Monitor and plan
+
+    ### 📊 High Memory/CPU Usage
+    **Actions:**
+    1. Review Cloud Run metrics dashboard
+    2. Identify memory-intensive operations
+    3. Consider vertical scaling (increase memory allocation)
+    4. Profile application for memory leaks
+
+    ### 📊 Low Persona Generation Rate
+    **Actions:**
+    1. Check Gemini API latency
+    2. Review concurrent generation limits
+    3. Verify no background job failures
+    4. Monitor user activity patterns
+
+    ## Runbook Links:
+    - Cloud Run Dashboard: https://console.cloud.google.com/run
+    - Logs Explorer: https://console.cloud.google.com/logs
+    - Monitoring Dashboards: https://console.cloud.google.com/monitoring/dashboards
+    - Billing: https://console.cloud.google.com/billing
+    - PagerDuty: https://sight.pagerduty.com
+
+    ## Escalation Path:
+    1. On-call engineer (PagerDuty)
+    2. Senior engineer (if MTTR >20min for P0)
+    3. Tech lead (if MTTR >1hr for P0)
+    4. CTO (if incident >4hr or multiple P0s)
+
+# Notification settings
+alertStrategy:
+  autoClose: 604800s  # 7 dni
+  notificationRateLimit:
+    period: 300s  # Max 1 notification per 5 min (avoid spam)
