@@ -53,7 +53,7 @@ class User(Base):
 
     # === RBAC (Role-Based Access Control) ===
     system_role = Column(
-        Enum(SystemRole, name='system_role_enum', create_type=False),
+        Enum(SystemRole, name='system_role_enum', create_type=False, values_callable=lambda x: x.value),
         nullable=False,
         default=SystemRole.RESEARCHER,
         server_default='researcher'

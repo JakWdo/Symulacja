@@ -3,7 +3,7 @@
 **Projekt:** Sight AI-powered Focus Groups Platform
 **Ścieżka:** `.` (ścieżki repo‑relatywne)
 **Data utworzenia:** 2025-11-11
-**Scope:** 114 zadań cleanup dla redukcji długu technicznego
+**Scope:** 115 zadań cleanup dla redukcji długu technicznego
 **Cel:** Modularyzacja kodu (max 700 linii/plik), usunięcie TODO/hardcoded values, optymalizacja struktury
 
 ---
@@ -27,7 +27,7 @@
    - [🟡 P1: Features & Infrastructure (95-99)](#p1-features--infrastructure)
    - [🟢 P2: Performance & Tech Debt (100-104)](#p2-performance--tech-debt)
    - [🟢 P2.8: Repository Cleanup (105-109)](#p28-repository-cleanup)
-   - [🔵 P3: Documentation (110-114)](#p3-documentation)
+   - [🔵 P3: Documentation (110-115)](#p3-documentation)
 4. [Appendix: Komendy i Narzędzia](#appendix-komendy-i-narzędzia)
 
 ---
@@ -430,10 +430,11 @@ Checklist: [ ] Analyze Python deps [ ] Analyze Node deps [ ] Delete unused [ ] U
 - [ ] 112. docs/ROADMAP.md - dodaj "Completed 2024" (zadania 1-51), zaktualizuj Q1 2025 priorities (86-115)
 - [ ] 113. docs/CLAUDE.md - aktualizuj Referencję Kluczowych Plików po refaktoryzacjach, przykłady importów
 - [ ] 114. docs/README.md - zaktualizuj linki i opisy, dodaj nowe sekcje jeśli potrzebne
+- [ ] 115. Kompleksowa aktualizacja całej dokumentacji projektu - audyt i aktualizacja wszystkich plików docs/
 
 ---
 
-## 🧹 Prompty Cleanup - NOWE ZADANIA (71-114)
+## 🧹 Prompty Cleanup - NOWE ZADANIA (71-115)
 
 ### 🟠 P2.6: Audyt Post-Split
 
@@ -650,6 +651,12 @@ Prompt: Zaktualizuj `docs/CLAUDE.md`. **Section "Referencja Kluczowych Plików"*
 #### 114. docs/README.md - linki i indeks
 
 Prompt: Zaktualizuj `docs/README.md`. **Review**: Wszystkie linki do docs. **Add**: Nowe sekcje jeśli brakuje (workflows docs z zadania 31). **Check**: Alfabetyczny porządek, opisy aktualne. Success: README indeks aktualny, wszystkie docs linkowane.
+
+---
+
+#### 115. Kompleksowa aktualizacja całej dokumentacji projektu
+
+Prompt: Przeprowadź kompleksowy audyt i aktualizację całej dokumentacji projektu. **Sprawdź wszystkie pliki docs/**: BACKEND.md, AI_ML.md, FRONTEND.md, INFRASTRUKTURA.md, QA.md, BIZNES.md, ROADMAP.md, SECURITY.md, CLAUDE.md, README.md. **Zweryfikuj**: Czy opis architektury jest aktualny po refaktoryzacjach 1-114, czy wszystkie wzorce kodowania są udokumentowane, czy przykłady kodu działają, czy linki są poprawne, czy brakuje dokumentacji nowych features. **Dodaj**: Brakujące sekcje (np. nowe serwisy, endpoints, komponenty). **Usuń**: Zdezaktualizowane informacje, martwe linki, nieaktualne przykłady. **Zaktualizuj**: Strukturę folderów, ścieżki importów, nazwy plików po refaktoryzacjach. Success: Wszystkie pliki dokumentacji aktualne, spójne, kompletne, bez błędów.
 
 ---
 
