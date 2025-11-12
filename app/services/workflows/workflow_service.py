@@ -53,17 +53,89 @@ class WorkflowService:
         Raises:
             HTTPException: 400 jeśli project nie istnieje lub user nie ma dostępu
         """
-        logger.info(f"Creating workflow '{data.name}' for user {user_id}")
+        logger.info(
+            f"Creating workflow '{data.name}' for user {user_id}",
+            extra={
+                "workflow_name": data.name,
+                "project_id": str(data.project_id),
+                "user_id": str(user_id)
+            }
+        )
 
         # 1. Weryfikuj że projekt istnieje i user ma do niego dostęp
         from app.models import Project  # Avoid circular import
 
-        project_stmt = select(Project).where(and_(Project.id == data.project_id, Project.owner_id == user_id, Project.is_active))
-        project_result = await self.db.execute(project_stmt)
-        project = project_result.scalar_one_or_none()
+        # Check if project exists (without owner/active filters)
+        project_check_stmt = select(Project).where(Project.id == data.project_id)
+        project_check_result = await self.db.execute(project_check_stmt)
+        project_exists = project_check_result.scalar_one_or_none()
 
-        if not project:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project {data.project_id} not found or access denied")
+        if not project_exists:
+            logger.warning(
+                f"Project {data.project_id} does not exist",
+                extra={
+                    "project_id": str(data.project_id),
+                    "user_id": str(user_id),
+                    "error": "project_not_found"
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error": "project_not_found",
+                    "message": f"Project {data.project_id} does not exist",
+                    "hint": "Please create a project first or verify the project_id"
+                }
+            )
+
+        # Check if project is active
+        if not project_exists.is_active:
+            logger.warning(
+                f"Project {data.project_id} is inactive",
+                extra={
+                    "project_id": str(data.project_id),
+                    "user_id": str(user_id),
+                    "error": "project_inactive"
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error": "project_inactive",
+                    "message": f"Project {data.project_id} is inactive or has been deleted",
+                    "hint": "Please restore the project or use a different project_id"
+                }
+            )
+
+        # Check if user has access (owner)
+        if project_exists.owner_id != user_id:
+            logger.warning(
+                f"User {user_id} does not have access to project {data.project_id}",
+                extra={
+                    "project_id": str(data.project_id),
+                    "user_id": str(user_id),
+                    "project_owner_id": str(project_exists.owner_id),
+                    "error": "access_denied"
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "access_denied",
+                    "message": f"You do not have permission to access project {data.project_id}",
+                    "hint": "You can only create workflows in projects you own"
+                }
+            )
+
+        # All checks passed
+        project = project_exists
+        logger.info(
+            f"Project {data.project_id} verified successfully",
+            extra={
+                "project_id": str(data.project_id),
+                "project_name": project.name
+            }
+        )
 
         # 2. Utwórz workflow
         workflow = Workflow(

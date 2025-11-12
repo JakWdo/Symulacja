@@ -187,21 +187,37 @@ async def instantiate_template(
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
-    except HTTPException:
-        # Re-raise HTTPException (403, etc.)
+    except HTTPException as http_ex:
+        # Re-raise HTTPException with preserved detail (404, 403, etc.)
+        # WorkflowService now returns structured error details
+        logger.warning(
+            f"Template instantiation HTTP error: {http_ex.status_code}",
+            extra={
+                "template_id": template_id,
+                "project_id": str(request.project_id),
+                "user_id": str(current_user.id),
+                "status_code": http_ex.status_code,
+                "detail": http_ex.detail
+            },
+        )
         raise
 
     except Exception as e:
         logger.error(
-            f"Template instantiation error: {e}",
+            f"Template instantiation unexpected error: {e}",
             exc_info=True,
             extra={
                 "template_id": template_id,
                 "project_id": str(request.project_id),
                 "user_id": str(current_user.id),
+                "error_type": type(e).__name__
             },
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create workflow from template",
+            detail={
+                "error": "internal_server_error",
+                "message": "Failed to create workflow from template",
+                "hint": "Please check server logs for details or contact support"
+            },
         )

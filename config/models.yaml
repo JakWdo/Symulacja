@@ -72,6 +72,15 @@ domains:
       timeout: 30
 
   study_designer:
+    conversation_extraction:
+      model: "gemini-2.5-pro"  # PRO dla critical multi-step extraction
+      temperature: 0.3  # Niska dla consistent JSON structured output
+      max_tokens: 3000
+      timeout: 45
+      retries: 3
+      # NOTE: Używany w v2 architecture (conversation_extractor node)
+      # Zastępuje wszystkie 5 starych nodes w 1 wywołaniu
+
     question_generation:
       model: "gemini-2.5-flash"
       temperature: 0.8  # Wyższa dla kreatywnych follow-up questions

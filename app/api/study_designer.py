@@ -14,6 +14,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from uuid import UUID
@@ -186,24 +187,48 @@ async def send_message_stream(
 
     async def event_generator():
         try:
-            # Initial status event
-            yield {
-                "event": "status",
-                "data": json.dumps({"message": "Przetwarzanie pytania..."})
-            }
-
-            # Stream from orchestrator
-            async for chunk in orchestrator.process_user_message_stream(
-                session_id, data.message
-            ):
+            # Wrap całość w timeout (90s max - więcej niż state machine 60s)
+            async with asyncio.timeout(90.0):
+                # Initial status event
                 yield {
-                    "event": "message",
-                    "data": chunk.model_dump_json()
+                    "event": "status",
+                    "data": json.dumps({"message": "Przetwarzanie pytania..."})
                 }
 
+                # Stream from orchestrator
+                async for chunk in orchestrator.process_user_message_stream(
+                    session_id, data.message
+                ):
+                    yield {
+                        "event": "message",
+                        "data": chunk.model_dump_json()
+                    }
+
+        except asyncio.TimeoutError:
+            # API-level timeout
+            logger.error(
+                f"SSE stream timeout exceeded (90s) for session {session_id}",
+                extra={
+                    "session_id": str(session_id),
+                    "user_id": str(user.id),
+                    "timeout": 90.0
+                }
+            )
+            yield {
+                "event": "error",
+                "data": json.dumps({
+                    "error": "timeout",
+                    "message": "Request took too long (>90s). Please try again with a simpler query.",
+                    "hint": "Break your question into smaller parts or be more specific"
+                })
+            }
+
         except HTTPException as e:
-            # Forward HTTP errors (timeout, etc)
-            logger.error(f"SSE stream HTTP error: {e.status_code} - {e.detail}")
+            # Forward HTTP errors (timeout from state machine, auth errors, etc.)
+            logger.error(
+                f"SSE stream HTTP error: {e.status_code} - {e.detail}",
+                extra={"session_id": str(session_id), "status_code": e.status_code}
+            )
             yield {
                 "event": "error",
                 "data": json.dumps({
@@ -211,11 +236,19 @@ async def send_message_stream(
                     "detail": e.detail
                 })
             }
+
         except Exception as e:
-            logger.error(f"SSE stream error: {e}", exc_info=True)
+            logger.error(
+                f"SSE stream unexpected error: {e}",
+                exc_info=True,
+                extra={"session_id": str(session_id), "error_type": type(e).__name__}
+            )
             yield {
                 "event": "error",
-                "data": json.dumps({"detail": str(e)})
+                "data": json.dumps({
+                    "error": "internal_error",
+                    "detail": str(e)
+                })
             }
 
     return EventSourceResponse(event_generator())

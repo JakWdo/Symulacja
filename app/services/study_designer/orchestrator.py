@@ -20,8 +20,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
+from config import features
 from app.models.study_designer import StudyDesignerSession, StudyDesignerMessage
 from app.services.study_designer.state_machine import ConversationStateMachine
+from app.services.study_designer.state_machine_v2 import ConversationStateMachineV2
 from app.services.study_designer.state_schema import (
     create_initial_state,
     serialize_state,
@@ -37,6 +39,7 @@ class StudyDesignerOrchestrator:
     Główny orchestrator Study Designer Chat.
 
     Integruje LangGraph state machine z persistence layer (PostgreSQL).
+    Wspiera v1 (old 7-node) i v2 (new 3-node) architecture via feature flag.
     """
 
     def __init__(self, db: AsyncSession):
@@ -47,7 +50,18 @@ class StudyDesignerOrchestrator:
             db: SQLAlchemy async session
         """
         self.db = db
-        self.state_machine = ConversationStateMachine()
+
+        # Feature flag: Choose v1 vs v2 architecture
+        use_v2 = features.get("study_designer", {}).get("use_v2_architecture", False)
+
+        if use_v2:
+            logger.info("[Orchestrator] Using V2 architecture (3-node simplified graph)")
+            self.state_machine = ConversationStateMachineV2()
+            self.architecture_version = "v2"
+        else:
+            logger.info("[Orchestrator] Using V1 architecture (7-node legacy graph)")
+            self.state_machine = ConversationStateMachine()
+            self.architecture_version = "v1"
         logger.debug("StudyDesignerOrchestrator initialized")
 
     async def create_session(

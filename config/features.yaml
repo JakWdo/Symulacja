@@ -43,6 +43,25 @@ orchestration:
   # Without caching (cold start): may take up to 60s
   timeout: 90  # Safety margin for Cloud Run
 
+study_designer:
+  # Feature flag: Use v2 architecture (simplified 3-node graph)
+  # V2 Benefits:
+  #   - 5-9 LLM calls → 1-2 calls (-80% latency reduction)
+  #   - Gemini Pro dla multi-step extraction (better JSON quality)
+  #   - Response caching (20-30% cache hit rate)
+  #   - 35-45s average → 12-15s average
+  # Trade-off: +60% cost per conversation (Gemini Pro), ale cache reduces effective cost
+  # Rollback: Ustaw na False aby wrócić do v1 (old 7-node architecture)
+  use_v2_architecture: true
+
+  # V2 caching
+  cache_enabled: true
+  cache_ttl_seconds: 3600  # 1 hour
+
+  # Timeouts
+  api_timeout_seconds: 90  # API layer timeout
+  graph_timeout_seconds: 60  # State machine timeout
+
 performance:
   # Maksymalny czas odpowiedzi pojedynczej persony (sekundy)
   max_response_time_per_persona: 3
