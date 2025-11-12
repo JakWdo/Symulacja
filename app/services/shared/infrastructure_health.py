@@ -14,7 +14,9 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logging_config import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class InfrastructureHealthService:
