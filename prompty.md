@@ -203,17 +203,17 @@ Odznaczaj po zakończeniu każdego promptu:
 - [x] 101. Lazy Loading Routes - React.lazy wszystkie route components (initial <1MB, route <200ms) ✅
 - [x] 102. N+1 Query Problem - selectinload/joinedload (API latency <300ms p90, 0 N+1 critical) ✅
 - [x] 103. Neo4j Connection Leaks - context managers `async with` (memory stable, monitoring) ✅
-- [ ] 104. Missing Database Indexes - pg_stat_statements analysis (queries <100ms p95, indexed)
+- [x] 104. Missing Database Indexes - pg_stat_statements analysis (queries <100ms p95, indexed) ✅
 
 ### 🟢 P2.8: Repository Cleanup
-- [ ] 105. Cleanup cache - .pytest_cache, .ruff_cache, __pycache__, .pyc (dodaj .gitignore)
-- [ ] 106. Cleanup .DS_Store - usuń wszystkie .DS_Store (dodaj .gitignore)
-- [ ] 107. Archive obsolete .md - przenieś do archive/: STUDY_DESIGNER_*.md, IMPLEMENTATION_PROGRESS.md, DARK_MODE_AUDIT_*.md
-- [ ] 108. Cleanup root - przenieś DEMO_DATA_INFO.md do docs/, oceń docker-compose.prod.yml
-- [ ] 109. Docker volumes cleanup - sprawdź volumes, cleanup local Neo4j/PostgreSQL data
+- [x] 105. Cleanup cache - .pytest_cache, .ruff_cache, __pycache__, .pyc (dodaj .gitignore) ✅
+- [x] 106. Cleanup .DS_Store - usuń wszystkie .DS_Store (dodaj .gitignore) ✅
+- [x] 107. Archive obsolete .md - przenieś do archive/: STUDY_DESIGNER_*.md, IMPLEMENTATION_PROGRESS.md, DARK_MODE_AUDIT_*.md ✅
+- [x] 108. Cleanup root - przenieś DEMO_DATA_INFO.md do docs/, oceń docker-compose.prod.yml ✅
+- [x] 109. Docker volumes cleanup - sprawdź volumes, cleanup local Neo4j/PostgreSQL data ✅
 
 ### 🔵 P3: Documentation
-- [ ] 110. docs/BACKEND.md - aktualizacja refaktoryzacji 1-35 (service layer split, nowa struktura)
+- [x] 110. docs/BACKEND.md - aktualizacja refaktoryzacji 1-35 (service layer split, nowa struktura) ✅
 - [ ] 111. docs/AI_ML.md - aktualizacja RAG (3,6), persona generation (1,4,8-10)
 - [ ] 112. docs/ROADMAP.md - dodaj "Completed 2024" (1-70), zaktualizuj Q1 2025 (71-115)
 - [ ] 113. docs/CLAUDE.md - aktualizuj Referencję Kluczowych Plików, przykłady importów
