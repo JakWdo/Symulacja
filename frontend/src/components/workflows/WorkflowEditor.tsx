@@ -41,7 +41,7 @@ import { useExecuteWorkflow } from '@/hooks/useWorkflowExecution';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Layers, History } from 'lucide-react';
+import { Layers, History, ArrowLeft } from 'lucide-react';
 
 import { ValidationDialog } from './ValidationDialog';
 import { SaveWorkflowDialog } from './SaveWorkflowDialog';
@@ -80,8 +80,8 @@ export function WorkflowEditor({ workflowId, onBack }: WorkflowEditorProps) {
   // Local State
   // ============================================
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes] = useNodesState([]);
+  const [edges, setEdges] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isValidationOpen, setIsValidationOpen] = useState(false);
