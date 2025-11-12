@@ -57,6 +57,113 @@ gcloud run services describe sight-staging \
   --format="value(status.url)"
 ```
 
+### 2. Secrets Scanning (`secrets-scan.yml`)
+
+**Trigger:** Automatyczny na każdy push, pull request, daily schedule (2 AM UTC), lub manual trigger
+
+**Cel:** Wykrywanie secrets, API keys, credentials w kodzie i git history - zapobieganie wyciekowi danych
+
+**Narzędzia:**
+- **TruffleHog** (primary): Open-source secrets scanner z weryfikacją
+- **GitGuardian** (optional): Commercial secrets detection (wymaga API key)
+
+**Kroki:**
+1. **TruffleHog Scan**: Skanowanie całej git history z custom config
+2. **GitGuardian Scan**: Dodatkowa weryfikacja (jeśli włączone)
+3. **Historical Scan**: Deep scan całej historii (manual/scheduled tylko)
+4. **Block Deployment**: Blokada deployment jeśli secrets wykryte na main/staging
+
+**Czas wykonania:**
+- Push/PR scan: ~30-60s
+- Historical scan: ~2-5 minut (zależnie od wielkości repo)
+
+**Konfiguracja:**
+- `.trufflehog.yaml`: Reguły skanowania, exclusions, custom detectors
+- `GITGUARDIAN_API_KEY` (optional): Secret dla GitGuardian integration
+- `GITGUARDIAN_ENABLED` variable: `true` aby włączyć GitGuardian
+
+**Użycie:**
+
+```bash
+# Automatyczny trigger (każdy push)
+git add .
+git commit -m "feature: new API endpoint"
+git push origin main  # Auto-triggers secrets scan
+
+# Manual trigger historical scan (przez GitHub UI)
+# Actions → Secrets Scanning → Run workflow → historical-scan job
+
+# Local scan (Docker)
+docker run --rm -v "$(pwd):/repo" trufflesecurity/trufflehog:latest \
+  git file:///repo --config=.trufflehog.yaml --only-verified
+
+# Local scan (installed)
+trufflehog git file://. --config=.trufflehog.yaml --only-verified
+```
+
+**Obsługa wykrytych secrets:**
+
+Jeśli scan wykryje secret:
+
+```bash
+# 1. Natychmiast zrotuj credential (utwórz nowy)
+# Przykład dla Google API Key:
+# - Wejdź na https://console.cloud.google.com/apis/credentials
+# - Usuń skompromitowany klucz
+# - Utwórz nowy klucz
+# - Dodaj do Secret Manager:
+echo -n "NEW_API_KEY" | gcloud secrets versions add GOOGLE_API_KEY --data-file=-
+
+# 2. Usuń secret z kodu (zastąp zmienną środowiskową)
+# Przed:
+# api_key = "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+# Po:
+api_key = os.getenv("GOOGLE_API_KEY")
+
+# 3. Usuń z git history (jeśli w historii)
+# Metoda 1: BFG Repo-Cleaner (recommended)
+git clone --mirror https://github.com/JakWdo/Symulacja.git
+bfg --delete-files .env Symulacja.git
+cd Symulacja.git
+git reflog expire --expire=now --all
+git gc --prune=now --aggressive
+git push --force
+
+# Metoda 2: git filter-branch (slower)
+git filter-branch --force --index-filter \
+  'git rm --cached --ignore-unmatch .env' \
+  --prune-empty --tag-name-filter cat -- --all
+git push --force --all
+
+# 4. Commit fix
+git add .
+git commit -m "security: remove leaked credentials, use env vars"
+git push origin main
+```
+
+**False positives:**
+
+Jeśli scan wykrywa false positive:
+
+1. Sprawdź czy to naprawdę false positive (nie prawdziwy secret!)
+2. Dodaj do `.trufflehog.yaml`:
+   ```yaml
+   allow:
+     - 'your-safe-pattern-here'
+   ```
+   lub
+   ```yaml
+   exclude:
+     paths:
+       - 'path/to/file\.txt$'
+   ```
+3. Commit i push fix:
+   ```bash
+   git add .trufflehog.yaml
+   git commit -m "chore: update secrets scan config - false positive exclusion"
+   git push origin main
+   ```
+
 ## Setup Workload Identity Federation
 
 Aby workflow działał, musisz skonfigurować Workload Identity Federation w GCP:
@@ -242,7 +349,7 @@ gcloud run revisions list --service=sight-staging --region=europe-central2 --lim
 ## Przyszłe Workflows (TODO)
 
 - [ ] `deploy-production.yml` - Auto-deploy do produkcji z brancha `main`
-- [ ] `secrets-scan.yml` - Skanowanie secrets w kodzie (TruffleHog, GitGuardian)
+- [x] `secrets-scan.yml` ✅ - Skanowanie secrets w kodzie (TruffleHog, GitGuardian)
 - [ ] `security-audit.yml` - OWASP, Bandit, Safety checks
 - [ ] `performance-tests.yml` - Load testing na staging
 - [ ] `e2e-tests.yml` - Playwright E2E tests na staging

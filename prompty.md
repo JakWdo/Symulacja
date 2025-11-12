@@ -399,7 +399,7 @@ Checklist: [ ] Analyze Python deps [ ] Analyze Node deps [ ] Delete unused [ ] U
 - [x] 89. RBAC Implementation ✅ (role ENUM w user.py, middleware zaimplementowane)
 - [x] 90. Security Audit ✅ (OWASP Top 10 + manual review wykonany)
 - [x] 91. Staging Environment Setup ✅ (deploy-staging.yml, .env.staging.example, docs/INFRASTRUKTURA.md aktualizacja)
-- [ ] 92. Secrets Scanning w CI/CD - GitHub Actions workflow (TruffleHog, GitGuardian, gitleaks, automated scan, alerts dla findings)
+- [x] 92. Secrets Scanning w CI/CD ✅ (secrets-scan.yml, .trufflehog.yaml, TruffleHog + GitGuardian, daily schedule)
 - [ ] 93. Automated Rollback - Cloud Run automatic rollback on health check failure (5xx >5%, latency >2s, rollback <2min, alerts Slack)
 
 ### 🟡 P1: Features & Infrastructure (NOWE - Q1 2025)
