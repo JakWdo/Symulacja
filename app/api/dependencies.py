@@ -19,7 +19,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.security import decode_access_token
-from app.models.user import User
+from app.models.user import User, SystemRole
 from app.models.project import Project
 from app.models.persona import Persona
 from app.models.focus_group import FocusGroup
@@ -95,7 +95,7 @@ async def get_current_user(
 
     if user is None:
         logger.warning(
-            f"Authentication failed: User not found",
+            "Authentication failed: User not found",
             extra={"user_id": user_id}
         )
         raise HTTPException(
@@ -107,7 +107,7 @@ async def get_current_user(
     # Sprawdź czy konto jest aktywne
     if not user.is_active:
         logger.warning(
-            f"Authorization failed: User account disabled",
+            "Authorization failed: User account disabled",
             extra={"user_id": str(user.id), "email": user.email}
         )
         raise HTTPException(
@@ -117,7 +117,7 @@ async def get_current_user(
 
     request.state.current_user = user
 
-    logger.debug(f"User authenticated successfully", extra={"user_id": str(user.id)})
+    logger.debug("User authenticated successfully", extra={"user_id": str(user.id)})
     return user
 
 
@@ -159,7 +159,7 @@ async def get_current_admin_user(
     """
     Dependency dla endpointów wymagających uprawnień administratora
 
-    Sprawdza czy użytkownik ma plan "enterprise" (lub w przyszłości dodaj pole is_admin).
+    Sprawdza czy użytkownik ma system_role = ADMIN.
     Używaj dla operacji administracyjnych (np. zarządzanie wszystkimi użytkownikami).
 
     Args:
@@ -177,11 +177,58 @@ async def get_current_admin_user(
             # Tylko administratorzy mogą uzyskać dostęp
             pass
     """
-    # DO ZROBIENIA: w przyszłości dodaj pole User.is_admin zamiast sprawdzania planu
-    if current_user.plan != "enterprise":
+    if current_user.system_role != SystemRole.ADMIN:
+        logger.warning(
+            "Admin access denied",
+            extra={
+                "user_id": str(current_user.id),
+                "user_email": current_user.email,
+                "user_role": current_user.system_role.value
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
+        )
+    return current_user
+
+
+async def get_current_researcher_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Dependency dla endpointów wymagających uprawnień researcher lub wyższych.
+
+    Sprawdza czy użytkownik ma system_role >= RESEARCHER (ADMIN lub RESEARCHER).
+    Używaj dla operacji tworzenia/edycji projektów, person, grup fokusowych.
+
+    Args:
+        current_user: User z get_current_user dependency
+
+    Returns:
+        User object z uprawnieniami researcher+
+
+    Raises:
+        HTTPException 403: Jeśli użytkownik ma tylko rolę VIEWER
+
+    Usage:
+        @router.post("/projects")
+        async def create_project(current_user: User = Depends(get_current_researcher_user)):
+            # RESEARCHER i ADMIN mogą tworzyć projekty
+            pass
+    """
+    if current_user.system_role == SystemRole.VIEWER:
+        logger.warning(
+            "Researcher access denied - user is VIEWER",
+            extra={
+                "user_id": str(current_user.id),
+                "user_email": current_user.email,
+                "user_role": current_user.system_role.value
+            }
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Researcher access required (view-only users cannot perform this action)"
         )
     return current_user
 
@@ -316,7 +363,7 @@ async def get_focus_group_for_user(
     Pobierz grupę fokusową należącą do projektu użytkownika lub zwróć 404.
     """
     logger.debug(
-        f"Checking focus group access",
+        "Checking focus group access",
         extra={
             "focus_group_id": str(focus_group_id),
             "user_id": str(current_user.id),
@@ -336,7 +383,7 @@ async def get_focus_group_for_user(
 
     if not focus_group:
         logger.warning(
-            f"Focus group not found or access denied",
+            "Focus group not found or access denied",
             extra={
                 "focus_group_id": str(focus_group_id),
                 "user_id": str(current_user.id),
@@ -346,7 +393,7 @@ async def get_focus_group_for_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Focus group not found")
 
     logger.debug(
-        f"Focus group access granted",
+        "Focus group access granted",
         extra={
             "focus_group_id": str(focus_group_id),
             "user_id": str(current_user.id),

@@ -4,11 +4,25 @@ Model użytkownika z pełnym wsparciem dla autentykacji i ustawień
 Ten model reprezentuje użytkownika systemu Sight.
 Zawiera dane profilowe, ustawienia notyfikacji, szyfrowany API key i relacje do projektów.
 """
-from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Integer, func
+from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Integer, func, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+import enum
 import uuid
 from app.db.base import Base
+
+
+class SystemRole(str, enum.Enum):
+    """System role ENUM for role-based access control (RBAC).
+
+    Roles:
+    - ADMIN: Full access to all features, including admin panel and user management
+    - RESEARCHER: Default role for regular users (can create projects, personas, focus groups)
+    - VIEWER: Read-only access (can view projects but cannot create/edit)
+    """
+    ADMIN = "admin"
+    RESEARCHER = "researcher"
+    VIEWER = "viewer"
 
 
 class User(Base):
@@ -32,10 +46,18 @@ class User(Base):
 
     # === PROFIL ===
     full_name = Column(String(255), nullable=False)
-    role = Column(String(100), nullable=True)  # np. "Market Researcher", "Product Manager"
+    role = Column(String(100), nullable=True)  # np. "Market Researcher", "Product Manager" (rola zawodowa)
     company = Column(String(255), nullable=True)
     avatar_url = Column(String(500), nullable=True)  # Adres URL do avatara
     preferred_language = Column(String(5), default='pl', nullable=False)  # Preferowany język interfejsu ('pl' lub 'en')
+
+    # === RBAC (Role-Based Access Control) ===
+    system_role = Column(
+        Enum(SystemRole, name='system_role_enum', create_type=False),
+        nullable=False,
+        default=SystemRole.RESEARCHER,
+        server_default='researcher'
+    )  # System role dla autoryzacji: admin, researcher, viewer
 
     # === API CONFIGURATION ===
     # Szyfrowany Google API key (używany zamiast globalnego settings.GOOGLE_API_KEY)
