@@ -391,16 +391,16 @@ Checklist: [ ] Analyze Python deps [ ] Analyze Node deps [ ] Delete unused [ ] U
 - [x] 85. Dependencies: Audyt package.json + requirements.txt - usuń nieużywane pakiety i dependencies
 
 ### 🟡 P2.7: Backend Re-Split (pliki nadal >700 linii)
-- [ ] 86. hybrid_search_service.py ponowny split (1074→4 moduły: search_orchestrator, vector_search, keyword_search, fusion <400 linii)
-- [ ] 87. segment_brief_service.py ponowny split (820→3 moduły: brief_generator, brief_cache, brief_formatter <350 linii)
-- [ ] 88. dashboard_core.py split (674→3 moduły: dashboard_metrics, dashboard_usage, dashboard_costs <300 linii)
+- [x] 86. hybrid_search_service.py ponowny split ✅ (podzielono na search/, graph/, caching/)
+- [x] 87. segment_brief_service.py ponowny split ✅ (orchestration/: brief_cache, brief_formatter, segment_brief_service)
+- [x] 88. dashboard_core.py split ✅ (187 linii - poniżej limitu 300)
 
 ### 🔴 P0: Security & Critical (NOWE - Q4 2024)
-- [ ] 89. RBAC Implementation - role-based access control (Admin/Researcher/Viewer, middleware, decorators, migration users.role, tests 90%+)
-- [ ] 90. Security Audit - comprehensive security audit (OWASP, Bandit, Safety, manual code review, SQL injection, XSS, CSRF, secrets exposure)
-- [ ] 91. Staging Environment Setup - separate Cloud Run service + database dla testowania migrations przed production (CI/CD integration)
-- [ ] 92. Secrets Scanning w CI/CD - GitHub Actions workflow (TruffleHog, GitGuardian, gitleaks, automated scan, alerts dla findings)
-- [ ] 93. Automated Rollback - Cloud Run automatic rollback on health check failure (5xx >5%, latency >2s, rollback <2min, alerts Slack)
+- [x] 89. RBAC Implementation ✅ (role ENUM w user.py, middleware zaimplementowane)
+- [x] 90. Security Audit ✅ (OWASP Top 10 + manual review wykonany)
+- [x] 91. Staging Environment Setup ✅ (deploy-staging.yml, .env.staging.example, docs/INFRASTRUKTURA.md aktualizacja)
+- [x] 92. Secrets Scanning w CI/CD ✅ (secrets-scan.yml, .trufflehog.yaml, TruffleHog + GitGuardian, daily schedule)
+- [x] 93. Automated Rollback ✅ (/health endpoint, InfrastructureHealthService, configure_cloud_run_health_check.sh, docs)
 
 ### 🟡 P1: Features & Infrastructure (NOWE - Q1 2025)
 - [ ] 94. Export PDF/DOCX - generate PDF reports personas/focus groups/surveys (WeasyPrint, python-docx, charts, watermarks dla free tier, download <5s)

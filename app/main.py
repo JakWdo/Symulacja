@@ -12,6 +12,7 @@ Kluczowe endpointy:
 - /analysis - analiza wyników i podsumowania AI
 """
 
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Response, status
@@ -193,32 +194,63 @@ app.include_router(internal.router, tags=["Internal"])
 
 
 @app.get("/health")
-async def health_check():
+async def health_check(db: AsyncSession = Depends(get_db)):
     """
-    Health check endpoint - do monitorowania (Kubernetes, Docker, etc.)
+    Health check endpoint - dla Cloud Run, Kubernetes, Docker, monitoring
+
+    Sprawdza połączenia do kluczowych serwisów:
+    - PostgreSQL (database)
+    - Redis (cache)
+    - Neo4j (graph database)
 
     Returns:
-        Status zdrowia aplikacji i środowisko
-    """
-    # Diagnostyka RAG serwisów
-    rag_status = {}
-    try:
-        from app.api.rag import _rag_document_service, _polish_society_rag
-        rag_status["rag_document_service_initialized"] = _rag_document_service is not None
-        rag_status["polish_society_rag_initialized"] = _polish_society_rag is not None
-        if _rag_document_service:
-            rag_status["rag_doc_vector_store_ok"] = _rag_document_service.vector_store is not None
-            rag_status["rag_doc_graph_store_ok"] = _rag_document_service.graph_store is not None
-        if _polish_society_rag:
-            rag_status["polish_rag_vector_store_ok"] = _polish_society_rag.vector_store is not None
-    except Exception as exc:
-        rag_status["error"] = str(exc)
+        Status: 200 (healthy/degraded), 503 (unhealthy)
+        Body: {
+            "status": "healthy" | "degraded" | "unhealthy",
+            "environment": "production" | "staging" | "development",
+            "checks": {
+                "database": {...},
+                "redis": {...},
+                "neo4j": {...}
+            },
+            "latency_total_ms": float
+        }
 
-    return {
-        "status": "healthy",
+    Notes:
+        - degraded: 1 service down, application still functional
+        - unhealthy: 2+ services down, triggers rollback in Cloud Run
+    """
+    from fastapi import Response
+    from app.services.shared.infrastructure_health import InfrastructureHealthService
+    from app.services.shared.redis_client import get_redis_client
+
+    # Get Redis client
+    redis_client = get_redis_client()
+
+    # Create health service
+    health_service = InfrastructureHealthService(
+        db=db,
+        redis_client=redis_client
+    )
+
+    # Check all services (timeout 2s per service)
+    health_result = await health_service.check_all(timeout=2.0)
+
+    # Return 503 if unhealthy, 200 otherwise
+    status_code = 503 if health_result["status"] == "unhealthy" else 200
+
+    response_body = {
+        "status": health_result["status"],
         "environment": app_config.environment,
-        "rag_services": rag_status
+        "checks": health_result["checks"],
+        "latency_total_ms": health_result["latency_total_ms"],
     }
+
+    return Response(
+        content=json.dumps(response_body),
+        status_code=status_code,
+        media_type="application/json"
+    )
 
 
 @app.post("/admin/cleanup", tags=["Admin"])

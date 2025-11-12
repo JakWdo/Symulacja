@@ -1,0 +1,173 @@
+# ==============================================================================
+# .trufflehog.yaml - TruffleHog Configuration
+# ==============================================================================
+# Purpose: Configure secret detection rules and exclusions
+# Documentation: https://github.com/trufflesecurity/trufflehog
+# ==============================================================================
+
+# ==============================================================================
+# EXCLUDED PATHS: Files and directories to skip
+# ==============================================================================
+# These paths are excluded from secret scanning to reduce false positives
+exclude:
+  paths:
+    # Example/template files (safe to contain dummy secrets)
+    - '\.env\.example$'
+    - '\.env\.staging\.example$'
+    - '\.env\.template$'
+
+    # Documentation files
+    - 'docs/.*\.md$'
+    - 'README\.md$'
+    - 'CLAUDE\.md$'
+    - 'prompty\.md$'
+
+    # Test fixtures (may contain mock credentials)
+    - 'tests/fixtures/.*'
+    - 'tests/.*mock.*\.py$'
+    - 'tests/.*fixture.*\.py$'
+
+    # Lock files and package manifests
+    - 'package-lock\.json$'
+    - 'poetry\.lock$'
+    - 'yarn\.lock$'
+    - 'requirements.*\.txt$'
+
+    # Build artifacts and dependencies
+    - 'node_modules/.*'
+    - 'dist/.*'
+    - 'build/.*'
+    - '__pycache__/.*'
+    - '\.pytest_cache/.*'
+    - '\.ruff_cache/.*'
+    - 'htmlcov/.*'
+
+    # IDE and editor files
+    - '\.vscode/.*'
+    - '\.idea/.*'
+    - '\.DS_Store$'
+
+    # Git and version control
+    - '\.git/.*'
+    - '\.github/workflows/.*\.md$'  # Workflow documentation
+
+    # Docker and infrastructure
+    - 'Dockerfile.*'
+    - 'docker-compose.*\.yml$'
+    - 'cloudbuild\.yaml$'
+
+    # Configuration files (reviewed separately)
+    - 'config/.*\.yaml$'
+    - 'config/prompts/.*\.yaml$'
+
+# ==============================================================================
+# ALLOWED SECRETS: Known safe patterns (not actual secrets)
+# ==============================================================================
+# These are example/dummy values commonly used in documentation
+allow:
+  # Example API keys from documentation
+  - 'your_api_key_here'
+  - 'your_gemini_api_key_here'
+  - 'your_staging_gemini_api_key_here'
+  - 'YOUR_STAGING_GEMINI_KEY'
+  - 'sk-...'  # OpenAI placeholder
+  - 'sk-ant-...'  # Anthropic placeholder
+
+  # Example passwords
+  - 'dev_password_change_in_prod'
+  - 'STAGING_DB_PASSWORD'
+  - 'staging_neo4j_password_here'
+
+  # Example secret keys
+  - 'your_secret_key_min_32_chars_use_openssl_rand_hex_32'
+  - 'staging_secret_key_min_32_chars_different_from_prod'
+
+  # Example URLs
+  - 'postgresql://sight:PASSWORD@'
+  - 'redis://10.x.x.x:6379'
+  - 'neo4j+s://xxxxxxxx.databases.neo4j.io'
+
+  # GCP placeholders
+  - 'gen-lang-client-0508446677'  # GCP Project ID (public)
+  - 'PROJECT_NUMBER'
+  - 'EXECUTION_ID'
+
+  # Test/mock values
+  - 'test-secret-key-32-characters-long'
+  - 'mock-api-key-for-testing-only'
+  - 'fake-credentials-for-unit-tests'
+
+# ==============================================================================
+# VERIFIED ONLY: Only report verified secrets (reduce false positives)
+# ==============================================================================
+# When enabled, TruffleHog will only report secrets it can verify are valid
+# This significantly reduces false positives but may miss some secrets
+verified_only: true
+
+# ==============================================================================
+# CUSTOM DETECTORS: Additional patterns to detect
+# ==============================================================================
+# Add custom regex patterns for project-specific secrets
+detectors:
+  - name: "Custom Google API Key"
+    regex: 'AIza[0-9A-Za-z\-_]{35}'
+    keywords:
+      - 'GOOGLE_API_KEY'
+      - 'GEMINI_API_KEY'
+
+  - name: "Custom Secret Key"
+    regex: '[0-9a-f]{64}'  # 64 hex characters (openssl rand -hex 32)
+    keywords:
+      - 'SECRET_KEY'
+      - 'JWT_SECRET'
+
+  - name: "PostgreSQL Connection String"
+    regex: 'postgresql(\+asyncpg)?://[^:]+:[^@]+@[^/]+/\w+'
+    keywords:
+      - 'DATABASE_URL'
+      - 'POSTGRES'
+
+  - name: "Neo4j Connection String"
+    regex: 'neo4j(\+s)?://[^:]+:[^@]+@[^/]+'
+    keywords:
+      - 'NEO4J_URI'
+      - 'NEO4J_PASSWORD'
+
+# ==============================================================================
+# OUTPUT: Scan result formatting
+# ==============================================================================
+# Configure how results are displayed
+output:
+  format: 'json'  # json, yaml, or text
+  show_secrets: false  # Don't display actual secret values in logs
+
+# ==============================================================================
+# PERFORMANCE: Scan optimization
+# ==============================================================================
+# Configure scan performance and resource usage
+concurrency: 4  # Number of parallel goroutines (adjust for CI/CD resources)
+max_depth: 100  # Maximum depth for nested archive scanning
+
+# ==============================================================================
+# NOTES FOR DEVELOPERS
+# ==============================================================================
+# If you get a false positive:
+# 1. Verify it's truly a false positive (not a real secret!)
+# 2. Add the pattern to 'allow' list above
+# 3. Or add the file path to 'exclude.paths' above
+# 4. Document why it's safe in a comment
+#
+# If you need to commit a secret:
+# 1. DON'T! Use Google Secret Manager instead
+# 2. Add secret to Secret Manager: gcloud secrets create SECRET_NAME --data-file=-
+# 3. Reference in code: os.getenv('SECRET_NAME')
+# 4. Configure in Cloud Run: --set-secrets=SECRET_NAME=SECRET_NAME:latest
+#
+# Emergency: Secret was committed
+# 1. Rotate the secret immediately (create new credentials)
+# 2. Update Secret Manager with new value
+# 3. Use BFG Repo-Cleaner to remove from git history:
+#    git clone --mirror https://github.com/JakWdo/Symulacja.git
+#    bfg --delete-files .env Symulacja.git
+#    cd Symulacja.git && git reflog expire --expire=now --all && git gc --prune=now --aggressive
+#    git push --force

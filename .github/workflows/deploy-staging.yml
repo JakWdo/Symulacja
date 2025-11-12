@@ -1,0 +1,207 @@
+# ==============================================================================
+# deploy-staging.yml - Staging Environment CI/CD Pipeline
+# ==============================================================================
+# Pipeline stages:
+# 1. BUILD: Docker image (frontend + backend) with layer caching
+# 2. PUSH: Push to Artifact Registry (staging tag)
+# 3. MIGRATE: Database migrations on staging DB
+# 4. DEPLOY: Cloud Run service (sight-staging)
+# 5. SMOKE TESTS: Post-deployment verification
+#
+# Trigger: Auto-deploy on push to 'staging' branch
+# Environment: Separate Cloud Run service + Cloud SQL database
+# Purpose: Test migrations and changes before production deployment
+# ==============================================================================
+
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0508446677
+  GCP_REGION: europe-central2
+  SERVICE_NAME: sight-staging
+  CLOUD_SQL_INSTANCE: gen-lang-client-0508446677:europe-central2:sight-staging
+  ARTIFACT_REGISTRY: europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers
+  IMAGE_NAME: sight-staging
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging Environment
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write  # Required for Workload Identity Federation
+
+    steps:
+      # ==========================================================================
+      # CHECKOUT: Get source code
+      # ==========================================================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ==========================================================================
+      # AUTH: Authenticate to Google Cloud
+      # ==========================================================================
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      # ==========================================================================
+      # SETUP: Configure gcloud CLI and Docker
+      # ==========================================================================
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
+
+      # ==========================================================================
+      # PULL CACHE: Download previous image for layer caching
+      # ==========================================================================
+      - name: Pull cache image
+        run: |
+          docker pull ${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:latest || echo "No cache image found - first build will be slow"
+
+      # ==========================================================================
+      # BUILD: Docker Image with BuildKit Inline Cache
+      # ==========================================================================
+      - name: Build Docker image
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          docker build \
+            -f Dockerfile.cloudrun \
+            --cache-from ${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            .
+
+      # ==========================================================================
+      # PUSH: Docker Image to Artifact Registry
+      # ==========================================================================
+      - name: Push Docker image
+        run: |
+          docker push --all-tags ${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      # ==========================================================================
+      # MIGRATE: Database Migrations (BEFORE deploy)
+      # ==========================================================================
+      - name: Run database migrations
+        run: |
+          echo "🔄 Running database migrations on STAGING..."
+
+          # Check if migration job exists, create if not
+          if ! gcloud run jobs describe db-migrate-staging --region=${{ env.GCP_REGION }} 2>/dev/null; then
+            echo "Creating migration job..."
+            gcloud run jobs create db-migrate-staging \
+              --image=${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+              --region=${{ env.GCP_REGION }} \
+              --add-cloudsql-instances=${{ env.CLOUD_SQL_INSTANCE }} \
+              --set-secrets=DATABASE_URL=DATABASE_URL_STAGING:latest \
+              --set-env-vars=PYTHONUNBUFFERED=1,PYTHONPATH=/app,ENVIRONMENT=staging \
+              --command=bash \
+              --args=scripts/run_migrations_cloudrun.sh \
+              --max-retries=2 \
+              --task-timeout=300
+          else
+            echo "Updating migration job image..."
+            gcloud run jobs update db-migrate-staging \
+              --image=${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+              --region=${{ env.GCP_REGION }} \
+              --set-env-vars=PYTHONUNBUFFERED=1,PYTHONPATH=/app,ENVIRONMENT=staging
+          fi
+
+          # Execute migrations
+          echo "Executing migrations..."
+          gcloud run jobs execute db-migrate-staging --region=${{ env.GCP_REGION }} --wait
+
+          # Check migration status
+          if [ $? -eq 0 ]; then
+            echo "✅ Migrations completed successfully"
+          else
+            echo "❌ Migrations failed - aborting deployment"
+            exit 1
+          fi
+
+      # ==========================================================================
+      # DEPLOY: Cloud Run Service (sight-staging)
+      # ==========================================================================
+      - name: Deploy to Cloud Run (Staging)
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --region=${{ env.GCP_REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8080 \
+            --memory=2Gi \
+            --cpu=1 \
+            --timeout=300 \
+            --min-instances=0 \
+            --max-instances=2 \
+            --execution-environment=gen2 \
+            --add-cloudsql-instances=${{ env.CLOUD_SQL_INSTANCE }} \
+            --set-secrets=DATABASE_URL=DATABASE_URL_STAGING:latest,GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest,NEO4J_PASSWORD=NEO4J_PASSWORD_STAGING:latest,NEO4J_URI=NEO4J_URI_STAGING:latest,SECRET_KEY=SECRET_KEY_STAGING:latest,REDIS_URL=REDIS_URL_STAGING:latest \
+            --set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=staging,DEBUG=True,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,EMBEDDING_MODEL=models/gemini-embedding-001,RAG_ENABLED=True,ORCHESTRATION_ENABLED=True,WORKFLOWS_ENABLED=true,GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},GCP_REGION=${{ env.GCP_REGION }}
+
+      # ==========================================================================
+      # SMOKE TESTS: Post-deployment verification
+      # ==========================================================================
+      - name: Run smoke tests
+        run: |
+          echo "🔥 Running smoke tests on staging deployment..."
+
+          # Get deployed service URL
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.GCP_REGION }} --format="value(status.url)")
+          echo "Testing deployment at: $SERVICE_URL"
+
+          # Test 1: Health endpoint
+          echo "Test 1/2: Health check..."
+          HEALTH_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/health" || echo "FAIL")
+          if [ "$HEALTH_STATUS" != "200" ]; then
+            echo "❌ Health check FAILED (HTTP $HEALTH_STATUS)"
+            exit 1
+          fi
+          echo "✅ Backend healthy"
+
+          # Test 2: Frontend
+          echo "Test 2/2: Frontend application..."
+          FRONTEND_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/" || echo "FAIL")
+          if [ "$FRONTEND_STATUS" != "200" ]; then
+            echo "❌ Frontend FAILED (HTTP $FRONTEND_STATUS)"
+            exit 1
+          fi
+          echo "✅ Frontend accessible"
+
+          # All tests passed
+          echo ""
+          echo "🎉 Smoke tests PASSED!"
+          echo "   Staging deployment verified and healthy"
+          echo "   Service URL: $SERVICE_URL"
+
+      # ==========================================================================
+      # SUMMARY: Deployment summary
+      # ==========================================================================
+      - name: Deployment summary
+        if: success()
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.GCP_REGION }} --format="value(status.url)")
+          echo "🚀 Staging Deployment Successful!"
+          echo ""
+          echo "Environment: STAGING"
+          echo "Service: ${{ env.SERVICE_NAME }}"
+          echo "Region: ${{ env.GCP_REGION }}"
+          echo "Image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "URL: $SERVICE_URL"
+          echo ""
+          echo "✅ Ready for testing before production deployment"
