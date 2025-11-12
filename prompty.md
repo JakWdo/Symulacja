@@ -387,7 +387,7 @@ Checklist: [ ] Analyze Python deps [ ] Analyze Node deps [ ] Delete unused [ ] U
 - [x] 81. Frontend: Audyt WorkflowEditor, PersonaPanel, AISummaryPanel po splitach - usuń nieużywane funkcje/importy/komponenty
 - [x] 82. Frontend: Audyt Personas, FocusGroupView, Surveys, Settings po splitach - usuń nieużywane funkcje/importy/komponenty
 - [x] 83. Backend: Audyt wszystkich plików po splitach 1-35 - usuń nieużywane funkcje/importy/klasy/helper functions
-- [ ] 84. Backend: Audyt nieużywanych utility functions i helper methods - usuń dead code (unreachable, commented out)
+- [x] 84. Backend: Audyt nieużywanych utility functions i helper methods - usuń dead code (unreachable, commented out)
 - [ ] 85. Dependencies: Audyt package.json + requirements.txt - usuń nieużywane pakiety i dependencies
 
 ### 🟡 P2.7: Backend Re-Split (pliki nadal >700 linii)
