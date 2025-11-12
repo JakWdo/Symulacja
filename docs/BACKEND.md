@@ -81,15 +81,18 @@
 │                       SERVICE LAYER                              │
 │                 (app/services/ - ~14,380 LOC)                    │
 ├──────────────────────────────────────────────────────────────────┤
-│  personas/ → orchestration, generator, validator, needs          │
-│  focus_groups/ → service, summarizer, memory                     │
-│  surveys/ → response_gen                                         │
-│  rag/ → hybrid_search, graph_service, document                   │
-│  dashboard/ → orchestrator, metrics, health, usage_logging       │
+│  personas/ → generation, orchestration, details, validation      │
+│  focus_groups/ → discussion, memory, summaries, nlp              │
+│  surveys/ → response_gen, formatter                              │
+│  rag/ → search, graph, documents, caching, reranking, clients    │
+│  dashboard/ → orchestration, metrics, usage, costs, insights     │
+│  workflows/ → execution, nodes, templates, validation            │
+│  export/ → pdf_generator, docx_generator                         │
+│  study_designer/ → state_machine, orchestrator, nodes            │
 │  maintenance/ → cleanup (scheduled)                              │
-│  shared/ → clients (LLM), rag_provider                           │
+│  shared/ → clients (LLM), llm_router, rag_provider, health       │
 │                                                                   │
-│  Logika biznesowa, wywołania LLM, transformacje                  │
+│  Logika biznesowa, wywołania LLM, transformacje (zmodularyzowane)│
 └────────────────────────────┬────────────────────────────────────┘
                              │
             ┌────────────────┴───────────────┐
@@ -280,36 +283,167 @@ async def get_current_user(
 
 ### Organizacja Domenowa
 
+**Po refaktoryzacjach 1-35 (2024 Q4):** Struktura została zmodularyzowana na ~150+ plików w 35 submodułach dla lepszej maintainability (cel: max 700 linii/plik).
+
 ```
 app/services/
-├── shared/                      # LLM clients, RAG singleton
-├── personas/                    # Generacja person
-│   ├── persona_orchestration.py     # Orkiestrator (Gemini Pro)
-│   ├── persona_generator_langchain.py  # Generacja (Gemini Flash)
-│   ├── segment_brief_service.py      # Kontekst społeczny per segment
-│   ├── persona_validator.py          # Chi-kwadrat validation
-│   ├── persona_needs_service.py      # JTBD analysis
-│   └── persona_details_service.py    # Formatowanie szczegółów
-├── focus_groups/                # Dyskusje
-│   ├── focus_group_service_langchain.py  # Orkiestracja async
-│   ├── discussion_summarizer.py          # AI summaries
-│   └── memory_service_langchain.py       # Context retention
-├── surveys/                     # Ankiety
-│   └── survey_response_generator.py
-├── rag/                         # RAG system
-│   ├── rag_hybrid_search_service.py  # Vector + keyword + RRF
-│   ├── rag_graph_service.py          # Graph RAG (Cypher)
-│   ├── rag_document_service.py       # Document upload + embedding
-│   └── rag_clients.py                # Neo4j connection
-├── dashboard/                   # Metryki
-│   ├── dashboard_orchestrator.py         # Agregacja metryk
-│   ├── metrics_service.py                # Statystyki
-│   ├── health_service.py                 # Health scoring
-│   ├── usage_tracking_service.py         # LLM usage
-│   └── quick_actions_service.py          # Export, summaries
-└── maintenance/                 # Background
-    └── cleanup_service.py                # Soft-delete cleanup (7d)
+├── shared/                           # Współdzielone komponenty
+│   ├── clients.py                    # LLM client builders (Gemini, OpenAI, Anthropic)
+│   ├── llm_router.py                 # Multi-provider routing + fallback
+│   ├── rag_provider.py               # RAG singleton factory
+│   └── infrastructure_health.py      # Health checks (DB, Neo4j, Redis)
+│
+├── personas/                         # Generacja person (4 podmoduły)
+│   ├── generation/                   # Core generation logic
+│   │   ├── persona_generator_langchain.py     # Gemini Flash generation
+│   │   ├── persona_needs_service.py           # JTBD analysis
+│   │   ├── demographic_sampling.py            # Sampling algorithms
+│   │   ├── psychological_profiles.py          # Big Five + Hofstede
+│   │   ├── rag_integration.py                 # RAG context enrichment
+│   │   ├── prompt_templates.py                # Jinja2 templates
+│   │   └── segment_constructor.py             # Demographic segments
+│   ├── orchestration/                # Segment-based orchestration
+│   │   ├── persona_orchestration.py           # Main orchestrator (Gemini Pro)
+│   │   ├── segment_brief_service.py           # Kontekst społeczny per segment
+│   │   ├── brief_cache.py                     # Redis caching (7d TTL)
+│   │   ├── brief_formatter.py                 # 900-1200 char briefs
+│   │   ├── graph_context_fetcher.py           # Graph RAG queries
+│   │   ├── segment_context_generator.py       # Enrichment z polskiego kontekstu
+│   │   └── segment_naming.py                  # Auto-nazewnictwo segmentów
+│   ├── details/                      # Szczegóły persony (MVP feature)
+│   │   ├── persona_details_service.py         # Main service
+│   │   ├── details_crud.py                    # DB operations
+│   │   └── details_enrichment.py              # RAG-based enrichment
+│   └── validation/                   # Walidacja statystyczna
+│       ├── persona_validator.py               # Chi-kwadrat validation
+│       ├── distribution_builder.py            # Target distributions
+│       ├── distribution_calculator.py         # Statystyki rozkładów
+│       ├── demographics_formatter.py          # Formatowanie demographics
+│       ├── demographics_validator.py          # Walidacja inputów
+│       └── persona_audit_service.py           # Audyt zmian (event sourcing)
+│
+├── focus_groups/                     # Dyskusje fokusowe (4 podmoduły)
+│   ├── discussion/                   # Orkiestracja dyskusji
+│   │   ├── focus_group_service.py            # Main service (async generation)
+│   │   └── data_preparation.py               # Preprocessing person/pytań
+│   ├── memory/                       # Context management
+│   │   └── memory_service.py                 # LangChain memory (context między pytaniami)
+│   ├── summaries/                    # AI summaries
+│   │   ├── discussion_summarizer.py          # Gemini Pro summarization
+│   │   ├── insight_classification.py         # Kategoryzacja insightów
+│   │   └── insight_persistence.py            # Save insights do DB
+│   └── nlp/                          # NLP utilities
+│       ├── sentiment_analysis.py             # Analiza sentymentu
+│       ├── concept_extraction.py             # Ekstrakcja konceptów
+│       ├── language_detection.py             # Detekcja języka
+│       └── constants.py                      # Stopwords, patterns
+│
+├── surveys/                          # Ankiety syntetyczne
+│   ├── survey_response_generator.py  # Main service
+│   ├── response_generator_core.py    # Core generation logic
+│   └── response_formatter.py         # Formatowanie odpowiedzi
+│
+├── rag/                              # RAG system (6 podmodułów)
+│   ├── search/                       # Hybrid search
+│   │   ├── hybrid_search_service.py          # Orchestrator (vector + keyword + graph)
+│   │   ├── keyword_search.py                 # Lucene full-text search
+│   │   ├── fusion_algorithms.py              # RRF (Reciprocal Rank Fusion)
+│   │   ├── reranker.py                       # Cross-encoder reranking
+│   │   ├── graph_enrichment.py               # Graph context enrichment
+│   │   ├── cache.py                          # Redis caching
+│   │   └── lucene_utils.py                   # Lucene query builders
+│   ├── graph/                        # Graph RAG (Cypher queries)
+│   │   ├── graph_service.py                  # Main Graph RAG service
+│   │   ├── query_builder.py                  # LLM-powered Cypher generation
+│   │   ├── traversal.py                      # Graph traversal algorithms
+│   │   ├── insights_extractor.py             # Ekstrakcja graph insights
+│   │   ├── graph_enrichment.py               # Context enrichment z grafu
+│   │   └── graph_formatter.py                # Formatowanie wyników
+│   ├── documents/                    # Document processing
+│   │   └── document_service.py               # Upload, chunking, embedding
+│   ├── caching/                      # Cache management
+│   │   └── cache_manager.py                  # Redis cache layer
+│   ├── reranking/                    # Reranking logic
+│   │   └── reranking_service.py              # Cross-encoder reranking
+│   └── clients/                      # Connections
+│       └── rag_clients.py                    # Neo4j connection pool
+│
+├── dashboard/                        # Metryki i analytics (6 podmodułów)
+│   ├── orchestration/                # Orkiestracja dashboardu
+│   │   ├── insights_builder.py               # Quick insights generation
+│   │   ├── overview_builder.py               # Overview stats aggregation
+│   │   └── projects_builder.py               # Per-project metrics
+│   ├── metrics/                      # Statystyki
+│   │   ├── metrics_service.py                # Main metrics service
+│   │   ├── metrics_aggregator.py             # Aggregacja metryk
+│   │   └── health_service.py                 # Project health scoring (0-100)
+│   ├── usage/                        # LLM usage tracking
+│   │   ├── usage_logging.py                  # Token tracking + costs
+│   │   ├── usage_tracking_service.py         # Usage persistence
+│   │   └── usage_trends.py                   # Trendy użycia (weekly/monthly)
+│   ├── costs/                        # Cost calculation
+│   │   └── cost_calculator.py                # Per-operation cost tracking
+│   ├── insights/                     # Quick actions
+│   │   ├── quick_actions_service.py          # Export, summaries, recommendations
+│   │   └── insight_traceability_service.py   # Insight provenance tracking
+│   ├── aggregators/                  # Data aggregation
+│   ├── dashboard_orchestrator.py     # Legacy orchestrator (do refactor)
+│   ├── dashboard_core.py             # Core dashboard logic
+│   ├── cache_invalidation.py         # Cache invalidation strategies
+│   └── notification_service.py       # Notifications (budget alerts, etc.)
+│
+├── workflows/                        # Workflow Builder (4 podmoduły)
+│   ├── execution/                    # Workflow execution
+│   │   ├── workflow_executor.py              # Sync executor
+│   │   └── workflow_executor_async.py        # Async executor (parallel nodes)
+│   ├── nodes/                        # Node implementations
+│   │   ├── base.py                           # Base node class
+│   │   ├── personas.py                       # Persona generation node
+│   │   ├── focus_groups.py                   # Focus group node
+│   │   ├── surveys.py                        # Survey node
+│   │   ├── analysis.py                       # Analysis node
+│   │   ├── exports.py                        # Export node
+│   │   ├── decisions.py                      # Decision/branching node
+│   │   ├── start.py                          # Start node
+│   │   └── end.py                            # End node
+│   ├── templates/                    # Workflow templates
+│   │   ├── workflow_template_service.py      # Template CRUD
+│   │   ├── template_crud.py                  # DB operations
+│   │   └── template_validator.py             # Template validation
+│   ├── validation/                   # Workflow validation
+│   │   └── workflow_validator.py             # Pre-flight validation
+│   └── workflow_service.py           # Main workflow service
+│
+├── export/                           # Export functionality (PDF/DOCX)
+│   ├── pdf_generator.py              # WeasyPrint PDF generation
+│   └── docx_generator.py             # python-docx DOCX generation
+│
+├── study_designer/                   # Study Designer Chat (LangGraph state machine)
+│   ├── orchestrator.py               # Main orchestrator
+│   ├── state_machine.py              # LangGraph state machine (v1)
+│   ├── state_machine_v2.py           # LangGraph state machine (v2)
+│   ├── state_schema.py               # Pydantic state schemas
+│   ├── study_executor.py             # Automatic execution z zatwierdzonego planu
+│   ├── cache.py                      # Redis caching dla chat sessions
+│   └── nodes/                        # State machine nodes
+│       ├── welcome.py                # Welcome node
+│       ├── gather_goal.py            # Goal gathering
+│       ├── define_audience.py        # Audience definition
+│       ├── select_method.py          # Method selection
+│       ├── configure_details.py      # Details configuration
+│       ├── generate_plan.py          # Plan generation
+│       ├── await_approval.py         # Await user approval
+│       └── conversation_extractor.py # Conversation history extraction
+│
+└── maintenance/                      # Background tasks
+    └── cleanup_service.py            # Soft-delete cleanup (7d retention)
 ```
+
+**Statystyki po refaktoryzacjach:**
+- Liczba plików serwisowych: ~150+
+- Średnia długość pliku: ~250 linii (cel: <700)
+- Liczba submodułów: 35
+- Całkowity LOC services: ~14,380 (bez zmian, lepsze rozłożenie)
 
 ### Service Layer Pattern
 
@@ -336,7 +470,7 @@ async def generate_personas(
 
 ### Przykład Serwisu - PersonaOrchestrationService
 
-**Lokalizacja:** `app/services/personas/persona_orchestration.py`
+**Lokalizacja:** `app/services/personas/orchestration/persona_orchestration.py` (Po refaktoryzacji zadania 4)
 
 ```python
 class PersonaOrchestrationService:
@@ -397,32 +531,54 @@ class PersonaOrchestrationService:
 
 ### Kluczowe Serwisy
 
+**Po refaktoryzacjach 1-35:** Serwisy zostały rozdzielone na mniejsze moduły. Poniżej główne punkty wejścia z nowymi ścieżkami.
+
 **1. PersonaOrchestrationService**
+- **Ścieżka:** `app/services/personas/orchestration/persona_orchestration.py`
+- **Split (Zadanie 4):** brief_cache.py, brief_formatter.py, graph_context_fetcher.py, segment_brief_service.py
 - Orkiestracja całego procesu generacji person
-- Tworzenie segmentów demograficznych
-- Graph RAG context enrichment
-- Równoległe generowanie z Gemini Flash
-- Walidacja statystyczna (chi-kwadrat)
+- Tworzenie segmentów demograficznych (`segment_constructor.py`)
+- Graph RAG context enrichment (`graph_context_fetcher.py`)
+- Równoległe generowanie z Gemini Flash (`generation/persona_generator_langchain.py`)
+- Walidacja statystyczna chi-kwadrat (`validation/persona_validator.py`)
 
 **2. RAGHybridSearchService**
-- Dwuwarstwowe wyszukiwanie (vector + keyword + graph)
-- RRF fusion (Reciprocal Rank Fusion)
+- **Ścieżka:** `app/services/rag/search/hybrid_search_service.py`
+- **Split (Zadanie 3, 86):** Podzielony na search/, graph/, caching/
+- Dwuwarstwowe wyszukiwanie: vector (`search/hybrid_search_service.py`) + keyword (`search/keyword_search.py`) + graph (`graph/graph_service.py`)
+- RRF fusion (Reciprocal Rank Fusion) w `search/fusion_algorithms.py`
 - Embedding z Gemini (768D)
+- Reranking (`reranking/reranking_service.py`)
 - Metadane: summary, key_facts, confidence
 
-**3. FocusGroupServiceLangChain**
+**3. FocusGroupService**
+- **Ścieżka:** `app/services/focus_groups/discussion/focus_group_service.py`
+- **Split (Zadanie 2):** discussion/, memory/, summaries/, nlp/
 - Symulacja dyskusji (20 person × 4 pytania < 3 min)
-- Memory management (context między pytaniami)
+- Memory management (`memory/memory_service.py` - context między pytaniami)
 - Event sourcing (PersonaResponse + PersonaEvent)
-- AI summaries (tematy, insighty, cytaty)
+- AI summaries (`summaries/discussion_summarizer.py` - tematy, insighty, cytaty)
+- NLP utilities (`nlp/` - sentiment, concept extraction, language detection)
 
 **4. DashboardOrchestrator**
-- Agregacja metryk (liczba person, grup, odpowiedzi)
-- Health score (0-100, diversity + quality)
-- Usage tracking (tokeny, koszty, budżet)
-- Quick actions (export PDF, AI summary)
+- **Ścieżka:** `app/services/dashboard/dashboard_orchestrator.py`
+- **Split (Zadanie 5):** orchestration/, metrics/, usage/, costs/, insights/
+- Agregacja metryk (`metrics/metrics_aggregator.py`)
+- Health score 0-100 (`metrics/health_service.py` - diversity + quality)
+- Usage tracking (`usage/usage_logging.py` - tokeny, koszty, budżet)
+- Quick actions (`insights/quick_actions_service.py` - export PDF, AI summary)
+- Cost calculation (`costs/cost_calculator.py`)
 
-**5. CleanupService**
+**5. WorkflowExecutor**
+- **Ścieżka:** `app/services/workflows/execution/workflow_executor.py`
+- **Split (Zadanie 17):** execution/, nodes/, templates/, validation/
+- Wykonanie workflow (sync i async)
+- Node implementations (`nodes/` - 9 typów node)
+- Template management (`templates/workflow_template_service.py`)
+- Pre-flight validation (`validation/workflow_validator.py`)
+
+**6. CleanupService**
+- **Ścieżka:** `app/services/maintenance/cleanup_service.py`
 - Hard delete soft-deleted entities po 7 dniach
 - Cascade delete (Project → Personas → Events)
 - Scheduled job (APScheduler, codziennie 3:00)
