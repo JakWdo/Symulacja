@@ -72,6 +72,7 @@ PyJWT  # Required for direct JWT import in tests (python-jose uses it internally
 bcrypt
 python-dotenv
 slowapi  # Rate limiting for FastAPI endpoints
+email-validator  # Required by Pydantic for email validation
 
 # Utilities
 python-dateutil
