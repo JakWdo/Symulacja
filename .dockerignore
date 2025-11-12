@@ -1,0 +1,128 @@
+# Docker build context exclusions
+# Prevents "ghost files" from contaminating builds via BuildKit cache
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (not needed in runtime)
+docs/
+*.md
+!README.md
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files (secrets injected via Cloud Run)
+.env
+.env.*
+*.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv*
+
+# Node.js (frontend dependencies installed in container)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/dist/
+
+# Testing
+.pytest_cache/
+coverage/
+.nyc_output/
+junit.xml
+
+# Database data (not needed in container)
+postgres_data/
+neo4j_data/
+redis_data/
+*.db
+*.sqlite3
+
+# Logs
+*.log
+logs/
+backend.log
+
+# Temporary files
+*.tmp
+*.temp
+*.old
+*.bak
+*.backup
+
+# Local development files
+*.local.*
+**/*.local.ts
+**/*.local.tsx
+**/*.local.js
+**/*.local.jsx
+
+# Problematic files that caused build failures
+frontend/src/lib/api/export.ts
+
+# Data & cache
+data/
+cache/
+*.pkl
+*.joblib
+
+# Models & checkpoints
+models/
+checkpoints/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# User uploads (handled by persistent storage)
+static/avatars/*.jpeg
+static/avatars/*.jpg
+static/avatars/*.png
+static/avatars/*.webp
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# CI/CD
+.github/
+cloudbuild.yaml
+.gcloudignore
+
+# Learning plugin data
+.claude/plugins/learn-by-doing/data/
+dev-marketplace/learn-by-doing/data/*.json
+dev-marketplace/learn-by-doing/data/*.jsonl

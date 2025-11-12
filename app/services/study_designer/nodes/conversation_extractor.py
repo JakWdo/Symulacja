@@ -32,8 +32,10 @@ from app.services.shared.clients import build_chat_model
 from app.services.study_designer.state_schema import (
     ConversationState,
     add_message,
-    format_conversation_history,
     get_last_user_message,
+)
+from app.services.study_designer.nodes.gather_goal import (
+    format_conversation_history,
 )
 
 logger = logging.getLogger(__name__)

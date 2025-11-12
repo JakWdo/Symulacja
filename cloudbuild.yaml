@@ -199,8 +199,10 @@ steps:
     waitFor: ['deploy']
 
   # ==========================================================================
-  # SMOKE TESTS: Post-deployment verification (simplified for speed)
+  # SMOKE TESTS: Post-deployment verification with retry logic
   # ==========================================================================
+  # Rationale: Cloud Run services need time to initialize (RAG, Neo4j, Redis)
+  # Retry logic prevents false failures from slow startups
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'smoke-tests'
     entrypoint: 'bash'
@@ -213,29 +215,86 @@ steps:
         SERVICE_URL=$(gcloud run services describe sight --region=europe-central2 --format="value(status.url)")
         echo "Testing deployment at: $$SERVICE_URL"
 
-        # Test 1: Health endpoint (backend API)
-        echo "Test 1/2: Health check..."
-        HEALTH_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$$SERVICE_URL/health" || echo "FAIL")
-        if [ "$$HEALTH_STATUS" != "200" ]; then
-          echo "❌ Health check FAILED (HTTP $$HEALTH_STATUS)"
-          exit 1
-        fi
-        echo "✅ Backend healthy"
+        # Initial wait for service to start (give it time to initialize)
+        echo "⏳ Waiting 15s for service initialization..."
+        sleep 15
 
-        # Test 2: Frontend (React SPA)
-        echo "Test 2/2: Frontend application..."
-        FRONTEND_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$$SERVICE_URL/" || echo "FAIL")
-        if [ "$$FRONTEND_STATUS" != "200" ]; then
-          echo "❌ Frontend FAILED (HTTP $$FRONTEND_STATUS)"
+        # Test 1: Health endpoint (backend API) with retry
+        echo ""
+        echo "Test 1/2: Health check (with retry logic)..."
+        HEALTH_PASSED=false
+        for i in 1 2 3; do
+          echo "  Attempt $$i/3..."
+          HEALTH_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$$SERVICE_URL/health" || echo "FAIL")
+
+          if [ "$$HEALTH_STATUS" = "200" ]; then
+            echo "✅ Backend healthy (HTTP 200)"
+            HEALTH_PASSED=true
+            break
+          else
+            echo "⚠️  Health check returned: $$HEALTH_STATUS"
+            if [ $$i -lt 3 ]; then
+              echo "  Retrying in 10s..."
+              sleep 10
+            fi
+          fi
+        done
+
+        if [ "$$HEALTH_PASSED" != "true" ]; then
+          echo ""
+          echo "❌ Health check FAILED after 3 attempts"
+          echo "   Last status: $$HEALTH_STATUS"
+          echo "   This may indicate:"
+          echo "   - Service crashed during startup"
+          echo "   - Database connection issues"
+          echo "   - Initialization timeout (check logs)"
+          echo ""
+          echo "   Debug commands:"
+          echo "   gcloud run services logs read sight --region=europe-central2 --limit=50"
+          echo "   gcloud logging read 'resource.type=cloud_run_revision AND severity>=ERROR' --limit=20"
           exit 1
         fi
-        echo "✅ Frontend accessible"
+
+        # Test 2: Frontend (React SPA) with retry
+        echo ""
+        echo "Test 2/2: Frontend application (with retry logic)..."
+        FRONTEND_PASSED=false
+        for i in 1 2 3; do
+          echo "  Attempt $$i/3..."
+          FRONTEND_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$$SERVICE_URL/" || echo "FAIL")
+
+          if [ "$$FRONTEND_STATUS" = "200" ]; then
+            echo "✅ Frontend accessible (HTTP 200)"
+            FRONTEND_PASSED=true
+            break
+          else
+            echo "⚠️  Frontend check returned: $$FRONTEND_STATUS"
+            if [ $$i -lt 3 ]; then
+              echo "  Retrying in 10s..."
+              sleep 10
+            fi
+          fi
+        done
+
+        if [ "$$FRONTEND_PASSED" != "true" ]; then
+          echo ""
+          echo "❌ Frontend check FAILED after 3 attempts"
+          echo "   Last status: $$FRONTEND_STATUS"
+          echo "   This may indicate:"
+          echo "   - Static file serving issues"
+          echo "   - Frontend build problems"
+          echo "   - Routing configuration errors"
+          exit 1
+        fi
 
         # All tests passed
         echo ""
         echo "🎉 Smoke tests PASSED!"
-        echo "   Deployment verified and healthy"
-        echo "   Service URL: $$SERVICE_URL"
+        echo "   ✅ Backend API healthy"
+        echo "   ✅ Frontend accessible"
+        echo "   📍 Service URL: $$SERVICE_URL"
+        echo ""
+        echo "Deployment verified and ready for production traffic!"
     waitFor: ['neo4j-init']
 
   # ==========================================================================
