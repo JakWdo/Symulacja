@@ -1,14 +1,67 @@
-# Model Registry - Fallback chain configuration
+# Model Registry - Multi-LLM Support with Fallback chain
 #
 # Fallback order:
 # 1. Domain-specific override (e.g., domains.personas.orchestration)
 # 2. Domain defaults (e.g., domains.personas.generation)
 # 3. Global defaults (defaults.chat)
 #
-# Usage:
+# Multi-LLM Support:
+#   from app.services.shared.llm_router import get_llm_router, TaskComplexity
+#   router = get_llm_router()
+#   llm = router.get_chat_model(task_complexity=TaskComplexity.SIMPLE)
+#
+# Legacy (single provider):
 #   from config import models
 #   model_config = models.get("personas", "orchestration")
 #   llm = build_chat_model(**model_config.params)
+
+# Multi-Provider Configuration
+providers:
+  # Fallback chain: Gemini → OpenAI → Anthropic
+  fallback_chain:
+    - gemini
+    - openai
+    - anthropic
+
+  # Cost routing enabled by default
+  cost_routing: true
+
+  # Provider availability (set API keys in environment)
+  gemini:
+    enabled: true
+    models:
+      flash:
+        name: "gemini-2.5-flash"
+        cost_input_per_1m: 0.05  # $0.05 per 1M tokens
+        cost_output_per_1m: 0.15  # $0.15 per 1M tokens
+      pro:
+        name: "gemini-2.5-pro"
+        cost_input_per_1m: 1.00  # $1 per 1M tokens
+        cost_output_per_1m: 3.00  # $3 per 1M tokens
+
+  openai:
+    enabled: false  # Set to true + add OPENAI_API_KEY to enable
+    models:
+      gpt-4o-mini:
+        name: "gpt-4o-mini"
+        cost_input_per_1m: 0.15  # $0.15 per 1M tokens
+        cost_output_per_1m: 0.60  # $0.60 per 1M tokens
+      gpt-4o:
+        name: "gpt-4o"
+        cost_input_per_1m: 2.50  # $2.5 per 1M tokens
+        cost_output_per_1m: 10.00  # $10 per 1M tokens
+
+  anthropic:
+    enabled: false  # Set to true + add ANTHROPIC_API_KEY to enable
+    models:
+      claude-3-5-haiku:
+        name: "claude-3-5-haiku-20241022"
+        cost_input_per_1m: 0.80  # $0.8 per 1M tokens
+        cost_output_per_1m: 4.00  # $4 per 1M tokens
+      claude-3-5-sonnet:
+        name: "claude-3-5-sonnet-20241022"
+        cost_input_per_1m: 3.00  # $3 per 1M tokens
+        cost_output_per_1m: 15.00  # $15 per 1M tokens
 
 defaults:
   chat:

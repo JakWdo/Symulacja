@@ -21,6 +21,16 @@ document-processing = [
     "python-docx",
 ]
 
+# Export functionality (PDF/DOCX reports with charts and watermarks)
+# Install with: pip install -e ".[export]"
+export = [
+    "weasyprint>=60.0",      # HTML to PDF conversion
+    "python-docx>=1.0.0",    # DOCX generation
+    "matplotlib>=3.7.0",     # Charts and visualizations
+    "Pillow>=10.0.0",        # Image processing and watermarks
+    "jinja2>=3.1.0",         # Template rendering (already in main deps)
+]
+
 # Experimental dependencies (currently unused, may be needed in future)
 # Install with: pip install -e ".[experimental]"
 experimental = [
@@ -34,6 +44,7 @@ experimental = [
 all = [
     "sight[llm-providers]",
     "sight[document-processing]",
+    "sight[export]",
     "sight[experimental]",
 ]
 

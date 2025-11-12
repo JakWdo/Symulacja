@@ -28,7 +28,7 @@ from app.core.logging_config import configure_logging
 from app.core.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
-from app.api import project_crud, project_demographics, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal, study_designer, admin
+from app.api import project_crud, project_demographics, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal, study_designer, admin, export
 from app.api.dependencies import get_current_admin_user, get_db
 from app.api.exception_handlers import register_exception_handlers
 from app.services.maintenance.cleanup_service import CleanupService
@@ -181,6 +181,7 @@ app.include_router(settings_router.router, prefix=app_config.api_prefix, tags=["
 app.include_router(dashboard.router, prefix=app_config.api_prefix, tags=["Dashboard"])
 app.include_router(workflows.router, prefix=app_config.api_prefix, tags=["Workflows"])
 app.include_router(study_designer.router, prefix=app_config.api_prefix, tags=["Study Designer"])
+app.include_router(export.router, prefix=app_config.api_prefix, tags=["Export"])
 
 # Admin endpoints (wymagają roli ADMIN)
 app.include_router(admin.router, prefix=app_config.api_prefix, tags=["Admin"])

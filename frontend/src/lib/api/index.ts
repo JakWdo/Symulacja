@@ -10,6 +10,8 @@ export { workflowsApi } from './workflows';
 export { authApi, settingsApi } from './auth';
 export { surveysApi } from './surveys';
 export { ragApi, graphApi } from './rag';
+export { exportPersona, exportFocusGroup, exportSurvey } from './export';
+export type { ExportFormat } from './export';
 
 // Types - Projects
 export type { CreateProjectPayload } from './projects';

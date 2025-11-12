@@ -1,0 +1,143 @@
+# PagerDuty Integration Configuration for Sight Platform
+# Automatyczna eskalacja incydentów P0/P1 do on-call engineers
+
+# PagerDuty Service Configuration
+service:
+  name: "Sight Platform - Production"
+  description: "AI-powered focus group platform - production monitoring"
+  escalation_policy: "sight-platform-escalation"
+  alert_creation: "create_alerts_and_incidents"
+  auto_resolve_timeout: 14400  # 4 hours (auto-resolve if no updates)
+
+# Escalation Policy
+escalation_policy:
+  name: "sight-platform-escalation"
+  description: "Escalation path for Sight Platform incidents"
+  num_loops: 3  # Repeat escalation 3 times before giving up
+  teams:
+    - "sight-engineering"
+  escalation_rules:
+    - escalation_delay_in_minutes: 0
+      targets:
+        - type: "user_reference"
+          id: "${ONCALL_ENGINEER_1}"  # Primary on-call
+    - escalation_delay_in_minutes: 20  # Escalate after 20min if not acknowledged
+      targets:
+        - type: "user_reference"
+          id: "${ONCALL_ENGINEER_2}"  # Secondary on-call
+    - escalation_delay_in_minutes: 60  # Escalate after 1hr
+      targets:
+        - type: "user_reference"
+          id: "${TECH_LEAD}"
+
+# Incident Priority Mapping (from GCP alerts to PagerDuty)
+priority_mapping:
+  # CRITICAL alerts (P0) - High priority, immediate notification
+  - alert_pattern: "🚨 CRITICAL"
+    pagerduty_priority: "P1"
+    notification_urgency: "high"  # SMS + Phone call + Push
+    actions:
+      - "Page on-call engineer immediately"
+      - "Create incident in PagerDuty"
+      - "Send to #incidents Slack channel"
+
+  # HIGH alerts (P1) - Medium priority, push notification
+  - alert_pattern: "⚠️ HIGH"
+    pagerduty_priority: "P2"
+    notification_urgency: "high"  # Push notification
+    actions:
+      - "Notify on-call engineer via push"
+      - "Create incident in PagerDuty"
+      - "Send to #alerts Slack channel"
+
+  # MEDIUM alerts (P2) - Low priority, email only
+  - alert_pattern: "📊 MEDIUM"
+    pagerduty_priority: "P3"
+    notification_urgency: "low"  # Email only
+    actions:
+      - "Email on-call engineer"
+      - "Create low-priority incident"
+      - "Send to #monitoring Slack channel"
+
+  # LOW alerts (P3) - Info only, no paging
+  - alert_pattern: "ℹ️ LOW"
+    pagerduty_priority: "P4"
+    notification_urgency: "low"
+    actions:
+      - "Log to #monitoring Slack channel"
+      - "No PagerDuty incident"
+
+# Notification Rules
+notification_rules:
+  - type: "email"
+    contact_method: "email"
+    delay_minutes: 0
+  - type: "sms"
+    contact_method: "phone"
+    delay_minutes: 5  # SMS after 5min if not acknowledged
+  - type: "phone_call"
+    contact_method: "phone"
+    delay_minutes: 10  # Phone call after 10min
+
+# Integration Keys (set as environment variables)
+integration_keys:
+  # Cloud Monitoring → PagerDuty webhook
+  webhook_url: "https://events.pagerduty.com/integration/${PAGERDUTY_INTEGRATION_KEY}/enqueue"
+  routing_key: "${PAGERDUTY_ROUTING_KEY}"
+
+# Maintenance Windows (auto-suppress alerts during deployments)
+maintenance_windows:
+  - name: "Scheduled Deployment Window"
+    description: "Suppress non-critical alerts during deployments"
+    start_time: "2024-01-01T02:00:00Z"  # Example: 2 AM UTC
+    end_time: "2024-01-01T03:00:00Z"
+    services:
+      - "sight-platform-production"
+    suppressed_severities:
+      - "P3"
+      - "P4"
+
+# Incident Response Runbooks
+runbooks:
+  - name: "High Error Rate"
+    url: "https://github.com/JakWdo/Symulacja/wiki/Runbook-High-Error-Rate"
+    priority: "P1"
+  - name: "Service Downtime"
+    url: "https://github.com/JakWdo/Symulacja/wiki/Runbook-Service-Downtime"
+    priority: "P1"
+  - name: "Database Connection Failures"
+    url: "https://github.com/JakWdo/Symulacja/wiki/Runbook-Database-Failures"
+    priority: "P1"
+
+# Auto-remediation Actions (optional)
+auto_remediation:
+  enabled: false  # Disable for now, enable after testing
+  actions:
+    - trigger: "High Memory Usage"
+      action: "restart_service"
+      parameters:
+        service: "sight-api"
+        max_restarts: 1
+    - trigger: "Database Connection Pool Exhausted"
+      action: "scale_up_connections"
+      parameters:
+        increment: 5
+
+# MTTR Targets
+mttr_targets:
+  P1: 1200  # 20 minutes for critical issues
+  P2: 3600  # 60 minutes for high priority
+  P3: 7200  # 2 hours for medium priority
+  P4: 86400  # 24 hours for low priority
+
+# Reporting
+reports:
+  - type: "weekly_incident_summary"
+    recipients:
+      - "engineering@sight.com"
+      - "oncall@sight.com"
+    metrics:
+      - "total_incidents"
+      - "mttr_by_priority"
+      - "incidents_by_service"
+      - "top_alerts"
