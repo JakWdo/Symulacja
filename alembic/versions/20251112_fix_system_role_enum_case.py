@@ -21,34 +21,34 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Fix system_role_enum to use lowercase values."""
+    """Fix system_role_enum to use lowercase values.
 
-    # Step 1: Zmień kolumnę system_role na TEXT tymczasowo
-    op.execute("ALTER TABLE users ALTER COLUMN system_role TYPE TEXT")
+    AGGRESSIVE FIX: This migration forcefully recreates the enum with lowercase values.
+    """
 
-    # Step 2: Usuń stary enum (może być uppercase)
+    # Step 1: Zmień kolumnę system_role na TEXT tymczasowo (USING cast dla bezpieczeństwa)
+    op.execute("ALTER TABLE users ALTER COLUMN system_role TYPE TEXT USING system_role::TEXT")
+
+    # Step 2: Usuń stary enum AGRESYWNIE (CASCADE usuwa wszystkie zależności)
     op.execute("DROP TYPE IF EXISTS system_role_enum CASCADE")
 
     # Step 3: Utwórz nowy enum z lowercase wartościami (zgodnie z kodem)
-    system_role_enum = postgresql.ENUM(
-        'admin',
-        'researcher',
-        'viewer',
-        name='system_role_enum',
-        create_type=True
-    )
-    system_role_enum.create(op.get_bind(), checkfirst=True)
+    # Używamy bezpośredniego SQL zamiast SQLAlchemy bo mamy pełną kontrolę
+    op.execute("""
+        CREATE TYPE system_role_enum AS ENUM ('admin', 'researcher', 'viewer')
+    """)
 
-    # Step 4: Konwertuj wszystkie wartości na lowercase (na wypadek gdyby były mixed case)
-    op.execute("UPDATE users SET system_role = LOWER(system_role)")
+    # Step 4: Konwertuj wszystkie wartości na lowercase (normalizacja)
+    op.execute("UPDATE users SET system_role = LOWER(TRIM(system_role))")
 
-    # Step 5: Przywróć kolumnę do typu enum
-    op.execute(
-        "ALTER TABLE users ALTER COLUMN system_role TYPE system_role_enum "
-        "USING system_role::system_role_enum"
-    )
+    # Step 5: Przywróć kolumnę do typu enum (z explicit casting)
+    op.execute("""
+        ALTER TABLE users
+        ALTER COLUMN system_role TYPE system_role_enum
+        USING system_role::system_role_enum
+    """)
 
-    # Step 6: Ustaw default
+    # Step 6: Ustaw default i NOT NULL
     op.execute("ALTER TABLE users ALTER COLUMN system_role SET DEFAULT 'researcher'::system_role_enum")
     op.execute("ALTER TABLE users ALTER COLUMN system_role SET NOT NULL")
 
