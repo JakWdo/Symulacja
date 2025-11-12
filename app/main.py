@@ -222,10 +222,10 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     """
     from fastapi import Response
     from app.services.shared.infrastructure_health import InfrastructureHealthService
-    from app.services.shared.redis_client import get_redis_client
+    from app.core.redis import get_redis_client
 
     # Get Redis client
-    redis_client = get_redis_client()
+    redis_client = await get_redis_client()
 
     # Create health service
     health_service = InfrastructureHealthService(
