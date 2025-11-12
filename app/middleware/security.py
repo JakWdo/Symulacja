@@ -16,6 +16,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from collections.abc import Callable
 import logging
+from config import app as app_config
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +77,23 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # style-src - pozwól inline styles (potrzebne dla Swagger UI) + Google Fonts
         # img-src - pozwól data: URIs (dla base64 images) i same-origin
         # font-src - pozwól fonty z Google Fonts CDN
+        # connect-src - w development zezwól na localhost:8000 dla SSE/fetch (Study Designer, etc.)
+
+        # Conditional connect-src based on environment
+        if app_config.environment == "development":
+            # Development: Allow cross-origin to backend (localhost:8000) + frontend (localhost:5173)
+            connect_src = "connect-src 'self' http://localhost:8000 http://localhost:5173 ws://localhost:8000 ws://localhost:5173"
+        else:
+            # Production/Staging: Strict same-origin only
+            connect_src = "connect-src 'self'"
+
         csp_directives = [
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # unsafe-eval needed for Swagger
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "img-src 'self' data: https:",
             "font-src 'self' data: https://fonts.gstatic.com",
-            "connect-src 'self'",
+            connect_src,
             "frame-ancestors 'none'",  # Równoważne X-Frame-Options: DENY
             "base-uri 'self'",
             "form-action 'self'"

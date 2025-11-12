@@ -175,6 +175,9 @@ export interface MessageChunk {
 /**
  * SSE stream dla wysyłania wiadomości (streaming version)
  * Yields partial messages w real-time jak ChatGPT
+ *
+ * WAŻNE: Używa relative path aby Vite proxy przekierował request do backendu.
+ * Vite proxy (vite.config.ts): /api → http://localhost:8000/api
  */
 export async function* sendMessageStream(
   sessionId: string,
@@ -182,8 +185,9 @@ export async function* sendMessageStream(
 ): AsyncGenerator<MessageChunk, void, unknown> {
   const token = localStorage.getItem('access_token');
 
+  // Use relative path - Vite proxy will forward to backend
   const response = await fetch(
-    `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/study-designer/sessions/${sessionId}/message/stream`,
+    `/api/v1/study-designer/sessions/${sessionId}/message/stream`,
     {
       method: 'POST',
       headers: {

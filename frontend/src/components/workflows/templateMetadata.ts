@@ -90,6 +90,11 @@ export const CATEGORY_LABELS: Record<TemplateCategory, string> = {
 
 /**
  * Workflow Templates dla tabs UI (Figma design)
+ *
+ * WAŻNE: IDs muszą być zsynchronizowane z backendem!
+ * Backend templates: app/services/workflows/templates/template_crud.py (TEMPLATES dict)
+ *
+ * Używamy underscores (nie dashes) aby pasować do backend template IDs.
  */
 export interface WorkflowTemplateCard {
   id: string;
@@ -101,44 +106,44 @@ export interface WorkflowTemplateCard {
 
 export const workflowTemplates: WorkflowTemplateCard[] = [
   {
-    id: 'product-research',
-    name: 'Product Research Flow',
-    description: 'Complete product research workflow with personas, surveys, and analysis',
-    category: 'Product',
+    id: 'basic_research',
+    name: 'Basic Research',
+    description: 'Prosty przepływ badawczy: personas → survey → analiza. Idealny dla początkujących.',
+    category: 'Research',
+    nodeCount: 5,
+  },
+  {
+    id: 'deep_dive',
+    name: 'Deep Dive Research',
+    description: 'Głęboka analiza z focus group: personas → survey → focus group → analiza. Dla zaawansowanych badań.',
+    category: 'Research',
     nodeCount: 6,
   },
   {
-    id: 'quick-survey',
-    name: 'Quick Survey Flow',
-    description: 'Simple survey-based research workflow',
-    category: 'Survey',
-    nodeCount: 3,
+    id: 'iterative_validation',
+    name: 'Iterative Validation',
+    description: 'Iteracja z decision points: sprawdź positive feedback, jeśli <70% → generuj więcej person. Dla testów A/B.',
+    category: 'Validation',
+    nodeCount: 5,
   },
   {
-    id: 'brand-perception',
+    id: 'brand_perception',
     name: 'Brand Perception Study',
-    description: 'Understand how customers perceive your brand',
+    description: 'Badanie percepcji marki: personas → survey (brand awareness + sentiment) → analiza. Dla działów marketingu.',
     category: 'Brand',
     nodeCount: 5,
   },
   {
-    id: 'user-journey',
+    id: 'user_journey',
     name: 'User Journey Mapping',
-    description: 'Map and optimize user experience journey',
+    description: 'Customer journey analysis: personas → focus group (journey topics) → analiza → export PDF. Dla UX/product teams.',
     category: 'UX',
     nodeCount: 6,
   },
   {
-    id: 'competitive-analysis',
-    name: 'Competitive Analysis',
-    description: 'Analyze competitors and market positioning',
-    category: 'Market',
-    nodeCount: 5,
-  },
-  {
-    id: 'feature-prioritization',
+    id: 'feature_prioritization',
     name: 'Feature Prioritization',
-    description: 'Prioritize product features based on user feedback',
+    description: 'Feature voting + prioritization: personas → survey (feature rating) → analiza → decision (top 3 features) → end. Dla product teams.',
     category: 'Product',
     nodeCount: 6,
   },
