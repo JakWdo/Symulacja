@@ -57,6 +57,9 @@ numpy
 # pandas - moved to pyproject.toml [project.optional-dependencies] experimental (currently unused)
 scikit-learn
 
+# RAG System - Reranking
+sentence-transformers>=2.0.0,<3.0.0  # CrossEncoder dla hybrid search reranking (pre-warmed w Dockerfile)
+
 # API & Web
 httpx
 # websockets - moved to pyproject.toml [project.optional-dependencies] experimental (currently unused)
