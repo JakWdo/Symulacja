@@ -71,6 +71,7 @@ python-jose[cryptography]
 PyJWT  # Required for direct JWT import in tests (python-jose uses it internally)
 bcrypt
 python-dotenv
+slowapi  # Rate limiting for FastAPI endpoints
 
 # Utilities
 python-dateutil
