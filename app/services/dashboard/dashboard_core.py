@@ -27,7 +27,7 @@ from app.services.dashboard.orchestration import (
     get_insight_detail,
     get_health_blockers,
 )
-from app.services.dashboard.metrics_aggregator import get_weekly_completion
+from app.services.dashboard.metrics import get_weekly_completion
 
 
 class DashboardOrchestrator:

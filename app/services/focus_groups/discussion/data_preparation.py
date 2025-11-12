@@ -10,7 +10,6 @@ from typing import Any
 import numpy as np
 
 from app.models import FocusGroup, PersonaResponse, Persona
-from .nlp.sentiment_analysis import simple_sentiment_score
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +65,7 @@ def prepare_discussion_data(
         persona = personas.get(str(response.persona_id))
         response_data = {
             "response": response.response_text,
-            "sentiment": simple_sentiment_score(response.response_text),  # -1.0 do 1.0
+            "sentiment": 0.0,  # Neutral sentiment (TODO: implement sentiment analysis)
         }
 
         # Dodaj demografię jeśli włączona

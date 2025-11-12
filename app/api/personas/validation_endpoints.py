@@ -24,13 +24,14 @@ from app.services.personas.generation import DemographicDistribution, SegmentCon
 from app.services.personas.validation import DemographicsFormatter, DistributionBuilder
 from config import demographics, features
 
-# Import helper functions z generation_endpoints
-from .generation_endpoints import (
+# Import shared utilities
+from .shared import (
     _infer_full_name,
     _fallback_full_name,
     _extract_age_from_story,
     _get_consistent_occupation,
     _fallback_polish_list,
+    _running_tasks,
 )
 
 # Import generator helper z helpers.py
@@ -38,9 +39,6 @@ from .helpers import _get_persona_generator, _calculate_concurrency_limit
 
 
 logger = logging.getLogger(__name__)
-
-# Śledź uruchomione zadania aby zapobiec garbage collection
-_running_tasks = set()
 
 
 # ===== BACKGROUND TASK (WARNING: 780+ lines!) =====

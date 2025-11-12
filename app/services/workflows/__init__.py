@@ -3,7 +3,7 @@
 from .workflow_service import WorkflowService
 from .validation import WorkflowValidator
 from .execution import WorkflowExecutor
-from .templates import WorkflowTemplateService, TemplateCRUDService as WorkflowTemplateCRUD, validate_template as WorkflowTemplateValidator
+from .templates import WorkflowTemplateService, TemplateCRUDService as WorkflowTemplateCRUD, WorkflowTemplateValidator
 
 __all__ = [
     "WorkflowService",

@@ -25,8 +25,7 @@ from app.services.dashboard.usage import log_usage_from_metadata, UsageLogContex
 from app.services.dashboard.cache_invalidation import invalidate_dashboard_cache
 
 # Import modularized utilities
-from .nlp.language_detection import detect_input_language
-from .data_preparation import prepare_discussion_data, prepare_prompt_variables
+from ..discussion.data_preparation import prepare_discussion_data, prepare_prompt_variables
 from .insight_persistence import store_insights_from_summary
 
 logger = logging.getLogger(__name__)
@@ -146,7 +145,9 @@ class DiscussionSummarizerService:
 
         # Weź pierwsze 1500 znaków dla language detection
         sample_text = all_text[:1500]
-        detected_language = detect_input_language(sample_text)
+        # TODO: Implement language detection - temporarily using Polish default
+        # Previously used: detect_input_language(sample_text) from nlp module
+        detected_language = "pl"
 
         target_language = detected_language
         if preferred_language and preferred_language in {"pl", "en"}:

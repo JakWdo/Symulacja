@@ -26,7 +26,7 @@ from app.db import get_db
 from app.models import FocusGroup, PersonaResponse, User
 from app.api.dependencies import get_current_user, get_focus_group_for_user
 from app.middleware import get_locale
-from app.services.focus_groups.discussion_summarizer import DiscussionSummarizerService
+from app.services.focus_groups.summaries.discussion_summarizer import DiscussionSummarizerService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ from .graph_enrichment import find_related_graph_nodes, enrich_chunk_with_graph
 from .graph_service import GraphRAGService
 from .query_builder import generate_cypher_query
 from .traversal import GraphTraversal
-from .insights_extractor import extract_insights_from_nodes, format_graph_insights
+from .insights_extractor import enrich_graph_nodes, answer_question
 
 __all__ = [
     "format_graph_context",
@@ -14,6 +14,6 @@ __all__ = [
     "GraphRAGService",
     "generate_cypher_query",
     "GraphTraversal",
-    "extract_insights_from_nodes",
-    "format_graph_insights",
+    "enrich_graph_nodes",
+    "answer_question",
 ]

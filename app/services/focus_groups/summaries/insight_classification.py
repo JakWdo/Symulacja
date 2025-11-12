@@ -8,8 +8,6 @@ and builds evidence from discussion data.
 import logging
 from typing import Any
 
-from .nlp.sentiment_analysis import simple_sentiment_score
-
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +24,9 @@ def determine_sentiment(narrative: str) -> str:
     if not narrative:
         return "neutral"
 
-    score = simple_sentiment_score(narrative)
+    # TODO: Implement sentiment analysis - temporarily using neutral default
+    # Previously used: simple_sentiment_score(narrative) from nlp module
+    score = 0.0
     if score > 0.2:
         return "positive"
     elif score < -0.2:

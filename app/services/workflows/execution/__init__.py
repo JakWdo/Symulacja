@@ -7,9 +7,9 @@ Moduły:
 """
 
 from .workflow_executor import WorkflowExecutor
-from .workflow_executor_async import WorkflowExecutorAsync
+from .workflow_executor_async import AsyncWorkflowExecutor
 
 __all__ = [
     "WorkflowExecutor",
-    "WorkflowExecutorAsync",
+    "AsyncWorkflowExecutor",
 ]

@@ -3,13 +3,21 @@ Async workflow execution via Cloud Tasks.
 Production-ready background task execution.
 """
 
-from google.cloud import tasks_v2
-from google.protobuf import timestamp_pb2
-from datetime import datetime, timedelta
 import json
-from uuid import UUID
-import os
 import logging
+import os
+from datetime import datetime, timedelta
+from uuid import UUID
+
+# Optional imports for Cloud Tasks (production only)
+try:
+    from google.cloud import tasks_v2
+    from google.protobuf import timestamp_pb2
+    CLOUD_TASKS_AVAILABLE = True
+except ImportError:
+    CLOUD_TASKS_AVAILABLE = False
+    tasks_v2 = None
+    timestamp_pb2 = None
 
 from config import app as app_config
 
@@ -28,6 +36,12 @@ class AsyncWorkflowExecutor:
     """
 
     def __init__(self):
+        if not CLOUD_TASKS_AVAILABLE:
+            raise ImportError(
+                "Google Cloud Tasks is not available. "
+                "Install with: pip install google-cloud-tasks"
+            )
+
         self.client = tasks_v2.CloudTasksClient()
         self.project = app_config.gcp.project_id
         self.location = app_config.gcp.region

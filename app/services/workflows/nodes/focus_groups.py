@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from app.models import FocusGroup, Persona
 from app.schemas.workflow import RunFocusGroupNodeConfig
-from app.services.focus_groups.focus_group_service_langchain import (
+from app.services.focus_groups.discussion.focus_group_service import (
     FocusGroupServiceLangChain
 )
 from app.services.workflows.nodes.base import NodeExecutor

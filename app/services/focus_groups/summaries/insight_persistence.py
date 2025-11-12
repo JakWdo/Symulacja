@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import FocusGroup
 from app.services.dashboard.insights import InsightTraceabilityService
-from .nlp.concept_extraction import extract_concepts
 from .insight_classification import (
     determine_sentiment,
     classify_insight_type,
@@ -60,7 +59,9 @@ async def store_insights_from_summary(
         + " "
         + parsed_summary.get("sentiment_narrative", "")
     )
-    concepts = extract_concepts(concepts_text, min_frequency=2, max_concepts=15)
+    # TODO: Implement concept extraction - temporarily using empty list
+    # Previously used: extract_concepts(concepts_text, min_frequency=2, max_concepts=15) from nlp module
+    concepts = []
 
     # Determine overall sentiment
     overall_sentiment = determine_sentiment(
