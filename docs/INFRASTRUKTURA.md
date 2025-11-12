@@ -729,24 +729,6 @@ gcloud run services update sight --region=europe-central2
 
 ### Overview
 
-Sight używa **dwóch komplementarnych systemów CI/CD**:
-
-1. **GitHub Actions** (`.github/workflows/*.yml`) - Security scanning + Staging deployment
-2. **GCP Cloud Build** (`cloudbuild.yaml`) - Production deployment
-
-GitHub Actions działa jako **security gate** - skanuje kod pod kątem sekretów (TruffleHog) i deployuje na staging dla testowania. GCP Cloud Build obsługuje **pełny production pipeline** - build Docker, migracje bazy, deploy na Cloud Run, smoke tests.
-
-**Podział odpowiedzialności:**
-
-| System | Cel | Trigger | Środowisko |
-|--------|-----|---------|------------|
-| GitHub Actions | Security + Pre-production | Push/PR/Schedule | Staging |
-| GCP Cloud Build | Production pipeline | Push to `main` | Production |
-
-**📚 Szczegółowy Tutorial:** Zobacz `.claude/learning/ci-cd-pipeline.md` dla kompletnego przewodnika (60 min nauki) wyjaśniającego różnice między systemami, troubleshooting, i hands-on ćwiczenia.
-
-### GCP Cloud Build (Production)
-
 Pełny deployment pipeline jest zdefiniowany w `cloudbuild.yaml` i składa się z siedmiu sekwencyjnych kroków: pull cache, Docker build, push to registry, database migrations, Cloud Run deploy, Neo4j initialization, oraz smoke tests. Pipeline uruchamia się automatycznie przy każdym push do branch `main` przez Cloud Build trigger podpięty do GitHub repo `JakWdo/Symulacja`.
 
 Całkowity czas wykonania wynosi **8-12 minut** dla incremental builds (z cache'owaniem Docker layers), lub **20-25 minut** dla first build bez cache. Code-only changes (bez zmian w dependencies) kompletują w **5-8 minut** dzięki aggressive layer caching. Pipeline używa explicit `--cache-from` oraz BuildKit inline cache dla maximum cache hit rate.
