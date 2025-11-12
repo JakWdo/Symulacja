@@ -1,8 +1,8 @@
 # Infrastruktura i Deployment - Sight Platform
 
 **Ostatnia aktualizacja:** 2025-11-12
-**Wersja:** 2.1
-**Status:** Production-ready (+ Staging Environment)
+**Wersja:** 2.2
+**Status:** Production-ready (+ Staging + Health Checks + Automatic Rollback)
 
 ---
 
@@ -14,8 +14,9 @@
 4. [Cloud Run Production](#cloud-run-production)
 5. [CI/CD Pipeline](#cicd-pipeline)
 6. [Staging Environment](#staging-environment)
-7. [External Services](#external-services)
-8. [Monitoring & Observability](#monitoring--observability)
+7. [Health Checks & Automatic Rollback](#health-checks--automatic-rollback)
+8. [External Services](#external-services)
+9. [Monitoring & Observability](#monitoring--observability)
 
 ---
 
@@ -933,6 +934,335 @@ gcloud builds triggers create github \
   --branch-pattern="^main$" \
   --build-config="cloudbuild.yaml"
 ```
+
+---
+
+## Health Checks & Automatic Rollback
+
+### Przegląd
+
+System health checks zapewnia automatic monitoring kluczowych serwisów infrastruktury i umożliwia automatic rollback w przypadku wykrycia problemów. Health endpoint (`/health`) sprawdza połączenia do PostgreSQL, Redis i Neo4j, zwracając szczegółowe statusy każdego serwisu.
+
+**Kluczowe cele:**
+- **Fast failure detection**: Wykrycie problemów w <10s (health check co 10s)
+- **Automatic rollback**: Przywrócenie poprzedniej wersji jeśli 2+ serwisy down
+- **Low MTTR**: Mean Time To Recovery <2 min (manual rollback)
+- **Zero-downtime deployments**: Health checks zapobiegają routing ruchu do unhealthy instances
+
+### Health Endpoint
+
+**URL**: `/health`
+
+**Sprawdzane serwisy:**
+1. **PostgreSQL (database)**: Simple query `SELECT 1` z timeout 2s
+2. **Redis (cache)**: Ping command z timeout 2s
+3. **Neo4j (graph database)**: Connection verification z timeout 2s
+
+**Response format:**
+
+```json
+{
+  "status": "healthy" | "degraded" | "unhealthy",
+  "environment": "production" | "staging",
+  "checks": {
+    "database": {
+      "status": "healthy",
+      "latency_ms": 12.5,
+      "error": null
+    },
+    "redis": {
+      "status": "healthy",
+      "latency_ms": 8.3,
+      "error": null
+    },
+    "neo4j": {
+      "status": "healthy",
+      "latency_ms": 45.2,
+      "error": null
+    }
+  },
+  "latency_total_ms": 65.8
+}
+```
+
+**Status codes:**
+- `200 OK`: All healthy lub degraded (1 service down)
+- `503 Service Unavailable`: Unhealthy (2+ services down)
+
+**Status logic:**
+- **healthy**: All 3 services up (database, redis, neo4j)
+- **degraded**: 1 service down, application still functional
+- **unhealthy**: 2+ services down, triggers rollback
+
+### Cloud Run Health Check Configuration
+
+Cloud Run automatycznie monitoruje health endpoint i usuwa unhealthy instances z traffic routing.
+
+**Konfiguracja:**
+
+```bash
+gcloud run services update sight \
+  --region=europe-central2 \
+  --health-checks-path=/health \
+  --health-checks-interval=10s \
+  --health-checks-timeout=3s \
+  --health-checks-unhealthy-threshold=3 \
+  --health-checks-healthy-threshold=1
+```
+
+**Parametry:**
+- `health-checks-interval`: 10s (sprawdzanie co 10 sekund)
+- `health-checks-timeout`: 3s (timeout per check)
+- `unhealthy-threshold`: 3 failures → mark unhealthy
+- `healthy-threshold`: 1 success → mark healthy
+
+**Behavior:**
+- Unhealthy instances are automatically removed from load balancer
+- New instances are not routed traffic until health check passes
+- Rolling updates wait for health checks before proceeding
+
+### Automatic Rollback Policy
+
+**Rollback triggers:**
+
+1. **Health check failures**: 3 consecutive failures (30s total)
+2. **5xx error rate**: >5% errors for 2 minutes
+3. **High latency**: p95 latency >2000ms for 2 minutes
+
+**Rollback procedure:**
+
+```bash
+# Manual rollback to previous revision
+gcloud run services update-traffic sight \
+  --to-revisions=PREVIOUS=100 \
+  --region=europe-central2
+
+# Or specific revision
+gcloud run services update-traffic sight \
+  --to-revisions=sight-00042-abc=100 \
+  --region=europe-central2
+```
+
+**Gradual rollout (canary deployment):**
+
+```bash
+# Deploy new version to 10% traffic
+gcloud run services update-traffic sight \
+  --to-revisions=LATEST=10,PREVIOUS=90 \
+  --region=europe-central2
+
+# If stable after 30 min, promote to 100%
+gcloud run services update-traffic sight \
+  --to-revisions=LATEST=100 \
+  --region=europe-central2
+
+# If issues detected, instant rollback
+gcloud run services update-traffic sight \
+  --to-revisions=PREVIOUS=100 \
+  --region=europe-central2
+```
+
+### Monitoring Alerts
+
+**Setup alerts w Cloud Monitoring dla automatic notifications:**
+
+**1. High Error Rate Alert:**
+
+```yaml
+Display Name: "Cloud Run - High 5xx Rate"
+Metric: cloud_run_revision/request_count
+Filter: response_code_class="5xx"
+Condition: 5xx rate > 5% for 2 minutes
+Notification: Slack #alerts + Email
+```
+
+**2. High Latency Alert:**
+
+```yaml
+Display Name: "Cloud Run - High P95 Latency"
+Metric: cloud_run_revision/request_latencies
+Aggregation: 95th percentile
+Condition: p95 > 2000ms for 2 minutes
+Notification: Slack #alerts + Email
+```
+
+**3. Health Check Failures:**
+
+```yaml
+Display Name: "Cloud Run - Health Check Failures"
+Metric: cloud_run_revision/container/startup_latencies
+Condition: Startup failures > 3 in 5 minutes
+Notification: Slack #alerts + Email
+```
+
+### Setup Script
+
+**Automated configuration:**
+
+```bash
+# Production
+./scripts/configure_cloud_run_health_check.sh production
+
+# Staging
+./scripts/configure_cloud_run_health_check.sh staging
+```
+
+**Script actions:**
+1. Configure health check endpoint (`/health`)
+2. Set health check parameters (interval, timeout, thresholds)
+3. Verify health endpoint responds correctly
+4. Display manual rollback commands
+5. Generate monitoring alert setup instructions
+
+### Testing Health Checks
+
+**Test health endpoint:**
+
+```bash
+# Production
+curl https://sight-xxxxx.a.run.app/health | jq
+
+# Expected response (healthy)
+{
+  "status": "healthy",
+  "environment": "production",
+  "checks": {
+    "database": {"status": "healthy", "latency_ms": 15.2},
+    "redis": {"status": "healthy", "latency_ms": 8.5},
+    "neo4j": {"status": "healthy", "latency_ms": 42.1}
+  },
+  "latency_total_ms": 65.8
+}
+```
+
+**Test unhealthy response (database down):**
+
+```bash
+# Simulate database failure (don't do in production!)
+# Stop PostgreSQL: docker-compose stop postgres
+
+curl https://sight-xxxxx.a.run.app/health | jq
+
+# Expected response (unhealthy, HTTP 503)
+{
+  "status": "unhealthy",
+  "environment": "staging",
+  "checks": {
+    "database": {
+      "status": "unhealthy",
+      "latency_ms": 2000,
+      "error": "Database timeout (>2s)"
+    },
+    "redis": {"status": "healthy", "latency_ms": 9.1},
+    "neo4j": {"status": "unhealthy", "latency_ms": 0, "error": "Connection refused"}
+  },
+  "latency_total_ms": 2012.3
+}
+```
+
+### Rollback Testing (Staging Only!)
+
+**Test rollback procedure na staging:**
+
+```bash
+# 1. Deploy new version with intentional error
+git checkout staging
+# Edit code to introduce error (e.g., crash endpoint)
+git commit -m "test: intentional crash for rollback testing"
+git push origin staging
+
+# 2. Wait for deployment (~8 min)
+# Monitor logs for health check failures
+gcloud run services logs tail sight-staging --region=europe-central2
+
+# 3. Health checks should fail after 30s (3 failures × 10s)
+# Check revision status
+gcloud run revisions list --service=sight-staging --region=europe-central2 --limit=5
+
+# 4. Manual rollback (simulate automatic)
+gcloud run services update-traffic sight-staging \
+  --to-revisions=PREVIOUS=100 \
+  --region=europe-central2
+
+# 5. Verify rollback completed <2 minutes
+# Check service is healthy again
+curl https://sight-staging-xxxxx.a.run.app/health
+
+# 6. Cleanup: fix code and redeploy
+git revert HEAD
+git push origin staging
+```
+
+### MTTR (Mean Time To Recovery)
+
+**Target: <2 minutes**
+
+**Timeline:**
+- t+0s: Health check failure detected
+- t+10s: Second health check failure
+- t+20s: Third health check failure → mark unhealthy
+- t+30s: Alert fired (Slack/Email)
+- t+45s: Engineer acknowledges alert
+- t+60s: Engineer executes rollback command
+- t+90s: Rollback deployment in progress
+- t+120s: Previous revision serving traffic, service healthy ✅
+
+**Optimization:**
+- Pre-configured rollback commands in runbook
+- Slack bot for one-click rollback (future)
+- Automatic rollback via Cloud Functions + Monitoring (future)
+
+### Troubleshooting
+
+**Health check fails but service works:**
+
+```bash
+# Check if health endpoint is accessible
+curl https://sight-xxxxx.a.run.app/health -v
+
+# Check service logs for health check errors
+gcloud run services logs tail sight --region=europe-central2 | grep "/health"
+
+# Verify database/redis/neo4j connections
+# Check Cloud SQL status: https://console.cloud.google.com/sql
+# Check Upstash Redis status: https://console.upstash.com
+# Check Neo4j Aura status: https://console.neo4j.io
+```
+
+**Rollback doesn't fix issue:**
+
+```bash
+# Issue may be in data/infrastructure, not code
+# Check previous revisions health
+gcloud run revisions describe REVISION_NAME --region=europe-central2
+
+# If all revisions unhealthy, check infrastructure:
+# 1. Cloud SQL connection issues
+# 2. Redis/Neo4j downtime
+# 3. Network connectivity
+# 4. Secret Manager access
+
+# Temporary mitigation: Scale to zero
+gcloud run services update sight \
+  --min-instances=0 \
+  --max-instances=0 \
+  --region=europe-central2
+
+# Fix infrastructure, then scale back up
+gcloud run services update sight \
+  --min-instances=0 \
+  --max-instances=5 \
+  --region=europe-central2
+```
+
+### Best Practices
+
+1. **Always test on staging first**: Never test rollback on production
+2. **Monitor after deployment**: Watch health checks for 30 min after deploy
+3. **Gradual rollouts**: Use canary deployments (10% → 50% → 100%) for risky changes
+4. **Document rollback commands**: Keep runbook updated with latest revision names
+5. **Regular drills**: Practice rollback quarterly to ensure team readiness
+6. **Alert fatigue**: Tune thresholds to avoid false positives (5% error rate, not 1%)
 
 ---
 

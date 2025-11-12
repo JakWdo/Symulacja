@@ -400,7 +400,7 @@ Checklist: [ ] Analyze Python deps [ ] Analyze Node deps [ ] Delete unused [ ] U
 - [x] 90. Security Audit ✅ (OWASP Top 10 + manual review wykonany)
 - [x] 91. Staging Environment Setup ✅ (deploy-staging.yml, .env.staging.example, docs/INFRASTRUKTURA.md aktualizacja)
 - [x] 92. Secrets Scanning w CI/CD ✅ (secrets-scan.yml, .trufflehog.yaml, TruffleHog + GitGuardian, daily schedule)
-- [ ] 93. Automated Rollback - Cloud Run automatic rollback on health check failure (5xx >5%, latency >2s, rollback <2min, alerts Slack)
+- [x] 93. Automated Rollback ✅ (/health endpoint, InfrastructureHealthService, configure_cloud_run_health_check.sh, docs)
 
 ### 🟡 P1: Features & Infrastructure (NOWE - Q1 2025)
 - [ ] 94. Export PDF/DOCX - generate PDF reports personas/focus groups/surveys (WeasyPrint, python-docx, charts, watermarks dla free tier, download <5s)
