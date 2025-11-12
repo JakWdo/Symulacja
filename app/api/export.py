@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import get_current_user
 from app.db.session import get_db
@@ -40,8 +41,10 @@ async def export_persona_pdf(
     Returns:
         Response: Plik PDF do pobrania
     """
-    # Pobierz personę
-    stmt = select(Persona).where(Persona.id == persona_id, Persona.deleted_at.is_(None))
+    # Pobierz personę (z eager loading projektu aby uniknąć N+1)
+    stmt = select(Persona).where(Persona.id == persona_id, Persona.deleted_at.is_(None)).options(
+        selectinload(Persona.project)
+    )
     result = await db.execute(stmt)
     persona = result.scalar_one_or_none()
 
@@ -108,8 +111,10 @@ async def export_persona_docx(
     Returns:
         Response: Plik DOCX do pobrania
     """
-    # Pobierz personę
-    stmt = select(Persona).where(Persona.id == persona_id, Persona.deleted_at.is_(None))
+    # Pobierz personę (z eager loading projektu aby uniknąć N+1)
+    stmt = select(Persona).where(Persona.id == persona_id, Persona.deleted_at.is_(None)).options(
+        selectinload(Persona.project)
+    )
     result = await db.execute(stmt)
     persona = result.scalar_one_or_none()
 
@@ -175,8 +180,11 @@ async def export_focus_group_pdf(
     Returns:
         Response: Plik PDF
     """
-    # Pobierz grupę
-    stmt = select(FocusGroup).where(FocusGroup.id == focus_group_id, FocusGroup.deleted_at.is_(None))
+    # Pobierz grupę (z eager loading projektu i person aby uniknąć N+1)
+    stmt = select(FocusGroup).where(FocusGroup.id == focus_group_id, FocusGroup.deleted_at.is_(None)).options(
+        selectinload(FocusGroup.project),
+        selectinload(FocusGroup.personas)
+    )
     result = await db.execute(stmt)
     focus_group = result.scalar_one_or_none()
 
@@ -226,7 +234,11 @@ async def export_focus_group_docx(
     """
     Eksportuje raport grupy fokusowej do DOCX.
     """
-    stmt = select(FocusGroup).where(FocusGroup.id == focus_group_id, FocusGroup.deleted_at.is_(None))
+    # Pobierz grupę (z eager loading projektu i person aby uniknąć N+1)
+    stmt = select(FocusGroup).where(FocusGroup.id == focus_group_id, FocusGroup.deleted_at.is_(None)).options(
+        selectinload(FocusGroup.project),
+        selectinload(FocusGroup.personas)
+    )
     result = await db.execute(stmt)
     focus_group = result.scalar_one_or_none()
 
@@ -273,7 +285,10 @@ async def export_survey_pdf(
     """
     Eksportuje raport ankiety do PDF.
     """
-    stmt = select(Survey).where(Survey.id == survey_id, Survey.deleted_at.is_(None))
+    # Pobierz ankietę (z eager loading projektu aby uniknąć N+1)
+    stmt = select(Survey).where(Survey.id == survey_id, Survey.deleted_at.is_(None)).options(
+        selectinload(Survey.project)
+    )
     result = await db.execute(stmt)
     survey = result.scalar_one_or_none()
 
@@ -318,7 +333,10 @@ async def export_survey_docx(
     """
     Eksportuje raport ankiety do DOCX.
     """
-    stmt = select(Survey).where(Survey.id == survey_id, Survey.deleted_at.is_(None))
+    # Pobierz ankietę (z eager loading projektu aby uniknąć N+1)
+    stmt = select(Survey).where(Survey.id == survey_id, Survey.deleted_at.is_(None)).options(
+        selectinload(Survey.project)
+    )
     result = await db.execute(stmt)
     survey = result.scalar_one_or_none()
 

@@ -1,19 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
-import { OverviewDashboard } from '@/components/layout/OverviewDashboard';
-import { MainDashboard } from '@/components/layout/MainDashboard';
-import { Projects } from '@/components/layout/Projects';
-import { ProjectDetail } from '@/components/layout/ProjectDetail';
-import { FocusGroups } from '@/components/layout/FocusGroups';
-import { FocusGroupBuilder } from '@/components/layout/FocusGroupBuilder';
-import { FocusGroupView } from '@/components/layout/FocusGroupView';
-import { Personas } from '@/components/layout/Personas';
-import { Surveys } from '@/components/layout/Surveys';
-import { SurveyBuilder } from '@/components/layout/SurveyBuilder';
-import { SurveyResults } from '@/components/layout/SurveyResults';
-import { Settings } from '@/components/Settings';
 import { ProjectPanel } from '@/components/panels/ProjectPanel';
 import { PersonaPanel } from '@/components/panels/PersonaPanel';
 import { FocusGroupPanel } from '@/components/panels/FocusGroupPanel';
@@ -22,14 +10,28 @@ import { RAGManagementPanel } from '@/components/panels/RAGManagementPanel';
 import { ToastContainer } from '@/components/ui/toast';
 import { AppLoader } from '@/components/AppLoader';
 import { Login } from '@/components/auth/Login';
-import { WorkflowEditor } from '@/components/workflows/WorkflowEditor';
-import { WorkflowsListPage } from '@/components/workflows/WorkflowsListPage';
-import { StudyDesignerView } from '@/components/study-designer/StudyDesignerView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppStore } from '@/store/appStore';
 import { personasApi, focusGroupsApi } from '@/lib/api';
 import { useTheme } from '@/hooks/use-theme';
 import type { Project, FocusGroup, Survey, Workflow } from '@/types';
+
+// Lazy load głównych komponentów widoków dla lepszej wydajności
+const OverviewDashboard = lazy(() => import('@/components/layout/OverviewDashboard').then(m => ({ default: m.OverviewDashboard })));
+const MainDashboard = lazy(() => import('@/components/layout/MainDashboard').then(m => ({ default: m.MainDashboard })));
+const Projects = lazy(() => import('@/components/layout/Projects').then(m => ({ default: m.Projects })));
+const ProjectDetail = lazy(() => import('@/components/layout/ProjectDetail').then(m => ({ default: m.ProjectDetail })));
+const FocusGroups = lazy(() => import('@/components/layout/FocusGroups').then(m => ({ default: m.FocusGroups })));
+const FocusGroupBuilder = lazy(() => import('@/components/layout/FocusGroupBuilder').then(m => ({ default: m.FocusGroupBuilder })));
+const FocusGroupView = lazy(() => import('@/components/layout/FocusGroupView').then(m => ({ default: m.FocusGroupView })));
+const Personas = lazy(() => import('@/components/layout/Personas').then(m => ({ default: m.Personas })));
+const Surveys = lazy(() => import('@/components/layout/Surveys').then(m => ({ default: m.Surveys })));
+const SurveyBuilder = lazy(() => import('@/components/layout/SurveyBuilder').then(m => ({ default: m.SurveyBuilder })));
+const SurveyResults = lazy(() => import('@/components/layout/SurveyResults').then(m => ({ default: m.SurveyResults })));
+const Settings = lazy(() => import('@/components/Settings').then(m => ({ default: m.Settings })));
+const WorkflowEditor = lazy(() => import('@/components/workflows/WorkflowEditor').then(m => ({ default: m.WorkflowEditor })));
+const WorkflowsListPage = lazy(() => import('@/components/workflows/WorkflowsListPage').then(m => ({ default: m.WorkflowsListPage })));
+const StudyDesignerView = lazy(() => import('@/components/study-designer/StudyDesignerView').then(m => ({ default: m.StudyDesignerView })));
 
 export default function App() {
   // Initialize theme
@@ -241,7 +243,9 @@ export default function App() {
           <AppSidebar currentView={currentView} onNavigate={setCurrentView} />
           <main className="flex flex-1 min-h-0 bg-[rgba(232,233,236,0.3)] overflow-y-auto">
             <div className="flex-1 min-h-0 h-full">
-              {renderContent()}
+              <Suspense fallback={<AppLoader message="Loading page..." />}>
+                {renderContent()}
+              </Suspense>
             </div>
           </main>
         </div>
