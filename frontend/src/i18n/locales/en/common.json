@@ -12,7 +12,16 @@
     "settings": "Settings",
     "logout": "Logout",
     "userFallback": "User",
-    "roleFallback": "Researcher"
+    "roleFallback": "Researcher",
+    "organization": "Organization",
+    "organizationDesc": "Manage teams and projects",
+    "research": "Research",
+    "researchDesc": "Create and analyze market research",
+    "workspaces": "Workspaces",
+    "teams": "Teams",
+    "newProject": "New project",
+    "changeEnvironment": "Change environment",
+    "noProjects": "No projects"
   },
   "buttons": {
     "save": "Save Changes",

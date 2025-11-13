@@ -1,4 +1,4 @@
-import { Search, LayoutDashboard, FolderOpen, Folder, Settings, Command, Users, MessageSquare, BarChart3, LogOut, Workflow, Sparkles, Users2 } from 'lucide-react';
+import { Search, LayoutDashboard, Settings, Command, Users, MessageSquare, BarChart3, LogOut, Workflow, Users2 } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -10,7 +10,9 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
+import { WorkspaceDropdown } from './WorkspaceDropdown';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Logo } from '@/components/ui/logo';
@@ -55,16 +57,14 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent className="bg-sidebar">
+        {/* Dashboard - na górze przed sekcjami */}
         <SidebarGroup className="px-2 py-2">
-          <SidebarGroupLabel className="h-8 px-2 text-muted-foreground text-[12px] font-medium uppercase tracking-[0.3px]">
-            {t('sidebar.mainMenu')}
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => onNavigate('dashboard')}
-                  className={`h-8 gap-2 pl-[10px] pr-0 rounded-[8px] ${
+                  className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
                     currentView === 'dashboard'
                       ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
                       : 'text-sidebar-foreground hover:bg-sidebar-accent'
@@ -74,19 +74,55 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                   <span className="text-[14px]">{t('sidebar.dashboard')}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        {/* SEKCJA 1: ORGANIZACJA */}
+        <SidebarGroup className="px-2 py-2">
+          <SidebarGroupLabel className="h-8 px-2 text-muted-foreground text-[12px] font-medium uppercase tracking-[0.3px]">
+            {t('sidebar.organization')}
+          </SidebarGroupLabel>
+          <p className="px-2 text-[11px] text-muted-foreground/60 mb-2">
+            {t('sidebar.organizationDesc')}
+          </p>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {/* Przestrzenie robocze (Środowiska + Projekty połączone) */}
+              <WorkspaceDropdown currentView={currentView} onNavigate={onNavigate} />
+
+              {/* Zespoły */}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => onNavigate('projects')}
+                  onClick={() => onNavigate('teams')}
                   className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
-                    currentView === 'projects' || currentView === 'project-detail'
+                    currentView === 'teams' || currentView === 'team-detail'
                       ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
                       : 'text-sidebar-foreground hover:bg-sidebar-accent'
                   }`}
                 >
-                  <FolderOpen className="w-4 h-4" />
-                  <span className="text-[14px]">{t('sidebar.projects')}</span>
+                  <Users2 className="w-4 h-4" />
+                  <span className="text-[14px]">{t('sidebar.teams')}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        {/* SEKCJA 2: BADANIA */}
+        <SidebarGroup className="px-2 py-2">
+          <SidebarGroupLabel className="h-8 px-2 text-muted-foreground text-[12px] font-medium uppercase tracking-[0.3px]">
+            {t('sidebar.research')}
+          </SidebarGroupLabel>
+          <p className="px-2 text-[11px] text-muted-foreground/60 mb-2">
+            {t('sidebar.researchDesc')}
+          </p>
+          <SidebarGroupContent>
+            <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => onNavigate('personas')}
@@ -137,32 +173,6 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                 >
                   <Workflow className="w-4 h-4" />
                   <span className="text-[14px]">{t('sidebar.workflows')}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => onNavigate('teams')}
-                  className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
-                    currentView === 'teams' || currentView === 'team-detail'
-                      ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent'
-                  }`}
-                >
-                  <Users2 className="w-4 h-4" />
-                  <span className="text-[14px]">Zespoły</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => onNavigate('environments')}
-                  className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
-                    currentView === 'environments'
-                      ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent'
-                  }`}
-                >
-                  <Folder className="w-4 h-4" />
-                  <span className="text-[14px]">Środowiska</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

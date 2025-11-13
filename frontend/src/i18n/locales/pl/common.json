@@ -12,7 +12,16 @@
     "settings": "Ustawienia",
     "logout": "Wyloguj",
     "userFallback": "Użytkownik",
-    "roleFallback": "Badacz"
+    "roleFallback": "Badacz",
+    "organization": "Organizacja",
+    "organizationDesc": "Zarządzaj zespołami i projektami",
+    "research": "Badania",
+    "researchDesc": "Twórz i analizuj badania rynkowe",
+    "workspaces": "Przestrzenie robocze",
+    "teams": "Zespoły",
+    "newProject": "Nowy projekt",
+    "changeEnvironment": "Zmień środowisko",
+    "noProjects": "Brak projektów"
   },
   "buttons": {
     "save": "Zapisz zmiany",
