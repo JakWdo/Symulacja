@@ -33,6 +33,14 @@ from typing import Any
 import yaml
 from jinja2 import Template, UndefinedError, StrictUndefined
 
+# Import validators from separate module
+from config.validators import (
+    validate_prompt_structure,
+    validate_prompt_placeholders,
+    validate_models_config,
+    validate_model_name,
+)
+
 logger = logging.getLogger(__name__)
 
 # Config root directory (config/ w głównym folderze projektu)
@@ -304,11 +312,8 @@ class PromptRegistry:
         """Load single prompt file and cache it."""
         data = self.loader.load_yaml(prompt_file)
 
-        # Validate required fields
-        required = ["id", "version", "description", "messages"]
-        for field in required:
-            if field not in data:
-                raise ValueError(f"Prompt {cache_key} missing required field: {field}")
+        # Validate required fields (delegated to validators module)
+        validate_prompt_structure(data, cache_key)
 
         # Create Prompt object
         prompt = Prompt(
@@ -389,7 +394,8 @@ class PromptRegistry:
             ValueError: Jeśli brakuje required variable
         """
         prompt = self.get(prompt_id)
-        prompt.render(**variables)  # Will raise ValueError if missing
+        # Delegated to validators module
+        validate_prompt_placeholders(prompt.messages, prompt_id, **variables)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -454,12 +460,8 @@ class ModelRegistry:
     def __init__(self, models_file: str = "models.yaml"):
         self.loader = ConfigLoader()
         self.config = self.loader.load_with_env_overrides(models_file)
-        self._validate_config()
-
-    def _validate_config(self):
-        """Validate że config ma required structure."""
-        if "defaults" not in self.config or "chat" not in self.config["defaults"]:
-            raise ValueError("models.yaml must have 'defaults.chat' section")
+        # Delegated to validators module
+        validate_models_config(self.config)
 
     def get(self, domain: str, subdomain: str | None = None) -> ModelConfig:
         """
@@ -513,6 +515,9 @@ class ModelRegistry:
         if not model_name:
             logger.warning("Model name not specified, using default")
             model_name = self.config["defaults"]["chat"]["model"]
+
+        # Validate model name format (delegated to validators module)
+        validate_model_name(model_name)
 
         return ModelConfig(
             model=model_name,
