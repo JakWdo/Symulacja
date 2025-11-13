@@ -40,20 +40,15 @@ def upgrade() -> None:
         print("⚠️  Teams migration already applied - skipping")
         return
 
-    # 1. Create team_role_enum (idempotent - check if exists first)
-    enum_exists = conn.execute(sa.text("""
-        SELECT EXISTS (
-            SELECT 1 FROM pg_type WHERE typname = 'team_role_enum'
-        )
-    """)).scalar()
+    # 1. Create team_role_enum type object (will be used in table creation)
+    # IMPORTANT: Use standalone ENUM object with checkfirst=True
+    from sqlalchemy.dialects.postgresql import ENUM
+    team_role_enum = ENUM('owner', 'member', 'viewer', name='team_role_enum', create_type=False)
 
-    if not enum_exists:
-        print("✨ Creating team_role_enum...")
-        conn.execute(sa.text("""
-            CREATE TYPE team_role_enum AS ENUM ('owner', 'member', 'viewer')
-        """))
-    else:
-        print("⚠️  team_role_enum already exists - skipping creation")
+    # Create the ENUM type explicitly with checkfirst=True (idempotent)
+    print("🔍 Checking if team_role_enum exists...")
+    team_role_enum.create(conn, checkfirst=True)
+    print("✅ team_role_enum ready (created or already exists)")
 
     # 2. Create teams table
     op.create_table(
@@ -76,7 +71,7 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('team_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('role_in_team', sa.Enum('owner', 'member', 'viewer', name='team_role_enum', create_type=False), nullable=False),
+        sa.Column('role_in_team', team_role_enum, nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['team_id'], ['teams.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
