@@ -28,6 +28,7 @@ Wszystkie modele używają:
 from .user import User
 from .project import Project
 from .persona import Persona
+from .team import Team, TeamMembership, TeamRole
 from .persona_audit import PersonaAuditLog
 from .focus_group import FocusGroup
 from .persona_events import PersonaEvent, PersonaResponse
@@ -62,6 +63,9 @@ __all__ = [
     "User",
     "Project",
     "Persona",
+    "Team",
+    "TeamMembership",
+    "TeamRole",
     "PersonaAuditLog",
     "FocusGroup",
     "PersonaEvent",

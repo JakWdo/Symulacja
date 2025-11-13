@@ -29,7 +29,7 @@ from app.core.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.cache_control import CacheControlMiddleware
-from app.api import project_crud, project_demographics, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal, admin, export, assistant
+from app.api import project_crud, project_demographics, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal, admin, export, assistant, teams
 from app.api.dependencies import get_current_admin_user, get_db
 from app.api.exception_handlers import register_exception_handlers
 from app.services.maintenance.cleanup_service import CleanupService
@@ -176,6 +176,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth.router, prefix=app_config.api_prefix, tags=["Auth"])
 
 # Chronione endpointy (wymagają uwierzytelnienia)
+# Teams - zarządzanie zespołami i członkami
+app.include_router(teams.router, prefix=app_config.api_prefix, tags=["Teams"])
+
 # Projekty - podzielone na CRUD i soft delete operations
 app.include_router(project_crud.router, prefix=app_config.api_prefix)
 app.include_router(project_demographics.router, prefix=app_config.api_prefix)
