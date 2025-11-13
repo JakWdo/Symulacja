@@ -95,6 +95,7 @@ class Persona(Base):
     project_id = Column(
         PGUUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
+    environment_id = Column(PGUUID(as_uuid=True), ForeignKey("environments.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Dane demograficzne
     age = Column(Integer, nullable=False)
@@ -161,6 +162,7 @@ class Persona(Base):
 
     # Relacje
     project = relationship("Project", back_populates="personas")
+    environment = relationship("Environment", back_populates="personas")
     responses = relationship(
         "PersonaResponse",
         back_populates="persona",

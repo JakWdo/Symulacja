@@ -6,16 +6,19 @@ Ten moduł zawiera podstawowe operacje CRUD dla zarządzania projektami:
 - GET /projects - Lista wszystkich aktywnych projektów
 - GET /projects/{id} - Szczegóły konkretnego projektu
 - PUT /projects/{id} - Aktualizacja projektu
+- Snapshots - zarządzanie snapshotami zasobów projektu
 
 Soft delete operations znajdują się w project_demographics.py
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from uuid import UUID
+from typing import List
+from pydantic import BaseModel, Field
 
 from app.db import get_db
-from app.models import Project, User
+from app.models import Project, User, ProjectSnapshot, Persona, Workflow
 from app.api.dependencies import get_current_user, get_project_for_user
 from app.schemas.project import (
     ProjectCreate,
@@ -173,3 +176,180 @@ async def update_project(
     await db.refresh(project)
 
     return project
+
+
+# === Project Snapshots ===
+
+class SnapshotCreate(BaseModel):
+    """Schema dla tworzenia snapshotu."""
+    name: str = Field(..., min_length=1, max_length=255)
+    resource_type: str = Field(..., description="Typ zasobu (persona, workflow)")
+
+
+class SnapshotResponse(BaseModel):
+    """Schema dla response snapshotu."""
+    id: UUID
+    project_id: UUID
+    name: str
+    resource_type: str
+    resource_ids: List[UUID]
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+@router.post("/projects/{project_id}/snapshots", response_model=SnapshotResponse, status_code=201, tags=["Snapshots"])
+async def create_project_snapshot(
+    project_id: UUID,
+    data: SnapshotCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Tworzy snapshot zasobów projektu (immutable).
+
+    Snapshot "zamraża" aktualny stan zasobów (personas, workflows) przypisanych
+    do projektu, zapewniając reprodukowalność badań.
+
+    Args:
+        project_id: UUID projektu
+        data: Nazwa i typ zasobu dla snapshotu
+        db: Sesja bazy danych
+
+    Returns:
+        Utworzony snapshot z listą resource_ids
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje
+        HTTPException 404: Jeśli brak zasobów do snapshotowania
+    """
+    # Sprawdź dostęp do projektu
+    project = await get_project_for_user(project_id, current_user, db)
+
+    # Pobierz zasoby do snapshotowania
+    resource_ids = []
+
+    if data.resource_type == "persona":
+        # Pobierz wszystkie aktywne persony projektu
+        result = await db.execute(
+            select(Persona.id).where(
+                and_(
+                    Persona.project_id == project_id,
+                    Persona.is_active == True,
+                )
+            )
+        )
+        resource_ids = [row[0] for row in result.all()]
+
+    elif data.resource_type == "workflow":
+        # Pobierz wszystkie aktywne workflows projektu
+        result = await db.execute(
+            select(Workflow.id).where(
+                and_(
+                    Workflow.project_id == project_id,
+                    Workflow.is_active == True,
+                )
+            )
+        )
+        resource_ids = [row[0] for row in result.all()]
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported resource_type: {data.resource_type}. Allowed: persona, workflow"
+        )
+
+    if not resource_ids:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No {data.resource_type} resources found for this project"
+        )
+
+    # Utwórz snapshot
+    snapshot = ProjectSnapshot(
+        project_id=project_id,
+        name=data.name,
+        resource_type=data.resource_type,
+        resource_ids=[str(rid) for rid in resource_ids],  # JSONB as list of strings
+    )
+
+    db.add(snapshot)
+    await db.commit()
+    await db.refresh(snapshot)
+
+    return snapshot
+
+
+@router.get("/projects/{project_id}/snapshots", response_model=List[SnapshotResponse], tags=["Snapshots"])
+async def list_project_snapshots(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Listuje wszystkie snapshoty projektu.
+
+    Args:
+        project_id: UUID projektu
+        db: Sesja bazy danych
+
+    Returns:
+        Lista snapshotów
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje
+    """
+    # Sprawdź dostęp do projektu
+    await get_project_for_user(project_id, current_user, db)
+
+    # Pobierz snapshoty
+    result = await db.execute(
+        select(ProjectSnapshot)
+        .where(ProjectSnapshot.project_id == project_id)
+        .order_by(ProjectSnapshot.created_at.desc())
+    )
+    snapshots = result.scalars().all()
+
+    return snapshots
+
+
+@router.get("/projects/{project_id}/snapshots/{snapshot_id}", response_model=SnapshotResponse, tags=["Snapshots"])
+async def get_project_snapshot(
+    project_id: UUID,
+    snapshot_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Pobiera szczegóły snapshotu.
+
+    Args:
+        project_id: UUID projektu
+        snapshot_id: UUID snapshotu
+        db: Sesja bazy danych
+
+    Returns:
+        Szczegóły snapshotu
+
+    Raises:
+        HTTPException 404: Jeśli projekt lub snapshot nie istnieje
+    """
+    # Sprawdź dostęp do projektu
+    await get_project_for_user(project_id, current_user, db)
+
+    # Pobierz snapshot
+    result = await db.execute(
+        select(ProjectSnapshot).where(
+            and_(
+                ProjectSnapshot.id == snapshot_id,
+                ProjectSnapshot.project_id == project_id,
+            )
+        )
+    )
+    snapshot = result.scalar_one_or_none()
+
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    return snapshot
