@@ -5,10 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ArrowLeft, Download } from 'lucide-react';
 import { projectsApi } from '@/lib/api';
+import { exportAndDownload } from '@/api/export';
 import type { Project } from '@/types';
 import { Logo } from '@/components/ui/logo';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProjectDetailProps {
   project: Project;
@@ -24,8 +32,10 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     research_objectives: project.research_objectives || '',
     additional_notes: project.additional_notes || ''
   });
+  const [isExporting, setIsExporting] = useState(false);
 
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -50,6 +60,26 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     }
   });
 
+  const handleExport = async (format: 'pdf' | 'docx') => {
+    setIsExporting(true);
+    try {
+      await exportAndDownload(project.id, project.name, format);
+      toast({
+        title: 'Eksport ukończony',
+        description: `Raport projektu został pobrany jako ${format.toUpperCase()}.`,
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: 'Błąd eksportu',
+        description: 'Nie udało się wyeksportować raportu. Spróbuj ponownie.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleCancel = () => {
     onBack();
   };
@@ -71,9 +101,40 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Projects
         </Button>
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">{project.name}</h1>
-          <p className="text-muted-foreground">{project.description}</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">{project.name}</h1>
+            <p className="text-muted-foreground">{project.description}</p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="border-border text-foreground hover:bg-accent"
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <>
+                    <Logo className="w-4 h-4 mr-2" spinning />
+                    Eksportowanie...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Eksportuj
+                  </>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport('pdf')} disabled={isExporting}>
+                Eksportuj jako PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('docx')} disabled={isExporting}>
+                Eksportuj jako DOCX
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

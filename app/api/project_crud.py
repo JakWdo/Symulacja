@@ -7,24 +7,28 @@ Ten moduł zawiera podstawowe operacje CRUD dla zarządzania projektami:
 - GET /projects/{id} - Szczegóły konkretnego projektu
 - PUT /projects/{id} - Aktualizacja projektu
 - Snapshots - zarządzanie snapshotami zasobów projektu
+- Export - eksport raportów PDF/DOCX projektu
 
 Soft delete operations znajdują się w project_demographics.py
 """
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 from uuid import UUID
 from typing import List
 from pydantic import BaseModel, Field
 
 from app.db import get_db
-from app.models import Project, User, ProjectSnapshot, Persona, Workflow
+from app.models import Project, User, ProjectSnapshot, Persona, Workflow, FocusGroup, Survey
 from app.api.dependencies import get_current_user, get_project_for_user
 from app.schemas.project import (
     ProjectCreate,
     ProjectResponse,
     ProjectUpdate,
 )
+from app.services.export import PDFGenerator, DOCXGenerator
 
 router = APIRouter()
 
@@ -353,3 +357,241 @@ async def get_project_snapshot(
         raise HTTPException(status_code=404, detail="Snapshot not found")
 
     return snapshot
+
+
+@router.get("/projects/{project_id}/export/pdf", tags=["Projects", "Export"])
+async def export_project_pdf(
+    project_id: UUID,
+    include_full_personas: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Eksportuj raport projektu do PDF.
+
+    Generuje kompletny raport PDF zawierający:
+    - Opis projektu i cele badawcze
+    - Statystyki demograficzne person
+    - Przykładowe persony (top 10 lub wszystkie)
+    - Kluczowe insighty z grup fokusowych
+    - Agregaty odpowiedzi z ankiet
+    - Podsumowanie
+
+    Args:
+        project_id: UUID projektu
+        include_full_personas: Czy dołączyć wszystkie persony (domyślnie: False = tylko top 10)
+        db: Sesja bazy danych
+        current_user: Zalogowany użytkownik
+
+    Returns:
+        Plik PDF (application/pdf)
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje lub użytkownik nie ma dostępu
+        HTTPException 500: Jeśli generowanie PDF się nie powiodło
+    """
+    # Sprawdź dostęp do projektu
+    await get_project_for_user(project_id, current_user, db)
+
+    # Pobierz projekt z eager-loaded relationshipami
+    result = await db.execute(
+        select(Project)
+        .options(
+            selectinload(Project.personas),
+            selectinload(Project.focus_groups),
+            selectinload(Project.surveys),
+        )
+        .where(Project.id == project_id)
+    )
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Konwertuj modele ORM do dict
+    project_data = {
+        "id": str(project.id),
+        "name": project.name,
+        "description": project.description,
+        "target_audience": project.target_audience,
+        "research_objectives": project.research_objectives,
+        "target_demographics": project.target_demographics,
+        "target_sample_size": project.target_sample_size,
+        "is_statistically_valid": project.is_statistically_valid,
+        "personas": [
+            {
+                "id": str(p.id),
+                "full_name": p.full_name,
+                "name": p.full_name,
+                "age": p.age,
+                "gender": p.gender,
+                "occupation": p.occupation,
+                "education_level": p.education_level,
+                "location": p.location,
+                "values": p.values or [],
+                "interests": p.interests or [],
+            }
+            for p in project.personas
+        ],
+        "focus_groups": [
+            {
+                "id": str(fg.id),
+                "name": fg.name,
+                "persona_ids": [str(pid) for pid in fg.persona_ids] if fg.persona_ids else [],
+                "questions": fg.questions or [],
+                "ai_summary": fg.ai_summary,
+            }
+            for fg in project.focus_groups
+        ],
+        "surveys": [
+            {
+                "id": str(s.id),
+                "title": s.title,
+                "status": s.status,
+                "actual_responses": s.actual_responses,
+                "target_responses": s.target_responses,
+            }
+            for s in project.surveys
+        ],
+    }
+
+    # Określ tier użytkownika (TODO: pobrać z modelu User gdy będzie zaimplementowany)
+    user_tier = "free"  # Placeholder
+
+    try:
+        # Generuj PDF
+        pdf_generator = PDFGenerator()
+        pdf_bytes = await pdf_generator.generate_project_pdf(
+            project_data=project_data,
+            user_tier=user_tier,
+            include_full_personas=include_full_personas,
+        )
+
+        # Zwróć jako plik do pobrania
+        filename = f"projekt_{project.name.replace(' ', '_')}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Błąd generowania PDF: {str(e)}")
+
+
+@router.get("/projects/{project_id}/export/docx", tags=["Projects", "Export"])
+async def export_project_docx(
+    project_id: UUID,
+    include_full_personas: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Eksportuj raport projektu do DOCX (Microsoft Word).
+
+    Generuje kompletny raport DOCX zawierający:
+    - Opis projektu i cele badawcze
+    - Statystyki demograficzne person
+    - Przykładowe persony (top 10 lub wszystkie)
+    - Kluczowe insighty z grup fokusowych
+    - Agregaty odpowiedzi z ankiet
+    - Podsumowanie
+
+    Args:
+        project_id: UUID projektu
+        include_full_personas: Czy dołączyć wszystkie persony (domyślnie: False = tylko top 10)
+        db: Sesja bazy danych
+        current_user: Zalogowany użytkownik
+
+    Returns:
+        Plik DOCX (application/vnd.openxmlformats-officedocument.wordprocessingml.document)
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje lub użytkownik nie ma dostępu
+        HTTPException 500: Jeśli generowanie DOCX się nie powiodło
+    """
+    # Sprawdź dostęp do projektu
+    await get_project_for_user(project_id, current_user, db)
+
+    # Pobierz projekt z eager-loaded relationshipami
+    result = await db.execute(
+        select(Project)
+        .options(
+            selectinload(Project.personas),
+            selectinload(Project.focus_groups),
+            selectinload(Project.surveys),
+        )
+        .where(Project.id == project_id)
+    )
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Konwertuj modele ORM do dict (ta sama logika co PDF)
+    project_data = {
+        "id": str(project.id),
+        "name": project.name,
+        "description": project.description,
+        "target_audience": project.target_audience,
+        "research_objectives": project.research_objectives,
+        "target_demographics": project.target_demographics,
+        "target_sample_size": project.target_sample_size,
+        "is_statistically_valid": project.is_statistically_valid,
+        "personas": [
+            {
+                "id": str(p.id),
+                "full_name": p.full_name,
+                "name": p.full_name,
+                "age": p.age,
+                "gender": p.gender,
+                "occupation": p.occupation,
+                "education_level": p.education_level,
+                "location": p.location,
+                "values": p.values or [],
+                "interests": p.interests or [],
+            }
+            for p in project.personas
+        ],
+        "focus_groups": [
+            {
+                "id": str(fg.id),
+                "name": fg.name,
+                "persona_ids": [str(pid) for pid in fg.persona_ids] if fg.persona_ids else [],
+                "questions": fg.questions or [],
+                "ai_summary": fg.ai_summary,
+            }
+            for fg in project.focus_groups
+        ],
+        "surveys": [
+            {
+                "id": str(s.id),
+                "title": s.title,
+                "status": s.status,
+                "actual_responses": s.actual_responses,
+                "target_responses": s.target_responses,
+            }
+            for s in project.surveys
+        ],
+    }
+
+    # Określ tier użytkownika
+    user_tier = "free"  # Placeholder
+
+    try:
+        # Generuj DOCX
+        docx_generator = DOCXGenerator()
+        docx_bytes = await docx_generator.generate_project_docx(
+            project_data=project_data,
+            user_tier=user_tier,
+            include_full_personas=include_full_personas,
+        )
+
+        # Zwróć jako plik do pobrania
+        filename = f"projekt_{project.name.replace(' ', '_')}.docx"
+        return Response(
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Błąd generowania DOCX: {str(e)}")
