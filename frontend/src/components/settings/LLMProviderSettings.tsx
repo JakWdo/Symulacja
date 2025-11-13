@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Info, Sparkles } from 'lucide-react';
@@ -88,49 +88,49 @@ export function LLMProviderSettings() {
           </div>
         </div>
 
-        <RadioGroup value={selectedProvider} onValueChange={(value) => setSelectedProvider(value as LLMProvider)}>
-          <div className="space-y-4">
-            {(Object.keys(PROVIDERS) as LLMProvider[]).map((provider) => {
-              const info = PROVIDERS[provider];
-              return (
-                <div
-                  key={provider}
-                  className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                    selectedProvider === provider
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                  onClick={() => setSelectedProvider(provider)}
-                >
-                  <div className="flex items-start gap-3">
-                    <RadioGroupItem value={provider} id={provider} className="mt-1" />
-                    <div className="flex-1">
-                      <Label htmlFor={provider} className="text-base font-semibold cursor-pointer">
-                        {info.name}
-                        {provider === 'gemini' && (
-                          <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                            Domyślny
-                          </span>
-                        )}
-                      </Label>
-                      <p className="text-sm text-muted-foreground mt-1">{info.description}</p>
-                      <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                        <div>
-                          <span className="font-medium text-foreground">Modele:</span>
-                          <span className="text-muted-foreground ml-1">{info.models}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium text-foreground">Koszt:</span>
-                          <span className="text-muted-foreground ml-1">{info.pricing}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="llm-provider">Wybierz Providera LLM</Label>
+            <Select value={selectedProvider} onValueChange={(value) => setSelectedProvider(value as LLMProvider)}>
+              <SelectTrigger id="llm-provider" className="w-full">
+                <SelectValue placeholder="Wybierz providera..." />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(PROVIDERS) as LLMProvider[]).map((provider) => {
+                  const info = PROVIDERS[provider];
+                  return (
+                    <SelectItem key={provider} value={provider}>
+                      {info.name}
+                      {provider === 'gemini' && ' (Domyślny)'}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
-        </RadioGroup>
+
+          {/* Provider Details Card */}
+          <div className="border rounded-lg p-4 bg-muted/50">
+            <h4 className="font-semibold text-base mb-2">
+              {PROVIDERS[selectedProvider].name}
+            </h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              {PROVIDERS[selectedProvider].description}
+            </p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="font-medium">Modele:</span>
+                <br />
+                <span className="text-muted-foreground">{PROVIDERS[selectedProvider].models}</span>
+              </div>
+              <div>
+                <span className="font-medium">Koszt:</span>
+                <br />
+                <span className="text-muted-foreground">{PROVIDERS[selectedProvider].pricing}</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="flex justify-end pt-4 border-t">
           <Button onClick={handleSave} disabled={isSaving}>
