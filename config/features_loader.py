@@ -4,6 +4,8 @@ Features Loader - Feature flags and system configuration.
 Ten moduł dostarcza:
 - RagFeatures: Feature flags dla systemu RAG
 - SegmentCacheFeatures: Konfiguracja segment-first cache
+- OrchestrationFeatures: Feature flags dla persona orchestration
+- StudyDesignerFeatures: Feature flags dla Study Designer
 - PerformanceConfig: Progi wydajnościowe i timeouty
 - FeaturesConfig: Singleton łączący wszystkie feature flags
 
@@ -17,6 +19,10 @@ Użycie:
     # Segment Cache
     if features.segment_cache.enabled:
         ttl = features.segment_cache.ttl_days
+
+    # Study Designer
+    if features.study_designer.use_v2_architecture:
+        use_v2 = True
 
     # Performance
     max_time = features.performance.max_response_time_per_persona
@@ -93,6 +99,18 @@ class OrchestrationFeatures:
 
 
 @dataclass
+class StudyDesignerFeatures:
+    """
+    Feature flags dla Study Designer (conversational research design).
+
+    Attributes:
+        use_v2_architecture: Użyj uproszczonej architektury V2 (3-node graph)
+                           vs legacy V1 (7-node graph)
+    """
+    use_v2_architecture: bool = False  # Default: V1 (7-node legacy)
+
+
+@dataclass
 class PerformanceConfig:
     """
     Konfiguracja wydajności i timeoutów.
@@ -136,6 +154,7 @@ class FeaturesConfig:
         self.rag = self._load_rag()
         self.segment_cache = self._load_segment_cache()
         self.orchestration = self._load_orchestration()
+        self.study_designer = self._load_study_designer()
         self.performance = self._load_performance()
 
     def _load_rag(self) -> RagFeatures:
@@ -181,6 +200,19 @@ class FeaturesConfig:
         return OrchestrationFeatures(
             enabled=orch_config.get("enabled", True),
             timeout=orch_config.get("timeout", 90),
+        )
+
+    def _load_study_designer(self) -> StudyDesignerFeatures:
+        """
+        Ładuje study designer feature flags.
+
+        Returns:
+            StudyDesignerFeatures object z defaultami
+        """
+        study_config = self.config.get("study_designer", {})
+
+        return StudyDesignerFeatures(
+            use_v2_architecture=study_config.get("use_v2_architecture", False),
         )
 
     def _load_performance(self) -> PerformanceConfig:

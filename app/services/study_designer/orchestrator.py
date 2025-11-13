@@ -52,7 +52,7 @@ class StudyDesignerOrchestrator:
         self.db = db
 
         # Feature flag: Choose v1 vs v2 architecture
-        use_v2 = features.get("study_designer", {}).get("use_v2_architecture", False)
+        use_v2 = features.study_designer.use_v2_architecture
 
         if use_v2:
             logger.info("[Orchestrator] Using V2 architecture (3-node simplified graph)")

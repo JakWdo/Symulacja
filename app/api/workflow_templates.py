@@ -152,7 +152,10 @@ async def instantiate_template(
             },
         )
 
+    import uuid
+
     service = WorkflowTemplateService()
+    error_id = str(uuid.uuid4())[:8]
 
     try:
         workflow = await service.create_from_template(
@@ -178,21 +181,27 @@ async def instantiate_template(
     except ValueError as e:
         # Template not found or validation error
         logger.warning(
-            f"Template instantiation failed: {e}",
+            f"[{error_id}] Template instantiation failed: {e}",
             extra={
+                "error_id": error_id,
                 "template_id": template_id,
                 "project_id": str(request.project_id),
                 "user_id": str(current_user.id),
             },
         )
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{str(e)} (error_id: {error_id})"
+        )
 
     except HTTPException as http_ex:
         # Re-raise HTTPException with preserved detail (404, 403, etc.)
         # WorkflowService now returns structured error details
         logger.warning(
-            f"Template instantiation HTTP error: {http_ex.status_code}",
+            f"[{error_id}] Template instantiation HTTP error: {http_ex.status_code}",
             extra={
+                "error_id": error_id,
                 "template_id": template_id,
                 "project_id": str(request.project_id),
                 "user_id": str(current_user.id),
@@ -200,24 +209,29 @@ async def instantiate_template(
                 "detail": http_ex.detail
             },
         )
+        await db.rollback()
         raise
 
     except Exception as e:
         logger.error(
-            f"Template instantiation unexpected error: {e}",
+            f"[{error_id}] Template instantiation unexpected error: {e}",
             exc_info=True,
             extra={
+                "error_id": error_id,
                 "template_id": template_id,
                 "project_id": str(request.project_id),
                 "user_id": str(current_user.id),
-                "error_type": type(e).__name__
+                "error_type": type(e).__name__,
+                "alert": True
             },
         )
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": "internal_server_error",
                 "message": "Failed to create workflow from template",
+                "error_id": error_id,
                 "hint": "Please check server logs for details or contact support"
             },
         )

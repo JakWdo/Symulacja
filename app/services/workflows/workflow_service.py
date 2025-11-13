@@ -138,12 +138,19 @@ class WorkflowService:
         )
 
         # 2. Utwórz workflow
+        # CRITICAL FIX: Convert CanvasData Pydantic model to dict for JSON serialization
+        # SQLAlchemy JSON column requires dict, not Pydantic BaseModel
+        # Root cause of TypeError: Object of type CanvasData is not JSON serializable
+        canvas_dict = data.canvas_data.model_dump() if hasattr(data.canvas_data, 'model_dump') else (
+            data.canvas_data.dict() if hasattr(data.canvas_data, 'dict') else data.canvas_data
+        )
+
         workflow = Workflow(
             name=data.name,
             description=data.description,
             project_id=data.project_id,
             owner_id=user_id,
-            canvas_data=data.canvas_data,
+            canvas_data=canvas_dict,
             status="draft",  # Zawsze zaczynamy od draft
             is_template=False,  # Tylko templates mają True
             is_active=True,

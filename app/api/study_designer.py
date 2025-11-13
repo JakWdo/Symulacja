@@ -56,21 +56,65 @@ async def create_session(
 
     Returns:
         SessionCreateResponse z sesją i welcome message
+
+    Raises:
+        HTTPException: 504 jeśli timeout, 500 jeśli database error
     """
-    logger.info(f"User {user.id} creating new study designer session")
+    import uuid
+    import asyncio
 
-    orchestrator = StudyDesignerOrchestrator(db)
-    session = await orchestrator.create_session(
-        user_id=user.id, project_id=data.project_id
-    )
+    error_id = str(uuid.uuid4())[:8]
+    logger.info(f"[{error_id}] User {user.id} creating new study designer session")
 
-    # Get welcome message (last message from session)
-    await db.refresh(session, attribute_names=["messages"])
-    welcome_msg = session.messages[-1].content if session.messages else "Welcome!"
+    try:
+        # Timeout wrapper - 30s max dla session creation
+        async with asyncio.timeout(30.0):
+            orchestrator = StudyDesignerOrchestrator(db)
+            session = await orchestrator.create_session(
+                user_id=user.id, project_id=data.project_id
+            )
 
-    return SessionCreateResponse(
-        session=SessionResponse.from_orm(session), welcome_message=welcome_msg
-    )
+        # Get welcome message (last message from session)
+        await db.refresh(session, attribute_names=["messages"])
+        welcome_msg = session.messages[-1].content if session.messages else "Welcome!"
+
+        return SessionCreateResponse(
+            session=SessionResponse.from_orm(session), welcome_message=welcome_msg
+        )
+
+    except asyncio.TimeoutError:
+        logger.error(
+            f"[{error_id}] Session creation timeout for user {user.id}",
+            extra={"error_id": error_id, "user_id": str(user.id), "alert": True}
+        )
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Session creation timeout. Please try again. (error_id: {error_id})"
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (400, 403, 404)
+        await db.rollback()
+        raise
+
+    except Exception as e:
+        logger.error(
+            f"[{error_id}] Failed to create session: {e}",
+            extra={
+                "error_id": error_id,
+                "user_id": str(user.id),
+                "project_id": str(data.project_id) if data.project_id else None,
+                "error_type": type(e).__name__,
+                "alert": True
+            },
+            exc_info=True
+        )
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create session. Please try again. (error_id: {error_id})"
+        )
 
 
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
@@ -312,8 +356,12 @@ async def cancel_session(
         )
 
     # Mark as cancelled
+    # CRITICAL FIX: Use Python datetime, not SQL expression db.func.now()
+    # Root cause of TypeError when SQLAlchemy tries to serialize func.now()
+    from datetime import datetime, timezone
+
     session.status = "cancelled"
-    session.completed_at = db.func.now()
+    session.completed_at = datetime.now(timezone.utc)
 
     await db.commit()
 
