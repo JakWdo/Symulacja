@@ -174,13 +174,13 @@ Uwaga: Zadania dostosowane z wcześniejszych promptów, przenumerowane i posorto
 - [x] Frontend: Team selector, widok teamu, ukrywanie akcji wg ról
 - [x] Testy API: 200/403 na głównych operacjach wg ról
 
-### Faza 2 — Shared Context (P0)
-- [ ] Alembic: `environments`, `tags`, `resource_tags`, `saved_filters`, `project_snapshots`, FK `environment_id` w projects/personas/templates
-- [ ] Utils: `app/utils/tags.py` (parse/validate/normalize, aliasy)
-- [ ] Filtry: `app/services/filters/{dsl_parser.py,query_builder.py}` + testy AST/SQL
-- [ ] API: `/environments`, `/saved-filters`, `/environments/{id}/resources`, `/projects/{id}/snapshots`
-- [ ] Backfill: „Default Environment” per team; przypięcie istniejących danych
-- [ ] UI: faceted filters + zapisywanie + snapshot attach
+### Faza 2 — Shared Context (P0) ✅ KOMPLETNA
+- [x] Alembic: `environments`, `tags`, `resource_tags`, `saved_filters`, `project_snapshots`, FK `environment_id` w projects/personas/templates
+- [x] Utils: `app/utils/tags.py` (parse/validate/normalize, aliasy)
+- [x] Filtry: `app/services/filters/{dsl_parser.py,query_builder.py}` + testy AST/SQL
+- [x] API: `/environments`, `/saved-filters`, `/environments/{id}/resources`, `/projects/{id}/snapshots`
+- [x] Backfill: „Default Environment" per team; przypięcie istniejących danych (skrypt: `scripts/backfill_shared_context.py`)
+- [x] UI: faceted filters + zapisywanie + snapshot attach (komponenty: EnvironmentSelector, FacetedFilters, SnapshotManager)
 
 ### Faza 3 — Eksport projektu (P1)
 - [ ] Serwis: `generate_project_pdf/docx` (WeasyPrint/python‑docx)

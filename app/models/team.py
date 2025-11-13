@@ -80,6 +80,12 @@ class Team(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    environments = relationship(
+        "Environment",
+        back_populates="team",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Team id={self.id} name={self.name!r}>"

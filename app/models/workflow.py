@@ -112,6 +112,12 @@ class Workflow(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
+    environment_id = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("environments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Core fields
     name = Column(String(255), nullable=False)
@@ -172,6 +178,10 @@ class Workflow(Base):
         "Project",
         foreign_keys=[project_id],
         backref="workflows",
+    )
+    environment = relationship(
+        "Environment",
+        back_populates="workflows",
     )
     steps = relationship(
         "WorkflowStep",

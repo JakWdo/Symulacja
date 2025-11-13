@@ -58,6 +58,13 @@ from .study_designer import (
     MessageRoleEnum,
     ConversationStageEnum,
 )
+from .shared_context import (
+    Environment,
+    Tag,
+    ResourceTag,
+    SavedFilter,
+    ProjectSnapshot,
+)
 
 __all__ = [
     "User",
@@ -92,4 +99,9 @@ __all__ = [
     "SessionStatusEnum",
     "MessageRoleEnum",
     "ConversationStageEnum",
+    "Environment",
+    "Tag",
+    "ResourceTag",
+    "SavedFilter",
+    "ProjectSnapshot",
 ]
