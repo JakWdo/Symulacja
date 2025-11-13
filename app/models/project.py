@@ -49,6 +49,7 @@ class Project(Base):
 
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    team_id = Column(PGUUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     target_audience = Column(Text, nullable=True)
@@ -76,6 +77,10 @@ class Project(Base):
     owner = relationship(
         "User",
         foreign_keys=[owner_id],
+        back_populates="projects"
+    )
+    team = relationship(
+        "Team",
         back_populates="projects"
     )
     personas = relationship(

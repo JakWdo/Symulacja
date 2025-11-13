@@ -92,6 +92,11 @@ class User(Base):
         back_populates="owner",
         cascade="all, delete-orphan"
     )
+    team_memberships = relationship(
+        "TeamMembership",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, name={self.full_name})>"

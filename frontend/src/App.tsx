@@ -32,6 +32,8 @@ const SurveyResults = lazy(() => import('@/components/layout/SurveyResults').the
 const Settings = lazy(() => import('@/components/Settings').then(m => ({ default: m.Settings })));
 const WorkflowEditor = lazy(() => import('@/components/workflows/WorkflowEditor').then(m => ({ default: m.WorkflowEditor })));
 const WorkflowsListPage = lazy(() => import('@/components/workflows/WorkflowsListPage').then(m => ({ default: m.WorkflowsListPage })));
+const TeamsList = lazy(() => import('@/components/teams/TeamsList').then(m => ({ default: m.TeamsList })));
+const TeamDetailView = lazy(() => import('@/components/teams/TeamDetailView').then(m => ({ default: m.TeamDetailView })));
 
 export default function App() {
   // Initialize theme
@@ -49,6 +51,7 @@ export default function App() {
   const [viewFocusGroup, setViewFocusGroup] = useState<FocusGroup | null>(null);
   const [viewSurvey, setViewSurvey] = useState<Survey | null>(null);
   const [viewWorkflow, setViewWorkflow] = useState<Workflow | null>(null);
+  const [viewTeam, setViewTeam] = useState<string | null>(null);
 
   // Fetch personas for selected project
   const { data: personas } = useQuery({
@@ -212,6 +215,26 @@ export default function App() {
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground">No workflow selected</p>
+          </div>
+        );
+      case 'teams':
+        return (
+          <TeamsList
+            onSelectTeam={(team) => {
+              setViewTeam(team.id);
+              setCurrentView('team-detail');
+            }}
+          />
+        );
+      case 'team-detail':
+        return viewTeam ? (
+          <TeamDetailView
+            teamId={viewTeam}
+            onBack={() => setCurrentView('teams')}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">No team selected</p>
           </div>
         );
       default:
