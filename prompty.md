@@ -194,10 +194,10 @@ Uwaga: Zadania dostosowane z wcześniejszych promptów, przenumerowane i posorto
 - [x] Frontend UI: przycisk "Eksportuj" dropdown w ProjectDetail ✅
 - [x] Testy: 11 unit tests (PDF/DOCX generators) + 14 integration tests (API endpoints) ✅
 
-### Faza 4 — Staging + rollback (P1)
-- [ ] `.env.staging` i sekrety staging
-- [ ] Cloud Build: traffic‑splitting + realny rollback przy smoke‑fail
-- [ ] DEPLOY.md: proces staging/produkcyjny, szybki rollback
+### Faza 4 — Staging + rollback (P1) ✅ UKOŃCZONA
+- [x] `.env.staging` i sekrety staging
+- [x] Cloud Build: traffic‑splitting + realny rollback przy smoke‑fail
+- [x] DEPLOY.md: proces staging/produkcyjny, szybki rollback
 
 ### Prace horyzontalne (P2)
 - [ ] Pokrycie testami 85%+ (adaptacja zad. „66”): `pytest --cov=app --cov-report=term-missing` i testy brakujących modułów (personas/orchestration, rag/graph, dashboard/metrics)
