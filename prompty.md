@@ -180,7 +180,12 @@ Uwaga: Zadania dostosowane z wcześniejszych promptów, przenumerowane i posorto
 - [x] Filtry: `app/services/filters/{dsl_parser.py,query_builder.py}` + testy AST/SQL
 - [x] API: `/environments`, `/saved-filters`, `/environments/{id}/resources`, `/projects/{id}/snapshots`
 - [x] Backfill: „Default Environment" per team; przypięcie istniejących danych (skrypt: `scripts/backfill_shared_context.py`)
-- [x] UI: faceted filters + zapisywanie + snapshot attach (komponenty: EnvironmentSelector, FacetedFilters, SnapshotManager)
+- [x] Frontend kompletny:
+  - API Client: `frontend/src/api/environments.ts` (wszystkie typy i funkcje)
+  - EnvironmentSelector: dropdown do przełączania środowisk w topbar (integracja z teamStore)
+  - FacetedFilters: UI z chips, DSL query input, tryb prosty/zaawansowany, saved filters, preview wyników
+  - SnapshotManager: tworzenie snapshotów (personas/workflows), listowanie z expandable details, resource IDs preview
+  - Wszystkie komponenty używają TanStack Query i są responsywne
 
 ### Faza 3 — Eksport projektu (P1)
 - [ ] Serwis: `generate_project_pdf/docx` (WeasyPrint/python‑docx)
