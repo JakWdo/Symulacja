@@ -174,6 +174,21 @@ Roadmap platformy na rok 2025 (~550 linii).
 
 ---
 
+### workflows/ - Workflow System Documentation
+
+Szczegółowa dokumentacja systemu Workflow Builder.
+
+**Pliki:**
+- [workflows/IMPLEMENTATION_REPORT.md](workflows/IMPLEMENTATION_REPORT.md) - Raport implementacji, architektura i design decisions
+- [workflows/VALIDATOR_EXAMPLES.md](workflows/VALIDATOR_EXAMPLES.md) - Przykłady użycia WorkflowValidator, test cases
+- [workflows/EXECUTOR_EXAMPLES.md](workflows/EXECUTOR_EXAMPLES.md) - Przykłady użycia WorkflowExecutor, integration patterns
+- [workflows/TEST_CASES_DRAFT.md](workflows/TEST_CASES_DRAFT.md) - Draft test cases dla systemu workflow
+
+**Zobacz również:**
+- [BACKEND.md](BACKEND.md) - Sekcja "Workflow System" dla architektury technicznej
+
+---
+
 ## Struktura Projektu
 
 ```
@@ -189,6 +204,12 @@ sight/
 │   ├── INFRASTRUKTURA.md # Infrastructure & CI/CD (~850 linii)
 │   ├── QA.md             # Testing & QA (~710 linii)
 │   ├── ROADMAP.md        # Strategic roadmap 2025 (~550 linii)
+│   │
+│   ├── workflows/        # Workflow system documentation
+│   │   ├── IMPLEMENTATION_REPORT.md  # Implementation report & architecture
+│   │   ├── VALIDATOR_EXAMPLES.md     # Validator examples & usage
+│   │   ├── EXECUTOR_EXAMPLES.md      # Executor examples & test cases
+│   │   └── TEST_CASES_DRAFT.md       # Test cases draft
 │   │
 │   └── archive/          # Zarchiwizowana dokumentacja
 │       └── persona_details_v3.md

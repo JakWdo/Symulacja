@@ -2292,11 +2292,10 @@ pytest tests/unit/services/workflows/ \
 - `/frontend/src/types/workflow.ts` - TypeScript types
 
 **Documentation:**
-- `/docs/workflow_builder_prd.md` - Product requirements
-- `/docs/workflow_design_review.md` - UX design review
-- `/docs/WORKFLOW_REMAINING_PHASES.md` - Testing strategy
-- `/docs/WORKFLOW_AUTO_LAYOUT.md` - Auto-layout algorithm (Dagre)
-- `/docs/WORKFLOW_EXECUTION_HISTORY.md` - Execution history feature
+- `docs/workflows/IMPLEMENTATION_REPORT.md` - Implementation report and architecture
+- `docs/workflows/VALIDATOR_EXAMPLES.md` - Workflow validator examples and usage
+- `docs/workflows/EXECUTOR_EXAMPLES.md` - Workflow executor examples and test cases
+- `docs/workflows/TEST_CASES_DRAFT.md` - Test cases draft for workflow system
 
 **Migracje:**
 - `alembic/versions/4bdf0d123032_add_workflows_tables.py` - Initial schema

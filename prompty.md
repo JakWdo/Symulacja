@@ -200,12 +200,12 @@ Uwaga: Zadania dostosowane z wcześniejszych promptów, przenumerowane i posorto
 - [x] DEPLOY.md: proces staging/produkcyjny, szybki rollback
 
 ### Prace horyzontalne (P2)
-- [ ] Pokrycie testami 85%+ (adaptacja zad. „66”): `pytest --cov=app --cov-report=term-missing` i testy brakujących modułów (personas/orchestration, rag/graph, dashboard/metrics)
-- [ ] Split `config/loader.py` (adaptacja zad. „67”): wydzielenie walidacji do `config/validators.py` + aktualizacja importów
-- [ ] RAG BackgroundTasks cleanup (adaptacja „116”): ocena przepływu, idempotencja/logowanie, ewentualna kolejka
-- [ ] Workflows docs move (adaptacja „117”): przenieść do `docs/workflows/` i poprawić linki
-- [ ] Stopwords centralizacja (adaptacja „118”): użyć `config/prompts/shared/stopwords.yaml`, usunąć duplikaty
-- [ ] Frontend constants (adaptacja „119”): konsolidacja do `frontend/src/constants/{workflows.ts,ui.ts}`
+- [ ] Pokrycie testami 85%+ (adaptacja zad. „66"): `pytest --cov=app --cov-report=term-missing` i testy brakujących modułów (personas/orchestration, rag/graph, dashboard/metrics)
+- [x] Split `config/loader.py` (adaptacja zad. „67"): wydzielenie walidacji do `config/validators.py` + aktualizacja importów
+- [ ] RAG BackgroundTasks cleanup (adaptacja „116"): ocena przepływu, idempotencja/logowanie, ewentualna kolejka
+- [x] Workflows docs move (adaptacja „117"): przenieść do `docs/workflows/` i poprawić linki
+- [x] Stopwords centralizacja (adaptacja „118"): użyć `config/prompts/shared/stopwords.yaml`, usunąć duplikaty
+- [x] Frontend constants (adaptacja „119"): konsolidacja do `frontend/src/constants/{workflows.ts,ui.ts}`
 - [ ] Dokumentacja (adaptacja „111–115”):
   - docs/AI_ML.md — zaktualizować RAG/persona generation
   - docs/ROADMAP.md — przenieść completed 2024, dodać Q1 2025
