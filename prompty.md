@@ -200,7 +200,13 @@ Uwaga: Zadania dostosowane z wcześniejszych promptów, przenumerowane i posorto
 - [x] DEPLOY.md: proces staging/produkcyjny, szybki rollback
 
 ### Prace horyzontalne (P2)
-- [ ] Pokrycie testami 85%+ (adaptacja zad. „66"): `pytest --cov=app --cov-report=term-missing` i testy brakujących modułów (personas/orchestration, rag/graph, dashboard/metrics)
+- [x] Analiza pokrycia testami - utworzenie raportu TEST_COVERAGE_ANALYSIS.md
+- [ ] Pokrycie testami 85%+ (adaptacja zad. „66"): W trakcie - 2/5 modułów P0 ukończone
+  - [x] segment_brief_service.py - 38 testów (cache, RAG, LLM generation, error handling)
+  - [x] query_builder.py - 21 testów (injection prevention, edge cases)
+  - [ ] insights_extractor.py - TODO P0
+  - [ ] health_service.py - TODO P0
+  - [ ] metrics_aggregator.py - TODO P0
 - [x] Split `config/loader.py` (adaptacja zad. „67"): wydzielenie walidacji do `config/validators.py` + aktualizacja importów
 - [ ] RAG BackgroundTasks cleanup (adaptacja „116"): ocena przepływu, idempotencja/logowanie, ewentualna kolejka
 - [x] Workflows docs move (adaptacja „117"): przenieść do `docs/workflows/` i poprawić linki
