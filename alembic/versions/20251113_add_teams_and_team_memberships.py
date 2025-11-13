@@ -25,11 +25,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Upgrade schema - add teams and team memberships."""
+    """Upgrade schema - add teams and team memberships (idempotent)."""
 
-    # 1. Create team_role_enum for role_in_team
+    # Check if migration already applied
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    existing_tables = inspector.get_table_names()
+
+    # If teams table already exists, skip this migration
+    if 'teams' in existing_tables:
+        print("⚠️  Teams tables already exist - skipping migration")
+        return
+
+    # 1. Create team_role_enum for role_in_team (idempotent - skip if exists)
     op.execute("""
-        CREATE TYPE team_role_enum AS ENUM ('owner', 'member', 'viewer')
+        DO $$ BEGIN
+            CREATE TYPE team_role_enum AS ENUM ('owner', 'member', 'viewer');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
     """)
 
     # 2. Create teams table
