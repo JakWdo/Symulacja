@@ -1,8 +1,8 @@
 # Infrastruktura i Deployment - Sight Platform
 
-**Ostatnia aktualizacja:** 2025-11-12
-**Wersja:** 2.2
-**Status:** Production-ready (+ Staging + Health Checks + Automatic Rollback)
+**Ostatnia aktualizacja:** 2025-11-13
+**Wersja:** 2.3
+**Status:** Production-ready (+ Staging + Health Checks + Automatic Rollback + Cache Control)
 
 ---
 
@@ -346,6 +346,85 @@ app.mount("/", StaticFiles(directory="static", html=True), name="static")
 ```
 
 Kolejność jest krytyczna - API routes muszą być zarejestrowane PRZED static files mount, inaczej wszystkie requesty trafiłyby do static files handler i API nie działałoby. StaticFiles z `html=True` automatycznie serwuje `index.html` dla wszystkich ścieżek które nie pasują do API routes, co zapewnia poprawne działanie React Router (client-side routing).
+
+### Cache Control Strategy
+
+**Problem:** Po deploymencie nowej wersji aplikacji, użytkownicy widzieli błędy 404 dla frontendowych assetów. Root cause: browser cache przechowywał stary `index.html`, który referencował nieistniejące pliki z poprzedniego buildu. Vite generuje nowe hashe dla plików przy każdym buildzie (np. `MainDashboard-CG2zrQto.js` → `MainDashboard-DPHrVOF9.js`), co jest standardowym mechanizmem cache bustingu.
+
+**Rozwiązanie:** Wprowadziliśmy `CacheControlMiddleware` który ustawia odpowiednie Cache-Control headers dla różnych typów plików:
+
+1. **index.html**: `Cache-Control: no-cache, must-revalidate, max-age=0`
+   - Przeglądarka zawsze pobiera świeżą wersję
+   - Eliminuje problem 404 po deploymencie
+   - Użytkownik zawsze dostaje aktualny manifest assetów
+
+2. **Assets z hashami Vite** (`/assets/{name}-{hash}.{ext}`): `Cache-Control: public, max-age=31536000, immutable`
+   - Długi cache (1 rok) dla plików z hashami
+   - `immutable` oznacza że plik nigdy się nie zmieni
+   - Maksymalna wydajność ładowania dla powracających użytkowników
+
+3. **Inne statyczne pliki** (favicon, loga): `Cache-Control: public, max-age=3600`
+   - Średni cache (1 godzina) dla plików bez hashów
+   - Kompromis między świeżością a wydajnością
+
+**app/middleware/cache_control.py - Implementation:**
+
+```python
+import re
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    # Pattern dla assetów z hashami Vite (min 6 znaków alfanumerycznych)
+    HASHED_ASSET_PATTERN = re.compile(
+        r'^/assets/[^/]+-[a-zA-Z0-9_]{6,}\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|webp)$'
+    )
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+
+        if request.method == "GET":
+            path = request.url.path
+
+            # No-cache dla index.html
+            if path in ["/", "/index.html"]:
+                response.headers["Cache-Control"] = "no-cache, must-revalidate, max-age=0"
+
+            # Długi cache dla assetów z hashami
+            elif self.HASHED_ASSET_PATTERN.match(path):
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+
+            # Średni cache dla innych statycznych plików
+            elif path.startswith("/assets/"):
+                response.headers["Cache-Control"] = "public, max-age=3600"
+
+        return response
+```
+
+**Rejestracja w app/main.py:**
+
+```python
+from app.middleware.cache_control import CacheControlMiddleware
+
+app.add_middleware(CacheControlMiddleware)
+```
+
+**Korzyści:**
+- **Eliminacja błędów 404** - użytkownicy zawsze dostają aktualny index.html z poprawnymi referencjami do assetów
+- **Optymalizacja wydajności** - assety z hashami cache'owane przez rok = mniej requestów, szybsze ładowanie
+- **Lepsze UX po deploymencie** - użytkownicy automatycznie dostają nową wersję bez hard refresh
+- **Cost optimization** - mniej requestów do Cloud Run = niższe koszty egress i compute
+
+**Weryfikacja (produkcja):**
+
+```bash
+# Sprawdź headers dla index.html
+curl -I https://sight-193742683473.europe-central2.run.app/
+# Oczekiwany output: Cache-Control: no-cache, must-revalidate, max-age=0
+
+# Sprawdź headers dla assetu z hashem
+curl -I https://sight-193742683473.europe-central2.run.app/assets/index-A1Ck2qsN.js
+# Oczekiwany output: Cache-Control: public, max-age=31536000, immutable
+```
 
 ### Google Cloud Platform Setup
 
