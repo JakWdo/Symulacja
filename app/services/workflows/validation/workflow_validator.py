@@ -56,7 +56,7 @@ class WorkflowValidator:
         "generate-personas": GeneratePersonasNodeConfig,
         "create-survey": CreateSurveyNodeConfig,
         "run-focus-group": RunFocusGroupNodeConfig,
-        "analyze-results": AnalyzeResultsNodeConfig,
+        "analysis": AnalyzeResultsNodeConfig,
         "decision": DecisionNodeConfig,
         "wait": WaitNodeConfig,
         "export-pdf": ExportPDFNodeConfig,

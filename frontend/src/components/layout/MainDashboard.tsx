@@ -43,38 +43,6 @@ export function MainDashboard({ onNavigate }: MainDashboardProps) {
         subtitle={t('header.subtitle')}
       />
 
-      {/* Study Designer CTA */}
-      <div className="mb-8">
-        <Card className="border-2 border-brand/20 bg-gradient-to-r from-brand/5 to-purple-500/5 rounded-[8px] overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-start gap-4">
-                <div className="bg-brand/10 p-3 rounded-lg">
-                  <Sparkles className="w-6 h-6 text-brand" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-1">
-                    Zaprojektuj Badanie przez Chat
-                  </h3>
-                  <p className="text-sm text-muted-foreground max-w-2xl">
-                    AI pomoże Ci zaprojektować kompletne badanie UX - od celu, przez grupę docelową,
-                    po metodę badawczą. Rozmowa zajmie 2-3 minuty.
-                  </p>
-                </div>
-              </div>
-              <Button
-                size="lg"
-                className="bg-brand hover:bg-brand/90 text-white flex-shrink-0"
-                onClick={() => navigateTo('study-designer')}
-              >
-                <MessageSquarePlus className="w-5 h-5 mr-2" />
-                Rozpocznij Badanie
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Active Projects Section */}
       <div className="mb-8">
         <ActiveProjectsSection onNavigate={navigateTo} />

@@ -127,6 +127,8 @@ export function WorkflowCanvas({
                   return '#F29F05';
                 case 'goal':
                   return 'var(--chart-4)';
+                case 'decision':
+                  return 'var(--chart-5)';
                 default:
                   return 'var(--muted)';
               }

@@ -54,7 +54,7 @@ class WorkflowStepTypeEnum(str, enum.Enum):
     GENERATE_PERSONAS = "generate-personas"
     CREATE_SURVEY = "create-survey"
     RUN_FOCUS_GROUP = "run-focus-group"
-    ANALYZE_RESULTS = "analyze-results"
+    ANALYSIS = "analysis"
     DECISION = "decision"
     WAIT = "wait"
     EXPORT_PDF = "export-pdf"

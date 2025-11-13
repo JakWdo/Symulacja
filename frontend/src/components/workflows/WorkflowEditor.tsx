@@ -349,30 +349,6 @@ export function WorkflowEditor({ workflowId, onBack }: WorkflowEditorProps) {
     });
   };
 
-  const handleExport = () => {
-    if (!workflow) return;
-
-    const data = {
-      name: workflow.name,
-      description: workflow.description,
-      nodes,
-      edges,
-      exportedAt: new Date().toISOString(),
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${workflow.name}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.success('Workflow exported');
-  };
-
   /**
    * Handle Auto-Layout with Dagre algorithm
    */
@@ -468,7 +444,6 @@ export function WorkflowEditor({ workflowId, onBack }: WorkflowEditorProps) {
         onBack={onBack}
         onValidate={handleValidate}
         onAutoLayout={handleAutoLayout}
-        onExport={handleExport}
         onSave={handleSave}
         onExecute={handleExecute}
         onLayoutDirectionChange={setLayoutDirection}

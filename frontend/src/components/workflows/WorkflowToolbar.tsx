@@ -41,7 +41,6 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
-  Download,
   Pause,
   Play,
   Save,
@@ -70,7 +69,6 @@ interface WorkflowToolbarProps {
   onBack?: () => void;
   onValidate: () => void;
   onAutoLayout: () => void;
-  onExport: () => void;
   onSave: () => void;
   onExecute: () => void;
   onLayoutDirectionChange: (direction: LayoutDirection) => void;
@@ -91,7 +89,6 @@ export function WorkflowToolbar({
   onBack,
   onValidate,
   onAutoLayout,
-  onExport,
   onSave,
   onExecute,
   onLayoutDirectionChange,
@@ -176,10 +173,6 @@ export function WorkflowToolbar({
                 </Tooltip>
               </TooltipProvider>
 
-              <Button variant="outline" size="sm" onClick={onExport}>
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
               <Button variant="outline" size="sm" onClick={onSave}>
                 <Save className="w-4 h-4 mr-2" />
                 Save

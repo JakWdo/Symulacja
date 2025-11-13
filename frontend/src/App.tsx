@@ -7,6 +7,7 @@ import { PersonaPanel } from '@/components/panels/PersonaPanel';
 import { FocusGroupPanel } from '@/components/panels/FocusGroupPanel';
 import { AnalysisPanel } from '@/components/panels/AnalysisPanel';
 import { RAGManagementPanel } from '@/components/panels/RAGManagementPanel';
+import { AssistantButton } from '@/components/assistant/AssistantButton';
 import { ToastContainer } from '@/components/ui/toast';
 import { AppLoader } from '@/components/AppLoader';
 import { Login } from '@/components/auth/Login';
@@ -31,7 +32,6 @@ const SurveyResults = lazy(() => import('@/components/layout/SurveyResults').the
 const Settings = lazy(() => import('@/components/Settings').then(m => ({ default: m.Settings })));
 const WorkflowEditor = lazy(() => import('@/components/workflows/WorkflowEditor').then(m => ({ default: m.WorkflowEditor })));
 const WorkflowsListPage = lazy(() => import('@/components/workflows/WorkflowsListPage').then(m => ({ default: m.WorkflowsListPage })));
-const StudyDesignerView = lazy(() => import('@/components/study-designer/StudyDesignerView').then(m => ({ default: m.StudyDesignerView })));
 
 export default function App() {
   // Initialize theme
@@ -214,12 +214,6 @@ export default function App() {
             <p className="text-muted-foreground">No workflow selected</p>
           </div>
         );
-      case 'study-designer':
-        return (
-          <StudyDesignerView
-            onBack={() => setCurrentView('dashboard')}
-          />
-        );
       default:
         return <OverviewDashboard onNavigate={setCurrentView} />;
     }
@@ -258,6 +252,9 @@ export default function App() {
       <FocusGroupPanel />
       <AnalysisPanel />
       <RAGManagementPanel />
+
+      {/* Product Assistant - Floating button w prawym dolnym rogu */}
+      <AssistantButton />
     </div>
   );
 }

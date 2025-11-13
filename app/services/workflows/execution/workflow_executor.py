@@ -75,7 +75,7 @@ class WorkflowExecutor:
             'run-focus-group': RunFocusGroupExecutor,
             'decision': DecisionExecutor,
             'create-survey': CreateSurveyExecutor,
-            'analyze-results': AnalyzeResultsExecutor,
+            'analysis': AnalyzeResultsExecutor,
             'export-pdf': ExportPDFExecutor,
         }
 

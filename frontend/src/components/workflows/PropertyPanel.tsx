@@ -86,13 +86,36 @@ export function PropertyPanel({
    * Renderuje type-specific panel w zależności od typu node
    */
   const renderTypeSpecificPanel = () => {
-    switch (node.type) {
+    // Używaj data.type (dla nowych nodes) lub fallback na node.type (backward compatibility)
+    const nodeType = node.data.type || node.type;
+
+    switch (nodeType) {
       case 'start':
         return <Panels.StartPanel node={node} onUpdate={handleTypeSpecificUpdate} />;
       case 'end':
         return <Panels.EndPanel node={node} onUpdate={handleTypeSpecificUpdate} />;
+      case 'goal':
+        // Goal używa tylko basic properties (brak dedykowanego panelu)
+        return (
+          <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+            <p className="text-xs text-blue-700">
+              Goal node używa tylko podstawowych właściwości (Name, Description).
+            </p>
+          </div>
+        );
       case 'decision':
         return <Panels.DecisionPanel node={node} onUpdate={handleTypeSpecificUpdate} />;
+      case 'persona':
+        return <Panels.GeneratePersonasPanel node={node} onUpdate={handleTypeSpecificUpdate} />;
+      case 'survey':
+        return <Panels.CreateSurveyPanel node={node} onUpdate={handleTypeSpecificUpdate} />;
+      case 'focus-group':
+        return <Panels.RunFocusGroupPanel node={node} onUpdate={handleTypeSpecificUpdate} />;
+      case 'analysis':
+        return <Panels.AnalyzeResultsPanel node={node} onUpdate={handleTypeSpecificUpdate} />;
+      case 'insights':
+        return <Panels.GenerateInsightsPanel node={node} onUpdate={handleTypeSpecificUpdate} />;
+      // Backward compatibility - stare typy z underscore
       case 'loop_start':
         return <Panels.LoopStartPanel node={node} onUpdate={handleTypeSpecificUpdate} />;
       case 'loop_end':
@@ -119,7 +142,7 @@ export function PropertyPanel({
         return (
           <div className="rounded-lg border border-yellow-200 bg-yellow-50/50 p-4">
             <p className="text-xs text-yellow-700">
-              Unknown node type: <strong>{node.type}</strong>
+              Unknown node type: <strong>{nodeType}</strong>
               <br />
               Brak dedykowanego panelu dla tego typu node.
             </p>
@@ -137,7 +160,7 @@ export function PropertyPanel({
             Configure Node
           </h3>
           <Badge variant="secondary" className="text-xs">
-            {node.type}
+            {node.data.type || node.type}
           </Badge>
         </div>
       </div>
