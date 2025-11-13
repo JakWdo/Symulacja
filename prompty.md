@@ -171,7 +171,7 @@ Uwaga: Zadania dostosowane z wcześniejszych promptów, przenumerowane i posorto
 - [x] Dependencies: `require_team_membership`, scoping w `get_project_for_user`/`get_persona_for_user`
 - [x] RBAC audit: viewer GET‑only na personas/projects/focus_groups/surveys/workflows/export
 - [x] API: `POST /teams`, `GET /teams/my`, `POST /teams/{id}/members`
-- [ ] Frontend: Team selector, widok teamu, ukrywanie akcji wg ról
+- [x] Frontend: Team selector, widok teamu, ukrywanie akcji wg ról
 - [x] Testy API: 200/403 na głównych operacjach wg ról
 
 ### Faza 2 — Shared Context (P0)
