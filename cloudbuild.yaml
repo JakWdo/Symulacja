@@ -120,113 +120,45 @@ steps:
 
   # ==========================================================================
   # DEPLOY STAGING: Cloud Run Service (sight-staging) - Before production
+  # DISABLED: Staging environment not configured (missing secrets)
   # ==========================================================================
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    entrypoint: 'gcloud'
-    args:
-      - 'run'
-      - 'deploy'
-      - 'sight-staging'
-      - '--image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:$COMMIT_SHA'
-      - '--region=europe-central2'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--port=8080'
-      - '--memory=4Gi'
-      - '--cpu=2'
-      - '--cpu-boost'
-      - '--timeout=300'
-      - '--min-instances=0'
-      - '--max-instances=3'  # Lower limit for staging
-      - '--execution-environment=gen2'
-      - '--add-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight-staging'
-      - '--set-secrets=DATABASE_URL=DATABASE_URL_STAGING:latest,GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest,NEO4J_PASSWORD=NEO4J_PASSWORD_STAGING:latest,NEO4J_URI=NEO4J_URI_STAGING:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD_STAGING:latest,REDIS_URL=REDIS_URL_STAGING:latest,SECRET_KEY=SECRET_KEY_STAGING:latest'
-      - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=staging,DEBUG=True,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,GRAPH_MODEL=gemini-2.5-flash,PERSONA_GENERATION_MODEL=gemini-2.5-flash,ANALYSIS_MODEL=gemini-2.5-pro,EMBEDDING_MODEL=models/gemini-embedding-001,TEMPERATURE=0.7,MAX_TOKENS=6000,RAG_ENABLED=True,RAG_USE_HYBRID_SEARCH=True,RAG_USE_RERANKING=False,RAG_RERANK_CANDIDATES=5,RETRIEVAL_MODE=hybrid,RAG_CHUNK_SIZE=1000,RAG_CHUNK_OVERLAP=300,RAG_TOP_K=8,RAG_VECTOR_WEIGHT=0.7,RAG_RRF_K=60,ORCHESTRATION_ENABLED=True,ORCHESTRATION_TIMEOUT=90,TRANSFORMERS_VERBOSITY=error,HF_HUB_DISABLE_TELEMETRY=1,WORKFLOWS_ENABLED=true,GCP_PROJECT_ID=gen-lang-client-0508446677,GCP_REGION=europe-central2'
-    id: 'deploy-staging'
-    waitFor: ['migrate']
+  # - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+  #   entrypoint: 'gcloud'
+  #   args:
+  #     - 'run'
+  #     - 'deploy'
+  #     - 'sight-staging'
+  #     - '--image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:$COMMIT_SHA'
+  #     - '--region=europe-central2'
+  #     - '--platform=managed'
+  #     - '--allow-unauthenticated'
+  #     - '--port=8080'
+  #     - '--memory=4Gi'
+  #     - '--cpu=2'
+  #     - '--cpu-boost'
+  #     - '--timeout=300'
+  #     - '--min-instances=0'
+  #     - '--max-instances=3'  # Lower limit for staging
+  #     - '--execution-environment=gen2'
+  #     - '--add-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight-staging'
+  #     - '--set-secrets=DATABASE_URL=DATABASE_URL_STAGING:latest,GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest,NEO4J_PASSWORD=NEO4J_PASSWORD_STAGING:latest,NEO4J_URI=NEO4J_URI_STAGING:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD_STAGING:latest,REDIS_URL=REDIS_URL_STAGING:latest,SECRET_KEY=SECRET_KEY_STAGING:latest'
+  #     - '--set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=staging,DEBUG=True,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,GRAPH_MODEL=gemini-2.5-flash,PERSONA_GENERATION_MODEL=gemini-2.5-flash,ANALYSIS_MODEL=gemini-2.5-pro,EMBEDDING_MODEL=models/gemini-embedding-001,TEMPERATURE=0.7,MAX_TOKENS=6000,RAG_ENABLED=True,RAG_USE_HYBRID_SEARCH=True,RAG_USE_RERANKING=False,RAG_RERANK_CANDIDATES=5,RETRIEVAL_MODE=hybrid,RAG_CHUNK_SIZE=1000,RAG_CHUNK_OVERLAP=300,RAG_TOP_K=8,RAG_VECTOR_WEIGHT=0.7,RAG_RRF_K=60,ORCHESTRATION_ENABLED=True,ORCHESTRATION_TIMEOUT=90,TRANSFORMERS_VERBOSITY=error,HF_HUB_DISABLE_TELEMETRY=1,WORKFLOWS_ENABLED=true,GCP_PROJECT_ID=gen-lang-client-0508446677,GCP_REGION=europe-central2'
+  #   id: 'deploy-staging'
+  #   waitFor: ['migrate']
 
   # ==========================================================================
   # SMOKE TESTS STAGING: Verify staging deployment before production
+  # DISABLED: Staging environment not configured
   # ==========================================================================
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'smoke-tests-staging'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "🔥 Running smoke tests on STAGING..."
-
-        # Get staging service URL
-        SERVICE_URL=$(gcloud run services describe sight-staging --region=europe-central2 --format="value(status.url)")
-        echo "Testing staging at: $$SERVICE_URL"
-
-        # Wait for service initialization
-        echo "⏳ Waiting 15s for staging initialization..."
-        sleep 15
-
-        # Test 1: Health endpoint
-        echo ""
-        echo "Test 1/2: Staging health check..."
-        HEALTH_PASSED=false
-        for i in 1 2 3; do
-          echo "  Attempt $$i/3..."
-          HEALTH_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$$SERVICE_URL/health" || echo "FAIL")
-
-          if [ "$$HEALTH_STATUS" = "200" ]; then
-            echo "✅ Staging backend healthy (HTTP 200)"
-            HEALTH_PASSED=true
-            break
-          else
-            echo "⚠️  Health check returned: $$HEALTH_STATUS"
-            if [ $$i -lt 3 ]; then
-              echo "  Retrying in 10s..."
-              sleep 10
-            fi
-          fi
-        done
-
-        if [ "$$HEALTH_PASSED" != "true" ]; then
-          echo ""
-          echo "❌ STAGING health check FAILED - ABORTING production deployment"
-          exit 1
-        fi
-
-        # Test 2: Frontend
-        echo ""
-        echo "Test 2/2: Staging frontend check..."
-        FRONTEND_PASSED=false
-        for i in 1 2 3; do
-          echo "  Attempt $$i/3..."
-          FRONTEND_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$$SERVICE_URL/" || echo "FAIL")
-
-          if [ "$$FRONTEND_STATUS" = "200" ]; then
-            echo "✅ Staging frontend accessible (HTTP 200)"
-            FRONTEND_PASSED=true
-            break
-          else
-            echo "⚠️  Frontend check returned: $$FRONTEND_STATUS"
-            if [ $$i -lt 3 ]; then
-              echo "  Retrying in 10s..."
-              sleep 10
-            fi
-          fi
-        done
-
-        if [ "$$FRONTEND_PASSED" != "true" ]; then
-          echo ""
-          echo "❌ STAGING frontend check FAILED - ABORTING production deployment"
-          exit 1
-        fi
-
-        # All staging tests passed
-        echo ""
-        echo "🎉 STAGING smoke tests PASSED!"
-        echo "   ✅ Backend healthy"
-        echo "   ✅ Frontend accessible"
-        echo "   📍 Staging URL: $$SERVICE_URL"
-        echo ""
-        echo "✅ Proceeding to production deployment..."
-    waitFor: ['deploy-staging']
+  # - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+  #   id: 'smoke-tests-staging'
+  #   entrypoint: 'bash'
+  #   args:
+  #     - '-c'
+  #     - |
+  #       echo "🔥 Running smoke tests on STAGING..."
+  #       # ... (staging tests disabled - no staging environment)
+  #   waitFor: ['deploy-staging']
 
   # ==========================================================================
   # DEPLOY PRODUCTION: Cloud Run Service (sight) with traffic splitting
@@ -266,7 +198,7 @@ steps:
         # Store revision name for next steps
         echo "$$NEW_REVISION" > /workspace/new_revision.txt
     id: 'deploy-production'
-    waitFor: ['smoke-tests-staging']
+    waitFor: ['migrate']  # Deploy production directly after migration (staging disabled)
 
   # ==========================================================================
   # NEO4J INIT: Initialize Neo4j Indexes (AFTER production deploy)
