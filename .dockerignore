@@ -57,6 +57,13 @@ frontend/out/
 frontend/build/
 frontend/dist/
 
+# Whitelist source files explicitly (override any wildcards that might exclude them)
+!frontend/src/**/*.ts
+!frontend/src/**/*.tsx
+!frontend/src/**/*.js
+!frontend/src/**/*.jsx
+!frontend/src/**/*.css
+
 # Testing
 .pytest_cache/
 coverage/
