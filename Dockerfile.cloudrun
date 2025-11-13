@@ -23,7 +23,7 @@ COPY frontend/package*.json ./
 RUN npm ci
 
 # Copy frontend source
-# CACHE-BUST: 2025-11-13T10:11:00Z - naprawa importu export.ts
+# CACHE-BUST: 2025-11-13T12:40:00Z - dodanie export dependencies
 COPY frontend/ ./
 
 # Build production bundle
@@ -43,11 +43,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     postgresql-client \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 \
+    libffi-dev \
+    shared-mime-info \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt pyproject.toml ./
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -e ".[export,document-processing]"
 
 # Install gunicorn (not in requirements.txt for local dev)
 RUN pip install --no-cache-dir gunicorn
@@ -100,6 +107,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     wget \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 \
+    shared-mime-info \
     && rm -rf /var/lib/apt/lists/*
 
 # CRITICAL: Create non-root user FIRST (before copying cache)
