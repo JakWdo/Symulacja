@@ -479,51 +479,21 @@ steps:
     waitFor: ['smoke-tests-production']
 
   # ==========================================================================
-  # ROLLBACK: Automatic rollback if deployment failed
+  # ROLLBACK: Manual rollback helper (not executed automatically)
   # ==========================================================================
-  # This step runs ONLY if smoke tests or canary failed (exit 1)
-  # Cloud Build will execute this as the error handler
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'auto-rollback'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "🔙 ROLLBACK INITIATED"
-        echo ""
-
-        # Check if we have a previous revision to rollback to
-        if [ ! -f /workspace/previous_revision.txt ]; then
-          echo "⚠️  No previous revision found - this might be first deployment"
-          echo "   Manual intervention required"
-          exit 1
-        fi
-
-        PREVIOUS_REVISION=$(cat /workspace/previous_revision.txt)
-        NEW_REVISION=$(cat /workspace/new_revision.txt)
-
-        echo "Rolling back from: $$NEW_REVISION"
-        echo "Rolling back to: $$PREVIOUS_REVISION"
-        echo ""
-
-        # Immediate rollback to previous revision
-        gcloud run services update-traffic sight \
-          --region=europe-central2 \
-          --to-revisions=$$PREVIOUS_REVISION=100
-
-        echo ""
-        echo "✅ ROLLBACK COMPLETE"
-        echo "   🔙 Reverted to: $$PREVIOUS_REVISION"
-        echo "   ⚠️  Failed revision: $$NEW_REVISION (still deployed but no traffic)"
-        echo ""
-        echo "📋 Investigation steps:"
-        echo "   1. Check logs: gcloud run services logs read sight --region=europe-central2 --limit=100"
-        echo "   2. Review revision: gcloud run revisions describe $$NEW_REVISION --region=europe-central2"
-        echo "   3. Check errors: gcloud logging read 'resource.type=cloud_run_revision AND severity>=ERROR' --limit=50"
-        echo ""
-        echo "🗑️  To delete failed revision:"
-        echo "   gcloud run revisions delete $$NEW_REVISION --region=europe-central2"
-    waitFor: ['-']  # Independent step, runs on manual trigger or as error handler
+  # NOTE: This step is commented out and not executed automatically.
+  # Cloud Build doesn't support "on error" handlers natively.
+  # If deployment fails, run manual rollback:
+  #   gcloud run services update-traffic sight --region=europe-central2 --to-latest
+  #
+  # - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+  #   id: 'auto-rollback'
+  #   entrypoint: 'bash'
+  #   args:
+  #     - '-c'
+  #     - |
+  #       echo "🔙 ROLLBACK - Use manual command if needed"
+  #       echo "   gcloud run services update-traffic sight --region=europe-central2 --to-latest"
 
 # Output images
 images:
