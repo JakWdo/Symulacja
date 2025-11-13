@@ -16,14 +16,21 @@ Wyjątki:
 ## Szybkie Komendy
 
 ```bash
-# Setup środowiska
-cp .env.example .env
-# Edytuj .env - ustaw GOOGLE_API_KEY i SECRET_KEY (openssl rand -hex 32)
+# Deployment (Cloud Run)
+# Wszystkie zmiany są automatycznie deployowane na Cloud Run po push do main
+git add .
+git commit -m "opis zmian"
+git push origin main
+# Cloud Build automatycznie zbuduje i zdeployuje na Cloud Run
 
-# Uruchom cały stack
-docker-compose up -d
+# Sprawdź status deployment
+gcloud run services describe sight --region europe-central2
+gcloud builds list --limit 5
 
-# Uruchom testy
+# Sprawdź logi produkcyjne
+gcloud run services logs read sight --region europe-central2 --limit 50
+
+# Testy lokalne (bez docker-compose)
 pytest -v                                    # Wszystkie testy
 pytest tests/unit -v                        # Tylko testy jednostkowe (~90s)
 pytest -v -m "not slow"                     # Tylko szybkie testy
@@ -32,19 +39,9 @@ pytest --cov=app --cov-report=html          # Z pokryciem kodu
 # Sprawdź jakość kodu
 ruff check app/                             # Linting
 
-# Migracje bazy danych
-docker-compose exec api alembic upgrade head    # Zastosuj migracje
-docker-compose exec api alembic revision --autogenerate -m "opis"  # Utwórz migrację
-
-# Setup indeksów Neo4j
-python scripts/init_neo4j_indexes.py
-
-# Dostęp do usług
-# Frontend: http://localhost:5173
-# API Docs: http://localhost:8000/docs
-# Neo4j Browser: http://localhost:7474
-# PostgreSQL: localhost:5433
-# Redis: localhost:6379
+# Dostęp do usług (produkcja)
+# Frontend + API: https://sight-193742683473.europe-central2.run.app
+# API Docs: https://sight-193742683473.europe-central2.run.app/docs
 ```
 
 ## Architektura Wysokiego Poziomu
@@ -291,17 +288,22 @@ llm = build_chat_model(**model_config.params)
 
 ### Migracje Bazy Danych
 
+**UWAGA:** Migracje są automatycznie stosowane podczas deploymentu na Cloud Run (przez `docker-entrypoint.sh`).
+
+Jeśli chcesz testować migracje lokalnie:
+
 ```bash
-# Auto-generuj migrację ze zmian w modelach
-docker-compose exec api alembic revision --autogenerate -m "Dodaj nowe pole do personas"
+# Auto-generuj migrację ze zmian w modelach (lokalne środowisko)
+DATABASE_URL="postgresql+asyncpg://sight:dev_password_change_in_prod@localhost:5433/sight_db" \
+  alembic revision --autogenerate -m "Dodaj nowe pole do personas"
 
 # Przejrzyj wygenerowaną migrację w alembic/versions/
 
-# Zastosuj migrację
-docker-compose exec api alembic upgrade head
+# Zastosuj migrację (lokalne środowisko)
+DATABASE_URL="postgresql+asyncpg://sight:dev_password_change_in_prod@localhost:5433/sight_db" \
+  alembic upgrade head
 
-# Cofnij jedną migrację
-docker-compose exec api alembic downgrade -1
+# Po zacommitowaniu i push, migracje są automatycznie stosowane na Cloud Run
 ```
 
 **Ważne:** Zawsze przeglądaj auto-generowane migracje. Alembic może pominąć:
@@ -640,9 +642,9 @@ Przed deploymentem:
 
 ### Diagnoza
 
-1. **Sprawdź logi serwera:**
+1. **Sprawdź logi serwera (Cloud Run):**
 ```bash
-docker-compose logs -f api | grep "Orchestration"
+gcloud run services logs read sight --region europe-central2 --limit 100 | grep "Orchestration"
 ```
 
 Szukaj:
@@ -652,25 +654,27 @@ Szukaj:
 
 2. **Sprawdź feature flag:**
 ```bash
-grep ORCHESTRATION_ENABLED .env
-# Powinno być: ORCHESTRATION_ENABLED=true
+# Feature flag jest w config/features.yaml (nie w .env)
+grep -A 2 "orchestration:" config/features.yaml
+# Powinno być: enabled: true
 ```
 
 3. **Sprawdź Neo4j (Graph RAG):**
 ```bash
-docker-compose ps neo4j
-# Status musi być: Up (healthy)
+# Neo4j jest w Cloud Run jako managed service
+# Sprawdź health check w logach
+gcloud run services logs read sight --region europe-central2 --limit 20 | grep neo4j
 ```
 
 ### Przyczyny Problemu
 
 **1. Feature Flag Wyłączony**
-- `ORCHESTRATION_ENABLED=false` w `.env`
-- **Fix:** Zmień na `true`, restart `docker-compose restart api`
+- `orchestration.enabled: false` w `config/features.yaml`
+- **Fix:** Zmień na `true`, commit i push do main (automatyczny redeploy)
 
 **2. Neo4j Connection Error**
-- Neo4j nie działa lub nie jest dostępny
-- **Fix:** `docker-compose restart neo4j`, sprawdź http://localhost:7474
+- Neo4j nie jest dostępny lub błąd konfiguracji
+- **Fix:** Sprawdź logi Cloud Run, zweryfikuj NEO4J_URI w Cloud Run env vars
 
 **3. Orchestration Timeout**
 - Tworzenie briefów segmentów trwa >90s (domyślny timeout)
@@ -678,7 +682,7 @@ docker-compose ps neo4j
 
 **4. Gemini API Error**
 - Invalid API key lub rate limit
-- **Fix:** Sprawdź `GOOGLE_API_KEY` w `.env`, sprawdź quota
+- **Fix:** Sprawdź GOOGLE_API_KEY w Cloud Run env vars, sprawdź quota w GCP Console
 
 **5. Persony Wygenerowane z use_rag=false**
 - Frontend lub skrypty użyły `use_rag: false`
@@ -687,18 +691,21 @@ docker-compose ps neo4j
 ### Rozwiązanie
 
 ```bash
-# 1. Sprawdź konfigurację
-cat .env | grep ORCHESTRATION_ENABLED
-cat .env | grep GOOGLE_API_KEY
+# 1. Sprawdź konfigurację (lokalne)
+grep -A 2 "orchestration:" config/features.yaml
 
-# 2. Sprawdź usługi
-docker-compose ps
+# 2. Sprawdź logi Cloud Run
+gcloud run services logs read sight --region europe-central2 --limit 100
 
-# 3. Zrestartuj serwisy
-docker-compose restart api neo4j
+# 3. Jeśli potrzebna zmiana config - commit i push
+git add config/features.yaml
+git commit -m "fix: enable orchestration"
+git push origin main
+# Cloud Build automatycznie zdeployuje nową wersję
 
-# 4. Sprawdź logi podczas generowania
-docker-compose logs -f api &
+# 4. Sprawdź status deploymentu
+gcloud builds list --limit 5
+gcloud run services describe sight --region europe-central2
 
 # 5. Wygeneruj persony ponownie
 # (Stare persony nie dostaną reasoning retroaktywnie)
@@ -713,18 +720,16 @@ docker-compose logs -f api &
 
 ### Weryfikacja Success
 
-Po naprawie, sprawdź:
+Po naprawie, sprawdź przez frontend (produkcja):
 ```bash
-# 1. Wygeneruj testową personę
-curl -X POST http://localhost:8000/api/v1/projects/{project_id}/personas/generate \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"num_personas": 1, "use_rag": true}'
+# 1. Otwórz aplikację
+open https://sight-193742683473.europe-central2.run.app
 
-# 2. Poczekaj ~30s
+# 2. Wygeneruj testową personę (przez UI lub API)
+# Poczekaj ~30s
 
-# 3. Sprawdź reasoning (powinien zwrócić orchestration_brief, graph_insights, etc.)
-curl http://localhost:8000/api/v1/personas/{persona_id}/reasoning \
+# 3. Sprawdź reasoning przez API
+curl https://sight-193742683473.europe-central2.run.app/api/v1/personas/{persona_id}/reasoning \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -734,10 +739,10 @@ Jeśli reasoning zawiera `orchestration_brief` (900-1200 znaków), `graph_insigh
 
 1. Sprawdź `docs/README.md` dla indeksu dokumentacji
 2. Sprawdź `config/README.md` dla problemów z konfiguracją
-3. Uruchom `pytest -v` aby zweryfikować setup
-4. Sprawdź logi: `docker-compose logs -f api`
-5. Weryfikuj bazę danych: `docker-compose exec postgres psql -U sight -d sight_db`
-6. Weryfikuj Neo4j: http://localhost:7474
+3. Uruchom `pytest -v` aby zweryfikować setup (testy lokalne)
+4. Sprawdź logi produkcyjne: `gcloud run services logs read sight --region europe-central2 --limit 100`
+5. Sprawdź health check: `curl https://sight-193742683473.europe-central2.run.app/health`
+6. Sprawdź status deploymentu: `gcloud builds list --limit 5`
 
 ## Dodatkowe Uwagi
 

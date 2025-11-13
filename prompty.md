@@ -1,150 +1,243 @@
-# 🧹 SIGHT PLATFORM - CLEANUP PROMPTS (pozostałe)
+# 📌 SIGHT Platform — Roadmap i Plan Wdrożeń (priorytetyzowany)
 
-**Projekt:** Sight AI-powered Focus Groups Platform
-**Ścieżka:** `.` (ścieżki repo‑relatywne)
-**Data utworzenia:** 2025-11-11
-**Scope:** 11 pozostałych promptów cleanup (wykonane usunięto z pliku)
-**Cel:** Domknięcie luk: coverage 85%+, split `config/loader.py`, aktualizacja dokumentacji
+Projekt: Sight — AI‑powered Focus Groups & Research Ops
+Ścieżka: `.` (repo‑relatywna)
+Wersja dokumentu: 2025‑11‑13
 
----
-
-## 📋 Spis Treści
-
-1. Instrukcja Użytkowania
-2. Global Checklist (pozostałe)
-3. Prompty Cleanup (pozostałe)
-4. Appendix: Komendy i Narzędzia
+Cel dokumentu: Jedna, spójna mapa wdrożeń i porządków dla backendu, frontendu i CI/CD, obejmująca Shared Context (Środowiska+Tagi), RBAC, konta zespołowe, eksport raportów oraz bezpieczne wdrożenia. Zawiera priorytety, etapy, definicje Done i checklisty.
 
 ---
 
-## 📖 Instrukcja Użytkowania
+## 📑 Spis treści
 
-### Kolejność Wykonywania
-
-- Najpierw testy i config (66–67), potem dokumentacja (111–115).
-
-### Workflow Per Prompt
-
-1. Grep: znajdź zależności przed zmianami
-2. Podział/zmiana: wprowadź zmiany zgodnie z opisem promptu
-3. Importy: zaktualizuj importy w zależnych plikach
-4. Fixes: usuń TODO/hardcoded/deprecated oraz nieużywany kod
-5. Testy: uruchom `pytest -v`
-6. Działa: `docker-compose restart` lub `npm run build`
-
-### Konwencje i Guardrails
-
-- Ścieżki repo‑relatywne (`app/...`, `frontend/...`).
-- Brak cyklicznych importów (wspólne typy/utilsy → moduły shared/, jednokierunkowe zależności).
-- Utrzymuj publiczne API przez re‑eksporty w `__init__.py`, jeśli to potrzebne.
-- Prompty krótkie (≤4 zdania), zawsze: zależności → zmiana → importy → test/build.
-
-### Status i Ocena
-
-- Ocena postępu: 93/100
-- Zrealizowano: większość P0/P1 (1–35), refaktoryzacje frontendu (36–49), lib/hooks (52–56), audyty i cleanupy (74–110).
-- Pozostało: coverage 85% (66), split `config/loader.py` (67), oraz aktualizacje dokumentacji (111–115).
+1. Cel i Założenia
+2. Priorytety i Fazy
+3. Specyfikacje (RBAC + Teamy, Shared Context, Eksport, Staging)
+4. Backlog Szczegółowy (checklisty) — w tym zaktualizowane wcześniejsze zadania
+5. Testy i Definition of Done
+6. Ryzyka i Mitigacje
+7. Appendix: Komendy i narzędzia
 
 ---
 
-## ✅ Global Checklist (pozostałe)
+## 1) Cel i Założenia
 
-Odznaczaj po zakończeniu każdego promptu:
-
-### 🟢 P2: Tests
-- [ ] 66. Test coverage gaps (target 85%+)
-
-### 🟢 P2: Config & Scripts
-- [ ] 67. config/loader.py split
-
-### 🟡 P1: Backend API
-- [ ] 116. api/rag.py – BackgroundTasks cleanup
-
-### 🟢 P2: Konsolidacje i porządki
-- [ ] 117. workflows docs – przenieś do `docs/workflows/`
-- [ ] 118. Stopwords – centralizacja i użycie z config
-- [ ] 119. Frontend constants – `constants/workflows.ts`, `constants/ui.ts`
-
-### 🔵 P3: Documentation
-- [ ] 111. docs/AI_ML.md – aktualizacja RAG (3,6), persona generation (1,4,8–10)
-- [ ] 112. docs/ROADMAP.md – „Completed 2024” (1–70), Q1 2025 (71–115)
-- [ ] 113. docs/CLAUDE.md – referencje plików, przykłady importów po splitach
-- [ ] 114. docs/README.md – linki, opisy, nowe sekcje
-- [ ] 115. Kompleksowa aktualizacja dokumentacji – audyt całego `docs/`
+- Stack: FastAPI, SQLAlchemy (async), Alembic, Postgres, React/TypeScript.
+- Stan bazowy:
+  - RBAC: istnieje `SystemRole` (`admin|researcher|viewer`) i dependencies w `app/api/dependencies.py`.
+  - Eksport: gotowe raporty PDF/DOCX dla person, focus groups, surveys.
+  - CI/CD: Cloud Build z etapem migracji i smoke‑testami (bez realnego rollbacku ruchu).
+- Cel biznesowy: skrócić setup projektów do ~5 minut, ograniczyć koszty API poprzez reuse zasobów, zwiększyć bezpieczeństwo i stabilność wdrożeń.
 
 ---
 
-## 🧹 Prompty Cleanup (pozostałe)
+## 2) Priorytety i Fazy
 
-### 🟢 P2: Tests
+Kolejność dowożenia (wartość → ryzyko → zależności):
 
-#### 66. 🟢 Test coverage gaps (target 85%+)
-Prompt (krótki): Zmierz pokrycie i wskaż luki. Najpierw: `pytest --cov=app --cov-report=term-missing` oraz (jeśli dotyczy) `pytest --cov=frontend --maxfail=1 -q`. Skup się na modułach o niskim pokryciu (personas/orchestration, rag/graph, dashboard/metrics) i dopisz testy smoke/regresyjne. Zweryfikuj raport HTML: `pytest --cov=app --cov-report=html`.
+- Faza 1 (P0): RBAC + Team Accounts (fundamenty bezpieczeństwa i izolacji danych)
+- Faza 2 (P0): Shared Context (Środowiska + Tagi + Filtry + Snapshoty)
+- Faza 3 (P1): Eksport Raportu Projektu (PDF/DOCX)
+- Faza 4 (P1): Staging + migracje + auto‑rollback (twarde praktyki wdrożeniowe)
+- Prace horyzontalne (P2): test coverage 85%+, split config loader, konsolidacje i dokumentacja
 
----
-
-### 🟢 P2: Config & Scripts
-
-#### 67. 🟢 config/loader.py (681 linii)
-Prompt (krótki): Wydziel walidację YAML z `config/loader.py`. Najpierw: `rg -n "validate|schema|yaml" config --glob "**/*.py"`. Utwórz `config/validators.py` (~350 linii), przenieś logikę walidacji, zaktualizuj importy (`config/__init__.py`, moduły korzystające). Zweryfikuj: `python scripts/config_validate.py` + `pytest -k config -v`.
-
----
-
-### 🟡 P1: Backend API
-
-#### 116. 🟡 api/rag.py – BackgroundTasks cleanup
-Prompt (krótki): Oceń i uporządkuj użycie `BackgroundTasks` w `app/api/rag.py`. Najpierw: `rg -n "BackgroundTasks|add_task\(" app/api/rag.py` i zmapuj przepływ `_process_document_background`. Jeśli processing >2s, rozważ kolejkę (Cloud Tasks/Celery) lub pozostaw background z lepszym logowaniem i idempotencją; ujednolić statusy/błędy w DB. Zweryfikuj: `pytest -k "rag_" -v`.
+Szacowanie (orientacyjnie, roboczodni):
+- F1: 5–7d, F2: 8–12d, F3: 2–4d, F4: 2–3d, Horyzontalne: 3–5d (równolegle)
 
 ---
 
-### 🟢 P2: Konsolidacje i porządki
+## 3) Specyfikacje
 
-#### 117. 🟢 workflows docs – przenieś do `docs/workflows/`
-Prompt (krótki): Przenieś dokumenty z `app/services/workflows/docs/` do `docs/workflows/`. Najpierw: `ls app/services/workflows/docs && rg -n "services/workflows/docs" -S`. Zaktualizuj odwołania w `README.md`/`docs/*` i usuń stary folder. Zweryfikuj: `rg -n "services/workflows/docs" docs README.md` (brak wyników).
+### 3.1 RBAC + Team Accounts (Faza 1)
 
-#### 118. 🟢 Stopwords – centralizacja i użycie z config
-Prompt (krótki): Użyj `config/prompts/shared/stopwords.yaml` jako źródła stopwords dla modułów tekstowych. Najpierw: `rg -n "STOPWORDS|stopwords" app/services --glob "**/*.py"`. Zastąp duplikaty (np. focus_groups/nlp/constants) loaderem z config i dodaj fallback; usuń zduplikowane listy. Zweryfikuj: `pytest -k "language_detection|concept_extraction" -v`.
+Cel: Globalne role (SystemRole) oraz role przynależności zespołowej decydują o możliwościach użytkownika i widoczności danych.
 
-#### 119. 🟢 Frontend constants – `constants/workflows.ts`, `constants/ui.ts`
-Prompt (krótki): Skonsoliduj rozproszone stałe do `frontend/src/constants/{workflows.ts,ui.ts}`. Najpierw: `rg -n "label:\\s*'|DEFAULT|OPTIONS|true_branch_label|false_branch_label" frontend/src --glob "**/*.{ts,tsx}"`. Przenieś m.in.: `types/workflowNodeConfigs.ts:239,250-251` (domyślne etykiety), `components/focus-group/StatusBadge.tsx:13,20,28,35` (etykiety statusów). Zweryfikuj: `cd frontend && npm run build`.
+- Baza (Alembic):
+  - `teams` (id, name, created_at)
+  - `team_memberships` (team_id, user_id, role_in_team ENUM: owner|member|viewer, created_at)
+  - `projects`: dodać `team_id` (FK→teams, index). Backfill: każdy istniejący projekt przypiąć do teamu właściciela (auto utworzyć „Personal Team” jeśli brak).
+
+- Modele i relacje (ORM):
+  - `User ↔ TeamMembership ↔ Team`, `Team → Project (1:N)`.
+
+- Dependencies i scoping:
+  - `require_team_membership(team_id, allowed_roles)`: wymusza rolę w teamie.
+  - `get_project_for_user`/`get_persona_for_user`: filtrowanie po `project.team_id ∈ teamów usera`, nie wyłącznie owner.
+  - RBAC enforcement: viewer = GET‑only; researcher = POST/PUT w obrębie teamu; admin = operacje globalne.
+
+- API minimalne:
+  - `POST /teams` — tworzy team (admin lub pierwszy user)
+  - `GET /teams/my` — lista teamów użytkownika
+  - `POST /teams/{id}/members` — dodaje istniejącego usera (email/ID)
+
+- Frontend:
+  - Dropdown „Team” w topbarze; scoping listy projektów; widok teamu (nazwa, członkowie, role).
+  - Ukrycie niedozwolonych akcji (Edit/Delete/Invite) wg roli systemowej i roli w teamie.
+
+Definition of Done (RBAC + Teamy):
+- Użytkownik widzi wyłącznie projekty teamów, do których należy; viewer nie modyfikuje; owner/admin mają pełen dostęp.
+- 1–2 testy per rola (200 vs 403) na kluczowych operacjach (create project, delete persona, list users/admin).
 
 ---
 
-### 🔵 P3: Documentation
+### 3.2 Shared Context: Środowiska + Tagi + Filtry + Snapshoty (Faza 2)
 
-#### 111. 🔵 docs/AI_ML.md
-Prompt (krótki): Zaktualizuj sekcje RAG (zad. 3,6) i persona generation (1,4,8–10). Uzupełnij o nowe moduły/diagramy, sprawdź spójność nazw plików i importów. Zweryfikuj linki.
+Cel: Wspólny pool person/workflowów na poziomie teamu, filtrowany tagami (facety) i współdzielony między projektami. Snapshoty zapewniają reprodukowalność.
 
-#### 112. 🔵 docs/ROADMAP.md
-Prompt (krótki): Dodaj „Completed 2024” (1–70) i zaktualizuj Q1 2025 (71–115). Upewnij się, że priorytety są spójne z KPI w BIZNES.md. Zweryfikuj sekcje statusu.
+- Baza (Alembic):
+  - `environments` (id, team_id FK, name, description, is_active, created_at, updated_at)
+  - `tags` (id, facet, key, description, created_at)
+  - `resource_tags` (id, environment_id, resource_type, resource_id, tag_id, created_at)
+  - `saved_filters` (id, environment_id, name, dsl, created_by, created_at)
+  - `project_snapshots` (id, project_id, name, resource_type, resource_ids JSONB, created_at)
+  - Zmiany: `projects.environment_id`, `personas.environment_id`, `workflow_templates.environment_id` (+indeksy po `environment_id`).
 
-#### 113. 🔵 docs/CLAUDE.md
-Prompt (krótki): Zaktualizuj referencję kluczowych plików i przykłady importów po splitach (1–35). Dodaj troubleshooting dla najczęstszych błędów importów. Sprawdź zgodność ścieżek.
+- Taksonomia tagów:
+  - Facety: `dem:*`, `geo:*`, `psy:*`, `biz:*`, `ctx:*`, `custom:*` (whitelist facetów per environment).
+  - Reguły: `facet:key` (kebab/snake), aliasy/synonimy; util `app/utils/tags.py` (parse/normalize/validate).
 
-#### 114. 🔵 docs/README.md
-Prompt (krótki): Przejrzyj i zaktualizuj linki/sekcje. Dodaj informacje o nowej strukturze `app/services/` i docs workflows. Zweryfikuj porządek i aktualność opisów.
+- Filtry (lekki DSL):
+  - Składnia: `AND/OR/NOT`, nawiasy, facety (`dem:age-25-34`).
+  - Parser: `app/services/filters/dsl_parser.py` → AST (shunting‑yard).
+  - SQL builder: `app/services/filters/query_builder.py` (AND→HAVING COUNT DISTINCT, OR→UNION, NOT→anti‑join). Paginacja kursorem.
 
-#### 115. 🔵 Kompleksowa aktualizacja dokumentacji
-Prompt (krótki): Wykonaj audyt całego `docs/` pod kątem zgodności z aktualnym kodem. Usuń martwe fragmenty, uzupełnij brakujące sekcje, napraw linki między dokumentami. Wynik zapisz skrótowo w `docs/CHANGELOG_DOCS.md`.
+- Snapshoty:
+  - Projekt może wskazać „live filter” (aktualne zasoby) lub „snapshot” (lista ID, immutable) dla reprodukowalności.
+
+- API i UI:
+  - `POST/GET /environments` (scoped do teamu), `GET /environments/{id}`
+  - `GET /environments/{id}/resources?type=persona&filter=DSL`
+  - `POST/GET /saved-filters?environment_id=...`
+  - `POST /projects/{id}/snapshots` (z aktualnego filtra)
+  - UI: przełącznik środowiska, faceted filters (chips), zapisywanie filtrów, „Create snapshot → attach to project”.
+
+Definition of Done (Shared Context):
+- Projekty pobierają subset person/workflowów z poola przez tagi; snapshoty działają; zapytania stabilne na 10k+ zasobów z indeksami.
+- Testy: parser DSL i SQL builder (AND/OR/NOT), snapshot restore, filtry na dużych zbiorach.
 
 ---
 
-## 📚 Appendix: Komendy i Narzędzia
+### 3.3 Eksport Raportu Projektu (Faza 3)
 
-### Grep Patterns
+Cel: Jednym kliknięciem wygenerować „ładny do wysłania” raport projektu (PDF/DOCX) z listą person, insightami i agregatami ankiet.
 
+- Backend — serwis i szablony:
+  - `app/services/export/`: dodać `generate_project_pdf(project_id) -> bytes`, `generate_project_docx(project_id) -> bytes`.
+  - Dane: projekt + `personas`, summary focus groups, agregaty ankiet (eager loading przez `selectinload`).
+  - Szablony: Jinja2→WeasyPrint (PDF) i python‑docx (DOCX) — strona tytułowa, sekcje per persona, key insights, wyniki ankiet.
+
+- API:
+  - `GET /projects/{id}/export/pdf`, `GET /projects/{id}/export/docx` (viewer+ z dostępem do projektu/teamu).
+
+- Frontend:
+  - Przycisk „Eksportuj” na widoku projektu; `exportProject(id, 'pdf'|'docx')` w `frontend/src/lib/api/export.ts`.
+
+Definition of Done (Eksport):
+- Dla istniejącego projektu: pobiera się plik, otwiera w czytniku, zawiera nazwę projektu i sekcje. Błędne ID/uprawnienia → 404/403 (nie 500).
+- Testy: plik niepusty, zawiera nazwę projektu (sprawdzenie PDF HTML fallback / DOCX XML).
+
+---
+
+### 3.4 Staging + Migracje + Auto‑rollback (Faza 4)
+
+Cel: Stabilne i odwracalne wdrożenia.
+
+- Staging:
+  - Osobny serwis i baza (Cloud Run + Cloud SQL), `.env.staging` z innymi sekretami/URL.
+  - Pipeline: build → migrate (staging) → deploy (staging) → smoke tests (`/health`, frontend 200).
+
+- Migracje DB:
+  - Alembic, każda zmiana schematu w osobnej migracji; checklista indeksów i zgodności danych.
+
+- Auto‑rollback:
+  - Cloud Run traffic‑splitting: nowa rewizja 0–10% → smoke test → promote 100% albo rollback.
+  - `cloudbuild.yaml`: realny rollback (`gcloud run services update-traffic ...`) przy fail, nie tylko log.
+
+- Dokumentacja:
+  - DEPLOY.md: „Jak wypuścić wersję”, „Jak sprawdzić staging”, „Jak zrobić rollback”.
+
+Definition of Done (Staging):
+- Nowa wersja przechodzi staging + smoke; w razie błędu produkcja wraca automatycznie do poprzedniej rewizji ≤2 min.
+
+---
+
+## 4) Backlog Szczegółowy (checklisty)
+
+Uwaga: Zadania dostosowane z wcześniejszych promptów, przenumerowane i posortowane wg faz i priorytetów.
+
+### Faza 1 — RBAC + Team Accounts (P0)
+- [ ] Alembic: `teams`, `team_memberships`, `projects.team_id` (+index) i backfill istniejących projektów
+- [ ] ORM: modele, relacje, rejestracja w Base
+- [ ] Dependencies: `require_team_membership`, scoping w `get_project_for_user`/`get_persona_for_user`
+- [ ] RBAC audit: viewer GET‑only na personas/projects/focus_groups/surveys/workflows/export
+- [ ] API: `POST /teams`, `GET /teams/my`, `POST /teams/{id}/members`
+- [ ] Frontend: Team selector, widok teamu, ukrywanie akcji wg ról
+- [ ] Testy API: 200/403 na głównych operacjach wg ról
+
+### Faza 2 — Shared Context (P0)
+- [ ] Alembic: `environments`, `tags`, `resource_tags`, `saved_filters`, `project_snapshots`, FK `environment_id` w projects/personas/templates
+- [ ] Utils: `app/utils/tags.py` (parse/validate/normalize, aliasy)
+- [ ] Filtry: `app/services/filters/{dsl_parser.py,query_builder.py}` + testy AST/SQL
+- [ ] API: `/environments`, `/saved-filters`, `/environments/{id}/resources`, `/projects/{id}/snapshots`
+- [ ] Backfill: „Default Environment” per team; przypięcie istniejących danych
+- [ ] UI: faceted filters + zapisywanie + snapshot attach
+
+### Faza 3 — Eksport projektu (P1)
+- [ ] Serwis: `generate_project_pdf/docx` (WeasyPrint/python‑docx)
+- [ ] Endpointy: `GET /projects/{id}/export/{pdf|docx}` (viewer+)
+- [ ] Frontend: `exportProject` + przycisk na widoku projektu
+- [ ] Testy: plik niepusty, zawiera nazwę projektu; 404/403 poprawne
+
+### Faza 4 — Staging + rollback (P1)
+- [ ] `.env.staging` i sekrety staging
+- [ ] Cloud Build: traffic‑splitting + realny rollback przy smoke‑fail
+- [ ] DEPLOY.md: proces staging/produkcyjny, szybki rollback
+
+### Prace horyzontalne (P2)
+- [ ] Pokrycie testami 85%+ (adaptacja zad. „66”): `pytest --cov=app --cov-report=term-missing` i testy brakujących modułów (personas/orchestration, rag/graph, dashboard/metrics)
+- [ ] Split `config/loader.py` (adaptacja zad. „67”): wydzielenie walidacji do `config/validators.py` + aktualizacja importów
+- [ ] RAG BackgroundTasks cleanup (adaptacja „116”): ocena przepływu, idempotencja/logowanie, ewentualna kolejka
+- [ ] Workflows docs move (adaptacja „117”): przenieść do `docs/workflows/` i poprawić linki
+- [ ] Stopwords centralizacja (adaptacja „118”): użyć `config/prompts/shared/stopwords.yaml`, usunąć duplikaty
+- [ ] Frontend constants (adaptacja „119”): konsolidacja do `frontend/src/constants/{workflows.ts,ui.ts}`
+- [ ] Dokumentacja (adaptacja „111–115”):
+  - docs/AI_ML.md — zaktualizować RAG/persona generation
+  - docs/ROADMAP.md — przenieść completed 2024, dodać Q1 2025
+  - docs/CLAUDE.md — referencje po splitach, troubleshooting importów
+  - README.md — nowe sekcje i linki
+  - CHANGELOG_DOCS.md — wynik audytu dokumentacji
+
+---
+
+## 5) Testy i Definition of Done (globalnie)
+
+- RBAC/Teamy: testy ról (admin/researcher/viewer) na create/update/delete i listing (200/403/404 zgodnie z przypadkiem). Widoczność wyłącznie w teamach użytkownika.
+- Shared Context: testy DSL (AST) i SQL buildera; snapshot create/restore; wydajność filtrów z indeksami (próbki >10k zasobów).
+- Eksport: testy API PDF/DOCX na projekcie (plik niepusty, zawiera nazwę projektu), 404/403 na brak uprawnień.
+- Staging: smoke tests `/health` i frontend 200; pipeline zatrzymuje rollout i robi rollback przy fail.
+- Coverage: 85%+ dla `app` (przynajmniej smoke na ścieżki krytyczne i edge‑case’y błędów).
+
+---
+
+## 6) Ryzyka i Mitigacje
+
+- Eskalacja liczby tagów i drift taksonomii → facety i whitelist, aliasy/merge, panel przeglądu zmian.
+- Złożone zapytania OR/NOT → limit złożoności DSL, UNION/anti‑join, paginacja kursorem, materialized views dla facet counts.
+- Złożoność uprawnień (global vs team) → zasada „min(global, team)”, testy 403/404 i audyty endpointów.
+- Wdrożenia: brak automatycznego rollbacku → traffic‑splitting i skrypt rollback w pipeline.
+
+---
+
+## 7) Appendix: Komendy i narzędzia
+
+Grep / wyszukiwanie
 ```bash
-# Znajdź importy/routy/komponenty
 rg -n "ClassName|def router|import.*ComponentName" app frontend/src --glob "**/*.{py,ts,tsx}"
-
-# TODO / hardcoded / print
 rg -n "TODO|FIXME" app tests frontend/src --glob "**/*.{py,ts,tsx}"
-rg -n "const.*=.*\[" frontend/src --glob "**/*.tsx"
 rg -n "print\(" app --glob "**/*.py"
 ```
 
-### Pytest Commands
-
+Pytest
 ```bash
 pytest -v
 pytest tests/unit -v
@@ -153,16 +246,14 @@ pytest --cov=app --cov-report=html
 pytest -k config -v
 ```
 
-### Docker Compose
-
+Docker / Deploy
 ```bash
 docker-compose restart api
 docker-compose logs -f api
 docker-compose up -d --build api
 ```
 
-### Frontend (npm)
-
+Frontend (npm)
 ```bash
 cd frontend && npm run build
 npm run dev
@@ -170,17 +261,14 @@ npm run lint
 npm run type-check
 ```
 
-### Git Workflow
-
+Git Workflow (opcjonalnie)
 ```bash
-git checkout -b cleanup/prompt-XX-description
-git add . && git commit -m "cleanup: [Prompt XX] opis"
-git push origin cleanup/prompt-XX-description
-gh pr create --title "Cleanup: Prompt XX" --label cleanup
+git checkout -b feature/<krótki-opis>
+git add . && git commit -m "feat: <krótki opis>"
+git push origin feature/<krótki-opis>
 ```
 
-### Cleanup Scripts
-
+Cleanup
 ```bash
 find . -name "*.pyc" -delete
 find . -name "__pycache__" -type d -delete
@@ -189,7 +277,5 @@ find . -name ".DS_Store" -delete
 
 ---
 
-## 🎉 Koniec Cleanup Promptów (pozostałych)
+Koniec dokumentu — roadmap priorytetowa, zintegrowana z dotychczasowymi zadaniami i dostosowana do aktualnego kodu.
 
-**Pozostałe zadania:** 11
-**Cel:** domknięcie coverage, split config, aktualizacje docs

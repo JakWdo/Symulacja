@@ -28,6 +28,7 @@ from app.core.logging_config import configure_logging
 from app.core.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.cache_control import CacheControlMiddleware
 from app.api import project_crud, project_demographics, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal, admin, export, assistant
 from app.api.dependencies import get_current_admin_user, get_db
 from app.api.exception_handlers import register_exception_handlers
@@ -159,6 +160,12 @@ app.add_middleware(RequestIDMiddleware)
 # Dodaje OWASP-recommended headers: X-Frame-Options, CSP, X-Content-Type-Options, etc.
 enable_hsts = app_config.environment == "production"  # HSTS tylko na HTTPS w produkcji
 app.add_middleware(SecurityHeadersMiddleware, enable_hsts=enable_hsts)
+
+# Cache Control Middleware
+# Ustawia odpowiednie Cache-Control headers dla statycznych plików
+# - index.html: no-cache (zawsze świeża wersja)
+# - Assets z hashami: długi cache + immutable (optymalizacja)
+app.add_middleware(CacheControlMiddleware)
 
 # Podpinamy katalog plików statycznych (avatary)
 app.mount("/static", StaticFiles(directory="static"), name="static")
