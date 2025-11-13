@@ -1,7 +1,7 @@
 /**
  * Export API - Eksport raportów do PDF i DOCX
  */
-import apiClient from './client';
+import { api } from './client';
 
 export type ExportFormat = 'pdf' | 'docx';
 
@@ -9,7 +9,7 @@ export type ExportFormat = 'pdf' | 'docx';
  * Pomocnicza funkcja do pobierania pliku z API
  */
 async function downloadFile(url: string, filename: string): Promise<void> {
-  const response = await apiClient.get(url, {
+  const response = await api.get(url, {
     responseType: 'blob',
   });
 
