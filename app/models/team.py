@@ -10,7 +10,7 @@ from __future__ import annotations
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, Enum
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text, Enum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, text
@@ -115,8 +115,8 @@ class TeamMembership(Base):
     __tablename__ = "team_memberships"
 
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    team_id = Column(PGUUID(as_uuid=True), nullable=False, index=True)
-    user_id = Column(PGUUID(as_uuid=True), nullable=False, index=True)
+    team_id = Column(PGUUID(as_uuid=True), ForeignKey('teams.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(PGUUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     role_in_team = Column(
         Enum(TeamRole, name='team_role_enum', create_type=False, values_callable=lambda x: [m.value for m in x]),
         nullable=False,

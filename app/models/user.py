@@ -98,7 +98,6 @@ class User(Base):
     )
     team_memberships = relationship(
         "TeamMembership",
-        foreign_keys="[TeamMembership.user_id]",
         back_populates="user",
         cascade="all, delete-orphan",
     )
