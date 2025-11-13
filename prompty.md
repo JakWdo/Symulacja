@@ -187,12 +187,12 @@ Uwaga: Zadania dostosowane z wcześniejszych promptów, przenumerowane i posorto
   - SnapshotManager: tworzenie snapshotów (personas/workflows), listowanie z expandable details, resource IDs preview
   - Wszystkie komponenty używają TanStack Query i są responsywne
 
-### Faza 3 — Eksport projektu (P1) ⏳ W TRAKCIE
+### Faza 3 — Eksport projektu (P1) ✅ UKOŃCZONA
 - [x] Serwis: `generate_project_pdf/docx` (WeasyPrint/python‑docx) ✅
 - [x] Endpointy: `GET /projects/{id}/export/{pdf|docx}` (viewer+) ✅
 - [x] Frontend API: `exportProject` + helper functions w `frontend/src/api/export.ts` ✅
-- [ ] Frontend UI: przycisk "Eksportuj" na widoku projektu (TODO)
-- [ ] Testy: plik niepusty, zawiera nazwę projektu; 404/403 poprawne (TODO)
+- [x] Frontend UI: przycisk "Eksportuj" dropdown w ProjectDetail ✅
+- [x] Testy: 11 unit tests (PDF/DOCX generators) + 14 integration tests (API endpoints) ✅
 
 ### Faza 4 — Staging + rollback (P1)
 - [ ] `.env.staging` i sekrety staging
