@@ -166,13 +166,13 @@ Definition of Done (Staging):
 Uwaga: Zadania dostosowane z wcześniejszych promptów, przenumerowane i posortowane wg faz i priorytetów.
 
 ### Faza 1 — RBAC + Team Accounts (P0)
-- [ ] Alembic: `teams`, `team_memberships`, `projects.team_id` (+index) i backfill istniejących projektów
-- [ ] ORM: modele, relacje, rejestracja w Base
-- [ ] Dependencies: `require_team_membership`, scoping w `get_project_for_user`/`get_persona_for_user`
-- [ ] RBAC audit: viewer GET‑only na personas/projects/focus_groups/surveys/workflows/export
-- [ ] API: `POST /teams`, `GET /teams/my`, `POST /teams/{id}/members`
+- [x] Alembic: `teams`, `team_memberships`, `projects.team_id` (+index) i backfill istniejących projektów
+- [x] ORM: modele, relacje, rejestracja w Base
+- [x] Dependencies: `require_team_membership`, scoping w `get_project_for_user`/`get_persona_for_user`
+- [x] RBAC audit: viewer GET‑only na personas/projects/focus_groups/surveys/workflows/export
+- [x] API: `POST /teams`, `GET /teams/my`, `POST /teams/{id}/members`
 - [ ] Frontend: Team selector, widok teamu, ukrywanie akcji wg ról
-- [ ] Testy API: 200/403 na głównych operacjach wg ról
+- [x] Testy API: 200/403 na głównych operacjach wg ról
 
 ### Faza 2 — Shared Context (P0)
 - [ ] Alembic: `environments`, `tags`, `resource_tags`, `saved_filters`, `project_snapshots`, FK `environment_id` w projects/personas/templates
