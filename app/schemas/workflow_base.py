@@ -39,13 +39,64 @@ class CanvasNodePosition(BaseModel):
 
 class CanvasNodeData(BaseModel):
     """
-    Dane node (label i konfiguracja).
+    Dane node (label, type i konfiguracja).
 
     - label: Nazwa wyświetlana na node
+    - type: Typ workflow node (start, end, persona, survey, etc.)
     - config: Konfiguracja specyficzna dla typu node (NodeConfig)
+    - description: Opcjonalny opis/help text dla node
+    - configured: Opcjonalny status czy node jest skonfigurowany
     """
     label: str = Field(..., min_length=1, max_length=255, description="Nazwa node wyświetlana na canvas")
+    type: str = Field(..., min_length=1, max_length=50, description="Typ workflow node (start, end, persona, survey, etc.)")
     config: dict = Field(default_factory=dict, description="Konfiguracja node (zależy od type)")
+    description: str | None = Field(None, max_length=500, description="Opcjonalny opis/tooltip dla node")
+    configured: bool | None = Field(None, description="Opcjonalny status czy node jest skonfigurowany")
+
+    @field_validator('type')
+    @classmethod
+    def validate_node_type(cls, v: str) -> str:
+        """
+        Waliduj czy typ node jest jednym z allowed types.
+
+        Akceptuje zarówno frontend types (persona, survey) jak i backend types (generate-personas, create-survey).
+
+        Args:
+            v: Typ node
+
+        Returns:
+            Zwalidowany typ node
+
+        Raises:
+            ValueError: Jeśli typ jest nieprawidłowy
+        """
+        # Backend types (używane w CONFIG_SCHEMAS w workflow_validator)
+        backend_types = {
+            "start", "end",
+            "create-project", "generate-personas", "create-survey",
+            "run-focus-group", "analysis", "decision",
+            "wait", "export-pdf", "webhook",
+            "condition", "loop", "merge"
+        }
+
+        # Frontend types (aliasy używane w UI)
+        frontend_types = {
+            "goal",  # alias dla create-project
+            "persona",  # alias dla generate-personas
+            "survey",  # alias dla create-survey
+            "focus-group",  # alias dla run-focus-group
+            "insights"  # alias dla analysis
+        }
+
+        allowed_types = backend_types | frontend_types
+
+        if v not in allowed_types:
+            raise ValueError(
+                f"Invalid node type: '{v}'. "
+                f"Allowed types: {', '.join(sorted(allowed_types))}"
+            )
+
+        return v
 
 
 class CanvasNode(BaseModel):
