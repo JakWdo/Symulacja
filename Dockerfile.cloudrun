@@ -23,6 +23,7 @@ COPY frontend/package*.json ./
 RUN npm ci
 
 # Copy frontend source
+# CACHE-BUST: 2025-11-13T10:11:00Z - naprawa importu export.ts
 COPY frontend/ ./
 
 # Build production bundle
