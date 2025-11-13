@@ -235,85 +235,8 @@ export function isExportReportConfig(
 
 /**
  * Default config values dla każdego typu node
+ *
+ * NOTE: Moved to constants/workflows.ts for better organization
+ * Re-exported here for backward compatibility
  */
-export const DEFAULT_NODE_CONFIGS: Record<string, Partial<NodeConfig>> = {
-  start: {
-    trigger_type: 'manual',
-  } as StartNodeConfig,
-
-  end: {
-    success_message: 'Workflow completed successfully',
-  } as EndNodeConfig,
-
-  decision: {
-    condition: 'true',
-    true_branch_label: 'Yes',
-    false_branch_label: 'No',
-  } as DecisionNodeConfig,
-
-  generate_personas: {
-    count: 20,
-    demographic_preset: 'poland_general',
-    advanced_options: {
-      diversity_level: 'medium',
-      include_edge_cases: false,
-    },
-  } as GeneratePersonasNodeConfig,
-
-  create_survey: {
-    survey_name: 'New Survey',
-    questions: [],
-    ai_generate_questions: false,
-    target_personas: 'all',
-  } as CreateSurveyNodeConfig,
-
-  run_focus_group: {
-    focus_group_title: 'New Focus Group',
-    topics: [],
-    moderator_style: 'neutral',
-    rounds: 3,
-  } as RunFocusGroupNodeConfig,
-
-  analyze_results: {
-    analysis_type: 'summary',
-    input_source: 'focus_group',
-  } as AnalyzeResultsNodeConfig,
-
-  generate_insights: {
-    insight_focus: ['pain_points', 'opportunities'],
-    output_format: 'summary',
-    include_quotes: true,
-  } as GenerateInsightsNodeConfig,
-
-  export_report: {
-    report_name: 'Research Report',
-    format: 'pdf',
-    sections: ['personas', 'survey_results', 'focus_group_summary'],
-    include_raw_data: false,
-  } as ExportReportNodeConfig,
-
-  create_project: {
-    project_name: 'New Project',
-  } as CreateProjectNodeConfig,
-
-  compare_groups: {
-    group_a_source: '',
-    group_b_source: '',
-    comparison_metrics: [],
-  } as CompareGroupsNodeConfig,
-
-  filter_data: {
-    filter_expression: 'true',
-    data_source: '',
-  } as FilterDataNodeConfig,
-
-  loop_start: {
-    iteration_variable: 'item',
-    items_source: 'items',
-    max_iterations: 100,
-  } as LoopStartNodeConfig,
-
-  loop_end: {
-    loop_start_node_id: '',
-  } as LoopEndNodeConfig,
-};
+export { DEFAULT_NODE_CONFIGS } from '../constants/workflows';

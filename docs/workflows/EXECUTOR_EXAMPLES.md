@@ -635,6 +635,6 @@ with workflow_execution_time.labels(
 ## Kontakt
 
 **Pytania?** Zobacz:
-- `docs/workflow_builder_prd.md` - PRD
+- `docs/workflows/IMPLEMENTATION_REPORT.md` - Implementation report and architecture
 - `app/services/workflows/workflow_validator.py` - Validation logic
 - `app/models/workflow.py` - Data models
