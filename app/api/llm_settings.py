@@ -14,8 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.models.projects import Project
-from app.models.users import User
+from app.models.project import Project
+from app.models.user import User
 from app.api.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
