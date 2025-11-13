@@ -19,7 +19,20 @@ Pliki:
 - survey.py - schematy dla ankiet syntetycznych
 - graph.py - schematy dla analizy grafowej
 - workflow.py - schematy dla workflow builder (14 node types)
+- team.py - schematy dla zespołów i członkostwa
 """
+
+# Team schemas exports
+from app.schemas.team import (
+    TeamCreate,
+    TeamUpdate,
+    TeamResponse,
+    TeamMembershipCreate,
+    TeamMembershipUpdate,
+    TeamMembershipResponse,
+    TeamListResponse,
+    TeamMemberInfo,
+)
 
 # Workflow schemas exports
 from app.schemas.workflow import (
@@ -54,6 +67,15 @@ from app.schemas.workflow import (
 )
 
 __all__ = [
+    # Team schemas
+    "TeamCreate",
+    "TeamUpdate",
+    "TeamResponse",
+    "TeamMembershipCreate",
+    "TeamMembershipUpdate",
+    "TeamMembershipResponse",
+    "TeamListResponse",
+    "TeamMemberInfo",
     # Workflow request schemas
     "WorkflowCreate",
     "WorkflowUpdate",

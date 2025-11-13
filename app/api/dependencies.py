@@ -24,6 +24,7 @@ from app.models.project import Project
 from app.models.persona import Persona
 from app.models.focus_group import FocusGroup
 from app.models.survey import Survey
+from app.models.team import Team, TeamMembership, TeamRole
 from app.db.session import get_db
 
 # Mechanizm HTTPBearer — wymagaj nagłówka "Authorization: Bearer <token>"
@@ -305,14 +306,62 @@ async def get_project_for_user(
     include_inactive: bool = False,
 ) -> Project:
     """
-    Pobierz projekt należący do aktualnego użytkownika lub zwróć 404.
+    Pobierz projekt do którego użytkownik ma dostęp lub zwróć 404.
+
+    Dostęp mają:
+    1. Admin (pełny dostęp do wszystkich projektów)
+    2. Członkowie teamu do którego należy projekt (przez team_id)
+    3. Właściciel projektu (legacy support dla projektów bez team_id)
+
+    Args:
+        project_id: UUID projektu
+        current_user: Zalogowany użytkownik
+        db: Sesja bazy danych
+        include_inactive: Czy uwzględnić nieaktywne projekty
+
+    Returns:
+        Project object jeśli użytkownik ma dostęp
+
+    Raises:
+        HTTPException 404: Jeśli projekt nie istnieje lub użytkownik nie ma dostępu
     """
-    conditions = [
-        Project.id == project_id,
-        Project.owner_id == current_user.id,
-    ]
+    # Admin ma dostęp do wszystkich projektów
+    if current_user.system_role == SystemRole.ADMIN:
+        conditions = [Project.id == project_id]
+        if not include_inactive:
+            conditions.append(Project.is_active.is_(True))
+
+        result = await db.execute(select(Project).where(*conditions))
+        project = result.scalar_one_or_none()
+
+        if not project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+        return project
+
+    # Zwykli użytkownicy - sprawdź team membership lub ownership
+    # Projekt jest dostępny jeśli:
+    # 1. user jest członkiem teamu projektu (team_id is not None i user ∈ team)
+    # 2. user jest właścicielem projektu (owner_id = user_id) - legacy
+    from sqlalchemy import or_, and_
+
+    conditions = [Project.id == project_id]
     if not include_inactive:
         conditions.append(Project.is_active.is_(True))
+
+    # Warunek dostępu: owner LUB member teamu
+    access_condition = or_(
+        Project.owner_id == current_user.id,  # Legacy: właściciel
+        and_(
+            Project.team_id.isnot(None),  # Projekt ma team
+            Project.team_id.in_(  # User jest członkiem tego teamu
+                select(TeamMembership.team_id).where(
+                    TeamMembership.user_id == current_user.id
+                )
+            )
+        )
+    )
+    conditions.append(access_condition)
 
     result = await db.execute(select(Project).where(*conditions))
     project = result.scalar_one_or_none()
@@ -331,11 +380,50 @@ async def get_persona_for_user(
 ) -> Persona:
     """
     Pobierz personę, do której użytkownik ma dostęp (poprzez projekt), lub zwróć 404.
+
+    Dostęp poprzez projekt - sprawdza membership w teamie projektu lub ownership.
     """
+    from sqlalchemy import or_, and_
+
+    # Admin ma dostęp do wszystkich person
+    if current_user.system_role == SystemRole.ADMIN:
+        conditions = [
+            Persona.id == persona_id,
+            Project.is_active.is_(True),
+        ]
+        if not include_inactive:
+            conditions.append(Persona.is_active.is_(True))
+            conditions.append(Persona.deleted_at.is_(None))
+
+        result = await db.execute(
+            select(Persona)
+            .join(Project, Persona.project_id == Project.id)
+            .where(*conditions)
+        )
+        persona = result.scalar_one_or_none()
+
+        if not persona:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona not found")
+
+        return persona
+
+    # Zwykli użytkownicy - sprawdź dostęp przez team lub ownership
+    access_condition = or_(
+        Project.owner_id == current_user.id,  # Legacy: właściciel projektu
+        and_(
+            Project.team_id.isnot(None),  # Projekt ma team
+            Project.team_id.in_(  # User jest członkiem tego teamu
+                select(TeamMembership.team_id).where(
+                    TeamMembership.user_id == current_user.id
+                )
+            )
+        )
+    )
+
     conditions = [
         Persona.id == persona_id,
-        Project.owner_id == current_user.id,
         Project.is_active.is_(True),
+        access_condition,
     ]
     if not include_inactive:
         conditions.append(Persona.is_active.is_(True))
@@ -361,7 +449,11 @@ async def get_focus_group_for_user(
 ) -> FocusGroup:
     """
     Pobierz grupę fokusową należącą do projektu użytkownika lub zwróć 404.
+
+    Dostęp poprzez projekt - sprawdza membership w teamie projektu lub ownership.
     """
+    from sqlalchemy import or_, and_
+
     logger.debug(
         "Checking focus group access",
         extra={
@@ -370,13 +462,43 @@ async def get_focus_group_for_user(
         }
     )
 
+    # Admin ma dostęp do wszystkich grup fokusowych
+    if current_user.system_role == SystemRole.ADMIN:
+        result = await db.execute(
+            select(FocusGroup)
+            .join(Project, FocusGroup.project_id == Project.id)
+            .where(
+                FocusGroup.id == focus_group_id,
+                Project.is_active.is_(True),
+            )
+        )
+        focus_group = result.scalar_one_or_none()
+
+        if not focus_group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Focus group not found")
+
+        return focus_group
+
+    # Zwykli użytkownicy - sprawdź dostęp przez team lub ownership
+    access_condition = or_(
+        Project.owner_id == current_user.id,  # Legacy: właściciel projektu
+        and_(
+            Project.team_id.isnot(None),  # Projekt ma team
+            Project.team_id.in_(  # User jest członkiem tego teamu
+                select(TeamMembership.team_id).where(
+                    TeamMembership.user_id == current_user.id
+                )
+            )
+        )
+    )
+
     result = await db.execute(
         select(FocusGroup)
         .join(Project, FocusGroup.project_id == Project.id)
         .where(
             FocusGroup.id == focus_group_id,
-            Project.owner_id == current_user.id,
             Project.is_active.is_(True),
+            access_condition,
         )
     )
     focus_group = result.scalar_one_or_none()
@@ -387,7 +509,7 @@ async def get_focus_group_for_user(
             extra={
                 "focus_group_id": str(focus_group_id),
                 "user_id": str(current_user.id),
-                "reason": "Either focus group doesn't exist, user doesn't own the project, or project is inactive"
+                "reason": "Either focus group doesn't exist, user doesn't have access to project, or project is inactive"
             }
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Focus group not found")
@@ -411,15 +533,50 @@ async def get_survey_for_user(
 ) -> Survey:
     """
     Pobierz ankietę powiązaną z projektem użytkownika lub zwróć 404.
+
+    Dostęp poprzez projekt - sprawdza membership w teamie projektu lub ownership.
     """
+    from sqlalchemy import or_, and_
+
+    # Admin ma dostęp do wszystkich ankiet
+    if current_user.system_role == SystemRole.ADMIN:
+        result = await db.execute(
+            select(Survey)
+            .join(Project, Survey.project_id == Project.id)
+            .where(
+                Survey.id == survey_id,
+                Survey.is_active.is_(True),
+                Project.is_active.is_(True),
+            )
+        )
+        survey = result.scalar_one_or_none()
+
+        if not survey:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Survey not found")
+
+        return survey
+
+    # Zwykli użytkownicy - sprawdź dostęp przez team lub ownership
+    access_condition = or_(
+        Project.owner_id == current_user.id,  # Legacy: właściciel projektu
+        and_(
+            Project.team_id.isnot(None),  # Projekt ma team
+            Project.team_id.in_(  # User jest członkiem tego teamu
+                select(TeamMembership.team_id).where(
+                    TeamMembership.user_id == current_user.id
+                )
+            )
+        )
+    )
+
     result = await db.execute(
         select(Survey)
         .join(Project, Survey.project_id == Project.id)
         .where(
             Survey.id == survey_id,
             Survey.is_active.is_(True),
-            Project.owner_id == current_user.id,
             Project.is_active.is_(True),
+            access_condition,
         )
     )
     survey = result.scalar_one_or_none()
@@ -428,3 +585,196 @@ async def get_survey_for_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Survey not found")
 
     return survey
+
+
+# ============================================================================
+# TEAM MEMBERSHIP DEPENDENCIES
+# ============================================================================
+
+
+async def get_team_for_user(
+    team_id: UUID,
+    current_user: User,
+    db: AsyncSession,
+) -> Team:
+    """
+    Pobierz team do którego użytkownik ma dostęp lub zwróć 404.
+
+    Sprawdza czy użytkownik jest członkiem teamu (przez TeamMembership).
+    Admin ma dostęp do wszystkich teamów.
+
+    Args:
+        team_id: UUID teamu
+        current_user: Zalogowany użytkownik
+        db: Sesja bazy danych
+
+    Returns:
+        Team object jeśli użytkownik ma dostęp
+
+    Raises:
+        HTTPException 404: Jeśli team nie istnieje lub użytkownik nie ma dostępu
+    """
+    # Admin ma dostęp do wszystkich teamów
+    if current_user.system_role == SystemRole.ADMIN:
+        result = await db.execute(
+            select(Team).where(
+                Team.id == team_id,
+                Team.is_active.is_(True),
+            )
+        )
+        team = result.scalar_one_or_none()
+
+        if not team:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+
+        return team
+
+    # Zwykli użytkownicy - sprawdź membership
+    result = await db.execute(
+        select(Team)
+        .join(TeamMembership, TeamMembership.team_id == Team.id)
+        .where(
+            Team.id == team_id,
+            Team.is_active.is_(True),
+            TeamMembership.user_id == current_user.id,
+        )
+    )
+    team = result.scalar_one_or_none()
+
+    if not team:
+        logger.warning(
+            "Team not found or access denied",
+            extra={
+                "team_id": str(team_id),
+                "user_id": str(current_user.id),
+                "reason": "Either team doesn't exist, is inactive, or user is not a member"
+            }
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+
+    return team
+
+
+async def require_team_membership(
+    team_id: UUID,
+    current_user: User,
+    db: AsyncSession,
+    allowed_roles: list[TeamRole] | None = None,
+) -> TeamMembership:
+    """
+    Dependency wymuszające że użytkownik należy do teamu z określonymi rolami.
+
+    Sprawdza:
+    1. Czy użytkownik jest członkiem teamu
+    2. Czy ma jedną z dozwolonych ról w teamie
+    3. Admin ma zawsze dostęp (traktowany jako OWNER)
+
+    Args:
+        team_id: UUID teamu
+        current_user: Zalogowany użytkownik
+        db: Sesja bazy danych
+        allowed_roles: Lista dozwolonych ról (None = wszystkie role OK)
+
+    Returns:
+        TeamMembership object użytkownika w teamie
+
+    Raises:
+        HTTPException 404: Jeśli team nie istnieje lub użytkownik nie jest członkiem
+        HTTPException 403: Jeśli użytkownik ma niewystarczającą rolę w teamie
+
+    Usage:
+        @router.post("/teams/{team_id}/projects")
+        async def create_project_in_team(
+            team_id: UUID,
+            current_user: User = Depends(get_current_user),
+            db: AsyncSession = Depends(get_db),
+        ):
+            # Tylko owner i member mogą tworzyć projekty
+            membership = await require_team_membership(
+                team_id, current_user, db,
+                allowed_roles=[TeamRole.OWNER, TeamRole.MEMBER]
+            )
+            # ... logika tworzenia projektu
+    """
+    # Admin ma zawsze pełny dostęp (traktowany jako owner)
+    if current_user.system_role == SystemRole.ADMIN:
+        # Sprawdź czy team istnieje
+        result = await db.execute(
+            select(Team).where(
+                Team.id == team_id,
+                Team.is_active.is_(True),
+            )
+        )
+        team = result.scalar_one_or_none()
+
+        if not team:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+
+        # Zwróć "wirtualny" membership dla admina (nie zapisujemy go do bazy)
+        # Potrzebujemy tylko dla celów logicznych, nie persistence
+        logger.debug(
+            "Admin access granted to team",
+            extra={"team_id": str(team_id), "user_id": str(current_user.id)}
+        )
+        # Tworzymy obiekt membership bez zapisu do bazy (transient object)
+        from uuid import uuid4
+        virtual_membership = TeamMembership(
+            id=uuid4(),
+            team_id=team_id,
+            user_id=current_user.id,
+            role_in_team=TeamRole.OWNER  # Admin = owner
+        )
+        return virtual_membership
+
+    # Zwykli użytkownicy - pobierz membership z bazy
+    result = await db.execute(
+        select(TeamMembership)
+        .join(Team, TeamMembership.team_id == Team.id)
+        .where(
+            TeamMembership.team_id == team_id,
+            TeamMembership.user_id == current_user.id,
+            Team.is_active.is_(True),
+        )
+    )
+    membership = result.scalar_one_or_none()
+
+    if not membership:
+        logger.warning(
+            "Team membership not found",
+            extra={
+                "team_id": str(team_id),
+                "user_id": str(current_user.id),
+                "reason": "User is not a member of this team or team is inactive"
+            }
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="You are not a member of this team"
+        )
+
+    # Sprawdź czy użytkownik ma wymaganą rolę
+    if allowed_roles is not None and membership.role_in_team not in allowed_roles:
+        logger.warning(
+            "Insufficient team role",
+            extra={
+                "team_id": str(team_id),
+                "user_id": str(current_user.id),
+                "user_role": membership.role_in_team.value,
+                "required_roles": [r.value for r in allowed_roles]
+            }
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Insufficient permissions. Required roles: {', '.join(r.value for r in allowed_roles)}"
+        )
+
+    logger.debug(
+        "Team membership validated",
+        extra={
+            "team_id": str(team_id),
+            "user_id": str(current_user.id),
+            "role": membership.role_in_team.value
+        }
+    )
+
+    return membership
