@@ -22,7 +22,7 @@ import {
 import { UserPlus, Trash2, Crown, Users, Eye, Loader2 } from 'lucide-react';
 import * as teamsApi from '@/api/teams';
 import type { Team, TeamMember, TeamRole } from '@/api/teams';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { formatDate } from '@/lib/utils';
 
 interface ManageMembersDialogProps {

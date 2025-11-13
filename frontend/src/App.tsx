@@ -34,6 +34,7 @@ const WorkflowEditor = lazy(() => import('@/components/workflows/WorkflowEditor'
 const WorkflowsListPage = lazy(() => import('@/components/workflows/WorkflowsListPage').then(m => ({ default: m.WorkflowsListPage })));
 const TeamsList = lazy(() => import('@/components/teams/TeamsList').then(m => ({ default: m.TeamsList })));
 const TeamDetailView = lazy(() => import('@/components/teams/TeamDetailView').then(m => ({ default: m.TeamDetailView })));
+const EnvironmentsList = lazy(() => import('@/components/environments/EnvironmentsList').then(m => ({ default: m.EnvironmentsList })));
 
 export default function App() {
   // Initialize theme
@@ -236,6 +237,16 @@ export default function App() {
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground">No team selected</p>
           </div>
+        );
+      case 'environments':
+        return (
+          <EnvironmentsList
+            onSelectEnvironment={(env) => {
+              // Możesz dodać widok szczegółów environment w przyszłości
+              // setCurrentView('environment-detail');
+              console.log('Selected environment:', env);
+            }}
+          />
         );
       default:
         return <OverviewDashboard onNavigate={setCurrentView} />;

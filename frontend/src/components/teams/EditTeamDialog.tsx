@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import * as teamsApi from '@/api/teams';
 import type { Team } from '@/api/teams';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface EditTeamDialogProps {
   team: Team;

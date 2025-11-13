@@ -3,6 +3,7 @@ API endpoints dla eksportu raportów do PDF i DOCX.
 """
 import logging
 from typing import Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -16,6 +17,7 @@ from app.models.user import User
 from app.models.persona import Persona
 from app.models.focus_group import FocusGroup
 from app.models.survey import Survey
+from app.models.project import Project
 from app.services.export import PDFGenerator, DOCXGenerator
 
 router = APIRouter(prefix="/export", tags=["export"])
@@ -365,6 +367,196 @@ async def export_survey_docx(
         raise HTTPException(status_code=500, detail=f"Błąd generowania DOCX: {str(e)}")
 
     filename = f"survey_{survey.title.replace(' ', '_')}_{survey_id}.docx"
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/projects/{project_id}/pdf")
+async def export_project_pdf(
+    project_id: UUID,
+    include_full_personas: bool = Query(False, description="Czy dołączyć wszystkie persony (False = top 10)"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Eksportuje kompletny raport projektu do PDF.
+
+    Args:
+        project_id: UUID projektu
+        include_full_personas: Czy dołączyć wszystkie persony (domyślnie tylko top 10)
+        db: Sesja bazodanowa
+        current_user: Zalogowany użytkownik
+
+    Returns:
+        Response: Plik PDF z kompletnym raportem projektu
+    """
+    # Pobierz projekt z eager loading person, grup fokusowych i ankiet
+    stmt = select(Project).where(Project.id == project_id, Project.deleted_at.is_(None)).options(
+        selectinload(Project.personas),
+        selectinload(Project.focus_groups),
+        selectinload(Project.surveys)
+    )
+    result = await db.execute(stmt)
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Projekt nie znaleziony")
+
+    if project.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Brak dostępu do tego projektu")
+
+    # Przygotuj dane projektu
+    project_data = {
+        "name": project.name,
+        "description": project.description or "",
+        "target_audience": project.target_audience or "",
+        "research_objectives": project.research_objectives or "",
+        "target_demographics": project.target_demographics or {},
+        "personas": [
+            {
+                "name": p.name,
+                "age": p.age,
+                "occupation": p.occupation,
+                "education": p.education,
+                "income": p.income,
+                "location": p.location,
+                "values": p.values or [],
+                "interests": p.interests or [],
+                "needs": p.needs or [],
+            }
+            for p in project.personas if p.deleted_at is None
+        ],
+        "focus_groups": [
+            {
+                "name": fg.name,
+                "summary": fg.summary or {},
+                "personas_count": len([p for p in fg.personas if p.deleted_at is None]),
+            }
+            for fg in project.focus_groups if fg.deleted_at is None
+        ],
+        "surveys": [
+            {
+                "title": s.title,
+                "questions_count": len(s.questions or []),
+                "responses_count": len(s.responses or []),
+            }
+            for s in project.surveys if s.deleted_at is None
+        ],
+    }
+
+    # Generuj PDF
+    pdf_generator = PDFGenerator()
+    user_tier = current_user.subscription_tier or "free"
+
+    try:
+        pdf_bytes = await pdf_generator.generate_project_pdf(
+            project_data=project_data,
+            user_tier=user_tier,
+            include_full_personas=include_full_personas,
+        )
+    except Exception as e:
+        logger.error(f"Błąd generowania PDF dla projektu {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Błąd generowania PDF: {str(e)}")
+
+    filename = f"projekt_{project.name.replace(' ', '_')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/projects/{project_id}/docx")
+async def export_project_docx(
+    project_id: UUID,
+    include_full_personas: bool = Query(False, description="Czy dołączyć wszystkie persony (False = top 10)"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Eksportuje kompletny raport projektu do DOCX.
+
+    Args:
+        project_id: UUID projektu
+        include_full_personas: Czy dołączyć wszystkie persony (domyślnie tylko top 10)
+        db: Sesja bazodanowa
+        current_user: Zalogowany użytkownik
+
+    Returns:
+        Response: Plik DOCX z kompletnym raportem projektu
+    """
+    # Pobierz projekt z eager loading person, grup fokusowych i ankiet
+    stmt = select(Project).where(Project.id == project_id, Project.deleted_at.is_(None)).options(
+        selectinload(Project.personas),
+        selectinload(Project.focus_groups),
+        selectinload(Project.surveys)
+    )
+    result = await db.execute(stmt)
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Projekt nie znaleziony")
+
+    if project.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Brak dostępu do tego projektu")
+
+    # Przygotuj dane projektu
+    project_data = {
+        "name": project.name,
+        "description": project.description or "",
+        "target_audience": project.target_audience or "",
+        "research_objectives": project.research_objectives or "",
+        "target_demographics": project.target_demographics or {},
+        "personas": [
+            {
+                "name": p.name,
+                "age": p.age,
+                "occupation": p.occupation,
+                "education": p.education,
+                "income": p.income,
+                "location": p.location,
+                "values": p.values or [],
+                "interests": p.interests or [],
+                "needs": p.needs or [],
+            }
+            for p in project.personas if p.deleted_at is None
+        ],
+        "focus_groups": [
+            {
+                "name": fg.name,
+                "summary": fg.summary or {},
+                "personas_count": len([p for p in fg.personas if p.deleted_at is None]),
+            }
+            for fg in project.focus_groups if fg.deleted_at is None
+        ],
+        "surveys": [
+            {
+                "title": s.title,
+                "questions_count": len(s.questions or []),
+                "responses_count": len(s.responses or []),
+            }
+            for s in project.surveys if s.deleted_at is None
+        ],
+    }
+
+    # Generuj DOCX
+    docx_generator = DOCXGenerator()
+    user_tier = current_user.subscription_tier or "free"
+
+    try:
+        docx_bytes = await docx_generator.generate_project_docx(
+            project_data=project_data,
+            user_tier=user_tier,
+            include_full_personas=include_full_personas,
+        )
+    except Exception as e:
+        logger.error(f"Błąd generowania DOCX dla projektu {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Błąd generowania DOCX: {str(e)}")
+
+    filename = f"projekt_{project.name.replace(' ', '_')}.docx"
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

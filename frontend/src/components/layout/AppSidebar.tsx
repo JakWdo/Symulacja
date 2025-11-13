@@ -1,4 +1,4 @@
-import { Search, LayoutDashboard, FolderOpen, Settings, Command, Users, MessageSquare, BarChart3, LogOut, Workflow, Sparkles, Users2 } from 'lucide-react';
+import { Search, LayoutDashboard, FolderOpen, Folder, Settings, Command, Users, MessageSquare, BarChart3, LogOut, Workflow, Sparkles, Users2 } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -150,6 +150,19 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                 >
                   <Users2 className="w-4 h-4" />
                   <span className="text-[14px]">Zespoły</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onNavigate('environments')}
+                  className={`h-8 gap-2 pl-2 pr-0 rounded-[8px] ${
+                    currentView === 'environments'
+                      ? 'bg-sidebar-accent border-l-2 border-l-primary text-foreground'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                  }`}
+                >
+                  <Folder className="w-4 h-4" />
+                  <span className="text-[14px]">Środowiska</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

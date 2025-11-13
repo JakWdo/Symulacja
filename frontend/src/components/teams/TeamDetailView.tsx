@@ -27,7 +27,7 @@ import { ManageMembersDialog } from './ManageMembersDialog';
 import { EditTeamDialog } from './EditTeamDialog';
 import * as teamsApi from '@/api/teams';
 import type { Team, TeamMember, TeamRole } from '@/api/teams';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { formatDate } from '@/lib/utils';
 
 interface TeamDetailViewProps {

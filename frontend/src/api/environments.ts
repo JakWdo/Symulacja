@@ -8,7 +8,7 @@
  * - Project snapshots
  */
 
-import apiClient from '../lib/api/client';
+import { api } from '../lib/api/client';
 
 // === Types ===
 
@@ -76,7 +76,7 @@ export interface SnapshotCreate {
  * Tworzy nowe environment dla zespołu.
  */
 export async function createEnvironment(data: EnvironmentCreate): Promise<Environment> {
-  const response = await apiClient.post<Environment>('/environments', data);
+  const response = await api.post<Environment>('/environments', data);
   return response.data;
 }
 
@@ -85,7 +85,7 @@ export async function createEnvironment(data: EnvironmentCreate): Promise<Enviro
  */
 export async function listEnvironments(teamId?: string): Promise<Environment[]> {
   const params = teamId ? { team_id: teamId } : {};
-  const response = await apiClient.get<Environment[]>('/environments', { params });
+  const response = await api.get<Environment[]>('/environments', { params });
   return response.data;
 }
 
@@ -93,7 +93,7 @@ export async function listEnvironments(teamId?: string): Promise<Environment[]> 
  * Pobiera szczegóły environment.
  */
 export async function getEnvironment(environmentId: string): Promise<Environment> {
-  const response = await apiClient.get<Environment>(`/environments/${environmentId}`);
+  const response = await api.get<Environment>(`/environments/${environmentId}`);
   return response.data;
 }
 
@@ -111,7 +111,7 @@ export async function filterEnvironmentResources(
   environmentId: string,
   filterRequest: FilterResourcesRequest
 ): Promise<FilterResourcesResponse> {
-  const response = await apiClient.post<FilterResourcesResponse>(
+  const response = await api.post<FilterResourcesResponse>(
     `/environments/${environmentId}/filter`,
     filterRequest
   );
@@ -122,7 +122,7 @@ export async function filterEnvironmentResources(
  * Tworzy nowy saved filter.
  */
 export async function createSavedFilter(data: SavedFilterCreate): Promise<SavedFilter> {
-  const response = await apiClient.post<SavedFilter>('/environments/filters', data);
+  const response = await api.post<SavedFilter>('/environments/filters', data);
   return response.data;
 }
 
@@ -130,7 +130,7 @@ export async function createSavedFilter(data: SavedFilterCreate): Promise<SavedF
  * Listuje saved filters dla environment.
  */
 export async function listSavedFilters(environmentId: string): Promise<SavedFilter[]> {
-  const response = await apiClient.get<SavedFilter[]>('/environments/filters', {
+  const response = await api.get<SavedFilter[]>('/environments/filters', {
     params: { environment_id: environmentId }
   });
   return response.data;
@@ -140,7 +140,7 @@ export async function listSavedFilters(environmentId: string): Promise<SavedFilt
  * Pobiera szczegóły saved filter.
  */
 export async function getSavedFilter(filterId: string): Promise<SavedFilter> {
-  const response = await apiClient.get<SavedFilter>(`/environments/filters/${filterId}`);
+  const response = await api.get<SavedFilter>(`/environments/filters/${filterId}`);
   return response.data;
 }
 
@@ -151,7 +151,7 @@ export async function createProjectSnapshot(
   projectId: string,
   data: SnapshotCreate
 ): Promise<ProjectSnapshot> {
-  const response = await apiClient.post<ProjectSnapshot>(
+  const response = await api.post<ProjectSnapshot>(
     `/projects/${projectId}/snapshots`,
     data
   );
@@ -162,7 +162,7 @@ export async function createProjectSnapshot(
  * Listuje snapshoty projektu.
  */
 export async function listProjectSnapshots(projectId: string): Promise<ProjectSnapshot[]> {
-  const response = await apiClient.get<ProjectSnapshot[]>(`/projects/${projectId}/snapshots`);
+  const response = await api.get<ProjectSnapshot[]>(`/projects/${projectId}/snapshots`);
   return response.data;
 }
 
@@ -173,7 +173,7 @@ export async function getProjectSnapshot(
   projectId: string,
   snapshotId: string
 ): Promise<ProjectSnapshot> {
-  const response = await apiClient.get<ProjectSnapshot>(
+  const response = await api.get<ProjectSnapshot>(
     `/projects/${projectId}/snapshots/${snapshotId}`
   );
   return response.data;

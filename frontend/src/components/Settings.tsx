@@ -7,6 +7,7 @@ import { useTranslation } from '@/i18n/hooks';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { BudgetSettings } from '@/components/settings/BudgetSettings';
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
+import { LLMProviderSettings } from '@/components/settings/LLMProviderSettings';
 import { AccountSidebar } from '@/components/settings/AccountSidebar';
 
 export function Settings() {
@@ -85,6 +86,7 @@ export function Settings() {
             budgetForm={budgetForm}
             setBudgetForm={setBudgetForm}
           />
+          <LLMProviderSettings />
           <AppearanceSettings />
         </div>
 

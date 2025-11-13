@@ -45,7 +45,7 @@ export async function exportProjectPDF(
   const { includeFullPersonas = false } = options;
 
   const response = await api.get(
-    `/projects/${projectId}/export/pdf`,
+    `/export/projects/${projectId}/pdf`,
     {
       params: { include_full_personas: includeFullPersonas },
       responseType: 'blob',
@@ -69,7 +69,7 @@ export async function exportProjectDOCX(
   const { includeFullPersonas = false } = options;
 
   const response = await api.get(
-    `/projects/${projectId}/export/docx`,
+    `/export/projects/${projectId}/docx`,
     {
       params: { include_full_personas: includeFullPersonas },
       responseType: 'blob',

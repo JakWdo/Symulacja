@@ -17,6 +17,7 @@ import { exportAndDownload } from '@/api/export';
 import type { Project } from '@/types';
 import { Logo } from '@/components/ui/logo';
 import { useToast } from '@/hooks/use-toast';
+import { SnapshotManager } from '@/components/environments/SnapshotManager';
 
 interface ProjectDetailProps {
   project: Project;
@@ -241,6 +242,19 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
                   )}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Snapshots Section */}
+          <Card className="bg-card border border-border shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-foreground">Project Snapshots</CardTitle>
+              <p className="text-muted-foreground">
+                Create and manage snapshots of project resources for reproducibility
+              </p>
+            </CardHeader>
+            <CardContent>
+              <SnapshotManager projectId={project.id} />
             </CardContent>
           </Card>
         </div>

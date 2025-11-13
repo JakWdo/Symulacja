@@ -5,10 +5,10 @@
  * Filtruje environments po aktualnie wybranym teamie.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { listEnvironments, type Environment } from '../../api/environments';
-import { useTeamStore } from '../../store/teamStore';
+import { listEnvironments } from '../../api/environments';
+import { getMyTeams } from '../../api/teams';
 
 interface EnvironmentSelectorProps {
   value: string | null;
@@ -21,7 +21,13 @@ export const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   onChange,
   className = '',
 }) => {
-  const { currentTeam } = useTeamStore();
+  // Fetch teams
+  const { data: teamsData } = useQuery({
+    queryKey: ['teams'],
+    queryFn: getMyTeams,
+  });
+
+  const currentTeam = teamsData?.teams?.[0];
 
   // Fetch environments for current team
   const { data: environments = [], isLoading } = useQuery({
