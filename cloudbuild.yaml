@@ -170,9 +170,9 @@ steps:
     args:
       - '-c'
       - |
-        echo "🚀 Deploying new revision to production (no-traffic initially)..."
+        echo "🚀 Deploying new revision to production (direct deployment, 100% traffic)..."
 
-        # Deploy new revision with --no-traffic flag
+        # Deploy new revision directly with 100% traffic (simpler for small projects)
         gcloud run deploy sight \
           --image=europe-central2-docker.pkg.dev/gen-lang-client-0508446677/sight-containers/sight:latest \
           --region=europe-central2 \
@@ -188,15 +188,9 @@ steps:
           --execution-environment=gen2 \
           --add-cloudsql-instances=gen-lang-client-0508446677:europe-central2:sight \
           --set-secrets=DATABASE_URL=DATABASE_URL_CLOUD:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,NEO4J_PASSWORD=NEO4J_PASSWORD:latest,NEO4J_URI=NEO4J_URI:latest,POSTGRES_PASSWORD=POSTGRES_PASSWORD:latest,REDIS_URL=REDIS_URL:latest,SECRET_KEY=SECRET_KEY:latest \
-          --set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,GRAPH_MODEL=gemini-2.5-flash,PERSONA_GENERATION_MODEL=gemini-2.5-flash,ANALYSIS_MODEL=gemini-2.5-pro,EMBEDDING_MODEL=models/gemini-embedding-001,TEMPERATURE=0.7,MAX_TOKENS=6000,RAG_ENABLED=True,RAG_USE_HYBRID_SEARCH=True,RAG_USE_RERANKING=False,RAG_RERANK_CANDIDATES=5,RETRIEVAL_MODE=hybrid,RAG_CHUNK_SIZE=1000,RAG_CHUNK_OVERLAP=300,RAG_TOP_K=8,RAG_VECTOR_WEIGHT=0.7,RAG_RRF_K=60,ORCHESTRATION_ENABLED=True,ORCHESTRATION_TIMEOUT=90,TRANSFORMERS_VERBOSITY=error,HF_HUB_DISABLE_TELEMETRY=1,WORKFLOWS_ENABLED=true,GCP_PROJECT_ID=gen-lang-client-0508446677,GCP_REGION=europe-central2 \
-          --no-traffic
+          --set-env-vars=NEO4J_USER=neo4j,ENVIRONMENT=production,DEBUG=False,DEFAULT_LLM_PROVIDER=google,DEFAULT_MODEL=gemini-2.5-flash,GRAPH_MODEL=gemini-2.5-flash,PERSONA_GENERATION_MODEL=gemini-2.5-flash,ANALYSIS_MODEL=gemini-2.5-pro,EMBEDDING_MODEL=models/gemini-embedding-001,TEMPERATURE=0.7,MAX_TOKENS=6000,RAG_ENABLED=True,RAG_USE_HYBRID_SEARCH=True,RAG_USE_RERANKING=False,RAG_RERANK_CANDIDATES=5,RETRIEVAL_MODE=hybrid,RAG_CHUNK_SIZE=1000,RAG_CHUNK_OVERLAP=300,RAG_TOP_K=8,RAG_VECTOR_WEIGHT=0.7,RAG_RRF_K=60,ORCHESTRATION_ENABLED=True,ORCHESTRATION_TIMEOUT=90,TRANSFORMERS_VERBOSITY=error,HF_HUB_DISABLE_TELEMETRY=1,WORKFLOWS_ENABLED=true,GCP_PROJECT_ID=gen-lang-client-0508446677,GCP_REGION=europe-central2
 
-        # Get new revision name
-        NEW_REVISION=$(gcloud run services describe sight --region=europe-central2 --format="value(status.latestCreatedRevisionName)")
-        echo "✅ New revision deployed: $$NEW_REVISION (0% traffic)"
-
-        # Store revision name for next steps
-        echo "$$NEW_REVISION" > /workspace/new_revision.txt
+        echo "✅ Production deployed successfully with 100% traffic"
     id: 'deploy-production'
     waitFor: ['migrate']  # Deploy production directly after migration (staging disabled)
 
@@ -246,186 +240,11 @@ steps:
     waitFor: ['deploy-production']
 
   # ==========================================================================
-  # SMOKE TESTS PRODUCTION: Test new revision before promoting traffic
+  # SMOKE TESTS & TRAFFIC PROMOTION: DISABLED
   # ==========================================================================
-  # Test the new revision with tag-based URL (no production traffic yet)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'smoke-tests-production'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "🔥 Running smoke tests on new production revision (0% traffic)..."
-
-        # Get new revision name
-        NEW_REVISION=$(cat /workspace/new_revision.txt)
-        echo "Testing new revision: $$NEW_REVISION"
-
-        # Get revision-specific URL (tag-based)
-        # Format: https://REVISION---SERVICE-HASH.REGION.run.app
-        SERVICE_URL=$(gcloud run services describe sight --region=europe-central2 --format="value(status.url)")
-
-        # Wait for revision to be ready
-        echo "⏳ Waiting 20s for new revision initialization..."
-        sleep 20
-
-        # Test 1: Health endpoint
-        echo ""
-        echo "Test 1/2: Production health check (new revision)..."
-        HEALTH_PASSED=false
-        for i in 1 2 3; do
-          echo "  Attempt $$i/3..."
-          # Use revision tag URL for testing
-          REVISION_URL="https://$$NEW_REVISION---sight-193742683473.europe-central2.run.app"
-          HEALTH_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$$REVISION_URL/health" || echo "FAIL")
-
-          if [ "$$HEALTH_STATUS" = "200" ]; then
-            echo "✅ New revision healthy (HTTP 200)"
-            HEALTH_PASSED=true
-            break
-          else
-            echo "⚠️  Health check returned: $$HEALTH_STATUS"
-            if [ $$i -lt 3 ]; then
-              echo "  Retrying in 10s..."
-              sleep 10
-            fi
-          fi
-        done
-
-        if [ "$$HEALTH_PASSED" != "true" ]; then
-          echo ""
-          echo "❌ NEW REVISION health check FAILED - will trigger rollback"
-          echo "   Revision: $$NEW_REVISION"
-          echo "   Last status: $$HEALTH_STATUS"
-          # Signal failure for rollback step
-          echo "FAILED" > /workspace/smoke_test_result.txt
-          exit 1
-        fi
-
-        # Test 2: Frontend
-        echo ""
-        echo "Test 2/2: Production frontend check (new revision)..."
-        FRONTEND_PASSED=false
-        for i in 1 2 3; do
-          echo "  Attempt $$i/3..."
-          REVISION_URL="https://$$NEW_REVISION---sight-193742683473.europe-central2.run.app"
-          FRONTEND_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$$REVISION_URL/" || echo "FAIL")
-
-          if [ "$$FRONTEND_STATUS" = "200" ]; then
-            echo "✅ New revision frontend accessible (HTTP 200)"
-            FRONTEND_PASSED=true
-            break
-          else
-            echo "⚠️  Frontend check returned: $$FRONTEND_STATUS"
-            if [ $$i -lt 3 ]; then
-              echo "  Retrying in 10s..."
-              sleep 10
-            fi
-          fi
-        done
-
-        if [ "$$FRONTEND_PASSED" != "true" ]; then
-          echo ""
-          echo "❌ NEW REVISION frontend check FAILED - will trigger rollback"
-          # Signal failure for rollback step
-          echo "FAILED" > /workspace/smoke_test_result.txt
-          exit 1
-        fi
-
-        # All tests passed - signal success
-        echo ""
-        echo "🎉 Production smoke tests PASSED!"
-        echo "   ✅ New revision healthy"
-        echo "   ✅ Frontend accessible"
-        echo "   📍 Revision: $$NEW_REVISION"
-        echo ""
-        echo "✅ Ready for gradual traffic promotion..."
-        echo "SUCCESS" > /workspace/smoke_test_result.txt
-    waitFor: ['neo4j-init']
-
-  # ==========================================================================
-  # TRAFFIC PROMOTION: Gradual rollout 10% → 100%
-  # ==========================================================================
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'traffic-promotion'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "🚦 Starting gradual traffic promotion..."
-
-        # Get revision names
-        NEW_REVISION=$(cat /workspace/new_revision.txt)
-        PREVIOUS_REVISION=$(gcloud run services describe sight --region=europe-central2 \
-          --format="value(status.traffic[0].revisionName)")
-
-        echo "New revision: $$NEW_REVISION"
-        echo "Previous revision: $$PREVIOUS_REVISION"
-
-        # Store previous revision for rollback
-        echo "$$PREVIOUS_REVISION" > /workspace/previous_revision.txt
-
-        # Phase 1: 10% canary deployment
-        echo ""
-        echo "Phase 1/3: Promoting to 10% traffic (canary)..."
-        gcloud run services update-traffic sight \
-          --region=europe-central2 \
-          --to-revisions=$$NEW_REVISION=10,$$PREVIOUS_REVISION=90
-
-        echo "⏳ Monitoring canary for 30 seconds..."
-        sleep 30
-
-        # Check error rate (simplified - just verify service is responding)
-        SERVICE_URL=$(gcloud run services describe sight --region=europe-central2 --format="value(status.url)")
-        CANARY_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" "$$SERVICE_URL/health" || echo "FAIL")
-
-        if [ "$$CANARY_STATUS" != "200" ]; then
-          echo "❌ Canary health check failed - rolling back"
-          echo "FAILED" > /workspace/canary_result.txt
-          exit 1
-        fi
-        echo "✅ Canary healthy"
-
-        # Phase 2: 50% traffic
-        echo ""
-        echo "Phase 2/3: Promoting to 50% traffic..."
-        gcloud run services update-traffic sight \
-          --region=europe-central2 \
-          --to-revisions=$$NEW_REVISION=50,$$PREVIOUS_REVISION=50
-
-        echo "⏳ Monitoring 50% split for 20 seconds..."
-        sleep 20
-
-        # Phase 3: 100% traffic (full promotion)
-        echo ""
-        echo "Phase 3/3: Promoting to 100% traffic..."
-        gcloud run services update-traffic sight \
-          --region=europe-central2 \
-          --to-revisions=$$NEW_REVISION=100
-
-        echo ""
-        echo "🎉 Traffic promotion complete!"
-        echo "   ✅ 100% traffic on new revision: $$NEW_REVISION"
-        echo "   📍 Previous revision available for rollback: $$PREVIOUS_REVISION"
-        echo "SUCCESS" > /workspace/promotion_result.txt
-    waitFor: ['smoke-tests-production']
-
-  # ==========================================================================
-  # ROLLBACK: Manual rollback helper (not executed automatically)
-  # ==========================================================================
-  # NOTE: This step is commented out and not executed automatically.
-  # Cloud Build doesn't support "on error" handlers natively.
-  # If deployment fails, run manual rollback:
-  #   gcloud run services update-traffic sight --region=europe-central2 --to-latest
-  #
-  # - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-  #   id: 'auto-rollback'
-  #   entrypoint: 'bash'
-  #   args:
-  #     - '-c'
-  #     - |
-  #       echo "🔙 ROLLBACK - Use manual command if needed"
-  #       echo "   gcloud run services update-traffic sight --region=europe-central2 --to-latest"
+  # Smoke tests and gradual traffic promotion disabled for simpler deployment.
+  # Application deployed directly with 100% traffic after neo4j init.
+  # For canary deployment strategy, see git history.
 
 # Output images
 images:
