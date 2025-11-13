@@ -323,7 +323,7 @@ export function FocusGroupForm({
               <SpinnerLogo className="w-8 h-8" />
             </div>
           ) : personaCount === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">
+            <div className="rounded-figma-inner border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">
               Brak dostępnych person. Najpierw wygeneruj persony, aby uruchomić grupę fokusową.
             </div>
           ) : (
@@ -345,7 +345,7 @@ export function FocusGroupForm({
                     <label
                       key={persona.id}
                     className={cn(
-                      'flex items-center gap-2 p-3 rounded-lg border transition-all cursor-pointer',
+                      'flex items-center gap-2 p-3 rounded-figma-inner border transition-all cursor-pointer',
                       checked
                         ? 'border-primary-400 bg-primary-50'
                         : 'border-transparent bg-slate-50 hover:border-slate-200'

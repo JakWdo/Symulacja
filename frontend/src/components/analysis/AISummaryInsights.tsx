@@ -43,7 +43,7 @@ function SectionHeader({
   return (
     <button
       onClick={onToggle}
-      className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-lg transition-colors"
+      className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-figma-inner transition-colors"
     >
       <div className="flex items-center gap-3">
         <Icon className="w-5 h-5 text-primary-600" />
@@ -108,7 +108,7 @@ export function AISummaryInsights({
                 {keyInsights.map((insight, idx) => (
                   <div
                     key={idx}
-                    className="flex gap-3 p-4 bg-primary-50 border border-primary-200 rounded-lg"
+                    className="flex gap-3 p-4 bg-primary-50 border border-primary-200 rounded-figma-inner"
                   >
                     <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-bold">
                       {idx + 1}
@@ -147,7 +147,7 @@ export function AISummaryInsights({
                   {surprisingFindings.map((finding, idx) => (
                     <div
                       key={idx}
-                      className="flex gap-3 p-4 bg-accent-50 border border-accent-200 rounded-lg"
+                      className="flex gap-3 p-4 bg-accent-50 border border-accent-200 rounded-figma-inner"
                     >
                       <AlertTriangle className="w-5 h-5 text-accent-600 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-slate-700 leading-relaxed flex-1 prose prose-sm max-w-none">
@@ -185,7 +185,7 @@ export function AISummaryInsights({
                   {recommendations.map((rec, idx) => (
                     <div
                       key={idx}
-                      className="flex gap-3 p-4 bg-green-50 border border-green-200 rounded-lg"
+                      className="flex gap-3 p-4 bg-green-50 border border-green-200 rounded-figma-inner"
                     >
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold">
                         {idx + 1}

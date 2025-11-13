@@ -78,11 +78,14 @@ export const AssistantChat: React.FC<Props> = () => {
       }
     } catch (error) {
       console.error('Assistant error:', error);
+      const err = error as any;
+      const detail = err?.response?.data?.detail || err?.message ||
+        'Przepraszam, wystąpił błąd. Spróbuj ponownie za chwilę.';
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'Przepraszam, wystąpił błąd. Spróbuj ponownie za chwilę.',
+          content: String(detail),
         },
       ]);
     }

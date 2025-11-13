@@ -6,9 +6,10 @@
  */
 
 import React, { useState } from 'react';
-import { MessageCircle, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AssistantChat } from './AssistantChat';
+import { Logo } from '@/components/ui/logo';
 
 export const AssistantButton: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,7 +23,7 @@ export const AssistantButton: React.FC = () => {
           className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-brand hover:bg-brand/90 text-white shadow-lg z-50 flex items-center justify-center transition-transform hover:scale-105"
           aria-label="Otwórz asystenta AI"
         >
-          <MessageCircle className="w-6 h-6" />
+          <Logo transparent className="w-7 h-7" />
         </Button>
       )}
 
@@ -32,7 +33,7 @@ export const AssistantButton: React.FC = () => {
           {/* Header */}
           <div className="bg-brand text-white p-4 rounded-t-[12px] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5" />
+              <Logo transparent className="w-5 h-5" />
               <h3 className="font-semibold">Product Assistant</h3>
             </div>
             <Button

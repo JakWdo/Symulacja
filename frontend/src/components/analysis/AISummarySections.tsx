@@ -43,7 +43,7 @@ function SectionHeader({
   return (
     <button
       onClick={onToggle}
-      className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-lg transition-colors"
+      className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-figma-inner transition-colors"
     >
       <div className="flex items-center gap-3">
         <Icon className="w-5 h-5 text-primary-600" />
@@ -132,7 +132,7 @@ export function AISummarySections({
               >
                 <div className="space-y-3">
                   {Object.entries(segmentAnalysis).map(([segment, analysis]) => (
-                    <div key={segment} className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div key={segment} className="p-4 bg-slate-50 border border-slate-200 rounded-figma-inner">
                       <h4 className="text-sm font-semibold text-slate-900 mb-2">{segment}</h4>
                       <div className="text-sm text-slate-700 leading-relaxed prose prose-sm max-w-none">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(analysis)}</ReactMarkdown>

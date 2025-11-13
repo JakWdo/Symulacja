@@ -150,7 +150,7 @@ export function ExportReportPanel({ node, onUpdate }: ExportReportPanelProps) {
             {availableSections.map((section) => (
               <div
                 key={section.value}
-                className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                className="flex items-start space-x-3 p-3 rounded-figma-inner border border-border hover:bg-muted/50 transition-colors"
               >
                 <Checkbox
                   id={section.value}
@@ -181,7 +181,7 @@ export function ExportReportPanel({ node, onUpdate }: ExportReportPanelProps) {
       )}
 
       {/* Include Raw Data */}
-      <div className="flex items-start space-x-3 p-3 rounded-lg border border-border bg-muted/30">
+      <div className="flex items-start space-x-3 p-3 rounded-figma-inner border border-border bg-muted/30">
         <Checkbox
           id="include-raw"
           checked={config.include_raw_data || false}
@@ -198,7 +198,7 @@ export function ExportReportPanel({ node, onUpdate }: ExportReportPanelProps) {
       </div>
 
       {/* Tier Info */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+      <div className="rounded-figma-inner border border-blue-200 bg-blue-50/50 p-4">
         <p className="text-xs text-blue-700">
           <strong>Tier Limits:</strong>
           <br />• Free: PDF z watermarkiem
@@ -209,7 +209,7 @@ export function ExportReportPanel({ node, onUpdate }: ExportReportPanelProps) {
 
       {/* File Size Estimate */}
       {config.format === 'pdf' || config.format === 'docx' ? (
-        <div className="rounded-lg border border-border bg-muted/30 p-3">
+        <div className="rounded-figma-inner border border-border bg-muted/30 p-3">
           <p className="text-xs font-medium mb-1">Estimated File Size:</p>
           <p className="text-xs text-muted-foreground">
             {config.sections.length * 0.5 + (config.include_raw_data ? 2 : 0)} MB
@@ -221,7 +221,7 @@ export function ExportReportPanel({ node, onUpdate }: ExportReportPanelProps) {
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-muted/30 p-3">
+        <div className="rounded-figma-inner border border-border bg-muted/30 p-3">
           <p className="text-xs font-medium mb-1">
             {config.format.toUpperCase()} Export:
           </p>

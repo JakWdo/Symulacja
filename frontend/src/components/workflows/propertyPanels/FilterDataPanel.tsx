@@ -85,7 +85,7 @@ export function FilterDataPanel({ node, onUpdate }: FilterDataPanelProps) {
       </Alert>
 
       {/* Examples */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+      <div className="rounded-figma-inner border border-blue-200 bg-blue-50/50 p-4">
         <p className="text-xs text-blue-700 font-semibold mb-2">
           <Filter className="inline w-3.5 h-3.5 mr-1" />
           Przykłady Filter Expressions:
@@ -100,7 +100,7 @@ export function FilterDataPanel({ node, onUpdate }: FilterDataPanelProps) {
       </div>
 
       {/* Expected Output */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="rounded-figma-inner border border-border bg-muted/30 p-3">
         <p className="text-xs font-medium mb-2">Expected Output:</p>
         <p className="text-xs text-muted-foreground">
           Przefiltrowana lista items z data_source które spełniają filter
@@ -109,7 +109,7 @@ export function FilterDataPanel({ node, onUpdate }: FilterDataPanelProps) {
       </div>
 
       {/* Warning */}
-      <div className="rounded-lg border border-yellow-200 bg-yellow-50/50 p-4">
+      <div className="rounded-figma-inner border border-yellow-200 bg-yellow-50/50 p-4">
         <p className="text-xs text-yellow-700">
           <strong>Uwaga:</strong> Filter jest wykonywany podczas runtime workflow.
           Upewnij się że pola w expression istnieją w data_source, inaczej node

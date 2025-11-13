@@ -70,7 +70,7 @@ export function GenerateInsightsPanel({
           {insightFocusOptions.map((option) => (
             <div
               key={option.value}
-              className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+              className="flex items-start space-x-3 p-3 rounded-figma-inner border border-border hover:bg-muted/50 transition-colors"
             >
               <Checkbox
                 id={option.value}
@@ -146,7 +146,7 @@ export function GenerateInsightsPanel({
       </div>
 
       {/* Include Quotes */}
-      <div className="flex items-start space-x-3 p-3 rounded-lg border border-border bg-muted/30">
+      <div className="flex items-start space-x-3 p-3 rounded-figma-inner border border-border bg-muted/30">
         <Checkbox
           id="include-quotes"
           checked={config.include_quotes || false}
@@ -164,7 +164,7 @@ export function GenerateInsightsPanel({
       </div>
 
       {/* Info */}
-      <div className="rounded-lg border border-yellow-200 bg-yellow-50/50 p-4">
+      <div className="rounded-figma-inner border border-yellow-200 bg-yellow-50/50 p-4">
         <div className="flex items-start gap-2">
           <Lightbulb className="w-4 h-4 text-yellow-600 mt-0.5" />
           <div className="text-xs text-yellow-700">
@@ -179,7 +179,7 @@ export function GenerateInsightsPanel({
       </div>
 
       {/* Expected Output Preview */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="rounded-figma-inner border border-border bg-muted/30 p-3">
         <p className="text-xs font-medium mb-2">Expected Output Structure:</p>
         <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
           <li>Insight per focus area (np. 3-5 insights dla pain_points)</li>

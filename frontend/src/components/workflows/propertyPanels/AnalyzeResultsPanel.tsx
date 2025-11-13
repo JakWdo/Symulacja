@@ -176,7 +176,7 @@ export function AnalyzeResultsPanel({
       </div>
 
       {/* Info Badge */}
-      <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-4">
+      <div className="rounded-figma-inner border border-purple-200 bg-purple-50/50 p-4">
         <div className="flex items-start gap-2">
           <BarChart3 className="w-4 h-4 text-purple-600 mt-0.5" />
           <div className="text-xs text-purple-700">
@@ -190,7 +190,7 @@ export function AnalyzeResultsPanel({
       </div>
 
       {/* Expected Output */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="rounded-figma-inner border border-border bg-muted/30 p-3">
         <p className="text-xs font-medium mb-2">Expected Output:</p>
         <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
           {config.analysis_type === 'summary' && (

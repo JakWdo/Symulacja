@@ -232,15 +232,15 @@ export function AISummaryPanel({
           )}
 
           <div className="mt-6 grid grid-cols-3 gap-4 text-sm">
-            <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-lg">
+            <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-figma-inner">
               <Lightbulb className="w-5 h-5 text-primary-600" />
               <span className="font-medium text-slate-700">{t('analysis.keyInsights.title')}</span>
             </div>
-            <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-lg">
+            <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-figma-inner">
               <AlertTriangle className="w-5 h-5 text-accent-600" />
               <span className="font-medium text-slate-700">{t('analysis.surprisingFindings.title')}</span>
             </div>
-            <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-lg">
+            <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-figma-inner">
               <Target className="w-5 h-5 text-green-600" />
               <span className="font-medium text-slate-700">{t('analysis.recommendations.title')}</span>
             </div>

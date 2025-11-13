@@ -47,7 +47,7 @@ export function NodeTemplatesSidebar({
                 <button
                   key={template.type}
                   onClick={() => onAddNode(template)}
-                  className="w-full text-left px-3 py-2 rounded-lg border border-border bg-card hover:bg-accent transition-colors group"
+                  className="w-full text-left px-3 py-2 rounded-figma-inner border border-border bg-card hover:bg-accent transition-colors group"
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <template.icon className="w-4 h-4 text-foreground group-hover:text-brand-orange transition-colors" />

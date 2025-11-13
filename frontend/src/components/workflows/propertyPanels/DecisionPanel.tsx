@@ -89,7 +89,7 @@ export function DecisionPanel({ node, onUpdate }: DecisionPanelProps) {
         </AlertDescription>
       </Alert>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+      <div className="rounded-figma-inner border border-blue-200 bg-blue-50/50 p-4">
         <p className="text-xs text-blue-700">
           <strong>Przykłady:</strong>
           <br />• len(personas) &gt; 10

@@ -154,7 +154,7 @@ export function GeneratePersonasPanel({
 
       {/* Advanced Options */}
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-figma-inner border border-border hover:bg-muted/50 transition-colors">
           <span className="text-sm font-medium">Advanced Options</span>
           <ChevronDown
             className={`w-4 h-4 transition-transform ${
@@ -219,7 +219,7 @@ export function GeneratePersonasPanel({
         </CollapsibleContent>
       </Collapsible>
 
-      <div className="rounded-lg border border-green-200 bg-green-50/50 p-4">
+      <div className="rounded-figma-inner border border-green-200 bg-green-50/50 p-4">
         <p className="text-xs text-green-700">
           <strong>Generacja person:</strong> Używa PersonaOrchestrationService z
           segmentacją demograficzną. Wyniki są walidowane statystycznie (test

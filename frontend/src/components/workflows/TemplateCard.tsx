@@ -77,7 +77,7 @@ export function TemplateCard({ template, selected = false, onClick }: TemplateCa
       <CardHeader className="relative">
         {/* Icon */}
         <div
-          className="w-12 h-12 rounded-lg flex items-center justify-center mb-3"
+          className="w-12 h-12 rounded-figma-inner flex items-center justify-center mb-3"
           style={{
             backgroundColor: `${metadata.color}15`,
           }}

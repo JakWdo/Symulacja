@@ -86,7 +86,7 @@ export function CreateProjectPanel({ node, onUpdate }: CreateProjectPanelProps) 
 
       {/* Target Demographics (collapsible) */}
       <Collapsible open={demographicsOpen} onOpenChange={setDemographicsOpen}>
-        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-figma-inner border border-border hover:bg-muted/50 transition-colors">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Target Demographics</span>
             <Badge variant="outline" className="text-xs">
@@ -196,7 +196,7 @@ export function CreateProjectPanel({ node, onUpdate }: CreateProjectPanelProps) 
         </CollapsibleContent>
       </Collapsible>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+      <div className="rounded-figma-inner border border-blue-200 bg-blue-50/50 p-4">
         <div className="flex items-start gap-2">
           <FolderOpen className="w-4 h-4 text-blue-600 mt-0.5" />
           <p className="text-xs text-blue-700">

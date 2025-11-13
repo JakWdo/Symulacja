@@ -117,7 +117,7 @@ export function CreateSurveyPanel({ node, onUpdate }: CreateSurveyPanelProps) {
       </div>
 
       {/* AI Generation Toggle */}
-      <div className="flex items-start space-x-3 rounded-lg border border-purple-200 bg-purple-50/50 p-3">
+      <div className="flex items-start space-x-3 rounded-figma-inner border border-purple-200 bg-purple-50/50 p-3">
         <Checkbox
           id="ai-generate"
           checked={config.ai_generate_questions || false}
@@ -169,7 +169,7 @@ export function CreateSurveyPanel({ node, onUpdate }: CreateSurveyPanelProps) {
               {config.questions.map((question, index) => (
                 <div
                   key={index}
-                  className="p-3 border border-border rounded-lg space-y-2 relative"
+                  className="p-3 border border-border rounded-figma-inner space-y-2 relative"
                 >
                   <Button
                     variant="ghost"
@@ -288,7 +288,7 @@ export function CreateSurveyPanel({ node, onUpdate }: CreateSurveyPanelProps) {
               ))}
             </div>
           ) : (
-            <div className="text-center py-6 border-2 border-dashed border-border rounded-lg">
+            <div className="text-center py-6 border-2 border-dashed border-border rounded-figma-inner">
               <p className="text-sm text-muted-foreground">
                 Brak pytań. Kliknij "Add Question" aby dodać pierwsze pytanie.
               </p>

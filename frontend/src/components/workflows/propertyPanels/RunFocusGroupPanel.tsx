@@ -128,7 +128,7 @@ export function RunFocusGroupPanel({
             ))}
           </div>
         ) : (
-          <div className="text-center py-6 border-2 border-dashed border-border rounded-lg">
+          <div className="text-center py-6 border-2 border-dashed border-border rounded-figma-inner">
             <p className="text-sm text-muted-foreground">
               Brak tematów. Dodaj przynajmniej jeden temat dyskusji.
             </p>
@@ -240,7 +240,7 @@ export function RunFocusGroupPanel({
       </div>
 
       {/* Estimated Time */}
-      <div className="rounded-lg border border-green-200 bg-green-50/50 p-4">
+      <div className="rounded-figma-inner border border-green-200 bg-green-50/50 p-4">
         <p className="text-xs text-green-700">
           <strong>Szacowany czas wykonania:</strong> ~{estimatedTime} min
           <br />

@@ -91,7 +91,7 @@ export function FocusGroupDiscussionTab({
         {(isRunning || status === 'running') && (
           <div className="space-y-4">
             {/* Progress Bar */}
-            <div className="rounded-lg border border-border bg-card/80 p-4 space-y-3 shadow-sm">
+            <div className="rounded-figma-inner border border-border bg-card/80 p-4 space-y-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <SpinnerLogo className="w-4 h-4" />
@@ -127,7 +127,7 @@ export function FocusGroupDiscussionTab({
             </div>
 
             {/* Current Status */}
-            <div className="bg-muted rounded-lg p-4 border border-border">
+            <div className="bg-muted rounded-figma-inner p-4 border border-border">
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-primary" />
@@ -144,7 +144,7 @@ export function FocusGroupDiscussionTab({
 
             {/* Live Chat Messages */}
             {chatMessages.length > 0 && (
-              <div className="bg-card border border-border rounded-lg p-4">
+              <div className="bg-card border border-border rounded-figma-inner p-4">
                 <h4 className="text-card-foreground font-medium mb-3">{t('view.discussion.liveDiscussionTitle')}</h4>
                 <div className="space-y-3 max-h-48 overflow-y-auto">
                   {chatMessages.map((message) => (
@@ -165,7 +165,7 @@ export function FocusGroupDiscussionTab({
                           <span className="text-card-foreground font-medium text-sm">{message.persona}</span>
                           <span className="text-muted-foreground text-xs">{message.timestamp}</span>
                         </div>
-                        <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
+                        <div className="bg-muted/50 rounded-figma-inner p-3 border border-border/50">
                           <p className="text-card-foreground text-sm">{message.message}</p>
                         </div>
                       </div>

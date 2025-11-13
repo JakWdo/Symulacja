@@ -239,10 +239,10 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
 
       {/* === HERO: SEGMENT SPOŁECZNY === */}
       {reasoning.segment_name && (
-        <Card className="bg-gradient-to-br from-primary/5 via-background to-background border-2 border-primary/20">
+        <Card className="bg-card border-2 border-primary/20 shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-primary/10 rounded-lg">
+              <div className="p-2 bg-primary/10 rounded-figma-inner">
                 <Users className="h-6 w-6 text-primary" />
               </div>
               <div className="flex-1">
@@ -259,7 +259,7 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
           <CardContent>
             {/* Demographics Grid */}
             {reasoning.demographics && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-muted/30 rounded-lg">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-muted/30 rounded-figma-inner">
                 {Object.entries(reasoning.demographics).map(([key, value]) => (
                   <div key={key} className="space-y-1">
                     <p className="text-xs text-muted-foreground">

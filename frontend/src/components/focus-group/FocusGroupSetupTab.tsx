@@ -60,7 +60,7 @@ export function FocusGroupSetupTab({
         <CardContent>
           <div className="space-y-3">
             {questions.map((question: string, index: number) => (
-              <div key={index} className="p-3 bg-muted rounded-lg border border-border">
+              <div key={index} className="p-3 bg-muted rounded-figma-inner border border-border">
                 <div className="flex items-start gap-3">
                   <span className="text-sm font-medium text-brand bg-brand-muted px-2 py-1 rounded">
                     Q{index + 1}
@@ -141,7 +141,7 @@ export function FocusGroupSetupTab({
                 return (
                   <div
                     key={persona.id}
-                    className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
+                    className={`flex items-center space-x-3 p-3 rounded-figma-inner border transition-colors ${
                       isSelected
                         ? 'bg-brand-muted border-brand/40'
                         : 'bg-muted border-border'

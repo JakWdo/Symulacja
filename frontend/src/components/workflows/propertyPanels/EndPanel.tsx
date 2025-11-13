@@ -49,7 +49,7 @@ export function EndPanel({ node, onUpdate }: EndPanelProps) {
         </p>
       </div>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+      <div className="rounded-figma-inner border border-blue-200 bg-blue-50/50 p-4">
         <p className="text-xs text-blue-700">
           <strong>Uwaga:</strong> END node kończy wykonanie workflow. Workflow
           może mieć wiele END nodes (różne ścieżki zakończenia). Każdy END node

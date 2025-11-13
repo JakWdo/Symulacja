@@ -334,7 +334,7 @@ export function SurveyResults({ surveyId }: SurveyResultsProps) {
                   <ChoiceChart distribution={q.distribution} questionType={q.question_type} />
                 )}
                 {q.question_type === 'open_text' && (
-                  <div className="p-4 border rounded-lg bg-muted/50">
+                  <div className="p-4 border rounded-figma-inner bg-muted/50">
                     <p className="text-sm text-muted-foreground">
                       Odpowiedzi otwarte - wkrótce word cloud
                     </p>

@@ -29,7 +29,7 @@ export function StartPanel({ node, onUpdate }: StartPanelProps) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-muted/50 p-4">
+      <div className="rounded-figma-inner border border-border bg-muted/50 p-4">
         <div className="flex items-center gap-2 mb-2">
           <Label className="text-sm font-medium">Trigger Type</Label>
           <Badge variant="secondary">Manual</Badge>
@@ -40,7 +40,7 @@ export function StartPanel({ node, onUpdate }: StartPanelProps) {
         </p>
       </div>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+      <div className="rounded-figma-inner border border-blue-200 bg-blue-50/50 p-4">
         <p className="text-xs text-blue-700">
           <strong>Uwaga:</strong> START node jest entry point workflow. Każdy
           workflow musi mieć dokładnie jeden START node bez incoming edges.

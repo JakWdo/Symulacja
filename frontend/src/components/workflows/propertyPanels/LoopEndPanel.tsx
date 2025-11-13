@@ -64,7 +64,7 @@ export function LoopEndPanel({ node, onUpdate }: LoopEndPanelProps) {
       </Alert>
 
       {/* Visual Representation */}
-      <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-4">
+      <div className="rounded-figma-inner border border-purple-200 bg-purple-50/50 p-4">
         <div className="flex items-start gap-2">
           <RotateCcw className="w-4 h-4 text-purple-600 mt-0.5" />
           <div className="text-xs text-purple-700">
@@ -84,7 +84,7 @@ export function LoopEndPanel({ node, onUpdate }: LoopEndPanelProps) {
       </div>
 
       {/* Validation Rules */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="rounded-figma-inner border border-border bg-muted/30 p-3">
         <p className="text-xs font-medium mb-2">Validation Rules:</p>
         <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
           <li>loop_start_node_id musi wskazywać na istniejący LOOP_START node</li>
@@ -95,7 +95,7 @@ export function LoopEndPanel({ node, onUpdate }: LoopEndPanelProps) {
       </div>
 
       {/* Output Info */}
-      <div className="rounded-lg border border-green-200 bg-green-50/50 p-4">
+      <div className="rounded-figma-inner border border-green-200 bg-green-50/50 p-4">
         <p className="text-xs text-green-700">
           <strong>Output:</strong> Po zakończeniu loop, LOOP_END node zbiera wyniki
           wszystkich iteracji i przekazuje je do następnego node jako array.

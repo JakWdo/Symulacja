@@ -103,7 +103,7 @@ export function MetricCardWithExplanation({
               </div>
             </div>
             <button
-              className={`p-1.5 rounded-lg hover:bg-white/50 transition-colors ${styles.icon}`}
+              className={`p-1.5 rounded-figma-inner hover:bg-white/50 transition-colors ${styles.icon}`}
             >
               <Info className="w-4 h-4" />
             </button>
@@ -185,7 +185,7 @@ export function MetricCardWithExplanation({
 
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className={`p-2 rounded-lg hover:bg-white/50 transition-colors ${styles.icon}`}
+            className={`p-2 rounded-figma-inner hover:bg-white/50 transition-colors ${styles.icon}`}
             aria-label={isExpanded ? t('metrics.accessibility.hideDetails') : t('metrics.accessibility.showDetails')}
           >
             <motion.div
@@ -198,7 +198,7 @@ export function MetricCardWithExplanation({
         </div>
 
         {explanation.benchmark && (
-          <div className={`mt-3 text-xs px-3 py-1.5 rounded-lg inline-block ${styles.badge} font-medium`}>
+          <div className={`mt-3 text-xs px-3 py-1.5 rounded-figma-inner inline-block ${styles.badge} font-medium`}>
             📊 {explanation.benchmark}
           </div>
         )}
@@ -221,7 +221,7 @@ export function MetricCardWithExplanation({
           >
             <div className="px-5 pb-5 space-y-4 border-t border-slate-200/50 pt-4">
               {/* Context */}
-              <div className="bg-white/60 rounded-lg p-4">
+              <div className="bg-white/60 rounded-figma-inner p-4">
                 <div className="flex items-start gap-2 mb-2">
                   <Info className="w-4 h-4 text-slate-600 mt-0.5 flex-shrink-0" />
                   <p className="text-xs uppercase tracking-wide text-slate-600 font-semibold">
@@ -234,7 +234,7 @@ export function MetricCardWithExplanation({
               </div>
 
               {/* Action */}
-              <div className="bg-primary-50 rounded-lg p-4 border border-primary-200">
+              <div className="bg-primary-50 rounded-figma-inner p-4 border border-primary-200">
                 <div className="flex items-start gap-2 mb-2">
                   <TrendingUp className="w-4 h-4 text-primary-600 mt-0.5 flex-shrink-0" />
                   <p className="text-xs uppercase tracking-wide text-primary-700 font-semibold">

@@ -80,22 +80,22 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="p-4 border-t border-slate-200/50">
-      <h4 className="font-semibold text-slate-800 mb-3">{t('panel.createForm.title')}</h4>
+    <div className="p-4 border-t border-border">
+      <h4 className="text-base font-normal text-foreground leading-[16px] mb-3">{t('panel.createForm.title')}</h4>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t('panel.createForm.namePlaceholder')}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 py-2 border border-border rounded-figma-inner focus:outline-none focus:ring-2 focus:ring-primary-500"
           required
         />
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder={t('panel.createForm.descriptionPlaceholder')}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 py-2 border border-border rounded-figma-inner focus:outline-none focus:ring-2 focus:ring-primary-500"
           rows={3}
         />
         <div className="flex justify-end gap-2">
@@ -177,7 +177,7 @@ export function ProjectPanel() {
             <Logo className="w-8 h-8" spinning />
           </div>
         ) : isError ? (
-          <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-600">
+          <div className="rounded-figma-inner bg-red-50 border border-red-200 p-4 text-sm text-red-600">
             {error instanceof Error ? error.message : t('panel.errors.loadFailed')}
           </div>
         ) : (
@@ -189,29 +189,29 @@ export function ProjectPanel() {
                   key={project.id}
                   onClick={() => handleProjectSelect(project)}
                 className={cn(
-                  'node-card cursor-pointer group transition-colors border-2',
+                  'bg-card border rounded-figma-card p-4 cursor-pointer group transition-all shadow-sm hover:shadow-lg',
                   isSelected
-                    ? 'border-primary-200 shadow-lg bg-white'
-                    : 'border-transparent hover:border-primary-100',
+                    ? 'border-primary-200'
+                    : 'border-border hover:border-primary-100',
                 )}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-primary-50 text-primary-600">
+                    <div className="p-2 rounded-figma-inner bg-primary-50 text-primary-600">
                       <FolderOpen className="w-5 h-5" />
                     </div>
 
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-slate-900 group-hover:text-primary-600 transition-colors">
+                    <h4 className="text-base font-normal text-foreground leading-[16px] group-hover:text-primary-600 transition-colors">
                       {project.name}
                     </h4>
                     {project.description && (
-                      <p className="text-sm text-slate-600 mt-1 line-clamp-2">
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                         {project.description}
                       </p>
                     )}
 
                     <div className="flex items-center gap-4 mt-3 text-xs">
-                      <span className="text-slate-500">
+                      <span className="text-muted-foreground">
                         {formatDate(project.created_at)}
                       </span>
 
@@ -223,8 +223,8 @@ export function ProjectPanel() {
                           </>
                         ) : (
                           <>
-                            <XCircle className="w-4 h-4 text-slate-400" />
-                            <span className="text-slate-500">{t('panel.status.pending')}</span>
+                            <XCircle className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">{t('panel.status.pending')}</span>
                           </>
                         )}
                       </div>

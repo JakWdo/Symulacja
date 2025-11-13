@@ -149,14 +149,14 @@ export function RAGManagementPanel() {
       size="lg"
     >
       <div className="space-y-6">
-        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-800/80 p-4 space-y-4">
+        <section className="rounded-figma-card border border-border bg-card p-4 space-y-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-primary-50 dark:bg-primary-900/30 p-2">
+            <div className="rounded-figma-inner bg-primary-50 dark:bg-primary-900/30 p-2">
               <Upload className="w-5 h-5 text-primary-600 dark:text-primary-400" />
             </div>
             <div>
-              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t('upload.title')}</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <h4 className="text-base font-normal text-foreground leading-[16px]">{t('upload.title')}</h4>
+              <p className="text-xs text-muted-foreground">
                 {t('upload.description')}
               </p>
             </div>
@@ -225,15 +225,15 @@ export function RAGManagementPanel() {
           </form>
         </section>
 
-        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-800/80 p-4 space-y-4">
+        <section className="rounded-figma-card border border-border bg-card p-4 space-y-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-slate-100 dark:bg-slate-700 p-2">
-                <FileText className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+              <div className="rounded-figma-inner bg-muted/30 p-2">
+                <FileText className="w-5 h-5 text-muted-foreground" />
               </div>
               <div>
-                <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t('list.title')}</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <h4 className="text-base font-normal text-foreground leading-[16px]">{t('list.title')}</h4>
+                <p className="text-xs text-muted-foreground">
                   {t('list.description')}
                 </p>
               </div>
@@ -250,11 +250,11 @@ export function RAGManagementPanel() {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
               <SpinnerLogo className="w-6 h-6 mr-2" /> {t('list.loading')}
             </div>
           ) : sortedDocuments.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-6 text-sm text-slate-500 dark:text-slate-400 text-center">
+            <div className="rounded-figma-inner border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground text-center">
               {t('list.empty')}
             </div>
           ) : (
@@ -265,14 +265,14 @@ export function RAGManagementPanel() {
                 return (
                   <div
                     key={document.id}
-                    className="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-4 md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-3 rounded-figma-inner border border-border bg-muted/30 p-4 md:flex-row md:items-center md:justify-between"
                   >
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{document.title}</p>
+                        <p className="text-sm font-normal text-foreground">{document.title}</p>
                         <Badge className={`${status.className} border`}>{status.label}</Badge>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                      <p className="text-xs text-muted-foreground">
                         {t('list.added')} {formatDate(document.created_at)} • {document.file_type.toUpperCase()} • {document.num_chunks} {t('list.segments')}
                       </p>
                     </div>
@@ -296,14 +296,14 @@ export function RAGManagementPanel() {
           )}
         </section>
 
-        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-800/80 p-4 space-y-4">
+        <section className="rounded-figma-card border border-border bg-card p-4 space-y-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-accent-50 dark:bg-accent-900/30 p-2">
+            <div className="rounded-figma-inner bg-accent-50 dark:bg-accent-900/30 p-2">
               <Search className="w-5 h-5 text-accent-600 dark:text-accent-400" />
             </div>
             <div>
-              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t('search.title')}</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <h4 className="text-base font-normal text-foreground leading-[16px]">{t('search.title')}</h4>
+              <p className="text-xs text-muted-foreground">
                 {t('search.description')}
               </p>
             </div>
@@ -341,26 +341,26 @@ export function RAGManagementPanel() {
           </form>
 
           {lastQueryResult && (
-            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-4 space-y-3">
+            <div className="rounded-figma-inner border border-border bg-muted/30 p-4 space-y-3">
               <div>
-                <h5 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('search.resultsTitle')}</h5>
-                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+                <h5 className="text-sm font-normal text-foreground">{t('search.resultsTitle')}</h5>
+                <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
                   {lastQueryResult.context}
                 </p>
               </div>
               <div className="space-y-2">
-                <h6 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('search.citationsTitle')}</h6>
+                <h6 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('search.citationsTitle')}</h6>
                 {lastQueryResult.citations.length === 0 ? (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-muted-foreground">
                     {t('search.noCitations')}
                   </p>
                 ) : (
                   <div className="space-y-2">
                     {lastQueryResult.citations.map((citation, index) => (
-                      <div key={`${citation.document_title}-${index}`} className="rounded-lg bg-white/90 dark:bg-slate-700/50 p-3 shadow-sm">
-                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">{citation.document_title}</p>
-                        <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">{citation.chunk_text}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t('search.relevance', { score: Math.round(citation.relevance_score * 100) })}</p>
+                      <div key={`${citation.document_title}-${index}`} className="rounded-figma-inner bg-card p-3 shadow-sm border border-border">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">{citation.document_title}</p>
+                        <p className="text-sm text-foreground mt-1 leading-relaxed">{citation.chunk_text}</p>
+                        <p className="text-xs text-muted-foreground mt-2">{t('search.relevance', { score: Math.round(citation.relevance_score * 100) })}</p>
                       </div>
                     ))}
                   </div>

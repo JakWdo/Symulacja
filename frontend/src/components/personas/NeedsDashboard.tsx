@@ -151,7 +151,7 @@ export function NeedsDashboard({ data }: NeedsDashboardProps) {
         <Card className="bg-primary/5 border-l-4 border-l-primary">
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-primary/10 rounded-lg shrink-0">
+              <div className="p-3 bg-primary/10 rounded-figma-inner shrink-0">
                 <BarChart3 className="w-6 h-6 text-primary" />
               </div>
               <div className="flex-1 space-y-3">
@@ -159,7 +159,7 @@ export function NeedsDashboard({ data }: NeedsDashboardProps) {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* JTBD Metric */}
                   {metrics.jtbdCount > 0 && (
-                    <div className="flex items-center gap-2 p-3 bg-primary/10 dark:bg-primary/20 rounded-lg border border-primary">
+                    <div className="flex items-center gap-2 p-3 bg-primary/10 dark:bg-primary/20 rounded-figma-inner border border-primary">
                       <Target className="w-4 h-4 text-primary shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-primary font-medium">Jobs-to-be-Done</p>
@@ -175,7 +175,7 @@ export function NeedsDashboard({ data }: NeedsDashboardProps) {
 
                   {/* Pain Points Metric */}
                   {metrics.painCount > 0 && (
-                    <div className="flex items-center gap-2 p-3 bg-secondary/10 dark:bg-secondary/20 rounded-lg border border-secondary">
+                    <div className="flex items-center gap-2 p-3 bg-secondary/10 dark:bg-secondary/20 rounded-figma-inner border border-secondary">
                       <AlertTriangle className="w-4 h-4 text-secondary shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-secondary font-medium">Pain Points</p>
@@ -191,7 +191,7 @@ export function NeedsDashboard({ data }: NeedsDashboardProps) {
 
                   {/* Outcomes Metric */}
                   {metrics.outcomeCount > 0 && (
-                    <div className="flex items-center gap-2 p-3 bg-accent/10 dark:bg-accent/20 rounded-lg border border-accent">
+                    <div className="flex items-center gap-2 p-3 bg-accent/10 dark:bg-accent/20 rounded-figma-inner border border-accent">
                       <TrendingUp className="w-4 h-4 text-accent shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-accent font-medium">Desired Outcomes</p>
@@ -234,7 +234,7 @@ export function NeedsDashboard({ data }: NeedsDashboardProps) {
               </CardHeader>
               <CardContent className="space-y-3 flex-1">
                 {sortedJtbd.slice(0, 3).map((job, idx) => (
-                  <div key={idx} className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-primary/30">
+                  <div key={idx} className="p-3 bg-white dark:bg-gray-900 rounded-figma-inner border border-primary/30">
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-foreground line-clamp-2">{job.job_statement}</p>
@@ -292,7 +292,7 @@ export function NeedsDashboard({ data }: NeedsDashboardProps) {
               </CardHeader>
               <CardContent className="space-y-3 flex-1">
                 {sortedPains.slice(0, 3).map((pain, idx) => (
-                  <div key={idx} className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-secondary/30">
+                  <div key={idx} className="p-3 bg-white dark:bg-gray-900 rounded-figma-inner border border-secondary/30">
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-foreground line-clamp-2">{pain.pain_title}</p>
@@ -350,7 +350,7 @@ export function NeedsDashboard({ data }: NeedsDashboardProps) {
               </CardHeader>
               <CardContent className="space-y-3 flex-1">
                 {sortedOutcomes.slice(0, 3).map((outcome, idx) => (
-                  <div key={idx} className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-accent/30">
+                  <div key={idx} className="p-3 bg-white dark:bg-gray-900 rounded-figma-inner border border-accent/30">
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-foreground line-clamp-2">{outcome.outcome_statement}</p>

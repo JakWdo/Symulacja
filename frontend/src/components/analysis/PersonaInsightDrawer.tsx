@@ -155,7 +155,7 @@ export function PersonaInsightDrawer({
           </h4>
           <div className="text-xs text-slate-600 space-y-2">
             {persona.background_story && (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 leading-relaxed prose prose-sm max-w-none">
+              <div className="bg-slate-50 border border-slate-200 rounded-figma-inner p-3 leading-relaxed prose prose-sm max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {normalizeMarkdown(persona.background_story)}
                 </ReactMarkdown>

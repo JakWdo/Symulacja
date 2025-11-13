@@ -92,7 +92,7 @@ export function LoopStartPanel({ node, onUpdate }: LoopStartPanelProps) {
       </div>
 
       {/* Loop Example */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+      <div className="rounded-figma-inner border border-blue-200 bg-blue-50/50 p-4">
         <div className="flex items-start gap-2">
           <RotateCw className="w-4 h-4 text-blue-600 mt-0.5" />
           <div className="text-xs text-blue-700">
@@ -123,7 +123,7 @@ export function LoopStartPanel({ node, onUpdate }: LoopStartPanelProps) {
       </Alert>
 
       {/* Use Cases */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="rounded-figma-inner border border-border bg-muted/30 p-3">
         <p className="text-xs font-medium mb-2">Common Use Cases:</p>
         <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
           <li>Iteracja przez każdą personę (individual processing)</li>
