@@ -48,6 +48,16 @@ class WorkflowValidator:
     3. Dependency checks (external resources)
     """
 
+    # Type aliases: frontend types → backend types
+    # Frontend używa skróconych nazw (persona, survey), backend używa pełnych (generate-personas, create-survey)
+    TYPE_ALIASES = {
+        "persona": "generate-personas",
+        "survey": "create-survey",
+        "focus-group": "run-focus-group",
+        "goal": "create-project",
+        "insights": "analysis",  # Frontend używa "insights", backend "analysis"
+    }
+
     # Map node type → Pydantic schema
     CONFIG_SCHEMAS = {
         "start": StartNodeConfig,
@@ -68,6 +78,24 @@ class WorkflowValidator:
 
     # Node types które są OUT OF SCOPE dla MVP
     MVP_DISABLED_TYPES = {"wait", "webhook", "condition", "loop"}
+
+    @classmethod
+    def normalize_node_type(cls, node_type: str | None) -> str | None:
+        """Normalizuj typ node używając TYPE_ALIASES.
+
+        Frontend może używać skróconych typów (persona, survey),
+        backend używa pełnych (generate-personas, create-survey).
+        Ta funkcja konwertuje frontend → backend.
+
+        Args:
+            node_type: Typ node z frontendu lub backendu
+
+        Returns:
+            Znormalizowany typ (backend format) lub None jeśli node_type None
+        """
+        if node_type is None:
+            return None
+        return cls.TYPE_ALIASES.get(node_type, node_type)
 
     async def validate_workflow_graph(self, workflow: Workflow) -> ValidationResult:
         """Waliduj graf workflow (DAG requirements).
@@ -99,7 +127,9 @@ class WorkflowValidator:
             return result
 
         # 1. Sprawdź start node
-        start_nodes = [n for n in nodes if n.get("type") == "start"]
+        # IMPORTANT: Workflow type jest w node["data"]["type"], nie w node["type"]
+        # node["type"] to React Flow component type ("workflowNode")
+        start_nodes = [n for n in nodes if n.get("data", {}).get("type") == "start"]
         if len(start_nodes) == 0:
             result.add_error("Workflow musi mieć dokładnie jeden node typu 'start'")
         elif len(start_nodes) > 1:
@@ -108,7 +138,7 @@ class WorkflowValidator:
             )
 
         # 2. Sprawdź end nodes
-        end_nodes = [n for n in nodes if n.get("type") == "end"]
+        end_nodes = [n for n in nodes if n.get("data", {}).get("type") == "end"]
         if len(end_nodes) == 0:
             result.add_error("Workflow musi mieć co najmniej jeden node typu 'end'")
 
@@ -260,7 +290,8 @@ class WorkflowValidator:
         disconnected = []
         for node in nodes:
             nid = node["id"]
-            ntype = node.get("type")
+            # IMPORTANT: Workflow type jest w node["data"]["type"]
+            ntype = node.get("data", {}).get("type")
 
             # Start ma out-degree=0 allowed, End ma in-degree=0 allowed
             if ntype in ["start", "end"]:
@@ -293,7 +324,10 @@ class WorkflowValidator:
 
         for node in nodes:
             node_id = node.get("id", "unknown")
-            node_type = node.get("type")
+            # IMPORTANT: Workflow type jest w node["data"]["type"], nie w node["type"]
+            node_type_raw = node.get("data", {}).get("type")
+            # Normalizuj typ (frontend → backend)
+            node_type = self.normalize_node_type(node_type_raw)
             node_label = node.get("data", {}).get("label", node_id)
 
             # 1. Check if type is valid
@@ -383,7 +417,8 @@ class WorkflowValidator:
 
         for node in nodes:
             node_id = node.get("id", "unknown")
-            node_type = node.get("type")
+            # IMPORTANT: Workflow type jest w node["data"]["type"]
+            node_type = node.get("data", {}).get("type")
             node_label = node.get("data", {}).get("label", node_id)
             config = node.get("data", {}).get("config", {})
 

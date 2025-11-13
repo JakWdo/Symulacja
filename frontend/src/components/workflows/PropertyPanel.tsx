@@ -86,8 +86,9 @@ export function PropertyPanel({
    * Renderuje type-specific panel w zależności od typu node
    */
   const renderTypeSpecificPanel = () => {
-    // Używaj data.type (dla nowych nodes) lub fallback na node.type (backward compatibility)
-    const nodeType = node.data.type || node.type;
+    // IMPORTANT: Workflow type jest w node.data.type
+    // node.type to React Flow component type ("workflowNode")
+    const nodeType = node.data.type;
 
     switch (nodeType) {
       case 'start':
@@ -160,7 +161,7 @@ export function PropertyPanel({
             Configure Node
           </h3>
           <Badge variant="secondary" className="text-xs">
-            {node.data.type || node.type}
+            {node.data.type}
           </Badge>
         </div>
       </div>

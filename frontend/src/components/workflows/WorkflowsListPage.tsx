@@ -30,6 +30,7 @@ import {
   AlertCircle,
   Sparkles,
   Layers,
+  Plus,
 } from 'lucide-react';
 
 import { useWorkflows, useDeleteWorkflow, useDuplicateWorkflow } from '@/hooks/useWorkflowCrud';
@@ -299,10 +300,19 @@ export function WorkflowsListPage({ projectId, onSelectWorkflow }: WorkflowsList
 
         {/* Templates Tab */}
         <TabsContent value="templates" className="space-y-4">
-          <div className="mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               {workflowTemplates.length} ready-to-use templates
             </p>
+            <Button
+              onClick={() => handleCreateFromTemplate('empty')}
+              variant="outline"
+              size="sm"
+              className="bg-background hover:bg-accent"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Start from Scratch
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

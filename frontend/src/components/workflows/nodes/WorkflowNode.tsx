@@ -28,6 +28,14 @@ import {
   GitBranch,
   CheckCircle2,
   AlertCircle,
+  Play,
+  CheckCircle,
+  FolderPlus,
+  FileDown,
+  Clock,
+  Webhook,
+  GitMerge,
+  Filter,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -51,21 +59,48 @@ interface WorkflowNodeProps {
  */
 function getIcon(type: string) {
   switch (type) {
+    // Control nodes
+    case 'start':
+      return <Play className="w-5 h-5" />;
+    case 'end':
+      return <CheckCircle className="w-5 h-5" />;
+
+    // Core nodes
     case 'persona':
+    case 'generate-personas':
       return <Users className="w-5 h-5" />;
     case 'survey':
+    case 'create-survey':
       return <FileText className="w-5 h-5" />;
     case 'focus-group':
+    case 'run-focus-group':
       return <MessageSquare className="w-5 h-5" />;
+    case 'goal':
+    case 'create-project':
+      return <FolderPlus className="w-5 h-5" />;
     case 'analysis':
       return <Brain className="w-5 h-5" />;
     case 'insights':
       return <BarChart3 className="w-5 h-5" />;
-    case 'goal':
-      return <Target className="w-5 h-5" />;
+
+    // Logic nodes
     case 'decision':
       return <GitBranch className="w-5 h-5" />;
+    case 'condition':
+      return <Filter className="w-5 h-5" />;
+    case 'merge':
+      return <GitMerge className="w-5 h-5" />;
+
+    // Integration nodes
+    case 'export-pdf':
+      return <FileDown className="w-5 h-5" />;
+    case 'wait':
+      return <Clock className="w-5 h-5" />;
+    case 'webhook':
+      return <Webhook className="w-5 h-5" />;
+
     default:
+      console.warn(`Unknown workflow node type: "${type}". Using default Target icon.`);
       return <Target className="w-5 h-5" />;
   }
 }
@@ -75,20 +110,46 @@ function getIcon(type: string) {
  */
 function getColorClasses(type: string) {
   switch (type) {
+    // Control nodes
+    case 'start':
+      return 'bg-green-500/10 border-green-500';
+    case 'end':
+      return 'bg-blue-500/10 border-blue-500';
+
+    // Core nodes
     case 'persona':
+    case 'generate-personas':
       return 'bg-chart-1/10 border-chart-1';
     case 'survey':
+    case 'create-survey':
       return 'bg-chart-2/10 border-chart-2';
     case 'focus-group':
+    case 'run-focus-group':
       return 'bg-chart-3/10 border-chart-3';
+    case 'goal':
+    case 'create-project':
+      return 'bg-purple-500/10 border-purple-500';
     case 'analysis':
       return 'bg-brand-orange/10 border-brand-orange';
     case 'insights':
       return 'bg-brand-gold/10 border-brand-gold';
-    case 'goal':
-      return 'bg-chart-4/10 border-chart-4';
+
+    // Logic nodes
     case 'decision':
       return 'bg-chart-5/10 border-chart-5';
+    case 'condition':
+      return 'bg-yellow-500/10 border-yellow-500';
+    case 'merge':
+      return 'bg-indigo-500/10 border-indigo-500';
+
+    // Integration nodes
+    case 'export-pdf':
+      return 'bg-gray-500/10 border-gray-500';
+    case 'wait':
+      return 'bg-amber-500/10 border-amber-500';
+    case 'webhook':
+      return 'bg-cyan-500/10 border-cyan-500';
+
     default:
       return 'bg-muted border-border';
   }
