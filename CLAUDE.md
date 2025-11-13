@@ -591,6 +591,85 @@ for i in range(0, len(personas), batch_size):
     responses = await asyncio.gather(*tasks)
 ```
 
+### 7. PostgreSQL ENUM Idempotency w Alembic
+
+**Problem:** Migracje Alembic tworzące ENUM types failują z `type "team_role_enum" already exists` przy re-run lub partial execution.
+
+**Root Cause:**
+- SQLAlchemy event listener `_on_table_create` automatycznie próbuje utworzyć ENUM type podczas `op.create_table()`
+- Event listener **ignoruje** parametr `create_type=False` w kontekście Alembic migrations
+- SQL DO blocks z exception handling NIE działają z SQLAlchemy event listeners (wykonują się w tej samej transakcji)
+- Partial migration execution: ENUM utworzony → transaction rollback → tabele NIE → alembic_version NIE zaktualizowany → następny run crashuje
+
+**Nieprawidłowe rozwiązania (NIE DZIAŁAJĄ):**
+```python
+# ❌ DO block - nie działa z SQLAlchemy event listener
+op.execute("""
+    DO $$ BEGIN
+        CREATE TYPE team_role_enum AS ENUM ('owner', 'member', 'viewer');
+    EXCEPTION
+        WHEN duplicate_object THEN null;
+    END $$;
+""")
+
+# ❌ create_type=False - jest ignorowany przez event listener
+sa.Column('role', sa.Enum('owner', 'member', name='team_role_enum', create_type=False))
+```
+
+**Prawidłowe rozwiązanie:**
+```python
+from sqlalchemy.dialects.postgresql import ENUM
+
+def upgrade() -> None:
+    conn = op.get_bind()
+
+    # 1. Create ENUM type object with create_type=False
+    team_role_enum = ENUM('owner', 'member', 'viewer',
+                          name='team_role_enum',
+                          create_type=False)
+
+    # 2. Create ENUM explicitly with checkfirst=True (idempotent!)
+    team_role_enum.create(conn, checkfirst=True)
+
+    # 3. Use the same ENUM object in table definition
+    op.create_table(
+        'team_memberships',
+        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('role_in_team', team_role_enum, nullable=False),  # ← Use object, not inline
+        ...
+    )
+```
+
+**Dlaczego to działa:**
+- `ENUM.create(checkfirst=True)` używa wbudowanej SQLAlchemy logiki sprawdzania `pg_type` przed `CREATE TYPE`
+- ENUM object z `create_type=False` zapobiega ponownemu utworzeniu przez event listener
+- Idempotentne - działa nawet jeśli ENUM już istnieje (partial migration scenario)
+
+**Testowanie idempotentności:**
+```bash
+# Test 1: Fresh DB
+alembic upgrade head
+# Expected: ENUM created, tables created
+
+# Test 2: Re-run (idempotency test)
+alembic upgrade head
+# Expected: "Type already exists" skip, tables skip (early return)
+
+# Test 3: Edge case (ENUM exists, tables don't)
+psql -c "DROP TABLE IF EXISTS teams CASCADE"
+psql -c "DELETE FROM alembic_version WHERE version_num='20251113_teams'"
+alembic upgrade head
+# Expected: ENUM skip (checkfirst), tables created
+```
+
+**Dodatkowe best practices:**
+- Dodaj early return check dla WSZYSTKICH tabel z migracji (nie tylko jednej)
+- Dodaj debug logging: `print(f"🔄 Running migration - existing tables: {existing_tables}")`
+- Testuj lokalnie PRZED deploymentem na Cloud Run
+- Użyj `alembic current` + `alembic history` aby zweryfikować stan bazy danych
+
+**Case study:** Migracja `20251113_add_teams_and_team_memberships.py` failowała z tym błędem podczas Cloud Build deployment. Problem rozwiązany przez commit `f870a82`.
+
 ## Checklist Gotowości Produkcyjnej
 
 Przed deploymentem:
