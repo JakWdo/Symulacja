@@ -32,19 +32,28 @@ def upgrade() -> None:
     inspector = sa.inspect(conn)
     existing_tables = inspector.get_table_names()
 
-    # If teams table already exists, skip this migration
-    if 'teams' in existing_tables:
-        print("⚠️  Teams tables already exist - skipping migration")
+    # Debug logging
+    print(f"🔄 Running teams migration - existing tables: {existing_tables}")
+
+    # If ALL tables from this migration exist, skip entirely
+    if 'teams' in existing_tables and 'team_memberships' in existing_tables:
+        print("⚠️  Teams migration already applied - skipping")
         return
 
-    # 1. Create team_role_enum for role_in_team (idempotent - skip if exists)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE team_role_enum AS ENUM ('owner', 'member', 'viewer');
-        EXCEPTION
-            WHEN duplicate_object THEN null;
-        END $$;
-    """)
+    # 1. Create team_role_enum (idempotent - check if exists first)
+    enum_exists = conn.execute(sa.text("""
+        SELECT EXISTS (
+            SELECT 1 FROM pg_type WHERE typname = 'team_role_enum'
+        )
+    """)).scalar()
+
+    if not enum_exists:
+        print("✨ Creating team_role_enum...")
+        conn.execute(sa.text("""
+            CREATE TYPE team_role_enum AS ENUM ('owner', 'member', 'viewer')
+        """))
+    else:
+        print("⚠️  team_role_enum already exists - skipping creation")
 
     # 2. Create teams table
     op.create_table(

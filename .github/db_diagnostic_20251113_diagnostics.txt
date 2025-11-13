@@ -1,0 +1,44 @@
+# Cloud SQL Database Diagnostic - 2025-11-13
+# Executed before fixing migration 20251113_add_teams_and_team_memberships.py
+
+## Problem
+Migration job `db-migrate` failing with:
+```
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.DuplicateObject)
+type "team_role_enum" already exists
+```
+
+## Database State (from error logs)
+
+### Alembic Version
+Current: 009254ee5182
+Target:  20251113_teams (NOT applied - transaction rollback)
+
+### ENUM Types
+- team_role_enum: **EXISTS** ✅
+  Created by: SQL DO block in migration line 41-47
+  Failed at: op.create_table() line 65 (SQLAlchemy event listener tried to recreate)
+
+### Tables
+- teams: **DOES NOT EXIST** ❌
+- team_memberships: **DOES NOT EXIST** ❌
+
+### Root Cause
+Partial migration execution:
+1. Migration started: 009254ee5182 -> 20251113_teams
+2. SQL DO block created team_role_enum successfully (with exception handling)
+3. op.create_table() triggered SQLAlchemy event listener _on_table_create
+4. Event listener tried to CREATE TYPE team_role_enum again (ignores create_type=False)
+5. PostgreSQL threw DuplicateObject error
+6. Transaction rollback - Alembic version NOT updated
+7. Next attempt: same error (ENUM exists, tables don't)
+
+## Fix Strategy
+Implement proper idempotent ENUM creation:
+- Check EXISTS before CREATE TYPE using pg_type query
+- Skip creation if ENUM already exists
+- Remove problematic DO block (doesn't work with SQLAlchemy event listeners)
+- Keep create_type=False in op.create_table()
+
+## Timestamp
+2025-11-13T20:30:00Z
