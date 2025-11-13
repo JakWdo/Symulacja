@@ -29,7 +29,7 @@ from app.core.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.cache_control import CacheControlMiddleware
-from app.api import project_crud, project_demographics, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal, admin, export, assistant, teams, environments
+from app.api import project_crud, project_demographics, personas, focus_groups, analysis, surveys, auth, settings as settings_router, rag, dashboard, workflows, internal, admin, export, assistant, teams, environments, llm_settings
 from app.api.dependencies import get_current_admin_user, get_db
 from app.api.exception_handlers import register_exception_handlers
 from app.services.maintenance.cleanup_service import CleanupService
@@ -191,6 +191,7 @@ app.include_router(surveys.router, prefix=app_config.api_prefix, tags=["Surveys"
 app.include_router(analysis.router, prefix=app_config.api_prefix, tags=["Analysis"])
 app.include_router(rag.router, prefix=app_config.api_prefix)  # RAG już ma prefix="/rag" i tags w routerze
 app.include_router(settings_router.router, prefix=app_config.api_prefix, tags=["Settings"])
+app.include_router(llm_settings.router)  # LLM settings już ma prefix="/api/v1" w routerze
 app.include_router(dashboard.router, prefix=app_config.api_prefix, tags=["Dashboard"])
 app.include_router(workflows.router, prefix=app_config.api_prefix, tags=["Workflows"])
 app.include_router(assistant.router, prefix=app_config.api_prefix)  # Assistant już ma prefix="/assistant" i tags w routerze
@@ -255,7 +256,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
 
     response_body = {
         "status": health_result["status"],
-        "environment": app_config.environment,
+        "environment": os.getenv("ENVIRONMENT", app_config.environment),  # Explicit env var read
         "checks": health_result["checks"],
         "latency_total_ms": health_result["latency_total_ms"],
     }

@@ -51,6 +51,11 @@ class Project(Base):
     owner_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     team_id = Column(PGUUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=True, index=True)
     environment_id = Column(PGUUID(as_uuid=True), ForeignKey("environments.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # LLM Provider Overrides (project-specific configuration)
+    llm_provider_override = Column(String(50), nullable=True)  # Override provider for this project (google, openai, anthropic, azure_openai)
+    model_override = Column(String(100), nullable=True)  # Override model for this project (e.g., gpt-4o, claude-3-5-sonnet)
+
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     target_audience = Column(Text, nullable=True)

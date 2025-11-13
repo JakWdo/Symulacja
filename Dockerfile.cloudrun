@@ -144,6 +144,16 @@ COPY --chown=appuser:appuser scripts/ ./scripts/
 COPY --chown=appuser:appuser alembic/ ./alembic/
 COPY --chown=appuser:appuser alembic.ini ./
 
+# Verify critical files are present (fail early if missing)
+RUN test -f config/app.yaml && \
+    test -f config/models.yaml && \
+    test -f config/features.yaml && \
+    test -d app/services/shared && \
+    test -d app/services/rag && \
+    test -f alembic.ini && \
+    echo "✅ Critical files verified" || \
+    (echo "❌ CRITICAL: Missing required files!" && exit 1)
+
 # Copy frontend dist → static/
 COPY --chown=appuser:appuser --from=frontend-builder /app/frontend/dist ./static/
 

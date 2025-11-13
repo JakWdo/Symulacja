@@ -164,29 +164,37 @@ class InfrastructureHealthService:
             }
         """
         try:
-            from app.services.shared.neo4j_client import get_neo4j_driver
+            from app.services.rag.clients.rag_clients import get_graph_store
             import time
 
-            driver = get_neo4j_driver()
-            if not driver:
+            # Get graph store (lazy initialization, może zwrócić None jeśli Neo4j disabled)
+            graph_store = get_graph_store(logger)
+            if not graph_store:
                 return {
                     "status": "unhealthy",
-                    "error": "Neo4j driver not initialized",
+                    "error": "Neo4j driver not initialized (check NEO4J_URI env var)",
                     "latency_ms": 0,
                 }
 
             start = time.time()
 
-            # Verify connectivity with simple query
-            async with driver.session() as session:
-                result = await asyncio.wait_for(
-                    session.run("RETURN 1 AS test"), timeout=timeout
-                )
-                await result.consume()
+            # Verify connectivity with simple query (sync method, wrap in thread)
+            result = await asyncio.wait_for(
+                asyncio.to_thread(graph_store.query, "RETURN 1 AS test"),
+                timeout=timeout
+            )
 
             latency_ms = (time.time() - start) * 1000
 
-            return {"status": "healthy", "latency_ms": round(latency_ms, 2), "error": None}
+            # Verify result is valid
+            if result and len(result) > 0:
+                return {"status": "healthy", "latency_ms": round(latency_ms, 2), "error": None}
+            else:
+                return {
+                    "status": "unhealthy",
+                    "error": "Neo4j query returned empty result",
+                    "latency_ms": round(latency_ms, 2),
+                }
 
         except asyncio.TimeoutError:
             return {

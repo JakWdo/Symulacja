@@ -63,6 +63,10 @@ class User(Base):
     # Szyfrowany Google API key (używany zamiast globalnego settings.GOOGLE_API_KEY)
     encrypted_google_api_key = Column(Text, nullable=True)
 
+    # === LLM PROVIDER PREFERENCES ===
+    preferred_llm_provider = Column(String(50), nullable=True)  # User preferred LLM provider (google, openai, anthropic, azure_openai)
+    preferred_model = Column(String(100), nullable=True)  # User preferred model (e.g., gemini-2.5-flash, gpt-4o)
+
     # === NOTIFICATION SETTINGS ===
     email_notifications_enabled = Column(Boolean, default=True)
     discussion_complete_notifications = Column(Boolean, default=True)
