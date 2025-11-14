@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 # Domyślne wartości
-DEFAULT_API_BASE = "https://sight-xfabt2svwa-lm.a.run.app/api/v1"
+DEFAULT_API_BASE = "https://sight-193742683473.europe-central2.run.app/api/v1"
 DEFAULT_EMAIL = "demo@sight.pl"
 DEFAULT_PASSWORD = "Demo2025!Sight"
 
@@ -31,6 +31,7 @@ class CloudDemoCreator:
         self.password = password
         self.token: Optional[str] = None
         self.headers: Dict[str, str] = {"Content-Type": "application/json"}
+        self.team_id: Optional[str] = None  # Cached team ID
 
     async def login(self, client: httpx.AsyncClient) -> bool:
         """Loguje się i pobiera JWT token."""
@@ -65,6 +66,102 @@ class CloudDemoCreator:
         print(f"✗ Nie udało się zalogować po {MAX_RETRIES} próbach")
         return False
 
+    async def ensure_team(self, client: httpx.AsyncClient) -> bool:
+        """
+        Upewnia się że user ma team - jeśli nie, tworzy domyślny team.
+
+        Returns:
+            True jeśli team istnieje lub został utworzony, False w przypadku błędu
+        """
+        print(f"🏢 Sprawdzanie team dla {self.email}...")
+
+        # Sprawdź czy user ma jakiś team
+        try:
+            response = await client.get(
+                f"{self.api_base}/teams/my",
+                headers=self.headers,
+                timeout=30.0
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                teams = data.get('teams', [])
+
+                if teams:
+                    self.team_id = teams[0]['id']
+                    print(f"  ✓ Znaleziono team: {teams[0]['name']} (ID: {self.team_id})")
+                    return True
+                else:
+                    print(f"  → Brak teamów, tworzę domyślny team...")
+            else:
+                print(f"  ⚠ Błąd sprawdzania teamów: {response.status_code}")
+        except Exception as e:
+            print(f"  ⚠ Błąd sprawdzania teamów: {e}")
+
+        # Utwórz domyślny team
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = await client.post(
+                    f"{self.api_base}/teams",
+                    json={
+                        "name": "Demo Team",
+                        "description": "Automatycznie utworzony team dla konta demonstracyjnego"
+                    },
+                    headers=self.headers,
+                    timeout=30.0
+                )
+
+                if response.status_code in [200, 201]:
+                    team = response.json()
+                    self.team_id = team['id']
+                    print(f"  ✓ Utworzono team: {team['name']} (ID: {self.team_id})")
+                    return True
+                else:
+                    print(f"  ⚠ Create team attempt {attempt + 1}: {response.status_code}")
+                    if attempt < MAX_RETRIES - 1:
+                        await asyncio.sleep(RETRY_DELAY)
+            except Exception as e:
+                print(f"  ⚠ Create team error (attempt {attempt + 1}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(RETRY_DELAY)
+
+        print(f"  ✗ Nie udało się utworzyć team")
+        return False
+
+    async def create_environment(self, client: httpx.AsyncClient, name: str, description: str) -> Optional[str]:
+        """Tworzy environment dla team."""
+        if not self.team_id:
+            print(f"  ✗ Brak team_id - nie można utworzyć environment")
+            return None
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = await client.post(
+                    f"{self.api_base}/environments",
+                    json={
+                        "team_id": self.team_id,
+                        "name": name,
+                        "description": description
+                    },
+                    headers=self.headers,
+                    timeout=30.0
+                )
+
+                if response.status_code in [200, 201]:
+                    env = response.json()
+                    print(f"  ✓ Utworzono environment: {env['name']}")
+                    return env['id']
+                else:
+                    print(f"  ⚠ Create environment attempt {attempt + 1}: {response.status_code}")
+                    if attempt < MAX_RETRIES - 1:
+                        await asyncio.sleep(RETRY_DELAY)
+            except Exception as e:
+                print(f"  ⚠ Create environment error (attempt {attempt + 1}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(RETRY_DELAY)
+
+        return None
+
     async def create_project(self, client: httpx.AsyncClient, data: Dict) -> Optional[str]:
         """Tworzy projekt i zwraca ID."""
         for attempt in range(MAX_RETRIES):
@@ -92,8 +189,15 @@ class CloudDemoCreator:
         return None
 
     async def generate_personas(self, client: httpx.AsyncClient, project_id: str, num: int) -> bool:
-        """Generuje persony (background task)."""
-        data = {"num_personas": num, "adversarial_mode": False, "use_rag": False}
+        """
+        Generuje persony (background task).
+
+        use_rag=True: Persony będą miały szczegółowe reasoning z orchestration (Neo4j Graph RAG)
+        - segment społeczny z charakterystykami
+        - graph insights z polskich raportów demograficznych
+        - allocation reasoning (dlaczego osoba trafiła do tego segmentu)
+        """
+        data = {"num_personas": num, "adversarial_mode": False, "use_rag": True}
 
         for attempt in range(MAX_RETRIES):
             try:
@@ -271,7 +375,15 @@ class CloudDemoCreator:
         print(f"PROJEKT: {project_def['name']}")
         print(f"{'='*70}")
 
-        # 1. Utwórz projekt
+        # 1. Utwórz environment dla projektu
+        env_name = f"Środowisko: {project_def['name'][:50]}"
+        env_desc = f"Środowisko dla projektu badawczego: {project_def['name']}"
+        environment_id = await self.create_environment(client, env_name, env_desc)
+
+        if not environment_id:
+            print(f"  ⚠ Nie udało się utworzyć environment, kontynuuję bez niego...")
+
+        # 2. Utwórz projekt (z przypisaniem do environment jeśli istnieje)
         project_data = {
             "name": project_def['name'],
             "description": project_def['description'],
@@ -280,6 +392,10 @@ class CloudDemoCreator:
             "target_sample_size": project_def['target_sample_size'],
             "target_demographics": project_def['target_demographics']
         }
+
+        # Dodaj environment_id jeśli został utworzony
+        if environment_id:
+            project_data["environment_id"] = environment_id
 
         project_id = await self.create_project(client, project_data)
         if not project_id:
@@ -548,6 +664,13 @@ async def main():
         if not await creator.login(client):
             print("\n✗ Nie udało się zalogować - kończę")
             return 1
+
+        print()
+
+        # Upewnij się że user ma team (wymagany dla environments)
+        if not await creator.ensure_team(client):
+            print("\n⚠ Nie udało się zapewnić team - environments nie będą utworzone")
+            # Kontynuuj mimo braku team (projekty można tworzyć bez environment)
 
         print()
 
