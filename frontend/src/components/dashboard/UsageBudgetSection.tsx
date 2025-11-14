@@ -63,6 +63,7 @@ export function UsageBudgetSection() {
     : 0;
 
   const hasAlerts = data.alerts.length > 0;
+  const hasUsage = data.total_tokens > 0 || data.total_cost > 0;
 
   // Get thresholds from user settings (defaults to 80/90)
   const warning = data.alert_thresholds?.warning || 0.8;
@@ -105,16 +106,22 @@ export function UsageBudgetSection() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{t('usage.currentUsage')}</span>
-            <span className="text-base font-normal text-foreground">
-              ${data.total_cost.toFixed(2)} / ${data.budget_limit?.toFixed(2) || '100.00'}
-            </span>
+            {hasUsage ? (
+              <span className="text-base font-normal text-foreground">
+                ${data.total_cost.toFixed(2)} / ${data.budget_limit?.toFixed(2) || '100.00'}
+              </span>
+            ) : (
+              <span className="text-base font-normal text-muted-foreground">
+                $0.00 / ${data.budget_limit?.toFixed(2) || '100.00'}
+              </span>
+            )}
           </div>
           <div className="w-full h-2 bg-orange-500/20 dark:bg-orange-500/30 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-300"
               style={{
-                width: `${Math.min(budgetPercentage, 100)}%`,
-                backgroundColor: getProgressColor(),
+                width: hasUsage ? `${Math.min(budgetPercentage, 100)}%` : '0%',
+                backgroundColor: hasUsage ? getProgressColor() : 'transparent',
               }}
             />
           </div>
@@ -126,41 +133,54 @@ export function UsageBudgetSection() {
         {/* Separator */}
         <div className="h-px bg-border" />
 
-        {/* Forecast + Alert Threshold (Figma Design) */}
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">{t('usage.forecast')}</p>
-            <p className="text-lg font-semibold text-foreground">
-              ${data.forecast_month_end.toFixed(2)}
-            </p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">{t('usage.alertThreshold')}</p>
-            <p className="text-lg font-semibold text-foreground">
-              {(critical * 100).toFixed(0)}%
-            </p>
-          </div>
-        </div>
-
-        {/* Budget Alert (Figma Design) */}
-        {hasAlerts && (
-          <div className="border border-border rounded-figma-inner p-[17px]">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-4 w-4 text-foreground mt-0.5" />
-              <div className="flex-1 space-y-1">
-                <p className="text-sm font-semibold text-foreground tracking-tight">
-                  {t('usage.budgetAlert')}
+        {hasUsage ? (
+          <>
+            {/* Forecast + Alert Threshold (Figma Design) */}
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">{t('usage.forecast')}</p>
+                <p className="text-lg font-semibold text-foreground">
+                  ${data.forecast_month_end.toFixed(2)}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  {data.alerts[0]?.message || t('usage.budgetAlertMessage')}
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">{t('usage.alertThreshold')}</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {(critical * 100).toFixed(0)}%
                 </p>
               </div>
             </div>
+
+            {/* Budget Alert (Figma Design) */}
+            {hasAlerts && (
+              <div className="border border-border rounded-figma-inner p-[17px]">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-4 w-4 text-foreground mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-semibold text-foreground tracking-tight">
+                      {t('usage.budgetAlert')}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {data.alerts[0]?.message || t('usage.budgetAlertMessage')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="border border-dashed border-border rounded-figma-inner p-[17px]">
+            <p className="text-sm font-semibold text-foreground tracking-tight mb-1">
+              {t('usage.emptyState.title')}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {t('usage.emptyState.description')}
+            </p>
           </div>
         )}
 
         {/* Usage Breakdown - 4 Progress Bars (Figma Design) */}
-        {!isLoadingBreakdown && breakdown && (
+        {hasUsage && !isLoadingBreakdown && breakdown && (
           <>
             <div className="h-px bg-border" />
             <div className="space-y-3">

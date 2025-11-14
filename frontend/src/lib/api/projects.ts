@@ -11,6 +11,7 @@ export interface CreateProjectPayload {
   description?: string | null;
   target_demographics: Record<string, Record<string, number>>;
   target_sample_size: number;
+  environment_id?: string | null;
 }
 
 export const projectsApi = {

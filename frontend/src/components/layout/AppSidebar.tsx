@@ -85,9 +85,6 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
           <SidebarGroupLabel className="h-8 px-2 text-muted-foreground text-[12px] font-medium uppercase tracking-[0.3px]">
             {t('sidebar.organization')}
           </SidebarGroupLabel>
-          <p className="px-2 text-[11px] text-muted-foreground/60 mb-2">
-            {t('sidebar.organizationDesc')}
-          </p>
           <SidebarGroupContent>
             <SidebarMenu>
               {/* Przestrzenie robocze (Środowiska + Projekty połączone) */}
@@ -118,9 +115,6 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
           <SidebarGroupLabel className="h-8 px-2 text-muted-foreground text-[12px] font-medium uppercase tracking-[0.3px]">
             {t('sidebar.research')}
           </SidebarGroupLabel>
-          <p className="px-2 text-[11px] text-muted-foreground/60 mb-2">
-            {t('sidebar.researchDesc')}
-          </p>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>

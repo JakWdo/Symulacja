@@ -18,7 +18,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatAge, extractFirstName, type DisplayPersona } from '@/components/personas/helpers/transformers';
+import { type DisplayPersona } from '@/components/personas/helpers/transformers';
 
 export interface PersonasListProps {
   filteredPersonas: DisplayPersona[];
@@ -38,8 +38,6 @@ export function PersonasList({
   const { t } = useTranslation('personas');
 
   const currentPersona = filteredPersonas[currentPersonaIndex] ?? null;
-  const currentPersonaName = currentPersona ? extractFirstName(currentPersona.name) : '';
-  const currentPersonaAgeLabel = currentPersona ? formatAge(currentPersona.age) : '';
 
   return (
     <div className="lg:col-span-8 space-y-4">
@@ -88,8 +86,8 @@ export function PersonasList({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs">
-                    <p><kbd className="px-1 py-0.5 bg-muted rounded">←</kbd> <kbd className="px-1 py-0.5 bg-muted rounded">→</kbd> Nawigacja</p>
-                    <p><kbd className="px-1 py-0.5 bg-muted rounded">Home</kbd> Pierwsza | <kbd className="px-1 py-0.5 bg-muted rounded">End</kbd> Ostatnia</p>
+                    <p><kbd className="px-1 py-0.5 bg-muted rounded">←</kbd> <kbd className="px-1 py-0.5 bg-muted rounded">→</kbd> {t('page.carousel.navigation.navigationLabel')}</p>
+                    <p><kbd className="px-1 py-0.5 bg-muted rounded">Home</kbd> {t('page.carousel.navigation.first')} | <kbd className="px-1 py-0.5 bg-muted rounded">End</kbd> {t('page.carousel.navigation.last')}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -114,14 +112,11 @@ export function PersonasList({
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-xl text-card-foreground mb-1">
-                    {currentPersonaName ? `${currentPersonaName}, ${currentPersonaAgeLabel}` : `${currentPersona.name}`}
+                  <h3 className="text-xl text-card-foreground mb-2">
+                    {currentPersona.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {currentPersona.occupation}
-                  </p>
-                  <p className="text-muted-foreground">
-                    {currentPersona.demographics.location}
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {currentPersona.background}
                   </p>
                 </div>
 

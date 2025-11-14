@@ -16,6 +16,7 @@ import { Logo } from '@/components/ui/logo';
 import { CreateEnvironmentDialog } from './CreateEnvironmentDialog';
 import { listEnvironments, type Environment } from '@/api/environments';
 import { formatDate } from '@/lib/utils';
+import { useAppStore } from '@/store/appStore';
 
 interface EnvironmentsListProps {
   onSelectEnvironment?: (environment: Environment) => void;
@@ -24,6 +25,8 @@ interface EnvironmentsListProps {
 export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
+  const setCurrentEnvironmentId = useAppStore((state) => state.setCurrentEnvironmentId);
 
   // Fetch environments
   const { data: environments = [], isLoading } = useQuery({
@@ -49,8 +52,8 @@ export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps)
       <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
         {/* Header */}
         <PageHeader
-          title="Środowiska"
-          subtitle="Zarządzaj środowiskami pracy dla zespołów"
+          title="Środowiska zespołu"
+          subtitle="Wspólne pule person i workflows współdzielone między projektami Twojego zespołu."
           actions={
             <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
               <Plus className="w-4 h-4" />
@@ -97,8 +100,13 @@ export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps)
             {filteredEnvironments.map((env) => (
               <Card
                 key={env.id}
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => onSelectEnvironment?.(env)}
+                className={`hover:shadow-md transition-shadow cursor-pointer ${
+                  env.id === currentEnvironmentId ? 'border-primary/60 shadow-md' : ''
+                }`}
+                onClick={() => {
+                  setCurrentEnvironmentId(env.id);
+                  onSelectEnvironment?.(env);
+                }}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -110,10 +118,10 @@ export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps)
                         <CardTitle className="text-lg truncate">{env.name}</CardTitle>
                       </div>
                     </div>
-                    {env.is_active && (
+                    {env.id === currentEnvironmentId && (
                       <Badge variant="default" className="gap-1">
                         <Check className="w-3 h-3" />
-                        Aktywne
+                        Bieżące środowisko
                       </Badge>
                     )}
                   </div>

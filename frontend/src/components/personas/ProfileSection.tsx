@@ -38,43 +38,6 @@ export function ProfileSection({ persona }: ProfileSectionProps) {
 
   return (
     <div className="space-y-6">
-      {/* Demographics Card */}
-      <div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('details.profile.demographics.title')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.age')}</p>
-                <p className="text-foreground font-medium">{t('details.profile.demographics.ageYears', { count: persona.age })}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.gender')}</p>
-                <p className="text-foreground font-medium">{persona.gender || t('details.profile.demographics.notSpecified')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.location')}</p>
-                <p className="text-foreground font-medium">{persona.location || t('details.profile.demographics.notSpecified')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.education')}</p>
-                <p className="text-foreground font-medium">{persona.education_level || t('details.profile.demographics.notSpecified')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.income')}</p>
-                <p className="text-foreground font-medium">{persona.income_bracket || t('details.profile.demographics.notSpecified')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('details.profile.demographics.occupation')}</p>
-                <p className="text-foreground font-medium">{persona.occupation || t('details.profile.demographics.notSpecified')}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Values & Interests Card */}
       <div>
         <Card>

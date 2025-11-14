@@ -14,6 +14,9 @@ interface AppState {
   selectedPersona: Persona | null;
   selectedFocusGroup: FocusGroup | null;
 
+  // Shared context
+  currentEnvironmentId: string | null;
+
   // Data
   projects: Project[];
   personas: Persona[];
@@ -62,6 +65,7 @@ interface AppState {
   resetGraphAsk: (focusGroupId?: string | null) => void;
   triggerProjectCreation: () => void;
   clearProjectCreationTrigger: () => void;
+  setCurrentEnvironmentId: (environmentId: string | null) => void;
 }
 
 interface GraphAskState {
@@ -77,6 +81,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedProject: null,
   selectedPersona: null,
   selectedFocusGroup: null,
+  currentEnvironmentId: null,
   projects: [],
   personas: [],
   focusGroups: [],
@@ -199,4 +204,5 @@ export const useAppStore = create<AppState>((set) => ({
     })),
   triggerProjectCreation: () => set({ shouldOpenProjectCreation: true }),
   clearProjectCreationTrigger: () => set({ shouldOpenProjectCreation: false }),
+  setCurrentEnvironmentId: (environmentId) => set({ currentEnvironmentId: environmentId }),
 }));

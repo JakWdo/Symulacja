@@ -5,7 +5,7 @@
  * Pokazuje aktywne środowisko z badge i listę projektów po rozwinięciu
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Building2, FolderOpen, Plus, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
+import { useAppStore } from '@/store/appStore';
 
 interface WorkspaceDropdownProps {
   currentView: string;
@@ -26,6 +27,8 @@ interface WorkspaceDropdownProps {
 export function WorkspaceDropdown({ currentView, onNavigate }: WorkspaceDropdownProps) {
   const { t } = useTranslation('common');
   const [isExpanded, setIsExpanded] = useState(false);
+  const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
+  const setCurrentEnvironmentId = useAppStore((state) => state.setCurrentEnvironmentId);
 
   // Fetch current team
   const { data: teamsData } = useQuery({
@@ -41,8 +44,16 @@ export function WorkspaceDropdown({ currentView, onNavigate }: WorkspaceDropdown
     enabled: !!currentTeam,
   });
 
-  // Get active environment (first one for now, can be from context later)
-  const activeEnvironment = environments.find(env => env.is_active) || environments[0];
+  // Get active environment: prefer user selection, fallback to first available
+  const activeEnvironment =
+    environments.find((env) => env.id === currentEnvironmentId) || environments[0];
+
+  // If there is no selected environment yet but environments are loaded, set default
+  useEffect(() => {
+    if (!currentEnvironmentId && environments.length > 0) {
+      setCurrentEnvironmentId(environments[0].id);
+    }
+  }, [currentEnvironmentId, environments, setCurrentEnvironmentId]);
 
   // Fetch projects
   const { data: projects = [] } = useQuery({
@@ -50,10 +61,10 @@ export function WorkspaceDropdown({ currentView, onNavigate }: WorkspaceDropdown
     queryFn: projectsApi.getAll,
   });
 
-  // Filter projects by active environment
-  const environmentProjects = projects.filter(
-    project => project.environment_id === activeEnvironment?.id
-  );
+  // Filter projects by active environment (or show all if no environment)
+  const environmentProjects = activeEnvironment
+    ? projects.filter((project) => project.environment_id === activeEnvironment.id)
+    : projects;
 
   const handleToggle = () => {
     setIsExpanded(!isExpanded);
@@ -87,7 +98,44 @@ export function WorkspaceDropdown({ currentView, onNavigate }: WorkspaceDropdown
       </SidebarMenuButton>
 
       {isExpanded && (
-        <div className="pl-6 mt-1 space-y-1">
+        <div className="pl-6 mt-1 space-y-2">
+          {/* Environment Selector */}
+          <div className="space-y-1">
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+              Środowisko zespołu
+            </div>
+            {environments.length > 0 ? (
+              <div className="space-y-1">
+                {environments.map((env) => {
+                  const isActive = env.id === activeEnvironment?.id;
+                  return (
+                    <button
+                      key={env.id}
+                      type="button"
+                      onClick={() => setCurrentEnvironmentId(env.id)}
+                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[13px] transition-colors ${
+                        isActive
+                          ? 'bg-sidebar-accent text-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent'
+                      }`}
+                    >
+                      <span className="truncate">{env.name}</span>
+                      {isActive && (
+                        <span className="ml-2 text-[11px] text-primary font-medium">
+                          Aktywne
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-[12px] text-muted-foreground">
+                Brak środowisk – utwórz pierwsze, aby organizować projekty.
+              </div>
+            )}
+          </div>
+
           {/* Projects List */}
           {environmentProjects.length > 0 ? (
             environmentProjects.map((project) => (

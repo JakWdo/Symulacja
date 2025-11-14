@@ -101,6 +101,16 @@
     }
   },
 
+  "environmentSummary": {
+    "title": "Środowisko zespołu",
+    "subtitle": "Wspólna biblioteka person i workflows dla Twojego zespołu.",
+    "currentEnvironment": "Bieżące środowisko",
+    "noEnvironmentDescription": "Utwórz środowisko zespołu, aby lepiej organizować wspólne persony i workflows.",
+    "projectsLabel": "{{count}} projektów w tym środowisku",
+    "viewEnvironment": "Przejdź do środowiska",
+    "manageEnvironments": "Zarządzaj środowiskami"
+  },
+
   "notifications": {
     "title": "Powiadomienia i zadania",
     "subtitle": "Ważne alerty i zadania do wykonania",

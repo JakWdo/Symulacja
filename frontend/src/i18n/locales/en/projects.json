@@ -192,6 +192,9 @@
       "focusGroups_other": "{{count}} focus groups"
     },
     "goalLabel": "Target: {{count}}",
+    "environment": {
+      "unassigned": "No environment"
+    },
     "projectStatus": {
       "active": "Active",
       "inProgress": "In progress",

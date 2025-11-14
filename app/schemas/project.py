@@ -42,6 +42,10 @@ class ProjectCreate(BaseModel):
         description="Target population distribution. Example: {'age': {'18-24': 0.15, '25-34': 0.20}, 'gender': {'male': 0.49, 'female': 0.51}}",
     )
     target_sample_size: int = Field(default=100, ge=10, le=1000)
+    environment_id: UUID | None = Field(
+        default=None,
+        description="Optional environment (shared context workspace) this project belongs to",
+    )
 
 
 class ProjectUpdate(BaseModel):
@@ -66,6 +70,7 @@ class ProjectUpdate(BaseModel):
     additional_notes: str | None = None
     target_demographics: dict[str, dict[str, float]] | None = None
     target_sample_size: int | None = Field(None, ge=10, le=1000)
+    environment_id: UUID | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -110,6 +115,7 @@ class ProjectResponse(BaseModel):
     p_values: dict[str, Any] | None
     is_statistically_valid: bool
     validation_date: datetime | None
+    environment_id: UUID | None
     created_at: datetime
     updated_at: datetime
     is_active: bool

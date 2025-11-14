@@ -84,7 +84,12 @@
       "personality": "Osobowość",
       "values": "Wartości",
       "interests": "Zainteresowania",
-      "lifestyle": "Styl życia"
+      "lifestyle": "Styl życia",
+      "basicInfo": "Podstawowe informacje",
+      "fullName": "Imię i nazwisko",
+      "socialSegment": "Segment społeczny",
+      "headline": "Nagłówek persony",
+      "notSpecified": "Nie podano"
     },
 
     "profile": {
@@ -316,11 +321,25 @@
     "closeLabel": "Zamknij panel",
     "psychographics": "Cechy psychograficzne",
     "intensity": "Intensywność",
+    "tabs": {
+      "person": "Osoba",
+      "segment": "Segment"
+    },
+    "sections": {
+      "overview": "Przegląd",
+      "profile": "Profil",
+      "needsAndPains": "Potrzeby i bóle",
+      "segmentInsights": "Segment społeczny i wnioski"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować szczegółów persony"
+    },
     "accessibility": {
       "loadingTitle": "Ładowanie szczegółów persony",
       "loadingDescription": "Proszę czekać, pobieranie danych...",
       "detailsTitle": "Szczegóły persony",
-      "noDataDescription": "Brak danych do wyświetlenia"
+      "noDataDescription": "Brak danych do wyświetlenia",
+      "unknownPersona": "Nieznana persona"
     }
   },
 
@@ -376,7 +395,15 @@
       "interestsAndValues": "Zainteresowania i wartości",
       "interests": "Zainteresowania",
       "values": "Wartości",
-      "createdOn": "Utworzono"
+      "createdOn": "Utworzono",
+      "navigation": {
+        "previous": "Poprzednia",
+        "next": "Następna",
+        "first": "Pierwsza",
+        "last": "Ostatnia",
+        "keyboard": "Skróty klawiszowe",
+        "navigationLabel": "Nawigacja"
+      }
     },
     "generationToast": {
       "started": "Generowanie uruchomione",

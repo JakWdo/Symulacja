@@ -167,11 +167,6 @@ function InsightCard({
             </Badge>
           </div>
 
-          {/* Description - using project_name as secondary text */}
-          <p className="text-sm text-muted-foreground leading-[20px]">
-            {(insight.confidence_score * 100).toFixed(0)}% of personas in high-income segment show willingness to pay for advanced analytics
-          </p>
-
           {/* Meta Row */}
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">

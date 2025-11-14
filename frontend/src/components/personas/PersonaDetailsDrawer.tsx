@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -35,9 +35,34 @@ export function PersonaDetailsDrawer({
   isOpen,
   onClose,
 }: PersonaDetailsDrawerProps) {
-  const { t } = useTranslation('personas');
+  const { t } = useTranslation(['personas', 'common']);
   // Only fetch when drawer is actually open
   const { data: persona, isLoading, error } = usePersonaDetails(isOpen ? personaId : null);
+
+  // Extract segment info for header
+  const segmentInfo = useMemo(() => {
+    if (!persona) return { segmentName: null };
+
+    const ragDetails = (persona.rag_context_details ?? {}) as Record<string, unknown>;
+    const orchestration = (ragDetails['orchestration_reasoning'] ?? {}) as Record<string, unknown>;
+
+    const resolveString = (...candidates: Array<unknown>): string | null => {
+      for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim().length > 0) {
+          return candidate.trim();
+        }
+      }
+      return null;
+    };
+
+    const segmentName = resolveString(
+      persona.segment_name,
+      orchestration['segment_name'],
+      ragDetails['segment_name'],
+    );
+
+    return { segmentName };
+  }, [persona]);
 
   // Cleanup: close any nested dialogs when main drawer closes
   useEffect(() => {
@@ -83,20 +108,21 @@ export function PersonaDetailsDrawer({
                 </>
               ) : error ? (
                 <>
-                  <DialogTitle className="text-destructive">Błąd</DialogTitle>
+                  <DialogTitle className="text-destructive">{t('common:status.error')}</DialogTitle>
                   <DialogDescription>
-                    Nie udało się załadować szczegółów persony
+                    {t('drawer.errors.loadFailed')}
                   </DialogDescription>
                 </>
               ) : persona ? (
                 <>
                   <DialogTitle className="text-xl">
-                    {persona.full_name || 'Nieznana persona'}, {persona.age} lat
+                    {persona.full_name || t('drawer.accessibility.unknownPersona')}
                   </DialogTitle>
-                  <DialogDescription className="text-sm">
-                    {persona.occupation || 'Zawód nieokreślony'} •{' '}
-                    {persona.location || 'Lokalizacja nieznana'}
-                  </DialogDescription>
+                  {segmentInfo.segmentName && (
+                    <DialogDescription className="text-sm">
+                      {segmentInfo.segmentName}
+                    </DialogDescription>
+                  )}
                 </>
               ) : (
                 <>
@@ -119,10 +145,10 @@ export function PersonaDetailsDrawer({
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="text-center py-12">
                   <p className="text-destructive mb-4">
-                    {error instanceof Error ? error.message : 'Wystąpił błąd'}
+                    {error instanceof Error ? error.message : t('common:status.error')}
                   </p>
                   <Button variant="outline" onClick={onClose}>
-                    Zamknij
+                    {t('common:buttons.close')}
                   </Button>
                 </div>
               </div>
@@ -133,11 +159,11 @@ export function PersonaDetailsDrawer({
                     <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
                       <TabsTrigger value="osoba" className="gap-2">
                         <User className="w-4 h-4" />
-                        Osoba
+                        {t('drawer.tabs.person')}
                       </TabsTrigger>
                       <TabsTrigger value="segment" className="gap-2">
                         <Users className="w-4 h-4" />
-                        Segment
+                        {t('drawer.tabs.segment')}
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -148,7 +174,7 @@ export function PersonaDetailsDrawer({
                       <section id="przeglad">
                         <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                           <Eye className="w-5 h-5 text-primary" />
-                          Przegląd
+                          {t('drawer.sections.overview')}
                         </h2>
                         <OverviewSection persona={persona} />
                       </section>
@@ -157,7 +183,7 @@ export function PersonaDetailsDrawer({
                       <section id="profil">
                         <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                           <User className="w-5 h-5 text-primary" />
-                          Profil
+                          {t('drawer.sections.profile')}
                         </h2>
                         <ProfileSection persona={persona} />
                       </section>
@@ -166,7 +192,7 @@ export function PersonaDetailsDrawer({
                       <section id="potrzeby-i-bole">
                         <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                           <HeartPulse className="w-5 h-5 text-primary" />
-                          Potrzeby i bóle
+                          {t('drawer.sections.needsAndPains')}
                         </h2>
                         <NeedsDashboard data={persona.needs_and_pains} />
                       </section>
@@ -179,7 +205,7 @@ export function PersonaDetailsDrawer({
                       <section id="kontekst-rag">
                         <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                           <Sparkles className="w-5 h-5 text-primary" />
-                          Segment społeczny i wnioski
+                          {t('drawer.sections.segmentInsights')}
                         </h2>
                         <PersonaReasoningPanel persona={persona} />
                       </section>

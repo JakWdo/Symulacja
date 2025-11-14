@@ -10,6 +10,7 @@
 
 export interface Project {
   id: string;
+  environment_id: string | null;
   name: string;
   description: string | null;
   target_audience: string | null;

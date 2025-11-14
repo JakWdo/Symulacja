@@ -101,6 +101,16 @@
     }
   },
 
+  "environmentSummary": {
+    "title": "Team environment",
+    "subtitle": "Shared library of personas and workflows for your team.",
+    "currentEnvironment": "Current environment",
+    "noEnvironmentDescription": "Create a team environment to organize shared personas and workflows.",
+    "projectsLabel": "{{count}} projects in this environment",
+    "viewEnvironment": "View environment",
+    "manageEnvironments": "Manage environments"
+  },
+
   "notifications": {
     "title": "Notifications & tasks",
     "subtitle": "Important alerts and tasks to complete",

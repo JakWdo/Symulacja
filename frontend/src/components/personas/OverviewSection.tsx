@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { PersonaDetailsResponse } from '@/types';
@@ -11,6 +12,8 @@ interface OverviewSectionProps {
  * Sekcja Overview - podstawowe informacje persony z segment info
  */
 export function OverviewSection({ persona }: OverviewSectionProps) {
+  const { t } = useTranslation('personas');
+
   const segmentInfo = useMemo(() => {
     const ragDetails = (persona.rag_context_details ?? {}) as Record<string, unknown>;
     const orchestration = (ragDetails['orchestration_reasoning'] ?? {}) as Record<string, unknown>;
@@ -83,29 +86,17 @@ export function OverviewSection({ persona }: OverviewSectionProps) {
       <div>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Podstawowe informacje</CardTitle>
+            <CardTitle className="text-base">{t('details.overview.basicInfo')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">Imię i nazwisko</p>
-                <p className="text-foreground font-medium">{persona.full_name || 'Nie podano'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Wiek</p>
-                <p className="text-foreground font-medium">{persona.age} lat</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Lokalizacja</p>
-                <p className="text-foreground font-medium">{persona.location || 'Nie podano'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Zawód</p>
-                <p className="text-foreground font-medium">{persona.occupation || 'Nie podano'}</p>
+                <p className="text-sm text-muted-foreground">{t('details.overview.fullName')}</p>
+                <p className="text-foreground font-medium">{persona.full_name || t('details.overview.notSpecified')}</p>
               </div>
               {segmentInfo.segmentName && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Segment społeczny</p>
+                  <p className="text-sm text-muted-foreground">{t('details.overview.socialSegment')}</p>
                   <p className="text-foreground font-medium">
                     {segmentInfo.segmentName}
                   </p>
@@ -115,7 +106,7 @@ export function OverviewSection({ persona }: OverviewSectionProps) {
             {persona.headline && (
               <div className="rounded-lg bg-muted/30 border border-border/40 p-4">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                  Nagłówek persony
+                  {t('details.overview.headline')}
                 </p>
                 <p className="text-sm font-semibold text-foreground">
                   {persona.headline}
@@ -139,7 +130,7 @@ export function OverviewSection({ persona }: OverviewSectionProps) {
               <CardContent>
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                    Kluczowe cechy segmentu
+                    {t('details.reasoning.segmentSection.characteristicsTitle')}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {segmentInfo.segmentCharacteristics.map((characteristic, idx) => (

@@ -21,7 +21,7 @@ from typing import List
 from pydantic import BaseModel, Field
 
 from app.db import get_db
-from app.models import Project, User, ProjectSnapshot, Persona, Workflow, FocusGroup, Survey
+from app.models import Project, User, ProjectSnapshot, Persona, Workflow, FocusGroup, Survey, Environment
 from app.api.dependencies import get_current_user, get_project_for_user
 from app.schemas.project import (
     ProjectCreate,
@@ -57,6 +57,22 @@ async def create_project(
     Raises:
         HTTPException 422: Jeśli dane są niepoprawne (walidacja Pydantic)
     """
+    # Optional: validate environment_id if provided
+    environment_id = None
+    if project.environment_id:
+        env_result = await db.execute(
+            select(Environment).where(
+                and_(
+                    Environment.id == project.environment_id,
+                    Environment.is_active.is_(True),
+                )
+            )
+        )
+        environment = env_result.scalar_one_or_none()
+        if not environment:
+            raise HTTPException(status_code=404, detail="Environment not found")
+        environment_id = environment.id
+
     db_project = Project(
         name=project.name,
         description=project.description,
@@ -66,6 +82,7 @@ async def create_project(
         target_demographics=project.target_demographics,  # JSON z rozkładami
         target_sample_size=project.target_sample_size,
         owner_id=current_user.id,
+        environment_id=environment_id,
     )
 
     db.add(db_project)
@@ -175,6 +192,22 @@ async def update_project(
         project.target_demographics = project_update.target_demographics
     if project_update.target_sample_size is not None:
         project.target_sample_size = project_update.target_sample_size
+    if project_update.environment_id is not None:
+        if project_update.environment_id:
+            env_result = await db.execute(
+                select(Environment).where(
+                    and_(
+                        Environment.id == project_update.environment_id,
+                        Environment.is_active.is_(True),
+                    )
+                )
+            )
+            environment = env_result.scalar_one_or_none()
+            if not environment:
+                raise HTTPException(status_code=404, detail="Environment not found")
+            project.environment_id = environment.id
+        else:
+            project.environment_id = None
 
     await db.commit()
     await db.refresh(project)

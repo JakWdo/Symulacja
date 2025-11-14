@@ -22,6 +22,7 @@ import type { Project } from '@/types';
 import { Logo } from '@/components/ui/logo';
 import { DeleteProjectDialog } from '@/components/projects/DeleteProjectDialog';
 import { useTranslation } from 'react-i18next';
+import { listEnvironments } from '@/api/environments';
 
 interface ProjectsProps {
   onSelectProject?: (project: Project) => void;
@@ -41,6 +42,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
   const { t: tCommon } = useTranslation('common');
 
   const { setSelectedProject } = useAppStore();
+  const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
   const shouldOpenProjectCreation = useAppStore((state) => state.shouldOpenProjectCreation);
   const clearProjectCreationTrigger = useAppStore((state) => state.clearProjectCreationTrigger);
   const queryClient = useQueryClient();
@@ -49,6 +51,12 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
+  });
+
+  // Fetch environments for display (name badges)
+  const { data: environments = [] } = useQuery({
+    queryKey: ['environments'],
+    queryFn: () => listEnvironments(),
   });
 
   // Create project mutation
@@ -85,6 +93,7 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
           gender: { Male: 0.5, Female: 0.5 },
         },
         target_sample_size: newProject.target_sample_size,
+        environment_id: currentEnvironmentId ?? null,
       });
     }
   };
@@ -130,6 +139,18 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
     },
     enabled: projects.length > 0,
   });
+
+  const getEnvironmentName = (project: Project) => {
+    if (!project.environment_id) {
+      return t('panel.environment.unassigned');
+    }
+    const env = environments.find((e) => e.id === project.environment_id);
+    return env?.name || t('panel.environment.unassigned');
+  };
+
+  const activeEnvironmentName = currentEnvironmentId
+    ? environments.find((e) => e.id === currentEnvironmentId)?.name
+    : null;
 
   if (isLoading) {
     return (
@@ -194,6 +215,11 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                   placeholder={t('panel.createForm.sampleSizePlaceholder')}
                 />
               </div>
+              {activeEnvironmentName && (
+                <p className="text-xs text-muted-foreground">
+                  Projekt zostanie przypisany do środowiska: <span className="font-medium">{activeEnvironmentName}</span>
+                </p>
+              )}
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
@@ -249,6 +275,9 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
                     <CardTitle className="text-card-foreground group-hover:text-primary transition-colors">
                       {project.name}
                     </CardTitle>
+                    <p className="mt-1 text-[12px] text-muted-foreground">
+                      {getEnvironmentName(project)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={getStatusColor(project)}>

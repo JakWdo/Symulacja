@@ -84,7 +84,12 @@
       "personality": "Personality",
       "values": "Values",
       "interests": "Interests",
-      "lifestyle": "Lifestyle"
+      "lifestyle": "Lifestyle",
+      "basicInfo": "Basic Information",
+      "fullName": "Full Name",
+      "socialSegment": "Social Segment",
+      "headline": "Persona Headline",
+      "notSpecified": "Not specified"
     },
 
     "profile": {
@@ -316,11 +321,25 @@
     "closeLabel": "Close panel",
     "psychographics": "Psychographic Traits",
     "intensity": "Intensity",
+    "tabs": {
+      "person": "Person",
+      "segment": "Segment"
+    },
+    "sections": {
+      "overview": "Overview",
+      "profile": "Profile",
+      "needsAndPains": "Needs & Pains",
+      "segmentInsights": "Social Segment & Insights"
+    },
+    "errors": {
+      "loadFailed": "Failed to load persona details"
+    },
     "accessibility": {
       "loadingTitle": "Loading persona details",
       "loadingDescription": "Please wait, fetching data...",
       "detailsTitle": "Persona details",
-      "noDataDescription": "No data to display"
+      "noDataDescription": "No data to display",
+      "unknownPersona": "Unknown persona"
     }
   },
 
@@ -376,7 +395,15 @@
       "interestsAndValues": "Interests & Values",
       "interests": "Interests",
       "values": "Values",
-      "createdOn": "Created on"
+      "createdOn": "Created on",
+      "navigation": {
+        "previous": "Previous",
+        "next": "Next",
+        "first": "First",
+        "last": "Last",
+        "keyboard": "Keyboard shortcuts",
+        "navigationLabel": "Navigation"
+      }
     },
     "generationToast": {
       "started": "Generation started",

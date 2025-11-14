@@ -12,10 +12,10 @@ import { ToastContainer } from '@/components/ui/toast';
 import { AppLoader } from '@/components/AppLoader';
 import { Login } from '@/components/auth/Login';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppStore } from '@/store/appStore';
 import { personasApi, focusGroupsApi } from '@/lib/api';
 import { useTheme } from '@/hooks/use-theme';
 import type { Project, FocusGroup, Survey, Workflow } from '@/types';
+import { useAppStore } from '@/store/appStore';
 
 // Lazy load głównych komponentów widoków dla lepszej wydajności
 const OverviewDashboard = lazy(() => import('@/components/layout/OverviewDashboard').then(m => ({ default: m.OverviewDashboard })));
@@ -35,6 +35,7 @@ const WorkflowsListPage = lazy(() => import('@/components/workflows/WorkflowsLis
 const TeamsList = lazy(() => import('@/components/teams/TeamsList').then(m => ({ default: m.TeamsList })));
 const TeamDetailView = lazy(() => import('@/components/teams/TeamDetailView').then(m => ({ default: m.TeamDetailView })));
 const EnvironmentsList = lazy(() => import('@/components/environments/EnvironmentsList').then(m => ({ default: m.EnvironmentsList })));
+const EnvironmentDetail = lazy(() => import('@/components/environments/EnvironmentDetail').then(m => ({ default: m.EnvironmentDetail })));
 
 export default function App() {
   // Initialize theme
@@ -53,6 +54,7 @@ export default function App() {
   const [viewSurvey, setViewSurvey] = useState<Survey | null>(null);
   const [viewWorkflow, setViewWorkflow] = useState<Workflow | null>(null);
   const [viewTeam, setViewTeam] = useState<string | null>(null);
+  const setCurrentEnvironmentId = useAppStore((state) => state.setCurrentEnvironmentId);
 
   // Fetch personas for selected project
   const { data: personas } = useQuery({
@@ -238,13 +240,18 @@ export default function App() {
             <p className="text-muted-foreground">No team selected</p>
           </div>
         );
+      case 'environment-detail':
+        return (
+          <EnvironmentDetail
+            onBack={() => setCurrentView('environments')}
+          />
+        );
       case 'environments':
         return (
           <EnvironmentsList
             onSelectEnvironment={(env) => {
-              // Możesz dodać widok szczegółów environment w przyszłości
-              // setCurrentView('environment-detail');
-              console.log('Selected environment:', env);
+              setCurrentEnvironmentId(env.id);
+              setCurrentView('environment-detail');
             }}
           />
         );
