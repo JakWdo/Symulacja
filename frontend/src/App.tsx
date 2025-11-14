@@ -269,7 +269,7 @@ export default function App() {
       <SidebarProvider className="h-full">
         <div className="flex w-full h-full min-h-0">
           <AppSidebar currentView={currentView} onNavigate={setCurrentView} />
-          <main className="flex flex-1 min-h-0 bg-[rgba(232,233,236,0.3)] overflow-y-auto">
+          <main className="flex flex-1 min-h-0 bg-background overflow-y-auto">
             <div className="flex-1 min-h-0 h-full">
               <Suspense fallback={<AppLoader message="Loading page..." />}>
                 {renderContent()}
