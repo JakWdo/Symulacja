@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, String, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID as PGUUID, ENUM
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, text
 
@@ -53,7 +53,10 @@ class Project(Base):
     environment_id = Column(PGUUID(as_uuid=True), ForeignKey("environments.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # LLM Provider Overrides (project-specific configuration)
-    llm_provider_override = Column(String(50), nullable=True)  # Override provider for this project (google, openai, anthropic, azure_openai)
+    llm_provider_override = Column(
+        ENUM('google', 'openai', 'anthropic', 'azure_openai', name='llm_provider_enum', create_type=False),
+        nullable=True
+    )  # Override provider for this project (google, openai, anthropic, azure_openai)
     model_override = Column(String(100), nullable=True)  # Override model for this project (e.g., gpt-4o, claude-3-5-sonnet)
 
     name = Column(String(255), nullable=False)

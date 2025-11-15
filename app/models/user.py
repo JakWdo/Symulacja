@@ -5,7 +5,7 @@ Ten model reprezentuje użytkownika systemu Sight.
 Zawiera dane profilowe, ustawienia notyfikacji, szyfrowany API key i relacje do projektów.
 """
 from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Integer, func, Enum
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ENUM as PG_ENUM
 from sqlalchemy.orm import relationship
 import enum
 import uuid
@@ -64,7 +64,10 @@ class User(Base):
     encrypted_google_api_key = Column(Text, nullable=True)
 
     # === LLM PROVIDER PREFERENCES ===
-    preferred_llm_provider = Column(String(50), nullable=True)  # User preferred LLM provider (google, openai, anthropic, azure_openai)
+    preferred_llm_provider = Column(
+        PG_ENUM('google', 'openai', 'anthropic', 'azure_openai', name='llm_provider_enum', create_type=False),
+        nullable=True
+    )  # User preferred LLM provider (google, openai, anthropic, azure_openai)
     preferred_model = Column(String(100), nullable=True)  # User preferred model (e.g., gemini-2.5-flash, gpt-4o)
 
     # === NOTIFICATION SETTINGS ===
