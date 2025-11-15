@@ -699,8 +699,6 @@ async def main():
     """Główna funkcja - tworzy dane demo w Cloud Run."""
     parser = argparse.ArgumentParser(description='Tworzy dane demo w Cloud Run dla Sight')
     parser.add_argument('--api-base', default=DEFAULT_API_BASE, help='Cloud Run API base URL')
-    parser.add_argument('--email', default=DEFAULT_EMAIL, help='Email konta demo')
-    parser.add_argument('--password', default=DEFAULT_PASSWORD, help='Hasło konta demo')
     parser.add_argument('--account-type', choices=['pl', 'intl', 'both'], default='both',
                        help='Typ konta: pl (polskie), intl (międzynarodowe), both (oba)')
 
@@ -710,63 +708,111 @@ async def main():
     print("TWORZENIE DANYCH DEMO W CLOUD RUN - SIGHT")
     print("="*70)
     print(f"API: {args.api_base}")
-    print(f"Konto: {args.email}")
     print(f"Data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Tryb: {args.account_type}")
     print("="*70)
     print()
 
-    # Określ które projekty tworzyć
-    projects_to_create = []
+    # Określ które konta tworzyć
+    accounts_to_setup = []
     if args.account_type in ['pl', 'both']:
-        projects_to_create.extend(PL_PROJECTS)
+        accounts_to_setup.append('pl')
     if args.account_type in ['intl', 'both']:
-        projects_to_create.extend(INTL_PROJECTS)
+        accounts_to_setup.append('intl')
 
-    print(f"📊 Projektów do utworzenia: {len(projects_to_create)}")
-    print(f"⏱ Szacowany czas: ~{len(projects_to_create) * 3} minut")
-    print()
-
-    # Utwórz creator i zaloguj
-    creator = CloudDemoCreator(args.api_base, args.email, args.password)
+    total_success = 0
+    total_expected = 0
+    account_results = {}
 
     async with httpx.AsyncClient(timeout=300.0) as client:
-        # Zaloguj się
-        if not await creator.login(client):
-            print("\n✗ Nie udało się zalogować - kończę")
-            return 1
+        for account_type in accounts_to_setup:
+            config = ACCOUNT_CONFIGS[account_type]
 
-        print()
+            print(f"\n{'='*70}")
+            print(f"KONTO: {config['email']}")
+            print(f"Opis: {config['description']}")
+            print(f"Język: {config['preferred_language']}")
+            print(f"{'='*70}\n")
 
-        # Upewnij się że user ma team (wymagany dla environments)
-        if not await creator.ensure_team(client):
-            print("\n⚠ Nie udało się zapewnić team - environments nie będą utworzone")
-            # Kontynuuj mimo braku team (projekty można tworzyć bez environment)
+            # Utwórz creator dla tego konta
+            creator = CloudDemoCreator(args.api_base, config['email'], config['password'])
 
-        print()
-
-        # Utwórz projekty
-        success_count = 0
-        for i, project_def in enumerate(projects_to_create, 1):
-            print(f"\n[{i}/{len(projects_to_create)}]")
-            try:
-                if await creator.create_complete_project(client, project_def):
-                    success_count += 1
-                await asyncio.sleep(5)  # Przerwa między projektami
-            except Exception as e:
-                print(f"✗ Błąd przy tworzeniu projektu: {e}")
+            # Ensure account exists (register if needed)
+            if not await creator.ensure_account_exists(client, config['full_name'], config['preferred_language']):
+                print(f"\n✗ Nie udało się zapewnić konta {config['email']} - pomijam to konto")
+                account_results[config['email']] = {'success': 0, 'expected': 0, 'error': 'Account setup failed'}
                 continue
 
+            print()
+
+            # Ensure team exists (required for environments)
+            if not await creator.ensure_team(client):
+                print("\n⚠ Nie udało się zapewnić team - environments nie będą utworzone")
+                # Kontynuuj mimo braku team (projekty można tworzyć bez environment)
+
+            print()
+
+            # Determine which projects to create for this account
+            if account_type == 'pl':
+                account_projects = PL_PROJECTS
+            else:  # intl
+                account_projects = INTL_PROJECTS
+
+            print(f"📊 Projektów do utworzenia dla {config['email']}: {len(account_projects)}")
+            print(f"⏱ Szacowany czas: ~{len(account_projects) * 3} minut")
+            print()
+
+            # Create projects for this account
+            success_count = 0
+            for i, project_def in enumerate(account_projects, 1):
+                print(f"\n[{i}/{len(account_projects)}]")
+                try:
+                    if await creator.create_complete_project(client, project_def):
+                        success_count += 1
+                    await asyncio.sleep(5)  # Przerwa między projektami
+                except Exception as e:
+                    print(f"✗ Błąd przy tworzeniu projektu: {e}")
+                    continue
+
+            # Track results for this account
+            account_results[config['email']] = {
+                'success': success_count,
+                'expected': len(account_projects),
+                'error': None
+            }
+            total_success += success_count
+            total_expected += len(account_projects)
+
+            print(f"\n{'='*70}")
+            print(f"✓ UKOŃCZONO KONTO: {config['email']}")
+            print(f"{'='*70}")
+            print(f"Utworzono {success_count}/{len(account_projects)} projektów pomyślnie")
+            print()
+
+    # Final summary
     print("\n" + "="*70)
-    print(f"✓ UKOŃCZONO TWORZENIE DANYCH DEMO!")
+    print(f"✓ PODSUMOWANIE FINALNE")
     print("="*70)
-    print(f"Utworzono {success_count}/{len(projects_to_create)} projektów pomyślnie")
-    print(f"\nDostęp do platformy:")
+    print(f"Ogólny wynik: {total_success}/{total_expected} projektów utworzonych pomyślnie")
+    print()
+    print("Szczegóły per konto:")
+    for email, result in account_results.items():
+        if result['error']:
+            print(f"  ✗ {email}: {result['error']}")
+        else:
+            print(f"  ✓ {email}: {result['success']}/{result['expected']} projektów")
+    print()
+    print("Dostęp do platformy:")
     print(f"  Frontend: {args.api_base.replace('/api/v1', '')}")
-    print(f"  Email: {args.email}")
-    print(f"  Hasło: {args.password}")
+    print()
+    for account_type in accounts_to_setup:
+        config = ACCOUNT_CONFIGS[account_type]
+        print(f"  Konto {account_type.upper()}:")
+        print(f"    Email: {config['email']}")
+        print(f"    Hasło: {config['password']}")
     print("="*70)
 
-    return 0 if success_count == len(projects_to_create) else 1
+    return 0 if total_success == total_expected else 1
 
 
 if __name__ == "__main__":
