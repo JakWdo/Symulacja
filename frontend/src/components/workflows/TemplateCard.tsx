@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { WorkflowTemplate } from '@/types';
-import { getTemplateMetadata, type TemplateCategory } from './templateMetadata';
+import { getTemplateMetadata } from './templateMetadata';
 
 interface TemplateCardProps {
   template: WorkflowTemplate;

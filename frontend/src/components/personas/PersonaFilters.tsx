@@ -29,7 +29,6 @@ export function PersonaFilters({
   onGendersChange,
   ageRange,
   onAgeRangeChange,
-  selectedOccupations,
   onOccupationsChange,
   filtersExpanded,
   onToggleExpanded,

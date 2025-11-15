@@ -9,7 +9,7 @@ Usuwa wszystkie projekty wraz z powiązanymi:
 - Analizami
 
 Usage:
-    python scripts/delete_demo_data.py --api-base https://sight-xfabt2svwa-lm.a.run.app/api/v1
+    python scripts/delete_demo_data.py --api-base https://sight-193742683473.europe-central2.run.app/api/v1
     python scripts/delete_demo_data.py  # dla lokalnego developmentu
 """
 

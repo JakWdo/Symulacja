@@ -310,7 +310,7 @@ export function Personas() {
     }, timeoutMs);
 
     return () => clearTimeout(timer);
-  }, [isGenerating, progressMeta, hasReachedTarget]);
+  }, [isGenerating, progressMeta, hasReachedTarget, projectLabel, t]);
 
   const handleGeneratePersonas = (config: PersonaGenerationConfig) => {
     if (!selectedProject) {

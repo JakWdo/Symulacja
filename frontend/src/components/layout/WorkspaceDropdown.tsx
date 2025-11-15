@@ -5,7 +5,7 @@
  * Pokazuje aktywne środowisko z badge i listę projektów po rozwinięciu
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Building2, FolderOpen, Plus, RefreshCw, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/drawer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppStore } from '@/store/appStore';
+import { Button } from '@/components/ui/button';
 
 interface WorkspaceDropdownProps {
   currentView: string;
@@ -49,7 +50,7 @@ export function WorkspaceDropdown({ currentView, onNavigate }: WorkspaceDropdown
     queryFn: () => getMyTeams(),
   });
 
-  const teams = teamsData?.teams ?? [];
+  const teams = useMemo(() => teamsData?.teams ?? [], [teamsData]);
 
   // Ustal aktywny zespół na podstawie store lub domyślnie pierwszego
   const currentTeam =

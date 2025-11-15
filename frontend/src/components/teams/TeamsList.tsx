@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,6 @@ import {
   Folder,
   Settings,
   Crown,
-  Eye,
   UserPlus,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -28,7 +27,6 @@ interface TeamsListProps {
 export function TeamsList({ onSelectTeam }: TeamsListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const queryClient = useQueryClient();
   const currentTeamId = useAppStore((state) => state.currentTeamId);
   const setCurrentTeamId = useAppStore((state) => state.setCurrentTeamId);
 

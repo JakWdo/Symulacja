@@ -4,44 +4,18 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertTriangle,
   Bell,
-  CheckCircle,
   AlertCircle,
-  Info,
-  X,
-  Check,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNotifications } from '@/hooks/dashboard/useNotifications';
-import { useMarkNotificationRead, useMarkNotificationDone } from '@/hooks/dashboard/useNotificationActions';
+import { useMarkNotificationDone } from '@/hooks/dashboard/useNotificationActions';
 import type { Notification } from '@/types/dashboard';
-
-const PRIORITY_CONFIG = {
-  high: {
-    icon: AlertCircle,
-    color: 'text-red-600',
-    bgColor: 'bg-red-500/10',
-    badgeClass: 'bg-red-500 text-white',
-  },
-  medium: {
-    icon: Info,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-500/10',
-    badgeClass: 'bg-yellow-500 text-white',
-  },
-  low: {
-    icon: Info,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-500/10',
-    badgeClass: 'bg-blue-500 text-white',
-  },
-};
 
 export function NotificationsSection() {
   const { t } = useTranslation('dashboard');
@@ -50,7 +24,6 @@ export function NotificationsSection() {
     filter === 'unread',
     20
   );
-  const markAsRead = useMarkNotificationRead();
   const markAsDone = useMarkNotificationDone();
 
   if (isLoading) {
@@ -110,8 +83,6 @@ export function NotificationsSection() {
     );
   }
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-
   return (
     <Card className="border-border rounded-[12px]">
       <CardHeader>
@@ -127,7 +98,6 @@ export function NotificationsSection() {
             <NotificationCard
               key={notification.id}
               notification={notification}
-              onMarkRead={(id) => markAsRead.mutate(id)}
               onMarkDone={(id) => markAsDone.mutate(id)}
             />
           ))}
@@ -139,11 +109,9 @@ export function NotificationsSection() {
 
 function NotificationCard({
   notification,
-  onMarkRead,
   onMarkDone,
 }: {
   notification: Notification;
-  onMarkRead: (id: string) => void;
   onMarkDone: (id: string) => void;
 }) {
   const { t } = useTranslation('dashboard');

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Logo } from '@/components/ui/logo';
 import { FacetedFilters } from './FacetedFilters';
-import { getEnvironment, listEnvironments } from '@/api/environments';
+import { listEnvironments } from '@/api/environments';
 import { projectsApi } from '@/lib/api/projects';
 import type { Project } from '@/types';
 import { useAppStore } from '@/store/appStore';

@@ -67,10 +67,8 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   const [generatingAiSummary, setGeneratingAiSummary] = useState(false);
   const [newQuestion, setNewQuestion] = useState('');
   const [questions, setQuestions] = useState<string[]>(initialFocusGroup.questions || []);
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(initialFocusGroup.persona_ids || []);
-  const [insights, setInsights] = useState<AISummaryResponse | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [progressMeta, setProgressMeta] = useState<{
@@ -104,7 +102,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   });
 
   // Fetch focus group status in real-time
-  const { data: focusGroup = initialFocusGroup, isFetching: focusGroupFetching } = useQuery({
+  const { data: focusGroup } = useQuery({
     queryKey: ['focus-group', initialFocusGroup.id],
     queryFn: () => focusGroupsApi.get(initialFocusGroup.id),
     refetchOnWindowFocus: 'always',
@@ -138,8 +136,6 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
   const {
     data: responses,
-    isLoading: responsesLoading,
-    isFetching: responsesFetching,
   } = useQuery<FocusGroupResponses>({
     queryKey: ['focus-group-responses', focusGroup.id],
     queryFn: () => focusGroupsApi.getResponses(focusGroup.id),
@@ -152,7 +148,7 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
     refetchIntervalInBackground: true,
   });
 
-  const { data: cachedSummary, isLoading: cachedSummaryLoading } = useQuery<AISummaryResponse | null>({
+  const { data: cachedSummary } = useQuery<AISummaryResponse | null>({
     queryKey: ['focus-group-ai-summary', focusGroup.id],
     queryFn: async () => {
       try {
@@ -172,13 +168,11 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
 
   useEffect(() => {
     if (cachedSummary) {
-      setInsights(cachedSummary);
       setAiSummaryGenerated(true);
       if (summaryPending) {
         setSummaryPending(focusGroup.id, false);
       }
     } else if (!generatingAiSummary && !summaryPending && focusGroup.status === 'completed') {
-      setInsights(null);
       setAiSummaryGenerated(false);
     }
   }, [cachedSummary, generatingAiSummary, summaryPending, focusGroup.status, focusGroup.id, setSummaryPending]);
@@ -192,8 +186,6 @@ export function FocusGroupView({ focusGroup: initialFocusGroup, onBack }: FocusG
   const projectName = project?.name || selectedProject?.name || 'Unknown project';
   const contextLabel = `${focusGroup.name} · ${projectName}`;
   const summaryProcessing = summaryPending || generatingAiSummary;
-  const insightsLoading = !insights && (cachedSummaryLoading || summaryProcessing);
-  const responsesPending = responsesLoading || responsesFetching;
 
   const totalExpectedResponses = useMemo(() => {
     const totalQuestions = focusGroup.questions?.length ?? 0;

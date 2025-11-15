@@ -9,7 +9,7 @@
  * - Preview wyników
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   filterEnvironmentResources,
@@ -79,16 +79,16 @@ export const FacetedFilters: React.FC<FacetedFiltersProps> = ({
   });
 
   // Build DSL from selected tags
-  const buildDSL = () => {
+  const buildDSL = useCallback(() => {
     if (advancedMode) {
       return dslQuery;
     }
     // Simple mode: AND all selected tags
     return selectedTags.join(' AND ');
-  };
+  }, [advancedMode, dslQuery, selectedTags]);
 
   // Handle filter apply
-  const handleApplyFilter = () => {
+  const handleApplyFilter = useCallback(() => {
     const dsl = buildDSL();
     if (!dsl) return;
 
@@ -97,7 +97,7 @@ export const FacetedFilters: React.FC<FacetedFiltersProps> = ({
       resource_type: resourceType,
       limit: 100,
     });
-  };
+  }, [buildDSL, filterMutation, resourceType]);
 
   // Handle tag add
   const handleAddTag = (tag: string) => {
@@ -131,7 +131,7 @@ export const FacetedFilters: React.FC<FacetedFiltersProps> = ({
     if (!advancedMode && selectedTags.length > 0) {
       handleApplyFilter();
     }
-  }, [selectedTags, advancedMode]);
+  }, [selectedTags, advancedMode, handleApplyFilter]);
 
   return (
     <div className={`bg-white rounded-lg shadow p-6 ${className}`}>

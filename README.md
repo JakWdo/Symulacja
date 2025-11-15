@@ -2,23 +2,7 @@
 
 > Wirtualne grupy fokusowe z AI - symuluj badania rynkowe używając Google Gemini 2.5
 
-## 🚀 Quick Start
 
-```bash
-# 1. Skopiuj template .env i uzupełnij wartości
-cp .env.example .env
-# Edytuj .env i ustaw:
-# - GOOGLE_API_KEY (wymagany)
-# - SECRET_KEY (generuj: openssl rand -hex 32)
-# Pozostałe wartości domyślne działają z docker-compose
-
-# 2. Uruchom cały stack
-docker-compose up -d
-
-# 3. Otwórz interfejsy
-open http://localhost:5173      # Frontend
-open http://localhost:8000/docs # API Docs
-```
 
 **Opcjonalne zależności:**
 ```bash
@@ -47,7 +31,7 @@ pip install -e ".[all]"
 - **Frontend:** React 18, TypeScript, Vite, TanStack Query
 - **Backend:** FastAPI, PostgreSQL, Redis, Neo4j
 - **AI:** Google Gemini 2.5 (LangChain)
-- **Infrastruktura:** Docker, Docker Compose
+- **Infrastruktura:** Docker, Google Cloud Run
 
 ## 📖 Przykładowy Workflow
 

@@ -56,7 +56,7 @@ class AsyncWorkflowExecutor:
         # Service URL (Cloud Run)
         self.service_url = os.getenv(
             "SERVICE_URL",
-            "https://sight-xfabt2svwa-lm.a.run.app"  # Production URL
+            "https://sight-193742683473.europe-central2.run.app"  # Production URL
         )
 
     async def schedule_execution(

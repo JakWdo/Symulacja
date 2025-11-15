@@ -26,7 +26,7 @@ import { Logo } from '@/components/ui/logo';
 import { ManageMembersDialog } from './ManageMembersDialog';
 import { EditTeamDialog } from './EditTeamDialog';
 import * as teamsApi from '@/api/teams';
-import type { Team, TeamMember, TeamRole } from '@/api/teams';
+import type { TeamMember, TeamRole } from '@/api/teams';
 import { toast } from '@/hooks/use-toast';
 import { formatDate } from '@/lib/utils';
 import { listEnvironments, type Environment } from '@/api/environments';

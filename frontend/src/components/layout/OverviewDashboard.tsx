@@ -15,7 +15,7 @@ interface DashboardProps {
 }
 
 export function OverviewDashboard({ onNavigate, onSelectProject }: DashboardProps) {
-  const { t, i18n } = useTranslation('dashboard');
+  const { t } = useTranslation('dashboard');
   const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
 
   // Fetch all projects (scoped do aktualnego środowiska)

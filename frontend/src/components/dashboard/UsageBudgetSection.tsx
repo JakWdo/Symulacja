@@ -3,28 +3,16 @@
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertTriangle,
   DollarSign,
-  Zap,
-  TrendingUp,
   AlertCircle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUsageBudget } from '@/hooks/dashboard/useUsageBudget';
 import { useUsageBreakdown } from '@/hooks/dashboard/useUsageBreakdown';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 
 export function UsageBudgetSection() {
   const { t } = useTranslation('dashboard');
@@ -58,9 +46,6 @@ export function UsageBudgetSection() {
   const budgetPercentage = data.budget_limit
     ? (data.total_cost / data.budget_limit) * 100
     : 0;
-  const forecastPercentage = data.budget_limit
-    ? (data.forecast_month_end / data.budget_limit) * 100
-    : 0;
 
   const hasAlerts = data.alerts.length > 0;
   const hasUsage = data.total_tokens > 0 || data.total_cost > 0;
@@ -77,16 +62,6 @@ export function UsageBudgetSection() {
     if (percentage >= 0.5) return '#ffc107';      // yellow (moderate)
     return '#00c950';                              // green (on track)
   };
-
-  // Transform history for chart (last 7 days for better visibility)
-  const chartData = data.history.slice(-7).map((item) => ({
-    date: new Date(item.date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }),
-    cost: item.total_cost,
-    tokens: item.total_tokens,
-  }));
 
   return (
     <Card className="border-border rounded-figma-card">

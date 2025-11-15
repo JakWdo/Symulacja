@@ -174,8 +174,8 @@ function findNearestFreePosition(
  */
 function getFallbackPosition(
   existingNodes: Node[],
-  width: number,
-  height: number
+  _width: number,
+  _height: number
 ): XYPosition {
   // Find rightmost node
   const rightmost = Math.max(

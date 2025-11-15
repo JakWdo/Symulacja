@@ -3,7 +3,6 @@
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -11,38 +10,10 @@ import {
   AlertTriangle,
   CheckCircle,
   AlertCircle,
-  XCircle,
-  Wrench,
-  Activity,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useHealthBlockers } from '@/hooks/dashboard/useHealthBlockers';
 import type { BlockerWithFix } from '@/types/dashboard';
-
-const HEALTH_STATUS_CONFIG = {
-  on_track: {
-    icon: CheckCircle,
-    color: 'text-green-600',
-    bgColor: 'bg-green-500/10',
-  },
-  at_risk: {
-    icon: AlertCircle,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-500/10',
-  },
-  blocked: {
-    icon: XCircle,
-    color: 'text-red-600',
-    bgColor: 'bg-red-500/10',
-  },
-};
-
-const SEVERITY_CONFIG = {
-  critical: { color: 'bg-red-500' },
-  high: { color: 'bg-orange-500' },
-  medium: { color: 'bg-yellow-500' },
-  low: { color: 'bg-blue-500' },
-};
 
 interface HealthBlockersSectionProps {
   onFixBlocker?: (url: string) => void | Promise<void>;
@@ -76,8 +47,6 @@ export function HealthBlockersSection({ onFixBlocker }: HealthBlockersSectionPro
     return null;
   }
 
-  const totalProjects =
-    data.summary.on_track + data.summary.at_risk + data.summary.blocked;
   const hasBlockers = data.blockers.length > 0;
 
   return (
@@ -114,40 +83,6 @@ export function HealthBlockersSection({ onFixBlocker }: HealthBlockersSectionPro
             </p>
           </div>
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function HealthSummaryCard({
-  status,
-  count,
-  total,
-}: {
-  status: 'on_track' | 'at_risk' | 'blocked';
-  count: number;
-  total: number;
-}) {
-  const config = HEALTH_STATUS_CONFIG[status];
-  const Icon = config.icon;
-  const percentage = total > 0 ? ((count / total) * 100).toFixed(0) : '0';
-
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className={`p-2 rounded-lg ${config.bgColor}`}>
-            <Icon className={`h-6 w-6 ${config.color}`} />
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">{count}</div>
-            <div className="text-xs text-muted-foreground">{percentage}%</div>
-          </div>
-        </div>
-        <div className="text-sm font-medium">{config.label}</div>
-        <div className="text-xs text-muted-foreground">
-          {count} of {total} projects
-        </div>
       </CardContent>
     </Card>
   );

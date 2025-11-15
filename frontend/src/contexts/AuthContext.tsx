@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
 
   // Fetch current user (only if token exists)
-  const { data: user, isLoading, error } = useQuery({
+  const { data: user, isLoading } = useQuery({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
       if (!token) return null;

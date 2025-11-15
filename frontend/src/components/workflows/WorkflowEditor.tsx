@@ -121,7 +121,7 @@ export function WorkflowEditor({ workflowId, onBack }: WorkflowEditorProps) {
       handleAutoLayout();
       setShouldAutoLayout(false);
     }
-  }, [shouldAutoLayout, nodes.length]);
+  }, [shouldAutoLayout, nodes.length, handleAutoLayout, isLayouting]);
 
   // ============================================
   // Auto-save Canvas (Debounced)
@@ -330,7 +330,7 @@ export function WorkflowEditor({ workflowId, onBack }: WorkflowEditorProps) {
           execute(
             { workflowId },
             {
-              onSuccess: (execution) => {
+              onSuccess: (_execution) => {
                 toast.success('Workflow execution started!');
                 setExecutionProgress(0);
                 // Navigate to executions page or show progress

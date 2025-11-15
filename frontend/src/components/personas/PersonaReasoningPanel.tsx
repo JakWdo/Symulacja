@@ -59,7 +59,6 @@ export function PersonaReasoningPanel({ persona }: PersonaReasoningPanelProps) {
 
   // Funkcja do tłumaczenia kluczy demografii
   const getDemographicLabel = (key: string): string => {
-    const labelKey = key as 'age' | 'ageRange' | 'gender' | 'location' | 'education' | 'income' | 'incomeRange' | 'occupation';
     const mapping: Record<string, string> = {
       'age': 'age',
       'age_range': 'ageRange',

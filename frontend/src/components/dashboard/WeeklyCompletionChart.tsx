@@ -76,12 +76,6 @@ export function WeeklyCompletionChart({ weeks = 8 }: WeeklyCompletionChartProps)
     insights: data.insights[index],
   }));
 
-  // Calculate totals
-  const totalPersonas = data.personas.reduce((sum, val) => sum + val, 0);
-  const totalFocusGroups = data.focus_groups.reduce((sum, val) => sum + val, 0);
-  const totalSurveys = data.surveys.reduce((sum, val) => sum + val, 0);
-  const totalInsights = data.insights.reduce((sum, val) => sum + val, 0);
-
   return (
     <Card className="border-border rounded-figma-card">
       <CardHeader className="px-6 pt-6 pb-4">

@@ -13,7 +13,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createProjectSnapshot,
   listProjectSnapshots,
-  type ProjectSnapshot,
   type SnapshotCreate,
 } from '../../api/environments';
 

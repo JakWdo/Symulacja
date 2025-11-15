@@ -10,7 +10,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
@@ -139,17 +138,6 @@ export function ManageMembersDialog({
         return <Users className="w-4 h-4" />;
       case 'viewer':
         return <Eye className="w-4 h-4" />;
-    }
-  };
-
-  const getRoleLabel = (role: TeamRole) => {
-    switch (role) {
-      case 'owner':
-        return 'Właściciel';
-      case 'member':
-        return 'Członek';
-      case 'viewer':
-        return 'Przeglądający';
     }
   };
 

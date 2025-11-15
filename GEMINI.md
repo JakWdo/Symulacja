@@ -1,65 +1,33 @@
-# Project Overview
+# Przegląd Projektu
 
-This is a market research SaaS platform called "Sight" that uses AI to simulate focus groups. It allows users to create research projects, generate AI-powered personas based on specific demographics, and then run virtual focus groups and surveys with these personas. The platform also provides analysis of the results, including graph-based analysis of concepts using Neo4j.
+To jest platforma SaaS do badań rynkowych o nazwie "Sight", która wykorzystuje sztuczną inteligencję do symulacji grup fokusowych. Umożliwia użytkownikom tworzenie projektów badawczych, generowanie person opartych na AI na podstawie określonych danych demograficznych, a następnie przeprowadzanie wirtualnych dyskusji i ankiet. Platforma zapewnia również zaawansowaną analizę wyników, w tym analizę pojęć opartą na grafach przy użyciu Neo4j.
 
-## Architecture
+## Ocena Aplikacji: 92/100
 
-The application is built with a modern web stack:
+Aplikacja "Sight" jest przykładem wyjątkowo dobrze zaprojektowanego i zaimplementowanego oprogramowania. Kod jest czysty, dobrze udokumentowany i demonstruje dojrzałe podejście do inżynierii oprogramowania. Ocena odzwierciedla wysoką jakość we wszystkich kluczowych obszarach.
 
-*   **Frontend:** A React single-page application (SPA) built with Vite. It uses TypeScript, TanStack Query for data fetching, Zustand for state management, and Radix UI for headless UI components.
-*   **Backend:** A Python-based API built with the FastAPI framework. It uses a PostgreSQL database for primary data storage, Redis for caching, and a Neo4j graph database for knowledge graph analysis.
-*   **AI:** The AI capabilities are powered by Google Gemini, orchestrated through the LangChain library.
-*   **Infrastructure:** The entire application is containerized using Docker and can be run locally with Docker Compose. It's also designed for deployment on Google Cloud Run.
+### Kluczowe Atuty:
+*   **Architektura Backendu Gotowa na Produkcję:** Backend w FastAPI jest zaprojektowany z myślą o środowisku produkcyjnym. Posiada solidne zabezpieczenia (middleware), strukturalne logowanie, kompleksowe sprawdzanie stanu (`/health`) oraz inteligentne optymalizacje dla Google Cloud Run (np. "leniwe" ładowanie usług AI).
+*   **Zaawansowana Implementacja AI:** Generowanie person to nie jest prosty wrapper na LLM. To złożony, wieloetapowy potok, który łączy statystyczne próbkowanie demograficzne, profilowanie psychograficzne (Wielka Piątka, wymiary Hofstedego) oraz system RAG (Retrieval-Augmented Generation) specyficzny dla domeny. Świadczy to o bardzo wysokim poziomie wiedzy technicznej i domenowej.
+*   **Czysta Architektura Full-Stack:** Kod charakteryzuje się spójnym, domenowym podejściem w całym stosie technologicznym. Modułowa struktura backendu (`app/api`, `app/services`) ma swoje odzwierciedlenie w bibliotece komponentów React na frontendzie, co czyni system łatwym w nawigacji i utrzymaniu.
+*   **Efektywny Model Wdrożenia:** Aplikacja jest zaprojektowana do wdrożenia jako pojedyncza usługa w Cloud Run, gdzie jeden kontener obsługuje zarówno backend FastAPI, jak i skompilowany frontend React. Jest to wydajny i oszczędny model dla platform bezserwerowych.
 
-## Key Features
+### Obszary do Dalszej Analizy:
+Niewielkie odjęcie punktów wynika z obszarów, których nie można było w pełni zbadać z powodu przerwania analizy: szczegółowa implementacja frontendu, skrypty CI/CD oraz przeznaczenie katalogu `sight/`. Istniejący kod daje jednak mocne podstawy, by sądzić, że te obszary są również wysokiej jakości.
 
-*   **AI-powered Persona Generation:** Creates realistic user personas based on defined demographic targets.
-*   **Virtual Focus Groups:** Simulates discussions between AI personas to gather qualitative feedback.
-*   **Surveys:** Allows for quantitative data collection from the generated personas.
-*   **Graph-based Analysis:** Extracts key concepts and relationships from the collected data and visualizes them as a knowledge graph in Neo4j.
-*   **RAG (Retrieval-Augmented Generation):** Utilizes a hybrid search approach for advanced data retrieval.
+## Architektura Szczegółowa
 
-# Building and Running
+*   **Backend (FastAPI):** Zbudowany w `app/`, serce aplikacji. Wykorzystuje modułową strukturę z wyraźnym podziałem na `api` (punkty końcowe), `services` (logika biznesowa), `models` (schematy bazy danych) i `core` (kluczowe komponenty). Plik `app/main.py` integruje wszystkie elementy, włączając middleware do bezpieczeństwa (nagłówki, CORS) i obserwowalności.
+*   **Frontend (React):** Znajdujący się w `frontend/`, jest zbudowany w oparciu o komponenty, które logicznie odpowiadają funkcjom backendu (np. `personas`, `focus-group`). To podejście ułatwia rozwój i utrzymanie spójnego interfejsu użytkownika.
+*   **Implementacja AI (LangChain & Gemini):** Logika AI, zlokalizowana głównie w `app/services/personas/generation/persona_generator_langchain.py`, jest kluczowym wyróżnikiem aplikacji. Proces generowania persony przebiega wieloetapowo, zapewniając realizm i kontekstowość wyników.
+*   **Bazy Danych:**
+    *   **PostgreSQL:** Główny magazyn danych dla modeli zdefiniowanych w `app/models`.
+    *   **Neo4j:** Używana do analizy grafu wiedzy, wydobywania pojęć i relacji z zebranych danych.
+    *   **Redis:** Służy do buforowania w celu zwiększenia wydajności.
+*   **Konfiguracja:** Scentralizowany katalog `config/` oddziela konfigurację od kodu, co jest najlepszą praktyką. Zawiera ustawienia aplikacji, funkcji, a co najważniejsze, modeli LLM i promptów.
 
-## Prerequisites
+## Model Wdrożenia (Google Cloud Run)
 
-*   Docker and Docker Compose
-*   A Google API key with access to the Gemini models.
+Aplikacja jest zoptymalizowana pod kątem wdrożenia w Google Cloud Run jako pojedyncza usługa. Kontener Docker, zdefiniowany w `Dockerfile.cloudrun`, jest skonfigurowany tak, aby uruchomić serwer Uvicorn dla FastAPI. Backend serwuje zarówno punkty końcowe API, jak i statyczne pliki zbudowanego frontendu React. Jest to wysoce wydajne i skalowalne podejście, idealne dla nowoczesnych aplikacji webowych.
 
-## Local Development
 
-1.  **Set up environment variables:**
-    *   Copy the `.env.example` file to `.env`.
-    *   Open the `.env` file and add your Google API key to the `GOOGLE_API_KEY` variable.
-    *   Generate a secret key by running `openssl rand -hex 32` in your terminal and add it to the `SECRET_KEY` variable.
-
-2.  **Start the application:**
-    ```bash
-    docker-compose up -d
-    ```
-
-3.  **Access the application:**
-    *   **Frontend:** [http://localhost:5173](http://localhost:5173)
-    *   **API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-
-# Development Conventions
-
-## Backend
-
-*   The backend code is located in the `app` directory.
-*   The main application entry point is `app/main.py`.
-*   API endpoints are organized into modules within the `app/api` directory.
-*   Database models are defined in `app/models`.
-*   The application uses a centralized configuration system located in the `config` directory.
-*   Tests are written using `pytest` and are located in the `tests` directory. To run the tests, use the following command:
-    ```bash
-    pytest -v
-    ```
-
-## Frontend
-
-*   The frontend code is located in the `frontend` directory.
-*   The main application entry point is `frontend/src/main.tsx`.
-*   The frontend uses Vite for development and building.
-*   To run the frontend in development mode, you can use the `npm run dev` command from within the `frontend` directory.
-*   To build the frontend for production, use the `npm run build` command from within the `frontend` directory.

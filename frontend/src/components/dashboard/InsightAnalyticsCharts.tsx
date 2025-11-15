@@ -5,36 +5,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInsightAnalytics } from '@/hooks/dashboard/useInsightAnalytics';
 import {
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
-
-const SENTIMENT_COLORS = {
-  positive: '#28a745',
-  negative: '#dc3545',
-  neutral: '#6b7280',
-  mixed: '#f59e0b',
-};
-
-const INSIGHT_TYPE_COLORS = {
-  opportunity: '#28a745', // Figma green
-  risk: '#dc3545', // Figma red
-  trend: '#f59e0b', // Figma yellow/amber
-  pattern: '#3b82f6', // blue
-};
 
 export function InsightAnalyticsCharts() {
   const { t } = useTranslation('dashboard');
@@ -78,31 +59,6 @@ export function InsightAnalyticsCharts() {
   }
 
   const hasTopConcepts = data.top_concepts && data.top_concepts.length > 0;
-  const hasSentimentData =
-    data.sentiment_distribution &&
-    Object.values(data.sentiment_distribution).some((val) => val > 0);
-
-  const hasInsightTypesData =
-    data.insight_types &&
-    Object.values(data.insight_types).some((val) => val > 0);
-
-  // Transform sentiment data for pie chart
-  const sentimentData = hasSentimentData
-    ? Object.entries(data.sentiment_distribution).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        value,
-        originalName: name as keyof typeof SENTIMENT_COLORS,
-      }))
-    : [];
-
-  // Transform insight types data for pie chart
-  const insightTypesData = hasInsightTypesData
-    ? Object.entries(data.insight_types).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        value,
-        originalName: name as keyof typeof INSIGHT_TYPE_COLORS,
-      }))
-    : [];
 
   return (
     <Card className="border-border rounded-figma-card">

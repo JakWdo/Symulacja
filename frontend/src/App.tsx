@@ -74,7 +74,7 @@ export default function App() {
     } else if (personas) {
       setPersonas(personas);
     }
-  }, [selectedProject, personas]);
+  }, [selectedProject, personas, setPersonas, setSelectedPersona]);
 
   const renderContent = () => {
     switch (currentView) {
