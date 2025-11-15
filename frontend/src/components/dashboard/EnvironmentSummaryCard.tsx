@@ -4,7 +4,7 @@
  * Uses Zustand store to read currentEnvironmentId and React Query to load environments + projects.
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,18 +21,29 @@ interface EnvironmentSummaryCardProps {
 
 export function EnvironmentSummaryCard({ onNavigate }: EnvironmentSummaryCardProps) {
   const { t } = useTranslation('dashboard');
+  const currentTeamId = useAppStore((state) => state.currentTeamId);
   const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
   const setCurrentEnvironmentId = useAppStore((state) => state.setCurrentEnvironmentId);
 
   const { data: environments = [], isLoading: isLoadingEnvironments } = useQuery({
-    queryKey: ['environments'],
-    queryFn: () => listEnvironments(),
+    queryKey: ['environments', currentTeamId],
+    queryFn: () => listEnvironments(currentTeamId ?? undefined),
   });
 
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
+    queryKey: ['projects', { environmentId: currentEnvironmentId }],
+    queryFn: () =>
+      projectsApi.getAll({
+        environmentId: currentEnvironmentId ?? undefined,
+      }),
   });
+
+  // Jeśli nie ma jeszcze wybranego środowiska, ale są dostępne, ustaw domyślne
+  useEffect(() => {
+    if (!currentEnvironmentId && environments.length > 0) {
+      setCurrentEnvironmentId(environments[0].id);
+    }
+  }, [currentEnvironmentId, environments, setCurrentEnvironmentId]);
 
   const activeEnvironment = useMemo(() => {
     if (!environments.length) return null;
@@ -142,4 +153,3 @@ export function EnvironmentSummaryCard({ onNavigate }: EnvironmentSummaryCardPro
     </Card>
   );
 }
-

@@ -14,9 +14,22 @@ export interface CreateProjectPayload {
   environment_id?: string | null;
 }
 
+export interface ListProjectsFilters {
+  teamId?: string;
+  environmentId?: string;
+}
+
 export const projectsApi = {
-  getAll: async (): Promise<Project[]> => {
-    const { data } = await api.get<Project[]>('/projects');
+  getAll: async (filters?: ListProjectsFilters): Promise<Project[]> => {
+    const params: Record<string, string> = {};
+    if (filters?.teamId) {
+      params.team_id = filters.teamId;
+    }
+    if (filters?.environmentId) {
+      params.environment_id = filters.environmentId;
+    }
+
+    const { data } = await api.get<Project[]>('/projects', { params });
     return data;
   },
   create: async (payload: CreateProjectPayload): Promise<Project> => {

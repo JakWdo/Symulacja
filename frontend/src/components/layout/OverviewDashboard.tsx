@@ -16,11 +16,15 @@ interface DashboardProps {
 
 export function OverviewDashboard({ onNavigate, onSelectProject }: DashboardProps) {
   const { t, i18n } = useTranslation('dashboard');
+  const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
 
-  // Fetch all projects
+  // Fetch all projects (scoped do aktualnego środowiska)
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
+    queryKey: ['projects', { environmentId: currentEnvironmentId }],
+    queryFn: () =>
+      projectsApi.getAll({
+        environmentId: currentEnvironmentId ?? undefined,
+      }),
   });
 
   const { setSelectedProject } = useAppStore();

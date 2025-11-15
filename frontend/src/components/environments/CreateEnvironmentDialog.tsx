@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ interface CreateEnvironmentDialogProps {
 }
 
 export function CreateEnvironmentDialog({ open, onOpenChange }: CreateEnvironmentDialogProps) {
+  const { t } = useTranslation('common');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const queryClient = useQueryClient();
@@ -31,7 +33,7 @@ export function CreateEnvironmentDialog({ open, onOpenChange }: CreateEnvironmen
   // Pobierz teams użytkownika
   const { data: teamsData } = useQuery({
     queryKey: ['teams'],
-    queryFn: getMyTeams,
+    queryFn: () => getMyTeams(),
   });
 
   const currentTeam = teamsData?.teams?.[0]; // Użyj pierwszego teamu
@@ -41,8 +43,8 @@ export function CreateEnvironmentDialog({ open, onOpenChange }: CreateEnvironmen
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['environments'] });
       toast({
-        title: 'Środowisko utworzone',
-        description: `Środowisko "${name}" zostało pomyślnie utworzone.`,
+        title: t('environments.create.successTitle'),
+        description: t('environments.create.successDescription', { name }),
       });
       setName('');
       setDescription('');
@@ -50,8 +52,8 @@ export function CreateEnvironmentDialog({ open, onOpenChange }: CreateEnvironmen
     },
     onError: (error: any) => {
       toast({
-        title: 'Błąd',
-        description: error.response?.data?.detail || 'Nie udało się utworzyć środowiska',
+        title: t('status.error'),
+        description: error.response?.data?.detail || t('environments.create.errorDescription'),
         variant: 'destructive',
       });
     },
@@ -73,13 +75,13 @@ export function CreateEnvironmentDialog({ open, onOpenChange }: CreateEnvironmen
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Brak zespołu</DialogTitle>
+            <DialogTitle>{t('environments.create.noTeamTitle')}</DialogTitle>
             <DialogDescription>
-              Musisz należeć do zespołu, aby utworzyć środowisko.
+              {t('environments.create.noTeamDescription')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => onOpenChange(false)}>Zamknij</Button>
+            <Button onClick={() => onOpenChange(false)}>{t('ui.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -90,34 +92,34 @@ export function CreateEnvironmentDialog({ open, onOpenChange }: CreateEnvironmen
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Utwórz Nowe Środowisko</DialogTitle>
+          <DialogTitle>{t('environments.create.title')}</DialogTitle>
           <DialogDescription>
-            Stwórz środowisko do organizowania i filtrowania zasobów dla zespołu {currentTeam.name}.
+            {t('environments.create.subtitle', { teamName: currentTeam.name })}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="env-name">
-              Nazwa Środowiska <span className="text-destructive">*</span>
+              {t('environments.create.nameLabel')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="env-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="np. Produkcja, Rozwój, Test"
+              placeholder={t('environments.create.namePlaceholder')}
               required
               autoFocus
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="env-description">Opis (opcjonalnie)</Label>
+            <Label htmlFor="env-description">{t('environments.create.descriptionLabel')}</Label>
             <Textarea
               id="env-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Krótki opis środowiska i jego przeznaczenia..."
+              placeholder={t('environments.create.descriptionPlaceholder')}
               rows={3}
             />
           </div>
@@ -129,13 +131,13 @@ export function CreateEnvironmentDialog({ open, onOpenChange }: CreateEnvironmen
               onClick={() => onOpenChange(false)}
               disabled={createMutation.isPending}
             >
-              Anuluj
+              {t('buttons.cancel')}
             </Button>
             <Button type="submit" disabled={!name.trim() || createMutation.isPending}>
               {createMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              Utwórz Środowisko
+              {t('environments.create.buttonCreate')}
             </Button>
           </DialogFooter>
         </form>

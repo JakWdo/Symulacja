@@ -23,6 +23,7 @@ interface SurveysProps {
 export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
   const { t } = useTranslation('surveys');
   const { selectedProject, setSelectedProject } = useAppStore();
+  const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
   const queryClient = useQueryClient();
   const [launchDialog, setLaunchDialog] = useState<{ open: boolean; survey: Survey | null }>({
     open: false,
@@ -34,8 +35,11 @@ export function Surveys({ onCreateSurvey, onSelectSurvey }: SurveysProps) {
   });
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
+    queryKey: ['projects', { environmentId: currentEnvironmentId }],
+    queryFn: () =>
+      projectsApi.getAll({
+        environmentId: currentEnvironmentId ?? undefined,
+      }),
   });
 
   const { data: surveys = [], isLoading } = useQuery({

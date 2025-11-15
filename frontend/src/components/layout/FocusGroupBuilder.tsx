@@ -21,9 +21,13 @@ interface FocusGroupBuilderProps {
 
 export function FocusGroupBuilder({ onBack, onSave }: FocusGroupBuilderProps) {
   const { t } = useTranslation('focusGroups');
+  const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
+    queryKey: ['projects', { environmentId: currentEnvironmentId }],
+    queryFn: () =>
+      projectsApi.getAll({
+        environmentId: currentEnvironmentId ?? undefined,
+      }),
   });
   const { selectedProject: globalProject } = useAppStore();
   const [focusGroupTitle, setFocusGroupTitle] = useState('');

@@ -19,6 +19,7 @@ import { Logo } from '@/components/ui/logo';
 import { CreateTeamDialog } from './CreateTeamDialog';
 import * as teamsApi from '@/api/teams';
 import type { Team } from '@/api/teams';
+import { useAppStore } from '@/store/appStore';
 
 interface TeamsListProps {
   onSelectTeam?: (team: Team) => void;
@@ -28,6 +29,8 @@ export function TeamsList({ onSelectTeam }: TeamsListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const queryClient = useQueryClient();
+  const currentTeamId = useAppStore((state) => state.currentTeamId);
+  const setCurrentTeamId = useAppStore((state) => state.setCurrentTeamId);
 
   // Fetch teams
   const { data: teamsData, isLoading } = useQuery({
@@ -110,8 +113,13 @@ export function TeamsList({ onSelectTeam }: TeamsListProps) {
             {filteredTeams.map((team) => (
               <Card
                 key={team.id}
-                className="cursor-pointer hover:border-primary transition-colors"
-                onClick={() => onSelectTeam?.(team)}
+                className={`cursor-pointer hover:border-primary transition-colors ${
+                  team.id === currentTeamId ? 'border-primary shadow-md' : ''
+                }`}
+                onClick={() => {
+                  setCurrentTeamId(team.id);
+                  onSelectTeam?.(team);
+                }}
               >
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                   <div className="space-y-1 flex-1">
@@ -148,6 +156,7 @@ export function TeamsList({ onSelectTeam }: TeamsListProps) {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
+                        setCurrentTeamId(team.id);
                         onSelectTeam?.(team);
                       }}
                       className="gap-2"

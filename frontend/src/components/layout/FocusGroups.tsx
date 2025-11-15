@@ -56,6 +56,7 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
   // Use Zustand selectors to prevent unnecessary re-renders
   const selectedProject = useAppStore(state => state.selectedProject);
   const setSelectedProject = useAppStore(state => state.setSelectedProject);
+  const currentEnvironmentId = useAppStore(state => state.currentEnvironmentId);
   const queryClient = useQueryClient();
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; focusGroup: FocusGroup | null }>({
     open: false,
@@ -63,8 +64,11 @@ export function FocusGroups({ onCreateFocusGroup, onSelectFocusGroup }: FocusGro
   });
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
+    queryKey: ['projects', { environmentId: currentEnvironmentId }],
+    queryFn: () =>
+      projectsApi.getAll({
+        environmentId: currentEnvironmentId ?? undefined,
+      }),
   });
 
   const { data: focusGroups = [], isLoading } = useQuery({

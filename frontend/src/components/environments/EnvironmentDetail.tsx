@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,11 +19,13 @@ interface EnvironmentDetailProps {
 }
 
 export function EnvironmentDetail({ onBack }: EnvironmentDetailProps) {
+  const { t } = useTranslation('common');
+  const currentTeamId = useAppStore((state) => state.currentTeamId);
   const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
 
   const { data: environments = [] } = useQuery({
-    queryKey: ['environments'],
-    queryFn: () => listEnvironments(),
+    queryKey: ['environments', currentTeamId],
+    queryFn: () => listEnvironments(currentTeamId ?? undefined),
   });
 
   const environment = useMemo(
@@ -31,8 +34,11 @@ export function EnvironmentDetail({ onBack }: EnvironmentDetailProps) {
   );
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
+    queryKey: ['projects', { environmentId: currentEnvironmentId }],
+    queryFn: () =>
+      projectsApi.getAll({
+        environmentId: currentEnvironmentId ?? undefined,
+      }),
   });
 
   const environmentProjects: Project[] = useMemo(
@@ -48,10 +54,10 @@ export function EnvironmentDetail({ onBack }: EnvironmentDetailProps) {
       <div className="w-full h-full flex items-center justify-center flex-col gap-4">
         <Logo className="w-8 h-8" />
         <p className="text-sm text-muted-foreground">
-          Brak wybranego środowiska. Wybierz środowisko z listy, aby zobaczyć szczegóły.
+          {t('environments.noSelectedEnvironment')}
         </p>
         <Button variant="outline" onClick={onBack}>
-          Wróć do listy środowisk
+          {t('environments.backToList')}
         </Button>
       </div>
     );
@@ -62,10 +68,10 @@ export function EnvironmentDetail({ onBack }: EnvironmentDetailProps) {
       <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
         <PageHeader
           title={environment.name}
-          subtitle="Biblioteka badań zespołu – wspólny pool person i workflows, współdzielony między projektami."
+          subtitle={t('environments.subtitle')}
           actions={
             <Button variant="outline" onClick={onBack}>
-              Wróć do środowisk
+              {t('environments.backToEnvironments')}
             </Button>
           }
         />
@@ -76,8 +82,8 @@ export function EnvironmentDetail({ onBack }: EnvironmentDetailProps) {
             <Card className="bg-card border border-border shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  Szczegóły środowiska
-                  <Badge variant="outline">Bieżące</Badge>
+                  {t('environments.details')}
+                  <Badge variant="outline">{t('environments.current')}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -88,11 +94,11 @@ export function EnvironmentDetail({ onBack }: EnvironmentDetailProps) {
                 )}
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Calendar className="w-3 h-3" />
-                  <span>Utworzone {formatDate(environment.created_at)}</span>
+                  <span>{t('environments.created')} {formatDate(environment.created_at)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Users className="w-3 h-3" />
-                  <span>Zespół ID: {environment.team_id}</span>
+                  <span>Team ID: {environment.team_id}</span>
                 </div>
               </CardContent>
             </Card>
@@ -101,7 +107,7 @@ export function EnvironmentDetail({ onBack }: EnvironmentDetailProps) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Folder className="w-4 h-4" />
-                  Projekty w tym środowisku
+                  {t('environments.projectsInEnvironment')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -111,8 +117,7 @@ export function EnvironmentDetail({ onBack }: EnvironmentDetailProps) {
                   </div>
                 ) : environmentProjects.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Brak projektów przypisanych do tego środowiska. Nowe projekty tworzone z tego
-                    widoku zostaną przypisane tutaj automatycznie.
+                    {t('environments.noProjectsInEnvironment')}
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -152,4 +157,3 @@ export function EnvironmentDetail({ onBack }: EnvironmentDetailProps) {
     </div>
   );
 }
-

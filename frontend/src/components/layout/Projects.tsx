@@ -42,21 +42,26 @@ export function Projects({ onSelectProject }: ProjectsProps = {}) {
   const { t: tCommon } = useTranslation('common');
 
   const { setSelectedProject } = useAppStore();
+  const currentTeamId = useAppStore((state) => state.currentTeamId);
   const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
   const shouldOpenProjectCreation = useAppStore((state) => state.shouldOpenProjectCreation);
   const clearProjectCreationTrigger = useAppStore((state) => state.clearProjectCreationTrigger);
   const queryClient = useQueryClient();
 
-  // Fetch projects
+  // Fetch projects (scoped do aktualnego zespołu / środowiska)
   const { data: projects = [], isLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
+    queryKey: ['projects', { teamId: currentTeamId, environmentId: currentEnvironmentId }],
+    queryFn: () =>
+      projectsApi.getAll({
+        teamId: currentTeamId ?? undefined,
+        environmentId: currentEnvironmentId ?? undefined,
+      }),
   });
 
-  // Fetch environments for display (name badges)
+  // Fetch environments for display (name badges) w kontekście aktywnego zespołu
   const { data: environments = [] } = useQuery({
-    queryKey: ['environments'],
-    queryFn: () => listEnvironments(),
+    queryKey: ['environments', currentTeamId],
+    queryFn: () => listEnvironments(currentTeamId ?? undefined),
   });
 
   // Create project mutation

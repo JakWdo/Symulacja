@@ -27,6 +27,7 @@ export function Personas() {
   const selectedProject = useAppStore(state => state.selectedProject);
   const setGlobalProject = useAppStore(state => state.setSelectedProject);
   const setActivePanel = useAppStore(state => state.setActivePanel);
+  const currentEnvironmentId = useAppStore(state => state.currentEnvironmentId);
   const { t } = useTranslation('personas');
 
   const projectLabel = selectedProject?.name || t('page.generationToast.unknownProject');
@@ -59,10 +60,13 @@ export function Personas() {
   // Orchestration warning state
   const [orchestrationWarning, setOrchestrationWarning] = useState<string | null>(null);
 
-  // Fetch all projects
+  // Fetch all projects w kontekście aktualnego środowiska
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
+    queryKey: ['projects', { environmentId: currentEnvironmentId }],
+    queryFn: () =>
+      projectsApi.getAll({
+        environmentId: currentEnvironmentId ?? undefined,
+      }),
   });
 
   // Fetch personas for selected project and transform to display format

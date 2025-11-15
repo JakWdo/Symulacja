@@ -21,6 +21,24 @@ DEFAULT_PASSWORD = "Demo2025!Sight"
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds
 
+# Account configurations for two separate demo accounts
+ACCOUNT_CONFIGS = {
+    'pl': {
+        'email': 'demo-pl@sight.pl',
+        'password': 'DemoPL2025!Sight',
+        'full_name': 'Demo Użytkownik (Polski)',
+        'preferred_language': 'pl',
+        'description': 'Konto demonstracyjne z polskimi projektami badawczymi'
+    },
+    'intl': {
+        'email': 'demo-intl@sight.pl',
+        'password': 'DemoINTL2025!Sight',
+        'full_name': 'Demo User (International)',
+        'preferred_language': 'en',
+        'description': 'Demo account with international research projects'
+    }
+}
+
 
 class CloudDemoCreator:
     """Klasa do tworzenia danych demo w Cloud Run."""
@@ -64,6 +82,58 @@ class CloudDemoCreator:
                     await asyncio.sleep(RETRY_DELAY)
 
         print(f"✗ Nie udało się zalogować po {MAX_RETRIES} próbach")
+        return False
+
+    async def ensure_account_exists(self, client: httpx.AsyncClient, full_name: str, preferred_language: str = 'pl') -> bool:
+        """
+        Upewnia się że konto istnieje - jeśli nie, rejestruje nowe konto.
+
+        Args:
+            client: HTTP client
+            full_name: Pełna nazwa użytkownika
+            preferred_language: Preferowany język ('pl' lub 'en')
+
+        Returns:
+            True jeśli konto istnieje lub zostało utworzone, False w przypadku błędu
+        """
+        # Próba logowania
+        if await self.login(client):
+            return True
+
+        print(f"  → Konto nie istnieje, tworzę nowe konto: {self.email}")
+
+        # Rejestracja nowego konta
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = await client.post(
+                    f"{self.api_base}/auth/register",
+                    json={
+                        "email": self.email,
+                        "password": self.password,
+                        "full_name": full_name,
+                        "preferred_language": preferred_language
+                    },
+                    timeout=30.0
+                )
+
+                if response.status_code in [200, 201]:
+                    print(f"  ✓ Konto utworzone: {self.email}")
+
+                    # Ponowne logowanie
+                    return await self.login(client)
+                elif response.status_code == 409:
+                    print(f"  ⚠ Konto już istnieje (konflikt), próbuję zalogować...")
+                    return await self.login(client)
+                else:
+                    print(f"  ⚠ Registration attempt {attempt + 1} failed: {response.status_code}")
+                    if attempt < MAX_RETRIES - 1:
+                        await asyncio.sleep(RETRY_DELAY)
+            except Exception as e:
+                print(f"  ⚠ Registration error (attempt {attempt + 1}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(RETRY_DELAY)
+
+        print(f"  ✗ Nie udało się utworzyć konta po {MAX_RETRIES} próbach")
         return False
 
     async def ensure_team(self, client: httpx.AsyncClient) -> bool:
@@ -222,8 +292,8 @@ class CloudDemoCreator:
 
         return False
 
-    async def wait_for_personas(self, client: httpx.AsyncClient, project_id: str, expected: int, max_wait: int = 120) -> int:
-        """Czeka aż persony się wygenerują (z dłuższym timeoutem dla Cloud Run)."""
+    async def wait_for_personas(self, client: httpx.AsyncClient, project_id: str, expected: int, max_wait: int = 300) -> int:
+        """Czeka aż persony się wygenerują (z dłuższym timeoutem dla Cloud Run - 5 min)."""
         print(f"  Czekam na wygenerowanie {expected} person (max {max_wait}s)...")
 
         for i in range(max_wait):

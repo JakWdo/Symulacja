@@ -15,6 +15,7 @@ interface AppState {
   selectedFocusGroup: FocusGroup | null;
 
   // Shared context
+  currentTeamId: string | null;
   currentEnvironmentId: string | null;
 
   // Data
@@ -65,6 +66,7 @@ interface AppState {
   resetGraphAsk: (focusGroupId?: string | null) => void;
   triggerProjectCreation: () => void;
   clearProjectCreationTrigger: () => void;
+  setCurrentTeamId: (teamId: string | null) => void;
   setCurrentEnvironmentId: (environmentId: string | null) => void;
 }
 
@@ -81,6 +83,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedProject: null,
   selectedPersona: null,
   selectedFocusGroup: null,
+  currentTeamId: null,
   currentEnvironmentId: null,
   projects: [],
   personas: [],
@@ -204,5 +207,12 @@ export const useAppStore = create<AppState>((set) => ({
     })),
   triggerProjectCreation: () => set({ shouldOpenProjectCreation: true }),
   clearProjectCreationTrigger: () => set({ shouldOpenProjectCreation: false }),
+  setCurrentTeamId: (teamId) =>
+    set((state) => ({
+      currentTeamId: teamId,
+      // Reset środowisko, jeśli faktycznie zmieniono zespół
+      currentEnvironmentId:
+        teamId === state.currentTeamId ? state.currentEnvironmentId : null,
+    })),
   setCurrentEnvironmentId: (environmentId) => set({ currentEnvironmentId: environmentId }),
 }));

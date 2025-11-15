@@ -20,6 +20,7 @@ export interface DisplayPersona {
   age: number;
   occupation: string;
   interests: string[];
+  headline: string | null;
   background: string;
   demographics: {
     gender: string;
@@ -106,7 +107,8 @@ export function extractFirstName(fullName?: string | null): string {
 }
 
 export function transformPersona(apiPersona: APIPersona): DisplayPersona {
-  // Zbuduj opis tła i zadbaj o brakujące dane
+  // Headline i background jako osobne pola
+  const headline = apiPersona.headline || null;
   const background = (apiPersona.background_story || apiPersona.headline || 'Brak opisu persony').trim();
 
   // Cechy osobowości Big Five w uproszczonym języku polskim
@@ -136,6 +138,7 @@ export function transformPersona(apiPersona: APIPersona): DisplayPersona {
     age: apiPersona.age,
     occupation: apiPersona.occupation || apiPersona.persona_title || 'Zawód nieokreślony',
     interests: Array.isArray(apiPersona.interests) ? apiPersona.interests : [],
+    headline,
     background,
     demographics: {
       gender,

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,15 +24,17 @@ interface EnvironmentsListProps {
 }
 
 export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps) {
+  const { t } = useTranslation('common');
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const currentTeamId = useAppStore((state) => state.currentTeamId);
   const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
   const setCurrentEnvironmentId = useAppStore((state) => state.setCurrentEnvironmentId);
 
   // Fetch environments
   const { data: environments = [], isLoading } = useQuery({
-    queryKey: ['environments'],
-    queryFn: () => listEnvironments(),
+    queryKey: ['environments', currentTeamId],
+    queryFn: () => listEnvironments(currentTeamId ?? undefined),
   });
 
   const filteredEnvironments = environments.filter((env: Environment) =>
@@ -52,12 +55,12 @@ export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps)
       <div className="max-w-[1920px] w-full mx-auto space-y-6 p-6">
         {/* Header */}
         <PageHeader
-          title="Środowiska zespołu"
-          subtitle="Wspólne pule person i workflows współdzielone między projektami Twojego zespołu."
+          title={t('environments.title')}
+          subtitle={t('environments.subtitle')}
           actions={
             <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
               <Plus className="w-4 h-4" />
-              Nowe Środowisko
+              {t('environments.newEnvironment')}
             </Button>
           }
         />
@@ -67,7 +70,7 @@ export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps)
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             type="text"
-            placeholder="Szukaj środowisk..."
+            placeholder={t('environments.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -80,17 +83,17 @@ export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps)
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Folder className="w-12 h-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">
-                {searchTerm ? 'Brak wyników' : 'Brak środowisk'}
+                {searchTerm ? t('environments.noResults') : t('environments.noEnvironments')}
               </h3>
               <p className="text-muted-foreground text-center mb-4">
                 {searchTerm
-                  ? 'Spróbuj innego wyszukiwania'
-                  : 'Utwórz swoje pierwsze środowisko, aby organizować zasoby'}
+                  ? t('environments.tryDifferentSearch')
+                  : t('environments.createFirstEnvironment')}
               </p>
               {!searchTerm && (
                 <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
                   <Plus className="w-4 h-4" />
-                  Utwórz Środowisko
+                  {t('environments.createEnvironment')}
                 </Button>
               )}
             </CardContent>
@@ -121,7 +124,7 @@ export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps)
                     {env.id === currentEnvironmentId && (
                       <Badge variant="default" className="gap-1">
                         <Check className="w-3 h-3" />
-                        Bieżące środowisko
+                        {t('environments.currentEnvironment')}
                       </Badge>
                     )}
                   </div>
@@ -134,7 +137,7 @@ export function EnvironmentsList({ onSelectEnvironment }: EnvironmentsListProps)
                   )}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Calendar className="w-3 h-3" />
-                    <span>Utworzone {formatDate(env.created_at)}</span>
+                    <span>{t('environments.created')} {formatDate(env.created_at)}</span>
                   </div>
                 </CardContent>
               </Card>

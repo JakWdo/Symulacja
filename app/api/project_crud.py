@@ -11,7 +11,7 @@ Ten moduł zawiera podstawowe operacje CRUD dla zarządzania projektami:
 
 Soft delete operations znajdują się w project_demographics.py
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.models import Project, User, ProjectSnapshot, Persona, Workflow, FocusGroup, Survey, Environment
-from app.api.dependencies import get_current_user, get_project_for_user
+from app.api.dependencies import get_current_user, get_project_for_user, require_team_membership
 from app.schemas.project import (
     ProjectCreate,
     ProjectResponse,
@@ -57,8 +57,9 @@ async def create_project(
     Raises:
         HTTPException 422: Jeśli dane są niepoprawne (walidacja Pydantic)
     """
-    # Optional: validate environment_id if provided
+    # Optional: validate environment_id if provided and derive team_id from it
     environment_id = None
+    team_id = None
     if project.environment_id:
         env_result = await db.execute(
             select(Environment).where(
@@ -71,7 +72,17 @@ async def create_project(
         environment = env_result.scalar_one_or_none()
         if not environment:
             raise HTTPException(status_code=404, detail="Environment not found")
+
+        # Ensure current user has access to the team owning this environment
+        await require_team_membership(
+            environment.team_id,
+            ["owner", "member", "viewer"],
+            current_user,
+            db,
+        )
+
         environment_id = environment.id
+        team_id = environment.team_id
 
     db_project = Project(
         name=project.name,
@@ -83,6 +94,7 @@ async def create_project(
         target_sample_size=project.target_sample_size,
         owner_id=current_user.id,
         environment_id=environment_id,
+        team_id=team_id,
     )
 
     db.add(db_project)
@@ -96,6 +108,14 @@ async def create_project(
 async def list_projects(
     skip: int = 0,
     limit: int = 100,
+    team_id: UUID | None = Query(
+        None,
+        description="Opcjonalny filtr po team_id (projekty w konkretnym zespole)",
+    ),
+    environment_id: UUID | None = Query(
+        None,
+        description="Opcjonalny filtr po environment_id (projekty w konkretnym środowisku)",
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -114,15 +134,22 @@ async def list_projects(
     Returns:
         Lista projektów (tylko is_active=True)
     """
-    result = await db.execute(
+    query = (
         select(Project)
         .where(
             Project.is_active.is_(True),
             Project.owner_id == current_user.id,
             Project.deleted_at.is_(None),  # Hide soft-deleted projects
         )
-        .offset(skip)
-        .limit(limit)
+    )
+
+    if team_id:
+        query = query.where(Project.team_id == team_id)
+    if environment_id:
+        query = query.where(Project.environment_id == environment_id)
+
+    result = await db.execute(
+        query.offset(skip).limit(limit)
     )
     projects = result.scalars().all()
     return projects
@@ -205,9 +232,20 @@ async def update_project(
             environment = env_result.scalar_one_or_none()
             if not environment:
                 raise HTTPException(status_code=404, detail="Environment not found")
+
+            # Ensure current user has access to the team owning this environment
+            await require_team_membership(
+                environment.team_id,
+                ["owner", "member", "viewer"],
+                current_user,
+                db,
+            )
+
             project.environment_id = environment.id
+            project.team_id = environment.team_id
         else:
             project.environment_id = None
+            project.team_id = None
 
     await db.commit()
     await db.refresh(project)

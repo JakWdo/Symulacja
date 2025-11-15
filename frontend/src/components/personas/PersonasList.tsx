@@ -115,9 +115,11 @@ export function PersonasList({
                   <h3 className="text-xl text-card-foreground mb-2">
                     {currentPersona.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {currentPersona.background}
-                  </p>
+                  {currentPersona.headline && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {currentPersona.headline}
+                    </p>
+                  )}
                 </div>
 
                 <DropdownMenu>

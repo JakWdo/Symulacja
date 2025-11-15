@@ -16,6 +16,7 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const queryClient = useQueryClient();
+   const currentEnvironmentId = useAppStore((state) => state.currentEnvironmentId);
 
   const createProjectMutation = useMutation({
     mutationFn: projectsApi.create,
@@ -76,6 +77,7 @@ function CreateProjectForm({ onClose }: { onClose: () => void }) {
       description: description.trim() || null,
       target_demographics: defaultDemographics,
       target_sample_size: 100,
+      environment_id: currentEnvironmentId ?? null,
     });
   };
 
@@ -124,11 +126,15 @@ export function ProjectPanel() {
   const setActivePanel = useAppStore(state => state.setActivePanel);
   const selectedProject = useAppStore(state => state.selectedProject);
   const setSelectedProject = useAppStore(state => state.setSelectedProject);
+  const currentEnvironmentId = useAppStore(state => state.currentEnvironmentId);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const { data: projects = [], isLoading, isError, error } = useQuery<Project[]>({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
+    queryKey: ['projects', { environmentId: currentEnvironmentId }],
+    queryFn: () =>
+      projectsApi.getAll({
+        environmentId: currentEnvironmentId ?? undefined,
+      }),
   });
 
   useEffect(() => {

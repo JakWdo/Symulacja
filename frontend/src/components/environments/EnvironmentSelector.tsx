@@ -24,7 +24,7 @@ export const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   // Fetch teams
   const { data: teamsData } = useQuery({
     queryKey: ['teams'],
-    queryFn: getMyTeams,
+    queryFn: () => getMyTeams(),
   });
 
   const currentTeam = teamsData?.teams?.[0];
