@@ -124,6 +124,19 @@ class CloudDemoCreator:
                 elif response.status_code == 409:
                     print(f"  ⚠ Konto już istnieje (konflikt), próbuję zalogować...")
                     return await self.login(client)
+                elif response.status_code == 400:
+                    # FastAPI zwraca 400 z komunikatem "Email already registered"
+                    try:
+                        detail = response.json().get("detail", "")
+                    except Exception:
+                        detail = ""
+                    if isinstance(detail, str) and "already registered" in detail.lower():
+                        print(f"  ⚠ Konto już istnieje (400 Email already registered), próbuję zalogować...")
+                        return await self.login(client)
+
+                    print(f"  ⚠ Registration attempt {attempt + 1} failed: 400 - {detail}")
+                    if attempt < MAX_RETRIES - 1:
+                        await asyncio.sleep(RETRY_DELAY)
                 else:
                     print(f"  ⚠ Registration attempt {attempt + 1} failed: {response.status_code}")
                     if attempt < MAX_RETRIES - 1:
@@ -477,7 +490,7 @@ class CloudDemoCreator:
             print(f"✗ Nie udało się uruchomić generacji person")
             return False
 
-        persona_count = await self.wait_for_personas(client, project_id, project_def['num_personas'], max_wait=120)
+        persona_count = await self.wait_for_personas(client, project_id, project_def['num_personas'], max_wait=300)
 
         if persona_count < 5:
             print(f"  ⚠ Za mało person ({persona_count}), pomijam ankiety i focus groups")
